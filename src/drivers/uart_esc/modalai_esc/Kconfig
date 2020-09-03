@@ -1,0 +1,5 @@
+menuconfig DRIVERS_UART_ESC_MODALAI_ESC
+	bool "modalai_esc"
+	default n
+	---help---
+		Enable support for ModalAI ESC

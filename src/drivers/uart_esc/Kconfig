@@ -1,0 +1,9 @@
+menu "UART_ESC"
+    menuconfig COMMON_UART_ESC
+        bool "Common UART ESC's"
+        default n
+        select DRIVERS_UART_ESC_MODALAI_ESC
+        ---help---
+            Enable default set of UART ESC drivers
+    rsource "*/Kconfig"
+endmenu
