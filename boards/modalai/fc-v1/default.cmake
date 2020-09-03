@@ -49,6 +49,7 @@ px4_add_board(
 		telemetry # all available telemetry drivers
 		#tone_alarm
 		uavcan
+		uart_esc/modalai_esc
 	MODULES
 		airspeed_selector
 		attitude_estimator_q
