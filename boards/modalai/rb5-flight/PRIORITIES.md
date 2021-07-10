@@ -3,6 +3,8 @@
 
 ## Primary
 
+Release notes
+
 Verify proper APM on all drones / get it updated if necessary
 
 Add SoftAP mode to WiFi (In px4 support for now)
@@ -17,6 +19,8 @@ Implement CPU utilization monitor (DSP vs. Apps)
 Testing!!! HIL and actual!!!
 
 Tune task priorities and stack sizes
+
+Understand board_config.h
 
 ## Secondary
 
