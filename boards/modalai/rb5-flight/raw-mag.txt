@@ -1,0 +1,41 @@
+Pointing North
+
+	x: -0.0947
+	y: 0.2432
+	z: -0.3508
+
+Pointing West:
+
+	x: 0.2295
+	y: 0.0212
+	z: -0.3485
+
+Pointing South:
+
+	x: 0.0477
+	y: -0.2833
+	z: -0.3045
+
+Pointing East:
+
+	x: -0.3258
+	y: -0.0492
+	z: -0.2621
+
+
+Pointing West:
+
+	x: 0.2348
+	y: -0.0439
+	z: -0.3523
+
+Still pointing west but heading had shifted North:
+
+	x: 0.2341
+	y: -0.0432
+	z: -0.3394
+
+
+	x: -0.0788
+	y: 0.2447
+	z: -0.3500

@@ -12,7 +12,7 @@ Add SoftAP mode to WiFi (In px4 support for now)
 
 Test "signer.py failing in qrb5165-px4-support if Hexagon SDK not installed" fix (Tom to check it out)
 
-Magnetometer broken. Check ATT_W_MAG. Check CAL_MAG0_ROT. Internal? Not lined up on QGC?
+Heading incorrect in QGC
 
 Implement CPU utilization monitor (DSP vs. Apps)
 
