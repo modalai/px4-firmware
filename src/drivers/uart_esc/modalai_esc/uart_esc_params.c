@@ -52,7 +52,7 @@ PARAM_DEFINE_INT32(UART_ESC_CONFIG, 0);
  * Default rate is 250Kbps, which is used in off-the-shelf MoadalAI ESC products.
  *
  * @group UART ESC
- * @unit bits/sec
+ * @unit bit/s
  */
 PARAM_DEFINE_INT32(UART_ESC_BAUD, 250000);
 
