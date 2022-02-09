@@ -9,4 +9,11 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
+# Battery Defaults
+param set-default BAT_N_CELLS 6
+param set-default BAT1_N_CELLS 6
+
+# Log everything
+param set-default SDLOG_PROFILE 5
+
 set MIXER quad_w
