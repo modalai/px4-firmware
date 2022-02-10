@@ -15,5 +15,11 @@ param set-default BAT1_N_CELLS 6
 
 # Log everything
 param set-default SDLOG_PROFILE 5
+param set-default SDLOG_MODE 2
+
+# update control defaults
+param set-default MPC_Z_VEL_MAX_UP 3
+param set-default MPC_Z_VEL_MAX_DN 3
+param set-default MPC_POS_MODE 1
 
 set MIXER quad_w
