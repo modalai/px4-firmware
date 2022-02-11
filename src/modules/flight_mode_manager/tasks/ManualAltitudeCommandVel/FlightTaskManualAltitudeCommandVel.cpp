@@ -87,8 +87,6 @@ void FlightTaskManualAltitudeCommandVel::_scaleSticks(const float dt)
 	// apply bias to overcome steady state errors
 	const float z_bias = math::constrain(_velocity(2) - (_position(2) - _last_position(2)) / dt, -0.5f, 0.5f);
 	_velocity_setpoint(2) -= z_bias;
-
-	PX4_INFO("Applying Z_BIAS %f", (double)z_bias);
 }
 
 float FlightTaskManualAltitudeCommandVel::_applyYawspeedFilter(float yawspeed_target)
