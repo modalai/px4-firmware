@@ -66,6 +66,7 @@ bool FlightTaskManualAltitudeCommandVel::activate(const vehicle_local_position_s
 	_yaw_setpoint = NAN;
 	_yawspeed_setpoint = 0.f;
 	_acceleration_setpoint = Vector3f(0.f, 0.f, NAN); // altitude is controlled from velocity
+	_last_position = _position;			// initialize loop to assume we're stable
 	_position_setpoint(2) = NAN;
 	_velocity_setpoint(2) = 0.f;
 	_setDefaultConstraints();
@@ -73,7 +74,7 @@ bool FlightTaskManualAltitudeCommandVel::activate(const vehicle_local_position_s
 	return ret;
 }
 
-void FlightTaskManualAltitudeCommandVel::_scaleSticks()
+void FlightTaskManualAltitudeCommandVel::_scaleSticks(const float dt)
 {
 	// Use stick input with deadzone, exponential curve and first order lpf for yawspeed
 	const float yawspeed_target = _sticks.getPositionExpo()(3) * math::radians(_param_mpc_man_y_max.get());
@@ -82,6 +83,12 @@ void FlightTaskManualAltitudeCommandVel::_scaleSticks()
 	// Use sticks input with deadzone and exponential curve for vertical velocity
 	const float vel_max_z = (_sticks.getPosition()(2) > 0.0f) ? _constraints.speed_down : _constraints.speed_up;
 	_velocity_setpoint(2) = vel_max_z * _sticks.getPositionExpo()(2);
+
+	// apply bias to overcome steady state errors
+	const float z_bias = math::constrain(_velocity(2) - (_position(2) - _last_position(2)) / dt, -0.5f, 0.5f);
+	_velocity_setpoint(2) -= z_bias;
+
+	PX4_INFO("Applying Z_BIAS %f", (double)z_bias);
 }
 
 float FlightTaskManualAltitudeCommandVel::_applyYawspeedFilter(float yawspeed_target)
@@ -160,10 +167,19 @@ bool FlightTaskManualAltitudeCommandVel::_checkTakeoff()
 
 bool FlightTaskManualAltitudeCommandVel::update()
 {
+	// get time delta since last loop
+	const hrt_abstime time_stamp_now = hrt_absolute_time();
+	// Guard against too small (< 0.2ms) and too large (> 100ms) dt's.
+	const float dt = math::constrain(((time_stamp_now - _time_stamp_last_loop) / 1e6f), 0.0002f, 0.1f);
+	_time_stamp_last_loop = time_stamp_now;
+
 	bool ret = FlightTask::update();
-	_scaleSticks();
+	_scaleSticks(dt);
 	_updateSetpoints();
 	_constraints.want_takeoff = _checkTakeoff();
+
+	// update position estimate
+	_last_position = _position;
 
 	return ret;
 }
