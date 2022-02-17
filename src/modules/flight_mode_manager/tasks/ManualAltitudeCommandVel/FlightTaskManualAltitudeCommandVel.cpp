@@ -67,6 +67,7 @@ bool FlightTaskManualAltitudeCommandVel::activate(const vehicle_local_position_s
 	_yawspeed_setpoint = 0.f;
 	_acceleration_setpoint = Vector3f(0.f, 0.f, NAN); // altitude is controlled from velocity
 	_last_position = _position;			// initialize loop to assume we're stable
+	_z_bias_lpf = 0;
 	_position_setpoint(2) = NAN;
 	_velocity_setpoint(2) = 0.f;
 	_setDefaultConstraints();
@@ -74,7 +75,7 @@ bool FlightTaskManualAltitudeCommandVel::activate(const vehicle_local_position_s
 	return ret;
 }
 
-void FlightTaskManualAltitudeCommandVel::_scaleSticks(const float dt)
+void FlightTaskManualAltitudeCommandVel::_scaleSticks()
 {
 	// Use stick input with deadzone, exponential curve and first order lpf for yawspeed
 	const float yawspeed_target = _sticks.getPositionExpo()(3) * math::radians(_param_mpc_man_y_max.get());
@@ -85,8 +86,10 @@ void FlightTaskManualAltitudeCommandVel::_scaleSticks(const float dt)
 	_velocity_setpoint(2) = vel_max_z * _sticks.getPositionExpo()(2);
 
 	// apply bias to overcome steady state errors
-	const float z_bias = math::constrain(_velocity(2) - (_position(2) - _last_position(2)) / dt, -0.5f, 0.5f);
-	_velocity_setpoint(2) -= z_bias;
+	const float z_bias = math::constrain(_velocity(2) - ((_position(2) - _last_position(2)) / _deltatime), -0.5f, 0.5f);
+	const float alpha = 0.1;
+	_z_bias_lpf = (_z_bias_lpf * (1 - alpha)) + (z_bias * alpha);
+	_velocity_setpoint(2) += _z_bias_lpf;
 }
 
 float FlightTaskManualAltitudeCommandVel::_applyYawspeedFilter(float yawspeed_target)
@@ -165,14 +168,8 @@ bool FlightTaskManualAltitudeCommandVel::_checkTakeoff()
 
 bool FlightTaskManualAltitudeCommandVel::update()
 {
-	// get time delta since last loop
-	const hrt_abstime time_stamp_now = hrt_absolute_time();
-	// Guard against too small (< 0.2ms) and too large (> 100ms) dt's.
-	const float dt = math::constrain(((time_stamp_now - _time_stamp_last_loop) / 1e6f), 0.0002f, 0.1f);
-	_time_stamp_last_loop = time_stamp_now;
-
 	bool ret = FlightTask::update();
-	_scaleSticks(dt);
+	_scaleSticks();
 	_updateSetpoints();
 	_constraints.want_takeoff = _checkTakeoff();
 
