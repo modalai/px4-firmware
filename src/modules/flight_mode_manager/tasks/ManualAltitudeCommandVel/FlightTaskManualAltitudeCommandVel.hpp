@@ -57,7 +57,7 @@ protected:
 	void _updateHeadingSetpoints(); /**< sets yaw or yaw speed */
 	void _ekfResetHandlerHeading(float delta_psi) override; /**< adjust heading setpoint in case of EKF reset event */
 	virtual void _updateSetpoints(); /**< updates all setpoints */
-	virtual void _scaleSticks(const float dt); /**< scales sticks to velocity in z */
+	virtual void _scaleSticks(); /**< scales sticks to velocity in z */
 	bool _checkTakeoff() override;
 
 	/**
@@ -86,8 +86,8 @@ private:
 
 	float _yawspeed_filter_state{}; /**< state of low-pass filter in rad/s */
 
-	hrt_abstime _time_stamp_last_loop{0}; ///< time stamp of last loop iteration
 	matrix::Vector3f _last_position; /**< last loop's vehicle position */
+	float _z_bias_lpf; /**< low passed version of z vel bias */
 
 	AlphaFilter<matrix::Vector2f> _man_input_filter;
 };
