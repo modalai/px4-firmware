@@ -16,38 +16,38 @@ px4_add_board(
 	# 	TEL2:/dev/ttyS4 # UART5  / J1
 	# 	TEL3:/dev/ttyS1 # USART2 / J4
 	DRIVERS
-		adc/ads1115
+		#adc/ads1115
 		# adc/board_adc
-		barometer # all available barometer drivers
-		batt_smbus
+		#barometer # all available barometer drivers
+		#batt_smbus
 		camera_capture
 		camera_trigger
-		differential_pressure # all available differential pressure drivers
-		distance_sensor # all available distance sensor drivers
+		#differential_pressure # all available differential pressure drivers
+		#distance_sensor # all available distance sensor drivers
 		# dshot
 		gps
 		# imu/bosch/bmi088
-		imu/invensense/icm20602
-		imu/invensense/icm20948 # required for ak09916 mag
-		imu/invensense/icm42688p
-		irlock
-		lights # all available light drivers
+		#imu/invensense/icm20602
+		#imu/invensense/icm20948 # required for ak09916 mag
+		#imu/invensense/icm42688p
+		#irlock
+		#lights # all available light drivers
 		# magnetometer # all available magnetometer drivers
 		# optical_flow # all available optical flow drivers
-		osd
+		#osd
 		# pca9685
-		pca9685_pwm_out
-		power_monitor/ina226
-		power_monitor/voxlpm
+		#pca9685_pwm_out
+		#power_monitor/ina226
+		#power_monitor/voxlpm
 		# protocol_splitter
 		# pwm_input
 		pwm_out_sim
 		# pwm_out
-		rc_input
-		roboclaw
-		rpm
+		#rc_input
+		#roboclaw
+		#rpm
 		rpm/rpm_simulator
-		smart_battery/batmon
+		#smart_battery/batmon
 		# safety_button
 		# telemetry # all available telemetry drivers
 		# uavcan
