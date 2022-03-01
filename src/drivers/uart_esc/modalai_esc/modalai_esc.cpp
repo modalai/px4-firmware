@@ -111,6 +111,9 @@ int ModalaiEsc::load_params(uart_esc_params_t *params, ch_assign_t *map)
 	int ret = PX4_OK;
 
 	param_get(param_find("UART_ESC_CONFIG"),  &params->config);
+	param_get(param_find("UART_ESC_MODE"),    &params->mode);
+	param_get(param_find("UART_ESC_DEAD1"),   &params->dead_zone_1);
+	param_get(param_find("UART_ESC_DEAD2"),   &params->dead_zone_2);
 	param_get(param_find("UART_ESC_BAUD"),    &params->baud_rate);
 	param_get(param_find("UART_ESC_MOTOR1"),  &params->motor_map[0]);
 	param_get(param_find("UART_ESC_MOTOR2"),  &params->motor_map[1]);
@@ -122,6 +125,35 @@ int ModalaiEsc::load_params(uart_esc_params_t *params, ch_assign_t *map)
 	if (params->rpm_min >= params->rpm_max) {
 		PX4_ERR("Invalid parameter UART_ESC_RPM_MIN.  Please verify parameters.");
 		params->rpm_min = 0;
+		ret = PX4_ERROR;
+	}
+
+	//                      Example, PX4 Motor 1
+	//                      X = don't activate
+	//        [setpoint.x]
+	//                 [1.0]
+	//             '   |
+	//             '   |
+	//             '   |
+	//             '   |          (ACTIVATE)
+	//             '   |
+	// DEADZONE_1  + - + -  -  - +
+	//              X X|X X X X X'
+	// DEADZONE_2 - X X+X X X X X+
+	//              X X|X X X X X'
+	//       [0.0]-+---+---+-----+---------------- [1.0] [setpoint.y]
+	//            / X X|X X X X X'  (ACTIVATE)
+	//           /  X X|X X X X X'
+	//          /    [0.0] +  -   -    -     -   -
+	//  -(DEADZONE_2)       \ DEADZONE_2
+	//
+
+	if ((params->dead_zone_1 < MODALAI_ESC_MODE_DEAD_ZONE_MIN) || (params->dead_zone_2 < MODALAI_ESC_MODE_DEAD_ZONE_MIN) ||
+	    (params->dead_zone_1 >= MODALAI_ESC_MODE_DEAD_ZONE_MAX) || (params->dead_zone_2 >= MODALAI_ESC_MODE_DEAD_ZONE_MAX) ||
+	    (params->dead_zone_2 >= params->dead_zone_1)) {
+		PX4_ERR("Invalid parameter UART_ESC_DEAD1 or UART_ESC_DEAD2.  Please verify parameters.");
+		params->dead_zone_1 = MODALAI_ESC_MODE_DEAD_ZONE_1;
+		params->dead_zone_2 = MODALAI_ESC_MODE_DEAD_ZONE_2;
 		ret = PX4_ERROR;
 	}
 
@@ -483,6 +515,7 @@ int ModalaiEsc::update_params()
 	if (ret == PX4_OK) {
 		_mixing_output.setAllMinValues(_parameters.rpm_min);
 		_mixing_output.setAllMaxValues(_parameters.rpm_max);
+		_rpm_fullscale = _parameters.rpm_max - _parameters.rpm_min;
 	}
 
 	return ret;
@@ -665,7 +698,132 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 			if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
 				/* user defined mapping is 1-4, array is 0-3 */
 				motor_idx--;
-				_esc_chans[i].rate_req = outputs[motor_idx] * _output_map[i].direction;
+				if(!_turtle_mode_en){
+					_esc_chans[i].rate_req = outputs[motor_idx] * _output_map[i].direction;
+				} else {
+					/* we may have rolled back into a dead zone by now, clear out */
+					_esc_chans[i].rate_req = 0;
+
+					float setpoint = 0.0f;
+					bool use_setpoint = false;
+
+					/* At this point, we are switching on what PX4 motor we want to talk to */
+					switch(_output_map[i].number)
+					{
+						/*
+						 * An ASCII graphic of this dead zone logic is above in load_params
+						 */
+
+						/* PX4 motor 1 - front right */
+						case 1:
+							/* Pitch and roll */
+							if(_manual_control_setpoint.x > _parameters.dead_zone_1) {
+								if(_manual_control_setpoint.y > -(_parameters.dead_zone_2)) {
+									setpoint = _manual_control_setpoint.x;
+									use_setpoint = true;
+									//PX4_ERR("motor1");
+								}
+							}
+							else if(_manual_control_setpoint.y > _parameters.dead_zone_1) {
+								if(_manual_control_setpoint.x > -(_parameters.dead_zone_2)) {
+									setpoint = _manual_control_setpoint.y;
+									use_setpoint = true;
+									//PX4_ERR("motor1");
+								}
+							}
+
+							/* Yaw */
+							if(_manual_control_setpoint.r < -(_parameters.dead_zone_1)){
+								setpoint = fabs(_manual_control_setpoint.r);
+								use_setpoint = true;
+								//PX4_ERR("motor1");
+							}
+							break;
+						/* PX4 motor 3 - front left */
+						case 3:
+							/* Pitch and roll */
+							if(_manual_control_setpoint.x > _parameters.dead_zone_1) {
+								if(_manual_control_setpoint.y < _parameters.dead_zone_2) {
+									setpoint = _manual_control_setpoint.x;
+									use_setpoint = true;
+									//PX4_ERR("motor3");
+								}
+							}
+							else if(_manual_control_setpoint.y < -(_parameters.dead_zone_1)) {
+								if(_manual_control_setpoint.x > -(_parameters.dead_zone_2)) {
+									setpoint = _manual_control_setpoint.y;
+									use_setpoint = true;
+									//PX4_ERR("motor3");
+								}
+							}
+
+							/* Yaw */
+							if(_manual_control_setpoint.r > _parameters.dead_zone_1){
+								setpoint = _manual_control_setpoint.r;
+								use_setpoint = true;
+								//PX4_ERR("motor3");
+							}
+							break;
+						/* PX4 motor 2 - rear left */
+						case 2:
+							/* Pitch and roll */
+							if(_manual_control_setpoint.x < -(_parameters.dead_zone_1)) {
+								if(_manual_control_setpoint.y < _parameters.dead_zone_2) {
+									setpoint = fabs(_manual_control_setpoint.x);
+									use_setpoint = true;
+									//PX4_ERR("motor2");
+								}
+							}
+							else if(_manual_control_setpoint.y < -(_parameters.dead_zone_1)) {
+								if(_manual_control_setpoint.x < _parameters.dead_zone_2){
+									setpoint = fabs(_manual_control_setpoint.y);
+									use_setpoint = true;
+									//PX4_ERR("motor2");
+								}
+							}
+
+							/* Yaw */
+							if(_manual_control_setpoint.r < -(_parameters.dead_zone_1)){
+								setpoint = fabs(_manual_control_setpoint.r);
+								use_setpoint = true;
+								//PX4_ERR("motor2");
+							}
+							break;
+						/* PX4 motor 4- rear right */
+						case 4:
+							/* Pitch and roll */
+							if(_manual_control_setpoint.x < -_parameters.dead_zone_1) {
+								if(_manual_control_setpoint.y > -_parameters.dead_zone_2) {
+									setpoint = fabs(_manual_control_setpoint.x);
+									use_setpoint = true;
+									//PX4_ERR("motor4");
+								}
+							}
+							if(_manual_control_setpoint.y > _parameters.dead_zone_1) {
+								if(_manual_control_setpoint.x < _parameters.dead_zone_2){
+									setpoint = _manual_control_setpoint.y;
+									use_setpoint = true;
+									//PX4_ERR("motor4");
+								}
+							}
+
+							/* Yaw */
+							if(_manual_control_setpoint.r > _parameters.dead_zone_1){
+								setpoint = _manual_control_setpoint.r;
+								use_setpoint = true;
+								//PX4_ERR("motor4");
+							}
+							break;
+					}
+
+					// set rate
+					float rate = 0.0f;
+					if(use_setpoint){
+						rate = (float)_parameters.rpm_min + ((float)_rpm_fullscale * setpoint);
+						rate = (-1.0f) * rate * (float)_output_map[i].direction;
+					}
+					_esc_chans[i].rate_req = (int16_t)rate;
+				}
 			}
 		}
 	}
@@ -776,6 +934,33 @@ void ModalaiEsc::Run()
 	/* breathing requires continuous updates */
 	if (_led_rsc.breath_en) {
 		updateLeds(_led_rsc.mode, _led_rsc.control);
+	}
+
+	if(_parameters.mode > 0){
+		/* if turtle mode enabled, we go straight to the sticks, no mix */
+		if (_manual_control_setpoint_sub.updated()){
+
+			_manual_control_setpoint_sub.copy(&_manual_control_setpoint);
+
+			if(!_outputs_on){
+
+				float setpoint = MODALAI_ESC_MODE_DISABLED_SETPOINT;
+
+				if(_parameters.mode == MODALAI_ESC_MODE_TURTLE_AUX1){
+					setpoint = _manual_control_setpoint.aux1;
+				} else if(_parameters.mode == MODALAI_ESC_MODE_TURTLE_AUX2){
+					setpoint = _manual_control_setpoint.aux2;
+				}
+
+				if (setpoint > MODALAI_ESC_MODE_THRESHOLD) {
+					_turtle_mode_en = true;
+					//PX4_ERR("turtle mode enabled\n");
+				} else {
+					_turtle_mode_en = false;
+					//PX4_ERR("turtle mode disabled\n");
+				}
+			}
+		}
 	}
 
 	/* Don't process commands if outputs on */

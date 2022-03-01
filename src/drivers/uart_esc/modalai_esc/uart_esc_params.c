@@ -120,3 +120,48 @@ PARAM_DEFINE_INT32(UART_ESC_RPM_MIN, 5500);
  * @unit RPM
  */
 PARAM_DEFINE_INT32(UART_ESC_RPM_MAX, 15000);
+
+/**
+ * UART ESC Mode
+ *
+ * Selects what type of mode is enabled, if any
+ *
+ * @reboot_required true
+ *
+ * @group UART ESC
+ * @value 0 - None
+ * @value 1 - Turtle Mode enabled via AUX1
+ * @value 2 - Turtle Mode enabled via AUX2
+ * @min 0
+ * @max 2
+ */
+PARAM_DEFINE_INT32(UART_ESC_MODE, 0);
+
+/**
+ * UART ESC Mode Deadzone 1.
+ *
+ * Must be greater than Deadzone 2.
+ * Absolute value of stick position needed to activate a motor.
+ *
+ * @group UART ESC Mode Deadzone 1
+ * @min 0.01
+ * @max 0.99
+ * @decimal 10
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(UART_ESC_DEAD1, 0.30f);
+
+/**
+ * UART ESC Mode Deadzone 2.
+ *
+ * Must be less than Deadzone 1.
+ * Absolute value of stick position considered no longer on the X or Y axis,
+ * thus targetting a specific motor (single).
+ *
+ * @group UART ESC Mode Deadzone 2
+ * @min 0.01
+ * @max 0.99
+ * @decimal 10
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(UART_ESC_DEAD2, 0.02f);
