@@ -926,6 +926,16 @@ PARAM_DEFINE_INT32(COM_FLT_PROFILE, 0);
 PARAM_DEFINE_INT32(COM_ARM_CHK_ESCS, 0);
 
 /**
+ * Enable pre-flight checks.
+ *
+ * If this parameter is set, the system will perform pre-flight checks.
+ *
+ * @group Commander
+ * @boolean
+ */
+PARAM_DEFINE_INT32(COM_ARM_CHK_PREF, 1);
+
+/**
  * Condition to enter prearmed mode
  *
  * Condition to enter the prearmed state, an intermediate state between disarmed and armed
