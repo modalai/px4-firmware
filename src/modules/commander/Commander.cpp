@@ -1886,7 +1886,7 @@ Commander::run()
 
 					// prevent disarming via safety button if not landed
 					if (hrt_elapsed_time(&_land_detector.timestamp) < 10_s) {
-						if (!_land_detector.landed) {
+						if (!_land_detector.maybe_landed) {
 							safety_disarm_allowed = false;
 						}
 					}
@@ -2265,11 +2265,11 @@ Commander::run()
 			const bool rc_arming_enabled = (_status.rc_input_mode != vehicle_status_s::RC_IN_MODE_OFF);
 
 			if (rc_arming_enabled) {
-				if (_manual_control.wantsDisarm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.landed)) {
+				if (_manual_control.wantsDisarm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.maybe_landed)) {
 					disarm(arm_disarm_reason_t::RC_STICK);
 				}
 
-				if (_manual_control.wantsArm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.landed)) {
+				if (_manual_control.wantsArm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.maybe_landed)) {
 					if (_vehicle_control_mode.flag_control_manual_enabled) {
 						arm(arm_disarm_reason_t::RC_STICK);
 
