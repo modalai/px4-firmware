@@ -27,8 +27,12 @@ param set-default MPC_THR_HOVER 0.07
 
 # misc.
 param set-default COM_ARM_CHK_ESCS 0
-param set-default MC_AIRMODE 0 # can consider using '1' for roll/pitch. Don't use '2' b/c yaw has issues.
-param set-default EKF2_GND_EFF_DZ 4 # this is default but we initially had it set to 0. Should we go back to 0?
-#param set-default CAL_MAG0_ROT 6 # YAW 270 for yhid pixhawk/holybro board
+#param set-default COM_ARM_CHK_PREF 0
+param set-default MC_AIRMODE 0 		# can consider using '1' for roll/pitch. Don't use '2' b/c yaw has issues.
+param set-default EKF2_GND_EFF_DZ 4 	# this is default but we initially had it set to 0. Should we go back to 0?
+#param set-default CAL_MAG0_ROT 6 	# YAW 270 for yhid pixhawk/holybro board
+param set-default LND_FLIGHT_UNCRT 1 	# don't trust the landing detector for arm / disarm checks.
+param set-default COM_DISARM_PRFLT -1.0	# don't automatically disarm if preflight checks fail
+param set-default COM_DISARM_LAND -1.0	# don't automatically disarm when landed
 
 set MIXER quad_w
