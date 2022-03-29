@@ -27,6 +27,8 @@ param set-default MPC_THR_HOVER 0.07
 
 # misc.
 param set-default COM_ARM_CHK_ESCS 0
+param set-default COM_ARM_CHK_ACC 0
+param set-default COM_ARM_CHK_BIAS 0
 #param set-default COM_ARM_CHK_PREF 0
 param set-default MC_AIRMODE 0 		# can consider using '1' for roll/pitch. Don't use '2' b/c yaw has issues.
 param set-default EKF2_GND_EFF_DZ 4 	# this is default but we initially had it set to 0. Should we go back to 0?
