@@ -100,19 +100,25 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 
 	/* ---- ACCEL ---- */
 	{
-		/* check all sensors individually, but fail only for mandatory ones */
-		for (unsigned i = 0; i < max_optional_accel_count; i++) {
-			const bool required = (i < max_mandatory_accel_count);
-			bool report_fail = report_failures;
 
-			int32_t device_id = -1;
+		int32_t check_accelerometer = 1;
+		param_get(param_find("COM_ARM_CHK_ACC"), &check_accelerometer);
 
-			if (!accelerometerCheck(mavlink_log_pub, status, i, !required, device_id, report_fail)) {
-				if (required) {
-					failed = true;
+		if (check_accelerometer != 0) {
+			/* check all sensors individually, but fail only for mandatory ones */
+			for (unsigned i = 0; i < max_optional_accel_count; i++) {
+				const bool required = (i < max_mandatory_accel_count);
+				bool report_fail = report_failures;
+
+				int32_t device_id = -1;
+
+				if (!accelerometerCheck(mavlink_log_pub, status, i, !required, device_id, report_fail)) {
+					if (required) {
+						failed = true;
+					}
+
+					report_fail = false; // only report the first failure
 				}
-
-				report_fail = false; // only report the first failure
 			}
 		}
 
@@ -236,9 +242,12 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 	}
 
 	if (estimator_type == 2) {
+		// check if we care about sensor biases during arming
+		int32_t check_sensor_biases = 1;
+		param_get(param_find("COM_ARM_CHK_BIAS"), &check_sensor_biases);
 
 		const bool ekf_healthy = ekf2Check(mavlink_log_pub, status, false, report_failures) &&
-					 ekf2CheckSensorBias(mavlink_log_pub, report_failures);
+					 (check_sensor_biases == 1) ? ekf2CheckSensorBias(mavlink_log_pub, report_failures) : true;
 
 		// For the first 10 seconds the ekf2 can be unhealthy, and we just mark it
 		// as not present.
