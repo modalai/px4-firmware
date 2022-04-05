@@ -639,6 +639,10 @@ Commander::try_mode_change(main_state_t desired_mode)
 			desired_mode = commander_state_s::MAIN_STATE_MANUAL;
 			res = main_state_transition(_status, desired_mode, _status_flags, _internal_state);
 		}
+
+		// indicate that we're changing to something other than our originally desired mode
+		if (res == TRANSITION_CHANGED)
+			res = TRANSITION_CHANGED_FALLBACK;
 	}
 
 	return res;
@@ -2988,9 +2992,6 @@ Commander::set_main_state_rc()
 		return TRANSITION_NOT_CHANGED;
 	}
 
-	const auto _penultimate_manual_control_switches = _last_manual_control_switches;
-	_last_manual_control_switches = _manual_control_switches;
-
 	// reset the position and velocity validity calculation to give the best change of being able to select
 	// the desired mode
 	reset_posvel_validity();
@@ -3055,8 +3056,6 @@ Commander::set_main_state_rc()
 		} else {
 			res = try_mode_change(new_mode);
 		}
-
-		return res;
 
 	} else if (_manual_control_switches.mode_switch != manual_control_switches_s::SWITCH_POS_NONE) {
 		/* offboard and RTL switches off or denied, check main mode switch */
@@ -3138,8 +3137,8 @@ Commander::set_main_state_rc()
 	}
 
 	// check if we've transitioned; if not, keep around our previous state to allow the next iteration to try
-	if (res == TRANSITION_NOT_CHANGED)
-		_last_manual_control_switches = _penultimate_manual_control_switches;
+	if (res == TRANSITION_CHANGED)
+		_last_manual_control_switches = _manual_control_switches;
 	return res;
 }
 

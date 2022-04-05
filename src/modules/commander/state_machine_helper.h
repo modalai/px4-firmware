@@ -57,7 +57,8 @@
 typedef enum {
 	TRANSITION_DENIED = -1,
 	TRANSITION_NOT_CHANGED = 0,
-	TRANSITION_CHANGED
+	TRANSITION_CHANGED,
+	TRANSITION_CHANGED_FALLBACK
 } transition_result_t;
 
 enum class link_loss_actions_t {
