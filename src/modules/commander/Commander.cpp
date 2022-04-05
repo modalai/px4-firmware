@@ -2334,13 +2334,13 @@ Commander::run()
 						_landing_gear_pub.publish(landing_gear);
 					}
 				}
+			}
 
-				// evaluate the main state machine according to mode switches
-				if (set_main_state(_status_changed) == TRANSITION_CHANGED) {
-					// play tune on mode change only if armed, blink LED always
-					tune_positive(_armed.armed);
-					_status_changed = true;
-				}
+			// evaluate the main state machine according to mode switches
+			if (set_main_state(_status_changed) == TRANSITION_CHANGED) {
+				// play tune on mode change only if armed, blink LED always
+				tune_positive(_armed.armed);
+				_status_changed = true;
 			}
 
 			/* check throttle kill switch */
@@ -2916,9 +2916,11 @@ transition_result_t
 Commander::set_main_state(bool &changed)
 {
 	if (_safety.override_available && _safety.override_enabled) {
+		PX4_INFO("Overriding main state for safety.");
 		return set_main_state_override_on(changed);
 
 	} else {
+		PX4_INFO("Setting main state to RC commanded.");
 		return set_main_state_rc();
 	}
 }
@@ -2986,6 +2988,7 @@ Commander::set_main_state_rc()
 		return TRANSITION_NOT_CHANGED;
 	}
 
+	const auto _penultimate_manual_control_switches = _last_manual_control_switches;
 	_last_manual_control_switches = _manual_control_switches;
 
 	// reset the position and velocity validity calculation to give the best change of being able to select
@@ -3134,6 +3137,9 @@ Commander::set_main_state_rc()
 
 	}
 
+	// check if we've transitioned; if not, keep around our previous state to allow the next iteration to try
+	if (res == TRANSITION_NOT_CHANGED)
+		_last_manual_control_switches = _penultimate_manual_control_switches;
 	return res;
 }
 
