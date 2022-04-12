@@ -2920,11 +2920,9 @@ transition_result_t
 Commander::set_main_state(bool &changed)
 {
 	if (_safety.override_available && _safety.override_enabled) {
-		PX4_INFO("Overriding main state for safety.");
 		return set_main_state_override_on(changed);
 
 	} else {
-		PX4_INFO("Setting main state to RC commanded.");
 		return set_main_state_rc();
 	}
 }
