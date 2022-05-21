@@ -57,6 +57,7 @@ px4_add_board(
 		qshell/qurt
         #magnetometer/hmc5883
         magnetometer/isentek/ist8310
+        magnetometer/qmc5883l
         uart_esc/modalai_esc
 	uart_dsp/modalai_dsp
 		px4io
