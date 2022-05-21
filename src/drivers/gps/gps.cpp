@@ -659,7 +659,7 @@ GPS::run()
 	if (!_fake_gps) {
 		/* open the serial port */
 #ifdef __PX4_QURT
-		_serial_fd = qurt_uart_open("6", 115200);
+		_serial_fd = qurt_uart_open("6", _configured_baudrate);
 #else
 		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
 #endif
