@@ -82,21 +82,22 @@ MavlinkMissionManager::init_offboard_mission()
 	if (!_dataman_init) {
 		_dataman_init = true;
 
+#ifndef __PX4_QURT
 		/* lock MISSION_STATE item */
 		int dm_lock_ret = dm_lock(DM_KEY_MISSION_STATE);
 
 		if (dm_lock_ret != 0) {
 			PX4_ERR("DM_KEY_MISSION_STATE lock failed");
 		}
-
+#endif
 		mission_s mission_state;
 		int ret = dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s));
-
+#ifndef __PX4_QURT
 		/* unlock MISSION_STATE item */
 		if (dm_lock_ret == 0) {
 			dm_unlock(DM_KEY_MISSION_STATE);
 		}
-
+#endif
 		if (ret > 0) {
 			_dataman_id = (dm_item_t)mission_state.dataman_id;
 			_count[MAV_MISSION_TYPE_MISSION] = mission_state.count;
@@ -158,19 +159,22 @@ MavlinkMissionManager::update_active_mission(dm_item_t dataman_id, uint16_t coun
 
 	/* update mission state in dataman */
 
+#ifndef __PX4_QURT
 	/* lock MISSION_STATE item */
 	int dm_lock_ret = dm_lock(DM_KEY_MISSION_STATE);
 
 	if (dm_lock_ret != 0) {
 		PX4_ERR("DM_KEY_MISSION_STATE lock failed");
 	}
-
+#endif
 	int res = dm_write(DM_KEY_MISSION_STATE, 0, DM_PERSIST_POWER_ON_RESET, &mission, sizeof(mission_s));
 
+#ifndef __PX4_QURT
 	/* unlock MISSION_STATE item */
 	if (dm_lock_ret == 0) {
 		dm_unlock(DM_KEY_MISSION_STATE);
 	}
+#endif
 
 	if (res == sizeof(mission_s)) {
 		/* update active mission state */
@@ -916,7 +920,7 @@ MavlinkMissionManager::handle_mission_count(const mavlink_message_t *msg)
 				// We're about to write new geofence items, so take the lock. It will be released when
 				// switching back to idle
 				PX4_DEBUG("locking fence dataman items");
-
+#ifndef __PX4_QURT
 				int ret = dm_lock(DM_KEY_FENCE_POINTS);
 
 				if (ret == 0) {
@@ -925,6 +929,7 @@ MavlinkMissionManager::handle_mission_count(const mavlink_message_t *msg)
 				} else {
 					PX4_ERR("locking failed (%i)", errno);
 				}
+#endif
 			}
 
 		} else if (_state == MAVLINK_WPM_STATE_GETLIST) {
@@ -961,7 +966,9 @@ MavlinkMissionManager::switch_to_idle_state()
 	// when switching to idle, we *always* check if the lock was held and release it.
 	// This is to ensure we don't end up in a state where we forget to release it.
 	if (_geofence_locked) {
+#ifndef __PX4_QURT
 		dm_unlock(DM_KEY_FENCE_POINTS);
+#endif
 		_geofence_locked = false;
 
 		PX4_DEBUG("unlocking geofence");

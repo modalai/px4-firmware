@@ -63,7 +63,7 @@
 #include <netinet/in.h>
 #endif
 
-#ifndef __PX4_POSIX
+#if !defined(__PX4_POSIX) && !defined(__PX4_QURT)
 #include <termios.h>
 #endif
 
@@ -84,7 +84,9 @@ using matrix::wrap_2pi;
 
 MavlinkReceiver::~MavlinkReceiver()
 {
+#ifndef __PX4_QURT
 	delete _tune_publisher;
+#endif
 	delete _px4_accel;
 	delete _px4_baro;
 	delete _px4_gyro;
@@ -235,7 +237,7 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 	case MAVLINK_MSG_ID_LOGGING_ACK:
 		handle_message_logging_ack(msg);
 		break;
-
+#ifndef __PX4_QURT
 	case MAVLINK_MSG_ID_PLAY_TUNE:
 		handle_message_play_tune(msg);
 		break;
@@ -243,7 +245,7 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 	case MAVLINK_MSG_ID_PLAY_TUNE_V2:
 		handle_message_play_tune_v2(msg);
 		break;
-
+#endif
 	case MAVLINK_MSG_ID_OBSTACLE_DISTANCE:
 		handle_message_obstacle_distance(msg);
 		break;
@@ -1807,6 +1809,7 @@ MavlinkReceiver::handle_message_logging_ack(mavlink_message_t *msg)
 	}
 }
 
+#ifndef __PX4_QURT
 void
 MavlinkReceiver::handle_message_play_tune(mavlink_message_t *msg)
 {
@@ -1863,7 +1866,7 @@ void MavlinkReceiver::schedule_tune(const char *tune)
 	// Send first one straightaway.
 	_tune_publisher->publish_next_tune(now);
 }
-
+#endif
 
 void
 MavlinkReceiver::handle_message_obstacle_distance(mavlink_message_t *msg)
@@ -2969,7 +2972,7 @@ MavlinkReceiver::Run()
 	// poll timeout in ms. Also defines the max update frequency of the mission & param manager, etc.
 	const int timeout = 10;
 
-#if defined(__PX4_POSIX)
+#if defined(__PX4_POSIX) && !defined(__PX4_QURT)
 	/* 1500 is the Wifi MTU, so we make sure to fit a full packet */
 	uint8_t buf[1600 * 5];
 #elif defined(CONFIG_NET)
@@ -3046,6 +3049,7 @@ MavlinkReceiver::Run()
 			//nread = ::read(fds[0].fd, buf, sizeof(buf));
 			ret = 1;
 			if (nread == -1 && errno == ENOTCONN) { // Not connected (can happen for USB)
+				PX4_ERR("INSIDE SLEEPER FUNCTION");
 				usleep(100000);
 			}
 #endif
@@ -3089,6 +3093,9 @@ MavlinkReceiver::Run()
 				/* if read failed, this loop won't execute */
 				for (ssize_t i = 0; i < nread; i++) {
 					if (mavlink_parse_char(_mavlink->get_channel(), buf[i], &msg, &_status)) {
+
+						PX4_ERR("MSG ID: %d", msg.msgid);
+						//PX4_ERR("PARSING MAVLINK CHANNEL WITH MESSAGE");
 						_total_received_counter++;
 
 						/* check if we received version 2 and request a switch. */
@@ -3269,16 +3276,20 @@ MavlinkReceiver::Run()
 			last_send_update = t;
 		}
 
+#ifndef __PX4_QURT
 		if (_tune_publisher != nullptr) {
 			_tune_publisher->publish_next_tune(t);
 		}
+#endif
 	}
 }
 
 void *
 MavlinkReceiver::start_helper(void *context)
 {
+	PX4_ERR("RUINNING HELPER");
 	MavlinkReceiver rcv{(Mavlink *)context};
+	PX4_ERR("RUINNING HELPER");
 	rcv.Run();
 
 	return nullptr;
@@ -3297,9 +3308,7 @@ MavlinkReceiver::receive_start(pthread_t *thread, Mavlink *parent)
 
 	pthread_attr_setstacksize(&receiveloop_attr,
 				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2840 + MAVLINK_RECEIVER_NET_ADDED_STACK));
-
 	pthread_create(thread, &receiveloop_attr, MavlinkReceiver::start_helper, (void *)parent);
-
 	pthread_attr_destroy(&receiveloop_attr);
 }
 

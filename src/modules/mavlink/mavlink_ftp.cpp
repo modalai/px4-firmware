@@ -920,7 +920,7 @@ MavlinkFTP::_copy_file(const char *src_path, const char *dst_path, size_t length
 
 	dst_fd = ::open(dst_path, O_CREAT | O_TRUNC | O_WRONLY
 // POSIX requires the permissions to be supplied if O_CREAT passed
-#ifdef __PX4_POSIX
+#if defined(__PX4_POSIX) && !defined(__PX4_QURT)
 			, 0666
 #endif
 		       );

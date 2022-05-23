@@ -167,10 +167,11 @@ MavlinkTimesync::handle_message(const mavlink_message_t *msg)
 			if (!onb_unix_valid && ofb_unix_valid) {
 				tv.tv_sec = time.time_unix_usec / 1000000ULL;
 				tv.tv_nsec = (time.time_unix_usec % 1000000ULL) * 1000ULL;
-
+#ifndef __PX4_QURT
 				if (px4_clock_settime(CLOCK_REALTIME, &tv)) {
 					PX4_ERR("[timesync] Failed setting realtime clock");
 				}
+#endif
 			}
 
 			break;

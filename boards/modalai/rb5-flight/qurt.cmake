@@ -53,26 +53,26 @@ px4_add_board(
 	MODEL excelsior
 	LABEL qurt
 	DRIVERS
-        barometer/icp10100
+        #barometer/icp10100
 		qshell/qurt
         #magnetometer/hmc5883
-        magnetometer/isentek/ist8310
-        uart_esc/modalai_esc
+        #magnetometer/isentek/ist8310
+        #uart_esc/modalai_esc
 	#uart_dsp/modalai_dsp
-        power_monitor/voxlpm
+        #power_monitor/voxlpm
         imu/invensense/icm42688p
-				lights/rgbled_ncp5623c
+	#			lights/rgbled_ncp5623c
 		pwm_out_sim
-		spektrum_rc
-		gps
-		uart_loopback
+	#	spektrum_rc
+	#	gps
+	#	uart_loopback
 	MODULES
-		attitude_estimator_q
+	#	attitude_estimator_q
 		# commander
-		ekf2
+	#	ekf2
 		#fw_att_control
 		#fw_pos_control_l1
-		land_detector
+	#	land_detector
 		#landing_target_estimator
 		#local_position_estimator
 		mc_att_control

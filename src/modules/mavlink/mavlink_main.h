@@ -84,8 +84,8 @@
 #include "mavlink_shell.h"
 #include "mavlink_ulog.h"
 
-#define DEFAULT_BAUD_RATE       57600
-#define DEFAULT_DEVICE_NAME     "/dev/ttyS1"
+#define DEFAULT_BAUD_RATE       921600
+#define DEFAULT_DEVICE_NAME     "2"
 
 #define HASH_PARAM              "_HASH_CHECK"
 
