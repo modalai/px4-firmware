@@ -17,22 +17,27 @@ export MINIMAL_PX4=1
 # Setup system for VIO usage
 VIO=0
 DAEMON=" "
-while getopts vd flag
+PORT='-p 2'
+BAUD='-b 921600'
+
+while getopts vdp:b: flag
 do
     case "${flag}" in
 	v) VIO=1 ;;
     	d) DAEMON="-d" ;;
+	p) PORT="-p ${OPTARG}" ;;
+	b) BAUD="-b ${OPTARG}" ;;
     esac
 done
 
 if [ $VIO == 1 ]; then
    echo "Setting VIO Parameters for HITL"
-   sed -i '/qshell modalai_dsp start/c\qshell modalai_dsp start -v' /etc/modalai/voxl-px4-hitl.config
+   sed -i "/qshell modalai_dsp start/c\qshell modalai_dsp start -v $PORT $BAUD" /etc/modalai/voxl-px4-hitl.config 
    px4 $DAEMON -s /etc/modalai/voxl-px4-hitl-vio-parameters.config
    /bin/sync
 else
    echo "Setting GPS Parameters for HITL"
-   sed -i '/qshell modalai_dsp start/c\qshell modalai_dsp start' /etc/modalai/voxl-px4-hitl.config   
+   sed -i "/qshell modalai_dsp start/c\qshell modalai_dsp start $PORT $BAUD" /etc/modalai/voxl-px4-hitl.config   
    px4 $DAEMON -s /etc/modalai/voxl-px4-hitl-gps-parameters.config
    /bin/sync
 fi
