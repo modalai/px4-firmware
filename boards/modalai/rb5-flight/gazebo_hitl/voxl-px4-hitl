@@ -19,8 +19,8 @@ VIO=0
 DAEMON=" "
 PORT='-p 2'
 BAUD='-b 921600'
-DEBUG=" "
-CROSSFIRE=" "
+DEBUG=""
+CROSSFIRE=""
 
 while getopts vdecp:b: flag
 do
