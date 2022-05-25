@@ -56,6 +56,7 @@
 
 #include <uORB/uORB.h>
 #include <uORB/Publication.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/sensor_gps.h>
 #include <uORB/topics/battery_status.h>
@@ -66,6 +67,8 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/telemetry_status.h>
 #include <uORB/topics/vehicle_odometry.h>
+#include <uORB/topics/input_rc.h>
+#include <uORB/topics/manual_control_setpoint.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/barometer/PX4Barometer.hpp>
@@ -88,6 +91,8 @@
 #define MODALAI_ESC_DEFAULT_PORT 	"/dev/ttyS1"
 #endif
 
+#define RC_INPUT_RSSI_MAX	100
+
 
 extern "C" { __EXPORT int modalai_dsp_main(int argc, char *argv[]); }
 
@@ -107,6 +112,8 @@ uORB::Publication<sensor_gps_s>				_gps_pub{ORB_ID(sensor_gps)};
 uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
+uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
+uORB::PublicationMulti<manual_control_setpoint_s>	_manual_control_setpoint_pub{ORB_ID(manual_control_setpoint)};
 
 // hil_sensor and hil_state_quaternion
 enum SensorSource {
@@ -149,6 +156,11 @@ float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
 
+static constexpr unsigned int	MOM_SWITCH_COUNT{8};
+uint8_t	_mom_switch_pos[MOM_SWITCH_COUNT] {};
+uint16_t _mom_switch_state{0};
+
+
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
@@ -176,7 +188,10 @@ void handle_message_hil_gps_dsp(mavlink_message_t *msg);
 void handle_message_heartbeat_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
+void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
+void handle_message_manual_control_dsp(mavlink_message_t *msg);
 
+int decode_switch_pos_n_dsp(uint16_t buttons, unsigned sw);
 void CheckHeartbeats(const hrt_abstime &t, bool force);
 void handle_message_dsp(mavlink_message_t *msg);
 void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
@@ -209,6 +224,12 @@ handle_message_dsp(mavlink_message_t *msg)
 			handle_message_odometry_dsp(msg);
 			break;
 		}
+	case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
+		handle_message_rc_channels_override_dsp(msg);
+		break;
+	case MAVLINK_MSG_ID_MANUAL_CONTROL:
+		handle_message_manual_control_dsp(msg);
+		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
 	{
 		// handle_message_heartbeat_dsp(msg);
@@ -390,6 +411,169 @@ void task_main(int argc, char *argv[])
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
 		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
+}
+
+void
+handle_message_manual_control_dsp(mavlink_message_t *msg)
+{
+	mavlink_manual_control_t man;
+	mavlink_msg_manual_control_decode(msg, &man);
+
+	// Check target
+	if (man.target != 0) {
+		return;
+	}
+
+	if (_vehicle_status.rc_input_mode == vehicle_status_s::RC_IN_MODE_GENERATED) {
+
+		input_rc_s rc{};
+		rc.timestamp = hrt_absolute_time();
+		rc.timestamp_last_signal = rc.timestamp;
+
+		rc.channel_count = 8;
+		rc.rc_failsafe = false;
+		rc.rc_lost = false;
+		rc.rc_lost_frame_count = 0;
+		rc.rc_total_frame_count = 1;
+		rc.rc_ppm_frame_length = 0;
+		rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
+		rc.rssi = RC_INPUT_RSSI_MAX;
+
+		rc.values[0] = man.x / 2 + 1500;	// roll
+		rc.values[1] = man.y / 2 + 1500;	// pitch
+		rc.values[2] = man.r / 2 + 1500;	// yaw
+		rc.values[3] = math::constrain(man.z / 0.9f + 800.0f, 1000.0f, 2000.0f);	// throttle
+
+		/* decode all switches which fit into the channel mask */
+		unsigned max_switch = (sizeof(man.buttons) * 8);
+		unsigned max_channels = (sizeof(rc.values) / sizeof(rc.values[0]));
+
+		if (max_switch > (max_channels - 4)) {
+			max_switch = (max_channels - 4);
+		}
+
+		/* fill all channels */
+		for (unsigned i = 0; i < max_switch; i++) {
+			rc.values[i + 4] = decode_switch_pos_n_dsp(man.buttons, i);
+		}
+
+		_mom_switch_state = man.buttons;
+
+		_rc_pub.publish(rc);
+
+	} else {
+		manual_control_setpoint_s manual{};
+
+		manual.timestamp = hrt_absolute_time();
+		manual.x = man.x / 1000.0f;
+		manual.y = man.y / 1000.0f;
+		manual.r = man.r / 1000.0f;
+		manual.z = man.z / 1000.0f;
+		manual.data_source = manual_control_setpoint_s::SOURCE_MAVLINK_0 + 1;
+
+		_manual_control_setpoint_pub.publish(manual);
+	}
+}
+
+int
+decode_switch_pos_n_dsp(uint16_t buttons, unsigned sw)
+{
+	bool on = (buttons & (1 << sw));
+
+	if (sw < MOM_SWITCH_COUNT) {
+
+		bool last_on = (_mom_switch_state & (1 << sw));
+
+		/* first switch is 2-pos, rest is 2 pos */
+		unsigned state_count = (sw == 0) ? 3 : 2;
+
+		/* only transition on low state */
+		if (!on && (on != last_on)) {
+
+			_mom_switch_pos[sw]++;
+
+			if (_mom_switch_pos[sw] == state_count) {
+				_mom_switch_pos[sw] = 0;
+			}
+		}
+
+		/* state_count - 1 is the number of intervals and 1000 is the range,
+		 * with 2 states 0 becomes 0, 1 becomes 1000. With
+		 * 3 states 0 becomes 0, 1 becomes 500, 2 becomes 1000,
+		 * and so on for more states.
+		 */
+		return (_mom_switch_pos[sw] * 1000) / (state_count - 1) + 1000;
+
+	} else {
+		/* return the current state */
+		return on * 1000 + 1000;
+	}
+}
+
+
+void
+handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
+{
+	mavlink_rc_channels_override_t man;
+	mavlink_msg_rc_channels_override_decode(msg, &man);
+
+	// Check target
+	if (man.target_system != 0) {
+		return;
+	}
+
+	// fill uORB message
+	input_rc_s rc{};
+
+	// metadata
+	rc.timestamp = hrt_absolute_time();
+	rc.timestamp_last_signal = rc.timestamp;
+	rc.rssi = RC_INPUT_RSSI_MAX;
+	rc.rc_failsafe = false;
+	rc.rc_lost = false;
+	rc.rc_lost_frame_count = 0;
+	rc.rc_total_frame_count = 1;
+	rc.rc_ppm_frame_length = 0;
+	rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
+
+	// channels
+	rc.values[0] = man.chan1_raw;
+	rc.values[1] = man.chan2_raw;
+	rc.values[2] = man.chan3_raw;
+	rc.values[3] = man.chan4_raw;
+	rc.values[4] = man.chan5_raw;
+	rc.values[5] = man.chan6_raw;
+	rc.values[6] = man.chan7_raw;
+	rc.values[7] = man.chan8_raw;
+	rc.values[8] = man.chan9_raw;
+	rc.values[9] = man.chan10_raw;
+	rc.values[10] = man.chan11_raw;
+	rc.values[11] = man.chan12_raw;
+	rc.values[12] = man.chan13_raw;
+	rc.values[13] = man.chan14_raw;
+	rc.values[14] = man.chan15_raw;
+	rc.values[15] = man.chan16_raw;
+	rc.values[16] = man.chan17_raw;
+	rc.values[17] = man.chan18_raw;
+
+	// check how many channels are valid
+	for (int i = 17; i >= 0; i--) {
+		const bool ignore_max = rc.values[i] == UINT16_MAX; // ignore any channel with value UINT16_MAX
+		const bool ignore_zero = (i > 7) && (rc.values[i] == 0); // ignore channel 8-18 if value is 0
+
+		if (ignore_max || ignore_zero) {
+			// set all ignored values to zero
+			rc.values[i] = 0;
+
+		} else {
+			// first channel to not ignore -> set count considering zero-based index
+			rc.channel_count = i + 1;
+			break;
+		}
+	}
+
+	// publish uORB message
+	_rc_pub.publish(rc);
 }
 
 void
