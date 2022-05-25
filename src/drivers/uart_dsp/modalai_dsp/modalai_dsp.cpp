@@ -98,7 +98,7 @@ bool vio = false;
 bool debug = false;
 bool radio_once = false;
 bool rc_once = false;
-int port = 2;
+std::string port = "2";
 int baudrate = 921600;
 
 uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
@@ -319,8 +319,7 @@ void task_main(int argc, char *argv[])
 		}
 	}
 
-	std::string tmp = std::to_string(port);
-	const char* charport = tmp.c_str();
+	const char* charport = port.c_str();
 	int openRetval = openPort(charport, (speed_t) baudrate);
 	int open = isOpen();
 	if(open){
@@ -580,7 +579,6 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	odometry.x = odom.x;
 	odometry.y = odom.y;
 	odometry.z = odom.z;
-			PX4_ERR("INSIDE V FLAG");
 
 	/**
 	 * The quaternion of the ODOMETRY msg represents a rotation from body frame
