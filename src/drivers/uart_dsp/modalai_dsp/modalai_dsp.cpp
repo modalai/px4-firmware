@@ -38,9 +38,7 @@
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/getopt.h>
 
-#ifdef __PX4_QURT
 #include <drivers/device/qurt/uart.h>
-#endif
 
 #include <commander/px4_custom_mode.h>
 
@@ -68,7 +66,7 @@
 #include <uORB/topics/telemetry_status.h>
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/input_rc.h>
-#include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/radio_status.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/barometer/PX4Barometer.hpp>
@@ -82,17 +80,8 @@
 
 #include <unistd.h>
 
-#define MODALAI_ESC_DEVICE_PATH 	"/dev/uart_esc"
 #define ASYNC_UART_READ_WAIT_US 2000
-
-#ifdef __PX4_QURT
-#define MODALAI_ESC_DEFAULT_PORT 	"2"
-#else
-#define MODALAI_ESC_DEFAULT_PORT 	"/dev/ttyS1"
-#endif
-
 #define RC_INPUT_RSSI_MAX	100
-
 
 extern "C" { __EXPORT int modalai_dsp_main(int argc, char *argv[]); }
 
@@ -106,6 +95,11 @@ volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
 bool vio = false;
+bool debug = false;
+bool radio_once = false;
+bool rc_once = false;
+int port = 2;
+int baudrate = 921600;
 
 uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
 uORB::Publication<sensor_gps_s>				_gps_pub{ORB_ID(sensor_gps)};
@@ -113,7 +107,7 @@ uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(di
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
-uORB::PublicationMulti<manual_control_setpoint_s>	_manual_control_setpoint_pub{ORB_ID(manual_control_setpoint)};
+uORB::PublicationMulti<radio_status_s>			_radio_status_pub{ORB_ID(radio_status)};
 
 // hil_sensor and hil_state_quaternion
 enum SensorSource {
@@ -156,15 +150,16 @@ float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
 
-static constexpr unsigned int	MOM_SWITCH_COUNT{8};
-uint8_t	_mom_switch_pos[MOM_SWITCH_COUNT] {};
-uint16_t _mom_switch_state{0};
-
+bool _use_software_mav_throttling{false};
+bool _radio_status_available{false};
+bool _radio_status_critical{false};
+float _radio_status_mult{1.0f};
 
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
 actuator_controls_s _actuator_controls{};
+radio_status_s _rstatus {};
 
 int openPort(const char *dev, speed_t speed);
 int closePort();
@@ -189,9 +184,8 @@ void handle_message_heartbeat_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
 void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
-void handle_message_manual_control_dsp(mavlink_message_t *msg);
+void handle_message_radio_status_dsp(mavlink_message_t *msg);
 
-int decode_switch_pos_n_dsp(uint16_t buttons, unsigned sw);
 void CheckHeartbeats(const hrt_abstime &t, bool force);
 void handle_message_dsp(mavlink_message_t *msg);
 void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
@@ -227,27 +221,12 @@ handle_message_dsp(mavlink_message_t *msg)
 	case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
 		handle_message_rc_channels_override_dsp(msg);
 		break;
-	case MAVLINK_MSG_ID_MANUAL_CONTROL:
-		handle_message_manual_control_dsp(msg);
+	case MAVLINK_MSG_ID_RADIO_STATUS:
+		handle_message_radio_status_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
-	{
-		// handle_message_heartbeat_dsp(msg);
-		//PX4_INFO("MAVLINK HEART");
-
-		// mavlink_heartbeat_t hb = {};
-		// mavlink_message_t message = {};
-		// hb.autopilot = 12;
-		// hb.base_mode |= (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) ? 128 : 0;
-		// mavlink_msg_heartbeat_encode(1, 1, &message, &hb);
-		//
-		// uint8_t  newBuf[MAVLINK_MAX_PACKET_LEN];
-		// uint16_t newBufLen = 0;
-		// newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-		// int writeRetval = writeResponse(&newBuf, newBufLen);
-		// PX4_INFO("Succesful write of heartbeat back to jMAVSim: %d", writeRetval);
+		PX4_INFO("Heartbeat msg received");
 		break;
-	}
 	case MAVLINK_MSG_ID_SYSTEM_TIME:
 		// PX4_INFO("MAVLINK SYSTEM TIME");
 		break;
@@ -317,19 +296,32 @@ void task_main(int argc, char *argv[])
 {
 	int ch;
 	int myoptind = 1;
-	const char *myoptarg = NULL;
-	while ((ch = px4_getopt(argc, argv, "v", &myoptind, &myoptarg)) != EOF) {
+	const char *myoptarg = nullptr;
+	while ((ch = px4_getopt(argc, argv, "vsdp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'v':
 			vio = true;
+			break;
+		case 's':
+			_use_software_mav_throttling = true;
+			break;
+		case 'd':
+			debug = true;
+			break;
+		case 'p':
+			port = atoi(myoptarg);
+			break;
+		case 'b':
+			baudrate = atoi(myoptarg);
 			break;
 		default:
 			break;
 		}
 	}
 
-	// int openRetval = openPort(MODALAI_ESC_DEFAULT_PORT, 250000);
-	int openRetval = openPort(MODALAI_ESC_DEFAULT_PORT, 921600);
+	std::string tmp = std::to_string(port);
+	const char* charport = tmp.c_str();
+	int openRetval = openPort(charport, (speed_t) baudrate);
 	int open = isOpen();
 	if(open){
 		PX4_ERR("Port is open: %d", openRetval);
@@ -409,107 +401,54 @@ void task_main(int argc, char *argv[])
 
 		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
+
 		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
 }
 
 void
-handle_message_manual_control_dsp(mavlink_message_t *msg)
+handle_message_radio_status_dsp(mavlink_message_t *msg)
 {
-	mavlink_manual_control_t man;
-	mavlink_msg_manual_control_decode(msg, &man);
+	/* telemetry status supported only on first ORB_MULTI_MAX_INSTANCES mavlink channels */
+	if (MAVLINK_COMM_0 < (mavlink_channel_t)ORB_MULTI_MAX_INSTANCES) {
+		mavlink_radio_status_t rstatus;
+		mavlink_msg_radio_status_decode(msg, &rstatus);
 
-	// Check target
-	if (man.target != 0) {
-		return;
-	}
+		radio_status_s status{};
 
-	if (_vehicle_status.rc_input_mode == vehicle_status_s::RC_IN_MODE_GENERATED) {
+		status.timestamp = hrt_absolute_time();
+		status.rssi = rstatus.rssi;
+		status.remote_rssi = rstatus.remrssi;
+		status.txbuf = rstatus.txbuf;
+		status.noise = rstatus.noise;
+		status.remote_noise = rstatus.remnoise;
+		status.rxerrors = rstatus.rxerrors;
+		status.fix = rstatus.fixed;
 
-		input_rc_s rc{};
-		rc.timestamp = hrt_absolute_time();
-		rc.timestamp_last_signal = rc.timestamp;
+		_radio_status_pub.publish(status);
 
-		rc.channel_count = 8;
-		rc.rc_failsafe = false;
-		rc.rc_lost = false;
-		rc.rc_lost_frame_count = 0;
-		rc.rc_total_frame_count = 1;
-		rc.rc_ppm_frame_length = 0;
-		rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
-		rc.rssi = RC_INPUT_RSSI_MAX;
-
-		rc.values[0] = man.x / 2 + 1500;	// roll
-		rc.values[1] = man.y / 2 + 1500;	// pitch
-		rc.values[2] = man.r / 2 + 1500;	// yaw
-		rc.values[3] = math::constrain(man.z / 0.9f + 800.0f, 1000.0f, 2000.0f);	// throttle
-
-		/* decode all switches which fit into the channel mask */
-		unsigned max_switch = (sizeof(man.buttons) * 8);
-		unsigned max_channels = (sizeof(rc.values) / sizeof(rc.values[0]));
-
-		if (max_switch > (max_channels - 4)) {
-			max_switch = (max_channels - 4);
+		if(debug){
+			PX4_ERR("Value of radio status timestamp: %d", status.timestamp);
+			PX4_ERR("Value of radio status rssi: %d", status.rssi);
+			PX4_ERR("Value of radio status remote_rssi: %d", status.remote_rssi);
+			PX4_ERR("Value of radio status txbuf: %d", status.txbuf);
+			PX4_ERR("Value of radio status noise: %d", status.noise);
+			PX4_ERR("Value of radio status remote_noise: %d", status.remote_noise);
+			PX4_ERR("Value of radio status rxerrors: %d", status.rxerrors);
+			PX4_ERR("Value of radio status fix: %d", status.fix);
+		} else if(!debug && !radio_once){
+			PX4_ERR("Value of radio status timestamp: %d", status.timestamp);
+			PX4_ERR("Value of radio status rssi: %d", status.rssi);
+			PX4_ERR("Value of radio status remote_rssi: %d", status.remote_rssi);
+			PX4_ERR("Value of radio status txbuf: %d", status.txbuf);
+			PX4_ERR("Value of radio status noise: %d", status.noise);
+			PX4_ERR("Value of radio status remote_noise: %d", status.remote_noise);
+			PX4_ERR("Value of radio status rxerrors: %d", status.rxerrors);
+			PX4_ERR("Value of radio status fix: %d", status.fix);
+			radio_once = true;
 		}
-
-		/* fill all channels */
-		for (unsigned i = 0; i < max_switch; i++) {
-			rc.values[i + 4] = decode_switch_pos_n_dsp(man.buttons, i);
-		}
-
-		_mom_switch_state = man.buttons;
-
-		_rc_pub.publish(rc);
-
-	} else {
-		manual_control_setpoint_s manual{};
-
-		manual.timestamp = hrt_absolute_time();
-		manual.x = man.x / 1000.0f;
-		manual.y = man.y / 1000.0f;
-		manual.r = man.r / 1000.0f;
-		manual.z = man.z / 1000.0f;
-		manual.data_source = manual_control_setpoint_s::SOURCE_MAVLINK_0 + 1;
-
-		_manual_control_setpoint_pub.publish(manual);
 	}
 }
-
-int
-decode_switch_pos_n_dsp(uint16_t buttons, unsigned sw)
-{
-	bool on = (buttons & (1 << sw));
-
-	if (sw < MOM_SWITCH_COUNT) {
-
-		bool last_on = (_mom_switch_state & (1 << sw));
-
-		/* first switch is 2-pos, rest is 2 pos */
-		unsigned state_count = (sw == 0) ? 3 : 2;
-
-		/* only transition on low state */
-		if (!on && (on != last_on)) {
-
-			_mom_switch_pos[sw]++;
-
-			if (_mom_switch_pos[sw] == state_count) {
-				_mom_switch_pos[sw] = 0;
-			}
-		}
-
-		/* state_count - 1 is the number of intervals and 1000 is the range,
-		 * with 2 states 0 becomes 0, 1 becomes 1000. With
-		 * 3 states 0 becomes 0, 1 becomes 500, 2 becomes 1000,
-		 * and so on for more states.
-		 */
-		return (_mom_switch_pos[sw] * 1000) / (state_count - 1) + 1000;
-
-	} else {
-		/* return the current state */
-		return on * 1000 + 1000;
-	}
-}
-
 
 void
 handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
@@ -574,6 +513,13 @@ handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
 
 	// publish uORB message
 	_rc_pub.publish(rc);
+
+	if(debug){
+		PX4_ERR("RC Message received");
+	} else if(!debug && !rc_once){
+		PX4_ERR("RC Message received (not in debug mode - enable to see when all rc's come in)");
+		rc_once = true;
+	}
 }
 
 void
@@ -634,6 +580,7 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	odometry.x = odom.x;
 	odometry.y = odom.y;
 	odometry.z = odom.z;
+			PX4_ERR("INSIDE V FLAG");
 
 	/**
 	 * The quaternion of the ODOMETRY msg represents a rotation from body frame
@@ -776,79 +723,19 @@ int openPort(const char *dev, speed_t speed)
 		return -1;
 	}
 
-#ifdef __PX4_QURT
 	_uart_fd = qurt_uart_open(dev, speed);
 	PX4_DEBUG("qurt_uart_opened");
-#else
-	/* Open UART */
-	_uart_fd = open(dev, O_RDWR | O_NOCTTY | O_NONBLOCK);
-#endif
 
 	if (_uart_fd < 0) {
 		PX4_ERR("Error opening port: %s (%i)", dev, errno);
 		return -1;
 	}
 
-#ifndef __PX4_QURT
-	/* Back up the original UART configuration to restore it after exit */
-	int termios_state;
-
-	if ((termios_state = tcgetattr(_uart_fd, &_orig_cfg)) < 0) {
-		PX4_ERR("Error configuring port: tcgetattr %s: %d", dev, termios_state);
-		uart_close();
-		return -1;
-	}
-
-	/* Fill the struct for the new configuration */
-	tcgetattr(_uart_fd, &_cfg);
-
-	/* Disable output post-processing */
-	_cfg.c_oflag &= ~OPOST;
-
-	_cfg.c_cflag |= (CLOCAL | CREAD);    /* ignore modem controls */
-	_cfg.c_cflag &= ~CSIZE;
-	_cfg.c_cflag |= CS8;                 /* 8-bit characters */
-	_cfg.c_cflag &= ~PARENB;             /* no parity bit */
-	_cfg.c_cflag &= ~CSTOPB;             /* only need 1 stop bit */
-	_cfg.c_cflag &= ~CRTSCTS;            /* no hardware flowcontrol */
-
-	/* setup for non-canonical mode */
-	_cfg.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-	_cfg.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-
-	if (cfsetispeed(&_cfg, speed) < 0 || cfsetospeed(&_cfg, speed) < 0) {
-		PX4_ERR("Error configuring port: %s: %d (cfsetispeed, cfsetospeed)", dev, termios_state);
-		uart_close();
-		return -1;
-	}
-
-	if ((termios_state = tcsetattr(_uart_fd, TCSANOW, &_cfg)) < 0) {
-		PX4_ERR("Error configuring port: %s (tcsetattr)", dev);
-		uart_close();
-		return -1;
-	}
-#endif
-
 	return 0;
 }
 
 int closePort()
 {
-#ifndef __PX4_QURT
-	if (_uart_fd < 0) {
-		PX4_ERR("invalid state for closing");
-		return -1;
-	}
-
-	if (tcsetattr(_uart_fd, TCSANOW, &_orig_cfg)) {
-		PX4_ERR("failed restoring uart to original state");
-	}
-
-	if (close(_uart_fd)) {
-		PX4_ERR("error closing uart");
-	}
-#endif
-
 	_uart_fd = -1;
 
 	return 0;
@@ -859,19 +746,8 @@ int readResponse(void *buf, size_t len)
 	if (_uart_fd < 0 || buf == NULL) {
 		PX4_ERR("invalid state for reading or buffer");
 		return -1;
-	// } else {
-	// 	PX4_INFO("Reading UART");
 	}
-
-#ifdef __PX4_QURT
-#define ASYNC_UART_READ_WAIT_US 2000
-    // The UART read on SLPI is via an asynchronous service so specify a timeout
-    // for the return. The driver will poll periodically until the read comes in
-    // so this may block for a while. However, it will timeout if no read comes in.
     return qurt_uart_read(_uart_fd, (char*) buf, len, ASYNC_UART_READ_WAIT_US);
-#else
-	return read(_uart_fd, buf, len);
-#endif
 }
 
 int writeResponse(void *buf, size_t len)
@@ -881,11 +757,7 @@ int writeResponse(void *buf, size_t len)
 		return -1;
 	}
 
-#ifdef __PX4_QURT
     return qurt_uart_write(_uart_fd, (const char*) buf, len);
-#else
-	return write(_uart_fd, buf, len);
-#endif
 }
 
 int start(int argc, char *argv[])
@@ -1181,33 +1053,6 @@ void CheckHeartbeats(const hrt_abstime &t, bool force)
 	if (t <= TIMEOUT) {
 		return;
 	}
-
-	//int _telemetry_status_sub = orb_subscribe(ORB_ID(telemetry_status));
-		// 	vehicle_control_mode_s control_mode;
-
-		// 	if (_vehicle_control_mode_sub.copy(&control_mode)) {
-	// if ((t >= _last_heartbeat_check + (TIMEOUT / 2)) || force) {
-	// 	telemetry_status_s tstatus;
-
-	// 	tstatus.heartbeat_type_antenna_tracker         = (t <= TIMEOUT + _heartbeat_type_antenna_tracker);
-	// 	tstatus.heartbeat_type_gcs                     = (t <= TIMEOUT + _heartbeat_type_gcs);
-	// 	tstatus.heartbeat_type_onboard_controller      = (t <= TIMEOUT + _heartbeat_type_onboard_controller);
-	// 	tstatus.heartbeat_type_gimbal                  = (t <= TIMEOUT + _heartbeat_type_gimbal);
-	// 	tstatus.heartbeat_type_adsb                    = (t <= TIMEOUT + _heartbeat_type_adsb);
-	// 	tstatus.heartbeat_type_camera                  = (t <= TIMEOUT + _heartbeat_type_camera);
-
-	// 	tstatus.heartbeat_component_telemetry_radio    = (t <= TIMEOUT + _heartbeat_component_telemetry_radio);
-	// 	tstatus.heartbeat_component_log                = (t <= TIMEOUT + _heartbeat_component_log);
-	// 	tstatus.heartbeat_component_osd                = (t <= TIMEOUT + _heartbeat_component_osd);
-	// 	tstatus.heartbeat_component_obstacle_avoidance = (t <= TIMEOUT + _heartbeat_component_obstacle_avoidance);
-	// 	tstatus.heartbeat_component_vio                = (t <= TIMEOUT + _heartbeat_component_visual_inertial_odometry);
-	// 	tstatus.heartbeat_component_pairing_manager    = (t <= TIMEOUT + _heartbeat_component_pairing_manager);
-	// 	tstatus.heartbeat_component_udp_bridge         = (t <= TIMEOUT + _heartbeat_component_udp_bridge);
-	// 	tstatus.heartbeat_component_uart_bridge        = (t <= TIMEOUT + _heartbeat_component_uart_bridge);
-
-	// 	//_mavlink->telemetry_status_updated();
-	// 	_last_heartbeat_check = t;
-	// }
 }
 
 }
