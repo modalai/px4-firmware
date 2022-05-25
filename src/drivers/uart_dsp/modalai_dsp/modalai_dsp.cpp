@@ -309,7 +309,7 @@ void task_main(int argc, char *argv[])
 			debug = true;
 			break;
 		case 'p':
-			port = atoi(myoptarg);
+			port = myoptarg;
 			break;
 		case 'b':
 			baudrate = atoi(myoptarg);
