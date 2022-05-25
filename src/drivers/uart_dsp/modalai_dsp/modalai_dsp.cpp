@@ -96,6 +96,7 @@ static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
 bool vio = false;
 bool debug = false;
+bool crossfire = false;
 bool radio_once = false;
 bool rc_once = false;
 std::string port = "2";
@@ -107,7 +108,6 @@ uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(di
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
-uORB::PublicationMulti<radio_status_s>			_radio_status_pub{ORB_ID(radio_status)};
 
 // hil_sensor and hil_state_quaternion
 enum SensorSource {
@@ -180,7 +180,6 @@ void send_actuator_data();
 
 void handle_message_hil_sensor_dsp(mavlink_message_t *msg);
 void handle_message_hil_gps_dsp(mavlink_message_t *msg);
-void handle_message_heartbeat_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
 void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
@@ -226,10 +225,8 @@ handle_message_dsp(mavlink_message_t *msg)
 		handle_message_radio_status_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
-		if(debug){
-			handle_message_command_long_dsp(msg);
-			break;
-		}
+		handle_message_command_long_dsp(msg);
+		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
 		PX4_INFO("Heartbeat msg received");
 		break;
@@ -251,9 +248,9 @@ void send_actuator_data(){
 
 	//int _act_sub = orb_subscribe(ORB_ID(actuator_outputs));
 	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), 0);
-	PX4_ERR("Got %d from orb_subscribe", _actuator_outputs_sub);
+	PX4_INFO("Got %d from orb_subscribe", _actuator_outputs_sub);
 	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
-	PX4_ERR("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
+	PX4_INFO("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
 
 	while (true){
 
@@ -303,7 +300,7 @@ void task_main(int argc, char *argv[])
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "vsdp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "vsdcp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'v':
 			vio = true;
@@ -319,6 +316,9 @@ void task_main(int argc, char *argv[])
 			break;
 		case 'b':
 			baudrate = atoi(myoptarg);
+			break;
+		case 'c':
+			crossfire = true;
 			break;
 		default:
 			break;
@@ -339,17 +339,19 @@ void task_main(int argc, char *argv[])
 	_px4_gyro = new PX4Gyroscope(1310988);
 
 	// Create a thread for sending data to the simulator.
-	pthread_t sender_thread;
-	pthread_attr_t sender_thread_attr;
-	pthread_attr_init(&sender_thread_attr);
-	pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
-	pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
-	pthread_attr_destroy(&sender_thread_attr);
+	if(!crossfire){
+		pthread_t sender_thread;
+		pthread_attr_t sender_thread_attr;
+		pthread_attr_init(&sender_thread_attr);
+		pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
+		pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
+		pthread_attr_destroy(&sender_thread_attr);
+	}
 
 	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
-	PX4_ERR("Got %d from orb_subscribe", _vehicle_status_sub);
+	PX4_INFO("Got %d from orb_subscribe", _vehicle_status_sub);
 	int _actuator_controls_sub = orb_subscribe(ORB_ID(actuator_controls));
-	PX4_ERR("Got %d from orb_subscribe", _actuator_controls_sub);
+	PX4_INFO("Got %d from orb_subscribe", _actuator_controls_sub);
 
 	bool vehicle_updated = false;
 	(void) orb_check(_vehicle_status_sub, &vehicle_updated);
@@ -418,7 +420,9 @@ handle_message_command_long_dsp(mavlink_message_t *msg)
 	mavlink_command_long_t cmd_mavlink;
 	mavlink_msg_command_long_decode(msg, &cmd_mavlink);
 
-	PX4_ERR("Value of command_long.command: %d", cmd_mavlink.command);
+	if(debug){
+		PX4_INFO("Value of command_long.command: %d", cmd_mavlink.command);
+	}
 
 	mavlink_command_ack_t ack = {};
 	ack.result = MAV_RESULT_UNSUPPORTED;
@@ -430,7 +434,7 @@ handle_message_command_long_dsp(mavlink_message_t *msg)
 	uint16_t acknewBufLen = 0;
 	acknewBufLen = mavlink_msg_to_send_buffer(acknewBuf, &ack_message);
 	int writeRetval = writeResponse(&acknewBuf, acknewBufLen);
-	PX4_DEBUG("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
+	PX4_INFO("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
 }
 
 void
@@ -452,26 +456,24 @@ handle_message_radio_status_dsp(mavlink_message_t *msg)
 		status.rxerrors = rstatus.rxerrors;
 		status.fix = rstatus.fixed;
 
-		_radio_status_pub.publish(status);
-
 		if(debug){
-			PX4_ERR("Value of radio status timestamp: %d", status.timestamp);
-			PX4_ERR("Value of radio status rssi: %d", status.rssi);
-			PX4_ERR("Value of radio status remote_rssi: %d", status.remote_rssi);
-			PX4_ERR("Value of radio status txbuf: %d", status.txbuf);
-			PX4_ERR("Value of radio status noise: %d", status.noise);
-			PX4_ERR("Value of radio status remote_noise: %d", status.remote_noise);
-			PX4_ERR("Value of radio status rxerrors: %d", status.rxerrors);
-			PX4_ERR("Value of radio status fix: %d", status.fix);
+			PX4_INFO("Value of radio status timestamp: %d", status.timestamp);
+			PX4_INFO("Value of radio status rssi: %d", status.rssi);
+			PX4_INFO("Value of radio status remote_rssi: %d", status.remote_rssi);
+			PX4_INFO("Value of radio status txbuf: %d", status.txbuf);
+			PX4_INFO("Value of radio status noise: %d", status.noise);
+			PX4_INFO("Value of radio status remote_noise: %d", status.remote_noise);
+			PX4_INFO("Value of radio status rxerrors: %d", status.rxerrors);
+			PX4_INFO("Value of radio status fix: %d", status.fix);
 		} else if(!debug && !radio_once){
-			PX4_ERR("Value of radio status timestamp: %d", status.timestamp);
-			PX4_ERR("Value of radio status rssi: %d", status.rssi);
-			PX4_ERR("Value of radio status remote_rssi: %d", status.remote_rssi);
-			PX4_ERR("Value of radio status txbuf: %d", status.txbuf);
-			PX4_ERR("Value of radio status noise: %d", status.noise);
-			PX4_ERR("Value of radio status remote_noise: %d", status.remote_noise);
-			PX4_ERR("Value of radio status rxerrors: %d", status.rxerrors);
-			PX4_ERR("Value of radio status fix: %d", status.fix);
+			PX4_INFO("Value of radio status timestamp: %d", status.timestamp);
+			PX4_INFO("Value of radio status rssi: %d", status.rssi);
+			PX4_INFO("Value of radio status remote_rssi: %d", status.remote_rssi);
+			PX4_INFO("Value of radio status txbuf: %d", status.txbuf);
+			PX4_INFO("Value of radio status noise: %d", status.noise);
+			PX4_INFO("Value of radio status remote_noise: %d", status.remote_noise);
+			PX4_INFO("Value of radio status rxerrors: %d", status.rxerrors);
+			PX4_INFO("Value of radio status fix: %d", status.fix);
 			radio_once = true;
 		}
 	}
@@ -542,9 +544,9 @@ handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
 	_rc_pub.publish(rc);
 
 	if(debug){
-		PX4_ERR("RC Message received");
+		PX4_INFO("RC Message received");
 	} else if(!debug && !rc_once){
-		PX4_ERR("RC Message received (not in debug mode - enable to see when all rc's come in)");
+		PX4_INFO("RC Message received (not in debug mode - enable to see when all rc's come in)");
 		rc_once = true;
 	}
 }
@@ -983,102 +985,6 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	hil_gps.heading_offset = NAN;
 
 	_gps_pub.publish(hil_gps);
-}
-
-void
-handle_message_heartbeat_dsp(mavlink_message_t *msg)
-{
-	/* telemetry status supported only on first TELEMETRY_STATUS_ORB_ID_NUM mavlink channels */
-	const hrt_abstime now = hrt_absolute_time();
-
-	mavlink_heartbeat_t hb;
-	mavlink_msg_heartbeat_decode(msg, &hb);
-
-	const bool same_system = 1;
-
-	if (same_system || hb.type == MAV_TYPE_GCS) {
-
-		switch (hb.type) {
-		case MAV_TYPE_ANTENNA_TRACKER:
-			_heartbeat_type_antenna_tracker = now;
-			break;
-
-		case MAV_TYPE_GCS:
-			_heartbeat_type_gcs = now;
-			break;
-
-		case MAV_TYPE_ONBOARD_CONTROLLER:
-			_heartbeat_type_onboard_controller = now;
-			break;
-
-		case MAV_TYPE_GIMBAL:
-			_heartbeat_type_gimbal = now;
-			break;
-
-		case MAV_TYPE_ADSB:
-			_heartbeat_type_adsb = now;
-			break;
-
-		case MAV_TYPE_CAMERA:
-			_heartbeat_type_camera = now;
-			break;
-
-		default:
-			PX4_INFO("unhandled HEARTBEAT MAV_TYPE: %d from SYSID: %d, COMPID: %d", hb.type, msg->sysid, msg->compid);
-		}
-
-
-		switch (msg->compid) {
-		case MAV_COMP_ID_TELEMETRY_RADIO:
-			_heartbeat_component_telemetry_radio = now;
-			break;
-
-		case MAV_COMP_ID_LOG:
-			_heartbeat_component_log = now;
-			break;
-
-		case MAV_COMP_ID_OSD:
-			_heartbeat_component_osd = now;
-			break;
-
-		case MAV_COMP_ID_OBSTACLE_AVOIDANCE:
-			_heartbeat_component_obstacle_avoidance = now;
-			//_mavlink->telemetry_status().avoidance_system_healthy = (hb.system_status == MAV_STATE_ACTIVE);
-			break;
-
-		case MAV_COMP_ID_VISUAL_INERTIAL_ODOMETRY:
-			_heartbeat_component_visual_inertial_odometry = now;
-			break;
-
-		case MAV_COMP_ID_PAIRING_MANAGER:
-			_heartbeat_component_pairing_manager = now;
-			break;
-
-		case MAV_COMP_ID_UDP_BRIDGE:
-			_heartbeat_component_udp_bridge = now;
-			break;
-
-		case MAV_COMP_ID_UART_BRIDGE:
-			_heartbeat_component_uart_bridge = now;
-			break;
-
-		default:
-			PX4_INFO("unhandled HEARTBEAT MAV_TYPE: %d from SYSID: %d, COMPID: %d", hb.type, msg->sysid, msg->compid);
-		}
-
-		CheckHeartbeats(now, true);
-	}
-
-}
-
-void CheckHeartbeats(const hrt_abstime &t, bool force)
-{
-	// check HEARTBEATs for timeout
-	static constexpr uint64_t TIMEOUT = telemetry_status_s::HEARTBEAT_TIMEOUT_US;
-
-	if (t <= TIMEOUT) {
-		return;
-	}
 }
 
 }

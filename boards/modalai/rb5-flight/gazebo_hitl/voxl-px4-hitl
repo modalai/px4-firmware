@@ -20,8 +20,9 @@ DAEMON=" "
 PORT='-p 2'
 BAUD='-b 921600'
 DEBUG=" "
+CROSSFIRE=" "
 
-while getopts vdep:b: flag
+while getopts vdecp:b: flag
 do
     case "${flag}" in
         v) VIO=1 ;;
@@ -29,17 +30,18 @@ do
         p) PORT="-p ${OPTARG}" ;;
         b) BAUD="-b ${OPTARG}" ;;
         e) DEBUG="-d" ;;
+        c) CROSSFIRE="-c" ;;
     esac
 done
 
 if [ $VIO == 1 ]; then
    echo "Setting VIO Parameters for HITL"
-   sed -i "/qshell modalai_dsp start/c\qshell modalai_dsp start -v $PORT $BAUD $DEBUG" /etc/modalai/voxl-px4-hitl.config
+   sed -i "/qshell modalai_dsp start/c\qshell modalai_dsp start -v $PORT $BAUD $DEBUG $CROSSFIRE" /etc/modalai/voxl-px4-hitl.config
    px4 $DAEMON -s /etc/modalai/voxl-px4-hitl-vio-parameters.config
    /bin/sync
 else
    echo "Setting GPS Parameters for HITL"
-   sed -i "/qshell modalai_dsp start/c\qshell modalai_dsp start $PORT $BAUD $DEBUG" /etc/modalai/voxl-px4-hitl.config
+   sed -i "/qshell modalai_dsp start/c\qshell modalai_dsp start $PORT $BAUD $DEBUG $CROSSFIRE" /etc/modalai/voxl-px4-hitl.config
    px4 $DAEMON -s /etc/modalai/voxl-px4-hitl-gps-parameters.config
    /bin/sync
 fi
