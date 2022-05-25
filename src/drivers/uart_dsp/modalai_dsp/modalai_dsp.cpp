@@ -185,6 +185,7 @@ void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
 void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
 void handle_message_radio_status_dsp(mavlink_message_t *msg);
+void handle_message_command_long_dsp(mavlink_message_t *msg);
 
 void CheckHeartbeats(const hrt_abstime &t, bool force);
 void handle_message_dsp(mavlink_message_t *msg);
@@ -224,6 +225,11 @@ handle_message_dsp(mavlink_message_t *msg)
 	case MAVLINK_MSG_ID_RADIO_STATUS:
 		handle_message_radio_status_dsp(msg);
 		break;
+	case MAVLINK_MSG_ID_COMMAND_LONG:
+		if(debug){
+			handle_message_command_long_dsp(msg);
+			break;
+		}
 	case MAVLINK_MSG_ID_HEARTBEAT:
 		PX4_INFO("Heartbeat msg received");
 		break;
@@ -403,6 +409,28 @@ void task_main(int argc, char *argv[])
 
 		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
+}
+
+void
+handle_message_command_long_dsp(mavlink_message_t *msg)
+{
+	/* command */
+	mavlink_command_long_t cmd_mavlink;
+	mavlink_msg_command_long_decode(msg, &cmd_mavlink);
+
+	PX4_ERR("Value of command_long.command: %d", cmd_mavlink.command);
+
+	mavlink_command_ack_t ack = {};
+	ack.result = MAV_RESULT_UNSUPPORTED;
+
+	mavlink_message_t ack_message = {};
+	mavlink_msg_command_ack_encode(1, 1, &ack_message, &ack);
+
+	uint8_t  acknewBuf[512];
+	uint16_t acknewBufLen = 0;
+	acknewBufLen = mavlink_msg_to_send_buffer(acknewBuf, &ack_message);
+	int writeRetval = writeResponse(&acknewBuf, acknewBufLen);
+	PX4_DEBUG("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
 }
 
 void
