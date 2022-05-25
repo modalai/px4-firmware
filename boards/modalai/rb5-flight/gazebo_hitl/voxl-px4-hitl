@@ -24,11 +24,11 @@ DEBUG=" "
 while getopts vdep:b: flag
 do
     case "${flag}" in
-	v) VIO=1 ;;
-    d) DAEMON="-d" ;;
-	p) PORT="-p ${OPTARG}" ;;
-	b) BAUD="-b ${OPTARG}" ;;
-    e) DEBUG="-d" ;;
+        v) VIO=1 ;;
+        d) DAEMON="-d" ;;
+        p) PORT="-p ${OPTARG}" ;;
+        b) BAUD="-b ${OPTARG}" ;;
+        e) DEBUG="-d" ;;
     esac
 done
 
