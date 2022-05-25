@@ -51,6 +51,10 @@
 #include <v2.0/standard/mavlink.h>
 #endif
 
+#ifdef __PX4_QURT
+#include <drivers/device/qurt/uart.h>
+#endif
+
 using namespace time_literals;
 
 constexpr const char MavlinkFTP::_root_dir[];
@@ -623,8 +627,11 @@ MavlinkFTP::_workWrite(PayloadHeader *payload)
 	}
 #endif
 
+#ifndef __PX4_QURT
 	int bytes_written = ::write(_session_info.fd, &payload->data[0], payload->size);
-
+#else
+	int bytes_written = qurt_uart_write(_session_info.fd, (const char*) &payload->data[0], payload->size);
+#endif
 	if (bytes_written < 0) {
 		// Negative return indicates error other than eof
 		PX4_ERR("write fail %d", bytes_written);
@@ -718,9 +725,13 @@ MavlinkFTP::_workTruncateFile(PayloadHeader *payload)
 			return kErrFailErrno;
 		}
 
+#ifndef __PX4_QURT
 		bool ok = 1 == ::write(fd, "", 1);
 		::close(fd);
-
+#else
+		bool ok = 1 == qurt_uart_write(fd, (const char*) "", 1);
+		uart_close();
+#endif
 		return (ok) ? kErrNone : kErrFailErrno;
 
 	} else {
@@ -947,9 +958,11 @@ MavlinkFTP::_copy_file(const char *src_path, const char *dst_path, size_t length
 			op_errno = errno;
 			break;
 		}
-
+#ifndef __PX4_QURT
 		bytes_written = ::write(dst_fd, _work_buffer2, bytes_read);
-
+#else
+		bytes_written = qurt_uart_write(dst_fd, (const char*) _work_buffer2, bytes_read);
+#endif
 		if (bytes_written != bytes_read) {
 			PX4_ERR("cp: short write");
 			op_errno = errno;

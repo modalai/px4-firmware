@@ -826,10 +826,17 @@ void Mavlink::send_finish()
 
 	int ret = -1;
 
+#ifndef __PX4_QURT
 	// send message to UART
 	if (get_protocol() == Protocol::SERIAL) {
 		ret = ::write(_uart_fd, _buf, _buf_fill);
 	}
+#else
+	if (get_protocol() == Protocol::SERIAL) {
+		ret = qurt_uart_write(_uart_fd, (const char*) _buf, _buf_fill);
+	}
+#endif
+
 
 #if defined(MAVLINK_UDP)
 
@@ -1445,6 +1452,7 @@ Mavlink::pass_message(const mavlink_message_t *msg)
 		int size = MAVLINK_NUM_NON_PAYLOAD_BYTES + msg->len;
 		pthread_mutex_lock(&_message_buffer_mutex);
 		message_buffer_write(msg, size);
+		PX4_ERR("MSG BUFFER WRITE SENT");
 		pthread_mutex_unlock(&_message_buffer_mutex);
 	}
 }

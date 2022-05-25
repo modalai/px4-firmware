@@ -2952,6 +2952,8 @@ void MavlinkReceiver::CheckHeartbeats(const hrt_abstime &t, bool force)
 void
 MavlinkReceiver::Run()
 {
+
+	PX4_ERR("Starting run thread");
 	/* set thread name */
 	{
 		char thread_name[17];
@@ -3094,7 +3096,9 @@ MavlinkReceiver::Run()
 				for (ssize_t i = 0; i < nread; i++) {
 					if (mavlink_parse_char(_mavlink->get_channel(), buf[i], &msg, &_status)) {
 
-						PX4_ERR("MSG ID: %d", msg.msgid);
+						if(msg.msgid != 107 && msg.msgid != 331){
+							PX4_ERR("MSG ID: %d", msg.msgid);
+						}
 						//PX4_ERR("PARSING MAVLINK CHANNEL WITH MESSAGE");
 						_total_received_counter++;
 
@@ -3287,9 +3291,7 @@ MavlinkReceiver::Run()
 void *
 MavlinkReceiver::start_helper(void *context)
 {
-	PX4_ERR("RUINNING HELPER");
 	MavlinkReceiver rcv{(Mavlink *)context};
-	PX4_ERR("RUINNING HELPER");
 	rcv.Run();
 
 	return nullptr;
