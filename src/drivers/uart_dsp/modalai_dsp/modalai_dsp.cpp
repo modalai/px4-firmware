@@ -38,9 +38,7 @@
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/getopt.h>
 
-#ifdef __PX4_QURT
 #include <drivers/device/qurt/uart.h>
-#endif
 
 #include <commander/px4_custom_mode.h>
 
@@ -56,6 +54,7 @@
 
 #include <uORB/uORB.h>
 #include <uORB/Publication.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/sensor_gps.h>
 #include <uORB/topics/battery_status.h>
@@ -66,6 +65,8 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/telemetry_status.h>
 #include <uORB/topics/vehicle_odometry.h>
+#include <uORB/topics/input_rc.h>
+#include <uORB/topics/radio_status.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/barometer/PX4Barometer.hpp>
@@ -79,15 +80,8 @@
 
 #include <unistd.h>
 
-#define MODALAI_ESC_DEVICE_PATH 	"/dev/uart_esc"
 #define ASYNC_UART_READ_WAIT_US 2000
-
-#ifdef __PX4_QURT
-#define MODALAI_ESC_DEFAULT_PORT 	"2"
-#else
-#define MODALAI_ESC_DEFAULT_PORT 	"/dev/ttyS1"
-#endif
-
+#define RC_INPUT_RSSI_MAX	100
 
 extern "C" { __EXPORT int modalai_dsp_main(int argc, char *argv[]); }
 
@@ -101,12 +95,19 @@ volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
 bool vio = false;
+bool debug = false;
+bool crossfire = false;
+bool radio_once = false;
+bool rc_once = false;
+std::string port = "2";
+int baudrate = 921600;
 
 uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
 uORB::Publication<sensor_gps_s>				_gps_pub{ORB_ID(sensor_gps)};
 uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
+uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
 
 // hil_sensor and hil_state_quaternion
 enum SensorSource {
@@ -149,10 +150,16 @@ float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
 
+bool _use_software_mav_throttling{false};
+bool _radio_status_available{false};
+bool _radio_status_critical{false};
+float _radio_status_mult{1.0f};
+
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
 actuator_controls_s _actuator_controls{};
+radio_status_s _rstatus {};
 
 int openPort(const char *dev, speed_t speed);
 int closePort();
@@ -173,9 +180,11 @@ void send_actuator_data();
 
 void handle_message_hil_sensor_dsp(mavlink_message_t *msg);
 void handle_message_hil_gps_dsp(mavlink_message_t *msg);
-void handle_message_heartbeat_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
+void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
+void handle_message_radio_status_dsp(mavlink_message_t *msg);
+void handle_message_command_long_dsp(mavlink_message_t *msg);
 
 void CheckHeartbeats(const hrt_abstime &t, bool force);
 void handle_message_dsp(mavlink_message_t *msg);
@@ -209,24 +218,18 @@ handle_message_dsp(mavlink_message_t *msg)
 			handle_message_odometry_dsp(msg);
 			break;
 		}
-	case MAVLINK_MSG_ID_HEARTBEAT:
-	{
-		// handle_message_heartbeat_dsp(msg);
-		//PX4_INFO("MAVLINK HEART");
-
-		// mavlink_heartbeat_t hb = {};
-		// mavlink_message_t message = {};
-		// hb.autopilot = 12;
-		// hb.base_mode |= (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) ? 128 : 0;
-		// mavlink_msg_heartbeat_encode(1, 1, &message, &hb);
-		//
-		// uint8_t  newBuf[MAVLINK_MAX_PACKET_LEN];
-		// uint16_t newBufLen = 0;
-		// newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-		// int writeRetval = writeResponse(&newBuf, newBufLen);
-		// PX4_INFO("Succesful write of heartbeat back to jMAVSim: %d", writeRetval);
+	case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
+		handle_message_rc_channels_override_dsp(msg);
 		break;
-	}
+	case MAVLINK_MSG_ID_RADIO_STATUS:
+		handle_message_radio_status_dsp(msg);
+		break;
+	case MAVLINK_MSG_ID_COMMAND_LONG:
+		handle_message_command_long_dsp(msg);
+		break;
+	case MAVLINK_MSG_ID_HEARTBEAT:
+		PX4_INFO("Heartbeat msg received");
+		break;
 	case MAVLINK_MSG_ID_SYSTEM_TIME:
 		// PX4_INFO("MAVLINK SYSTEM TIME");
 		break;
@@ -245,9 +248,9 @@ void send_actuator_data(){
 
 	//int _act_sub = orb_subscribe(ORB_ID(actuator_outputs));
 	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), 0);
-	PX4_ERR("Got %d from orb_subscribe", _actuator_outputs_sub);
+	PX4_INFO("Got %d from orb_subscribe", _actuator_outputs_sub);
 	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
-	PX4_ERR("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
+	PX4_INFO("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
 
 	while (true){
 
@@ -296,19 +299,34 @@ void task_main(int argc, char *argv[])
 {
 	int ch;
 	int myoptind = 1;
-	const char *myoptarg = NULL;
-	while ((ch = px4_getopt(argc, argv, "v", &myoptind, &myoptarg)) != EOF) {
+	const char *myoptarg = nullptr;
+	while ((ch = px4_getopt(argc, argv, "vsdcp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'v':
 			vio = true;
+			break;
+		case 's':
+			_use_software_mav_throttling = true;
+			break;
+		case 'd':
+			debug = true;
+			break;
+		case 'p':
+			port = myoptarg;
+			break;
+		case 'b':
+			baudrate = atoi(myoptarg);
+			break;
+		case 'c':
+			crossfire = true;
 			break;
 		default:
 			break;
 		}
 	}
 
-	// int openRetval = openPort(MODALAI_ESC_DEFAULT_PORT, 250000);
-	int openRetval = openPort(MODALAI_ESC_DEFAULT_PORT, 921600);
+	const char* charport = port.c_str();
+	int openRetval = openPort(charport, (speed_t) baudrate);
 	int open = isOpen();
 	if(open){
 		PX4_ERR("Port is open: %d", openRetval);
@@ -321,17 +339,19 @@ void task_main(int argc, char *argv[])
 	_px4_gyro = new PX4Gyroscope(1310988);
 
 	// Create a thread for sending data to the simulator.
-	pthread_t sender_thread;
-	pthread_attr_t sender_thread_attr;
-	pthread_attr_init(&sender_thread_attr);
-	pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
-	pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
-	pthread_attr_destroy(&sender_thread_attr);
+	if(!crossfire){
+		pthread_t sender_thread;
+		pthread_attr_t sender_thread_attr;
+		pthread_attr_init(&sender_thread_attr);
+		pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
+		pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
+		pthread_attr_destroy(&sender_thread_attr);
+	}
 
 	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
-	PX4_ERR("Got %d from orb_subscribe", _vehicle_status_sub);
+	PX4_INFO("Got %d from orb_subscribe", _vehicle_status_sub);
 	int _actuator_controls_sub = orb_subscribe(ORB_ID(actuator_controls));
-	PX4_ERR("Got %d from orb_subscribe", _actuator_controls_sub);
+	PX4_INFO("Got %d from orb_subscribe", _actuator_controls_sub);
 
 	bool vehicle_updated = false;
 	(void) orb_check(_vehicle_status_sub, &vehicle_updated);
@@ -388,7 +408,146 @@ void task_main(int argc, char *argv[])
 
 		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
+
 		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+	}
+}
+
+void
+handle_message_command_long_dsp(mavlink_message_t *msg)
+{
+	/* command */
+	mavlink_command_long_t cmd_mavlink;
+	mavlink_msg_command_long_decode(msg, &cmd_mavlink);
+
+	if(debug){
+		PX4_INFO("Value of command_long.command: %d", cmd_mavlink.command);
+	}
+
+	mavlink_command_ack_t ack = {};
+	ack.result = MAV_RESULT_UNSUPPORTED;
+
+	mavlink_message_t ack_message = {};
+	mavlink_msg_command_ack_encode(1, 1, &ack_message, &ack);
+
+	uint8_t  acknewBuf[512];
+	uint16_t acknewBufLen = 0;
+	acknewBufLen = mavlink_msg_to_send_buffer(acknewBuf, &ack_message);
+	int writeRetval = writeResponse(&acknewBuf, acknewBufLen);
+	PX4_INFO("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
+}
+
+void
+handle_message_radio_status_dsp(mavlink_message_t *msg)
+{
+	/* telemetry status supported only on first ORB_MULTI_MAX_INSTANCES mavlink channels */
+	if (MAVLINK_COMM_0 < (mavlink_channel_t)ORB_MULTI_MAX_INSTANCES) {
+		mavlink_radio_status_t rstatus;
+		mavlink_msg_radio_status_decode(msg, &rstatus);
+
+		radio_status_s status{};
+
+		status.timestamp = hrt_absolute_time();
+		status.rssi = rstatus.rssi;
+		status.remote_rssi = rstatus.remrssi;
+		status.txbuf = rstatus.txbuf;
+		status.noise = rstatus.noise;
+		status.remote_noise = rstatus.remnoise;
+		status.rxerrors = rstatus.rxerrors;
+		status.fix = rstatus.fixed;
+
+		if(debug){
+			PX4_INFO("Value of radio status timestamp: %d", status.timestamp);
+			PX4_INFO("Value of radio status rssi: %d", status.rssi);
+			PX4_INFO("Value of radio status remote_rssi: %d", status.remote_rssi);
+			PX4_INFO("Value of radio status txbuf: %d", status.txbuf);
+			PX4_INFO("Value of radio status noise: %d", status.noise);
+			PX4_INFO("Value of radio status remote_noise: %d", status.remote_noise);
+			PX4_INFO("Value of radio status rxerrors: %d", status.rxerrors);
+			PX4_INFO("Value of radio status fix: %d", status.fix);
+		} else if(!debug && !radio_once){
+			PX4_INFO("Value of radio status timestamp: %d", status.timestamp);
+			PX4_INFO("Value of radio status rssi: %d", status.rssi);
+			PX4_INFO("Value of radio status remote_rssi: %d", status.remote_rssi);
+			PX4_INFO("Value of radio status txbuf: %d", status.txbuf);
+			PX4_INFO("Value of radio status noise: %d", status.noise);
+			PX4_INFO("Value of radio status remote_noise: %d", status.remote_noise);
+			PX4_INFO("Value of radio status rxerrors: %d", status.rxerrors);
+			PX4_INFO("Value of radio status fix: %d", status.fix);
+			radio_once = true;
+		}
+	}
+}
+
+void
+handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
+{
+	mavlink_rc_channels_override_t man;
+	mavlink_msg_rc_channels_override_decode(msg, &man);
+
+	// Check target
+	if (man.target_system != 0) {
+		return;
+	}
+
+	// fill uORB message
+	input_rc_s rc{};
+
+	// metadata
+	rc.timestamp = hrt_absolute_time();
+	rc.timestamp_last_signal = rc.timestamp;
+	rc.rssi = RC_INPUT_RSSI_MAX;
+	rc.rc_failsafe = false;
+	rc.rc_lost = false;
+	rc.rc_lost_frame_count = 0;
+	rc.rc_total_frame_count = 1;
+	rc.rc_ppm_frame_length = 0;
+	rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
+
+	// channels
+	rc.values[0] = man.chan1_raw;
+	rc.values[1] = man.chan2_raw;
+	rc.values[2] = man.chan3_raw;
+	rc.values[3] = man.chan4_raw;
+	rc.values[4] = man.chan5_raw;
+	rc.values[5] = man.chan6_raw;
+	rc.values[6] = man.chan7_raw;
+	rc.values[7] = man.chan8_raw;
+	rc.values[8] = man.chan9_raw;
+	rc.values[9] = man.chan10_raw;
+	rc.values[10] = man.chan11_raw;
+	rc.values[11] = man.chan12_raw;
+	rc.values[12] = man.chan13_raw;
+	rc.values[13] = man.chan14_raw;
+	rc.values[14] = man.chan15_raw;
+	rc.values[15] = man.chan16_raw;
+	rc.values[16] = man.chan17_raw;
+	rc.values[17] = man.chan18_raw;
+
+	// check how many channels are valid
+	for (int i = 17; i >= 0; i--) {
+		const bool ignore_max = rc.values[i] == UINT16_MAX; // ignore any channel with value UINT16_MAX
+		const bool ignore_zero = (i > 7) && (rc.values[i] == 0); // ignore channel 8-18 if value is 0
+
+		if (ignore_max || ignore_zero) {
+			// set all ignored values to zero
+			rc.values[i] = 0;
+
+		} else {
+			// first channel to not ignore -> set count considering zero-based index
+			rc.channel_count = i + 1;
+			break;
+		}
+	}
+
+	// publish uORB message
+	_rc_pub.publish(rc);
+
+	if(debug){
+		PX4_INFO("RC Message received");
+	} else if(!debug && !rc_once){
+		PX4_INFO("RC Message received (not in debug mode - enable to see when all rc's come in)");
+		rc_once = true;
 	}
 }
 
@@ -592,79 +751,19 @@ int openPort(const char *dev, speed_t speed)
 		return -1;
 	}
 
-#ifdef __PX4_QURT
 	_uart_fd = qurt_uart_open(dev, speed);
 	PX4_DEBUG("qurt_uart_opened");
-#else
-	/* Open UART */
-	_uart_fd = open(dev, O_RDWR | O_NOCTTY | O_NONBLOCK);
-#endif
 
 	if (_uart_fd < 0) {
 		PX4_ERR("Error opening port: %s (%i)", dev, errno);
 		return -1;
 	}
 
-#ifndef __PX4_QURT
-	/* Back up the original UART configuration to restore it after exit */
-	int termios_state;
-
-	if ((termios_state = tcgetattr(_uart_fd, &_orig_cfg)) < 0) {
-		PX4_ERR("Error configuring port: tcgetattr %s: %d", dev, termios_state);
-		uart_close();
-		return -1;
-	}
-
-	/* Fill the struct for the new configuration */
-	tcgetattr(_uart_fd, &_cfg);
-
-	/* Disable output post-processing */
-	_cfg.c_oflag &= ~OPOST;
-
-	_cfg.c_cflag |= (CLOCAL | CREAD);    /* ignore modem controls */
-	_cfg.c_cflag &= ~CSIZE;
-	_cfg.c_cflag |= CS8;                 /* 8-bit characters */
-	_cfg.c_cflag &= ~PARENB;             /* no parity bit */
-	_cfg.c_cflag &= ~CSTOPB;             /* only need 1 stop bit */
-	_cfg.c_cflag &= ~CRTSCTS;            /* no hardware flowcontrol */
-
-	/* setup for non-canonical mode */
-	_cfg.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-	_cfg.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-
-	if (cfsetispeed(&_cfg, speed) < 0 || cfsetospeed(&_cfg, speed) < 0) {
-		PX4_ERR("Error configuring port: %s: %d (cfsetispeed, cfsetospeed)", dev, termios_state);
-		uart_close();
-		return -1;
-	}
-
-	if ((termios_state = tcsetattr(_uart_fd, TCSANOW, &_cfg)) < 0) {
-		PX4_ERR("Error configuring port: %s (tcsetattr)", dev);
-		uart_close();
-		return -1;
-	}
-#endif
-
 	return 0;
 }
 
 int closePort()
 {
-#ifndef __PX4_QURT
-	if (_uart_fd < 0) {
-		PX4_ERR("invalid state for closing");
-		return -1;
-	}
-
-	if (tcsetattr(_uart_fd, TCSANOW, &_orig_cfg)) {
-		PX4_ERR("failed restoring uart to original state");
-	}
-
-	if (close(_uart_fd)) {
-		PX4_ERR("error closing uart");
-	}
-#endif
-
 	_uart_fd = -1;
 
 	return 0;
@@ -675,19 +774,8 @@ int readResponse(void *buf, size_t len)
 	if (_uart_fd < 0 || buf == NULL) {
 		PX4_ERR("invalid state for reading or buffer");
 		return -1;
-	// } else {
-	// 	PX4_INFO("Reading UART");
 	}
-
-#ifdef __PX4_QURT
-#define ASYNC_UART_READ_WAIT_US 2000
-    // The UART read on SLPI is via an asynchronous service so specify a timeout
-    // for the return. The driver will poll periodically until the read comes in
-    // so this may block for a while. However, it will timeout if no read comes in.
     return qurt_uart_read(_uart_fd, (char*) buf, len, ASYNC_UART_READ_WAIT_US);
-#else
-	return read(_uart_fd, buf, len);
-#endif
 }
 
 int writeResponse(void *buf, size_t len)
@@ -697,11 +785,7 @@ int writeResponse(void *buf, size_t len)
 		return -1;
 	}
 
-#ifdef __PX4_QURT
     return qurt_uart_write(_uart_fd, (const char*) buf, len);
-#else
-	return write(_uart_fd, buf, len);
-#endif
 }
 
 int start(int argc, char *argv[])
@@ -901,129 +985,6 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	hil_gps.heading_offset = NAN;
 
 	_gps_pub.publish(hil_gps);
-}
-
-void
-handle_message_heartbeat_dsp(mavlink_message_t *msg)
-{
-	/* telemetry status supported only on first TELEMETRY_STATUS_ORB_ID_NUM mavlink channels */
-	const hrt_abstime now = hrt_absolute_time();
-
-	mavlink_heartbeat_t hb;
-	mavlink_msg_heartbeat_decode(msg, &hb);
-
-	const bool same_system = 1;
-
-	if (same_system || hb.type == MAV_TYPE_GCS) {
-
-		switch (hb.type) {
-		case MAV_TYPE_ANTENNA_TRACKER:
-			_heartbeat_type_antenna_tracker = now;
-			break;
-
-		case MAV_TYPE_GCS:
-			_heartbeat_type_gcs = now;
-			break;
-
-		case MAV_TYPE_ONBOARD_CONTROLLER:
-			_heartbeat_type_onboard_controller = now;
-			break;
-
-		case MAV_TYPE_GIMBAL:
-			_heartbeat_type_gimbal = now;
-			break;
-
-		case MAV_TYPE_ADSB:
-			_heartbeat_type_adsb = now;
-			break;
-
-		case MAV_TYPE_CAMERA:
-			_heartbeat_type_camera = now;
-			break;
-
-		default:
-			PX4_INFO("unhandled HEARTBEAT MAV_TYPE: %d from SYSID: %d, COMPID: %d", hb.type, msg->sysid, msg->compid);
-		}
-
-
-		switch (msg->compid) {
-		case MAV_COMP_ID_TELEMETRY_RADIO:
-			_heartbeat_component_telemetry_radio = now;
-			break;
-
-		case MAV_COMP_ID_LOG:
-			_heartbeat_component_log = now;
-			break;
-
-		case MAV_COMP_ID_OSD:
-			_heartbeat_component_osd = now;
-			break;
-
-		case MAV_COMP_ID_OBSTACLE_AVOIDANCE:
-			_heartbeat_component_obstacle_avoidance = now;
-			//_mavlink->telemetry_status().avoidance_system_healthy = (hb.system_status == MAV_STATE_ACTIVE);
-			break;
-
-		case MAV_COMP_ID_VISUAL_INERTIAL_ODOMETRY:
-			_heartbeat_component_visual_inertial_odometry = now;
-			break;
-
-		case MAV_COMP_ID_PAIRING_MANAGER:
-			_heartbeat_component_pairing_manager = now;
-			break;
-
-		case MAV_COMP_ID_UDP_BRIDGE:
-			_heartbeat_component_udp_bridge = now;
-			break;
-
-		case MAV_COMP_ID_UART_BRIDGE:
-			_heartbeat_component_uart_bridge = now;
-			break;
-
-		default:
-			PX4_INFO("unhandled HEARTBEAT MAV_TYPE: %d from SYSID: %d, COMPID: %d", hb.type, msg->sysid, msg->compid);
-		}
-
-		CheckHeartbeats(now, true);
-	}
-
-}
-
-void CheckHeartbeats(const hrt_abstime &t, bool force)
-{
-	// check HEARTBEATs for timeout
-	static constexpr uint64_t TIMEOUT = telemetry_status_s::HEARTBEAT_TIMEOUT_US;
-
-	if (t <= TIMEOUT) {
-		return;
-	}
-
-	//int _telemetry_status_sub = orb_subscribe(ORB_ID(telemetry_status));
-		// 	vehicle_control_mode_s control_mode;
-
-		// 	if (_vehicle_control_mode_sub.copy(&control_mode)) {
-	// if ((t >= _last_heartbeat_check + (TIMEOUT / 2)) || force) {
-	// 	telemetry_status_s tstatus;
-
-	// 	tstatus.heartbeat_type_antenna_tracker         = (t <= TIMEOUT + _heartbeat_type_antenna_tracker);
-	// 	tstatus.heartbeat_type_gcs                     = (t <= TIMEOUT + _heartbeat_type_gcs);
-	// 	tstatus.heartbeat_type_onboard_controller      = (t <= TIMEOUT + _heartbeat_type_onboard_controller);
-	// 	tstatus.heartbeat_type_gimbal                  = (t <= TIMEOUT + _heartbeat_type_gimbal);
-	// 	tstatus.heartbeat_type_adsb                    = (t <= TIMEOUT + _heartbeat_type_adsb);
-	// 	tstatus.heartbeat_type_camera                  = (t <= TIMEOUT + _heartbeat_type_camera);
-
-	// 	tstatus.heartbeat_component_telemetry_radio    = (t <= TIMEOUT + _heartbeat_component_telemetry_radio);
-	// 	tstatus.heartbeat_component_log                = (t <= TIMEOUT + _heartbeat_component_log);
-	// 	tstatus.heartbeat_component_osd                = (t <= TIMEOUT + _heartbeat_component_osd);
-	// 	tstatus.heartbeat_component_obstacle_avoidance = (t <= TIMEOUT + _heartbeat_component_obstacle_avoidance);
-	// 	tstatus.heartbeat_component_vio                = (t <= TIMEOUT + _heartbeat_component_visual_inertial_odometry);
-	// 	tstatus.heartbeat_component_pairing_manager    = (t <= TIMEOUT + _heartbeat_component_pairing_manager);
-	// 	tstatus.heartbeat_component_udp_bridge         = (t <= TIMEOUT + _heartbeat_component_udp_bridge);
-	// 	tstatus.heartbeat_component_uart_bridge        = (t <= TIMEOUT + _heartbeat_component_uart_bridge);
-
-	// 	//_mavlink->telemetry_status_updated();
-	// 	_last_heartbeat_check = t;
-	// }
 }
 
 }
