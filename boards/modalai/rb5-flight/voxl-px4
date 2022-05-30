@@ -10,11 +10,18 @@ else
 fi
 
 DAEMON=" "
+G="HOLYBRO"
+R="SPEKTRUM"
 
-while getopts d flag
+while getopts "dmr" flag
 do
     case "${flag}" in
+        # Use -d to put PX4 into daemon mode
         d) DAEMON="-d";;
+        # Use -m to specify Mateksys M8Q-5883 GPS unit
+        m) G="MATEK";;
+        # Use -r to specify TBS Crossfire RC receiver
+        r) R="CRSF";;
     esac
 done
 
@@ -24,4 +31,4 @@ if [ ! -f /data/px4/param/parameters ]; then
    /bin/sync
 fi
 
-px4 $DAEMON -s /etc/modalai/voxl-px4.config
+GPS=$G RC=$R px4 $DAEMON -s /etc/modalai/voxl-px4.config
