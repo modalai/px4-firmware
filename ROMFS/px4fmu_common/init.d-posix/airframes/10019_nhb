@@ -23,7 +23,7 @@ param set-default MPC_Z_VEL_MAX_UP 1.5
 param set-default MPC_Z_VEL_MAX_DN 1.5
 param set-default MPC_POS_MODE 1
 param set-default MPC_MAN_TILT_MAX 20
-param set-default MPC_THR_HOVER 0.07
+param set-default MPC_THR_HOVER 0.1
 
 # misc.
 param set-default COM_ARM_CHK_ESCS 0
