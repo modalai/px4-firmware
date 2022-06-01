@@ -36,6 +36,7 @@
 #include "string.h"
 #include <px4_platform_common/log.h>
 
+#ifndef __PX4_QURT
 void TunePublisher::set_tune_string(const char *tune, const hrt_abstime &now)
 {
 	// The tune string needs to be 0 terminated.
@@ -88,3 +89,4 @@ void TunePublisher::publish_next_tune(const hrt_abstime now)
 		_next_publish_time = 0;
 	}
 }
+#endif

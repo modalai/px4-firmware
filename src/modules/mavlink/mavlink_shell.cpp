@@ -74,6 +74,7 @@ int MavlinkShell::start()
 	return -1;
 #endif /* __PX4_NUTTX */
 
+#ifndef __PX4_QURT
 
 	PX4_INFO("Starting mavlink shell");
 
@@ -145,16 +146,19 @@ int MavlinkShell::start()
 	close(_shell_fds[1]);
 
 	return ret;
+
+#endif
 }
 
 int MavlinkShell::shell_start_thread(int argc, char *argv[])
 {
+#ifndef __PX4_QURT
 	dup2(1, 2); //redirect stderror to stdout
 
 #ifdef __PX4_NUTTX
 	nsh_consolemain(0, NULL);
 #endif /* __PX4_NUTTX */
-
+#endif
 	return 0;
 }
 
@@ -170,11 +174,12 @@ size_t MavlinkShell::read(uint8_t *buffer, size_t len)
 
 size_t MavlinkShell::available()
 {
+#ifndef __PX4_QURT
 	int ret = 0;
 
 	if (ioctl(_from_shell_fd, FIONREAD, (unsigned long)&ret) == OK) {
 		return ret;
 	}
-
+#endif
 	return 0;
 }

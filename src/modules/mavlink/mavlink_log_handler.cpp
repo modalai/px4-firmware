@@ -327,9 +327,11 @@ void MavlinkLogHandler::_close_and_unlink_files()
 		_reset_list_helper();
 	}
 
+#ifndef __PX4_QURT
 	// Remove log data files (if any)
 	unlink(kLogData);
 	unlink(kTmpData);
+#endif
 }
 
 //-------------------------------------------------------------------
@@ -352,8 +354,11 @@ MavlinkLogHandler::_get_entry(int idx, uint32_t &size, uint32_t &date, char *fil
 			//-- Found our "index"
 			if (count++ == idx) {
 				char file[160];
-
+#ifndef __PX4_QURT
 				if (sscanf(line, "%u %u %s", &date, &size, file) == 3) {
+#else
+				if (sscanf(line, "%lu %lu %s", &date, &size, file) == 3) {
+#endif
 					if (filename && filename_len > 0) {
 						strncpy(filename, file, filename_len);
 						filename[filename_len - 1] = 0; // ensure null-termination
@@ -443,7 +448,9 @@ MavlinkLogHandler::_init_list_helper()
 	_current_log_filename[0] = 0;
 
 	// Remove old log data file (if any)
+#ifndef __PX4_QURT
 	unlink(kLogData);
+#endif
 	// Open log directory
 	DIR *dp = opendir(kLogRoot);
 
@@ -460,10 +467,9 @@ MavlinkLogHandler::_init_list_helper()
 		closedir(dp);
 		return;
 	}
-
+#ifndef __PX4_QURT
 	// Scan directory and collect log files
 	struct dirent *result = nullptr;
-
 	while ((result = readdir(dp))) {
 		if (result->d_type == PX4LOG_DIRECTORY) {
 			time_t tt = 0;
@@ -478,7 +484,7 @@ MavlinkLogHandler::_init_list_helper()
 			}
 		}
 	}
-
+#endif
 	closedir(dp);
 	fclose(f);
 
@@ -523,6 +529,7 @@ MavlinkLogHandler::_scan_logs(FILE *f, const char *dir, time_t &date)
 	DIR *dp = opendir(dir);
 
 	if (dp) {
+#ifndef __PX4_QURT
 		struct dirent *result = nullptr;
 
 		while ((result = readdir(dp))) {
@@ -542,7 +549,7 @@ MavlinkLogHandler::_scan_logs(FILE *f, const char *dir, time_t &date)
 				}
 			}
 		}
-
+#endif
 		closedir(dp);
 	}
 }
@@ -589,7 +596,7 @@ MavlinkLogHandler::_delete_all(const char *dir)
 	if (dp == nullptr) {
 		return;
 	}
-
+#ifndef __PX4_QURT
 	struct dirent *result = nullptr;
 
 	while ((result = readdir(dp))) {
@@ -624,6 +631,6 @@ MavlinkLogHandler::_delete_all(const char *dir)
 			}
 		}
 	}
-
+#endif
 	closedir(dp);
 }

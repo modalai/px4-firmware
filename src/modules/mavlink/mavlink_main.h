@@ -47,13 +47,13 @@
 
 #ifdef __PX4_NUTTX
 #include <nuttx/fs/fs.h>
-#else
+#elif !defined(__PX4_QURT)
 #include <arpa/inet.h>
 #include <drivers/device/device.h>
 #include <sys/socket.h>
 #endif
 
-#if defined(CONFIG_NET) || !defined(__PX4_NUTTX)
+#if defined(CONFIG_NET) || !defined(__PX4_NUTTX) && !defined(__PX4_QURT)
 #include <net/if.h>
 #include <netinet/in.h>
 #endif
@@ -84,12 +84,12 @@
 #include "mavlink_shell.h"
 #include "mavlink_ulog.h"
 
-#define DEFAULT_BAUD_RATE       57600
-#define DEFAULT_DEVICE_NAME     "/dev/ttyS1"
+#define DEFAULT_BAUD_RATE       921600
+#define DEFAULT_DEVICE_NAME     "2"
 
 #define HASH_PARAM              "_HASH_CHECK"
 
-#if defined(CONFIG_NET) || defined(__PX4_POSIX)
+#if defined(CONFIG_NET) || defined(__PX4_POSIX) && !defined(__PX4_QURT)
 # define MAVLINK_UDP
 # define DEFAULT_REMOTE_PORT_UDP 14550 ///< GCS port per MAVLink spec
 #endif // CONFIG_NET || __PX4_POSIX

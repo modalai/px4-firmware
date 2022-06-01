@@ -46,7 +46,10 @@
 #include "mavlink_mission.h"
 #include "mavlink_parameters.h"
 #include "mavlink_timesync.h"
+
+#ifndef __PX4_QURT
 #include "tune_publisher.h"
+#endif
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/barometer/PX4Barometer.hpp>
@@ -186,8 +189,12 @@ private:
 	void handle_message_onboard_computer_status(mavlink_message_t *msg);
 	void handle_message_optical_flow_rad(mavlink_message_t *msg);
 	void handle_message_ping(mavlink_message_t *msg);
+
+#ifndef __PX4_QURT
 	void handle_message_play_tune(mavlink_message_t *msg);
 	void handle_message_play_tune_v2(mavlink_message_t *msg);
+#endif
+
 	void handle_message_radio_status(mavlink_message_t *msg);
 	void handle_message_rc_channels_override(mavlink_message_t *msg);
 	void handle_message_serial_control(mavlink_message_t *msg);
@@ -235,8 +242,9 @@ private:
 
 	void fill_thrust(float *thrust_body_array, uint8_t vehicle_type, float thrust);
 
+#ifndef __PX4_QURT
 	void schedule_tune(const char *tune);
-
+#endif
 	/**
 	 * @brief Updates the battery, optical flow, and flight ID subscribed parameters.
 	 */
@@ -434,8 +442,9 @@ private:
 	float 				_offb_cruising_speed_fw{-1.0f};
 
 	// Allocated if needed.
+#ifndef __PX4_QURT
 	TunePublisher *_tune_publisher{nullptr};
-
+#endif
 	hrt_abstime _last_heartbeat_check{0};
 
 	hrt_abstime _heartbeat_type_antenna_tracker{0};

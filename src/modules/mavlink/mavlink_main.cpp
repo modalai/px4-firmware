@@ -41,6 +41,8 @@
  */
 
 #include <termios.h>
+#include "mavlink_receiver.h"
+#include <pthread.h>
 
 #ifdef CONFIG_NET
 #include <arpa/inet.h>
@@ -52,9 +54,14 @@
 #include <lib/mathlib/mathlib.h>
 #include <lib/systemlib/mavlink_log.h>
 #include <lib/version/version.h>
+#include <px4_platform_common/tasks.h>
 
 #include "mavlink_receiver.h"
 #include "mavlink_main.h"
+
+#ifdef __PX4_QURT
+#include <drivers/device/qurt/uart.h>
+#endif
 
 // Guard against MAVLink misconfiguration
 #ifndef MAVLINK_CRC_EXTRA
@@ -64,6 +71,12 @@
 // Guard against flow control misconfiguration
 #if defined (CRTSCTS) && defined (__PX4_NUTTX) && (CRTSCTS != (CRTS_IFLOW | CCTS_OFLOW))
 #error The non-standard CRTSCTS define is incorrect. Fix this in the OS or replace with (CRTS_IFLOW | CCTS_OFLOW)
+#endif
+
+#ifdef CONFIG_NET
+#define MAVLINK_RECEIVER_NET_ADDED_STACK 1360
+#else
+#define MAVLINK_RECEIVER_NET_ADDED_STACK 0
 #endif
 
 #ifdef CONFIG_NET
@@ -627,6 +640,8 @@ Mavlink::mavlink_open_uart(const int baud, const char *uart_name, const FLOW_CON
 
 	/* Try to set baud rate */
 	struct termios uart_config;
+
+#ifndef __PX4_QURT
 	int termios_state;
 
 	/* Initialize the uart config */
@@ -635,19 +650,19 @@ Mavlink::mavlink_open_uart(const int baud, const char *uart_name, const FLOW_CON
 		::close(_uart_fd);
 		return -1;
 	}
-
+#endif
 	/* Clear ONLCR flag (which appends a CR for every LF) */
 	uart_config.c_oflag &= ~ONLCR;
 
 	if (!_is_usb_uart) {
-
+#ifndef __PX4_QURT
 		/* Set baud rate */
 		if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
 			PX4_ERR("ERR SET BAUD %s: %d\n", uart_name, termios_state);
 			::close(_uart_fd);
 			return -1;
 		}
-
+#endif
 	} else {
 
 		/* USB has no baudrate, but use a magic number for 'fast' */
@@ -661,12 +676,13 @@ Mavlink::mavlink_open_uart(const int baud, const char *uart_name, const FLOW_CON
 	cfmakeraw(&uart_config);
 #endif
 
+#ifndef __PX4_QURT
 	if ((termios_state = tcsetattr(_uart_fd, TCSANOW, &uart_config)) < 0) {
 		PX4_WARN("ERR SET CONF %s\n", uart_name);
 		::close(_uart_fd);
 		return -1;
 	}
-
+#endif
 	/* setup hardware flow control */
 	if (setup_flow_control(flow_control) && (flow_control != FLOW_CONTROL_AUTO)) {
 		PX4_WARN("hardware flow control not supported");
@@ -686,8 +702,10 @@ Mavlink::setup_flow_control(enum FLOW_CONTROL_MODE mode)
 
 	struct termios uart_config;
 
-	int ret = tcgetattr(_uart_fd, &uart_config);
-
+	int ret = 0;
+#ifndef __PX4_QURT
+	ret = tcgetattr(_uart_fd, &uart_config);
+#endif
 	if (mode != FLOW_CONTROL_OFF) {
 		uart_config.c_cflag |= CRTSCTS;
 
@@ -696,8 +714,9 @@ Mavlink::setup_flow_control(enum FLOW_CONTROL_MODE mode)
 
 	}
 
+#ifndef __PX4_QURT
 	ret = tcsetattr(_uart_fd, TCSANOW, &uart_config);
-
+#endif
 	if (!ret) {
 		_flow_control_mode = mode;
 	}
@@ -807,10 +826,17 @@ void Mavlink::send_finish()
 
 	int ret = -1;
 
+#ifndef __PX4_QURT
 	// send message to UART
 	if (get_protocol() == Protocol::SERIAL) {
 		ret = ::write(_uart_fd, _buf, _buf_fill);
 	}
+#else
+	if (get_protocol() == Protocol::SERIAL) {
+		ret = qurt_uart_write(_uart_fd, (const char*) _buf, _buf_fill);
+	}
+#endif
+
 
 #if defined(MAVLINK_UDP)
 
@@ -1062,7 +1088,7 @@ void Mavlink::find_broadcast_address()
 }
 #endif // MAVLINK_UDP
 
-#ifdef __PX4_POSIX
+#if defined(__PX4_POSIX) && !defined(__PX4_QURT)
 const in_addr
 Mavlink::query_netmask_addr(const int socket_fd, const ifreq &ifreq)
 {
@@ -1426,6 +1452,7 @@ Mavlink::pass_message(const mavlink_message_t *msg)
 		int size = MAVLINK_NUM_NON_PAYLOAD_BYTES + msg->len;
 		pthread_mutex_lock(&_message_buffer_mutex);
 		message_buffer_write(msg, size);
+		PX4_ERR("MSG BUFFER WRITE SENT");
 		pthread_mutex_unlock(&_message_buffer_mutex);
 	}
 }
@@ -1861,7 +1888,7 @@ Mavlink::task_main(int argc, char *argv[])
 	bool err_flag = false;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-#if defined(CONFIG_NET) || defined(__PX4_POSIX)
+#if defined(CONFIG_NET) || defined(__PX4_POSIX) && !defined(__PX4_QURT)
 	char *eptr;
 	int temp_int_arg;
 #endif
@@ -1897,14 +1924,14 @@ Mavlink::task_main(int argc, char *argv[])
 		case 'd':
 			_device_name = myoptarg;
 			set_protocol(Protocol::SERIAL);
-
+#if !defined(__PX4_QURT)
 			if (access(_device_name, F_OK) == -1) {
 				PX4_ERR("Device %s does not exist", _device_name);
 				err_flag = true;
 			}
 
 			break;
-
+#endif
 		case 'n':
 			_interface_name = myoptarg;
 			break;
@@ -2198,10 +2225,12 @@ Mavlink::task_main(int argc, char *argv[])
 
 	/* open the UART device after setting the instance, as it might block */
 	if (get_protocol() == Protocol::SERIAL) {
+#ifndef __PX4_QURT
 		_uart_fd = mavlink_open_uart(_baudrate, _device_name, _flow_control);
-
+#else
+		_uart_fd = qurt_uart_open(_device_name, _baudrate);
+#endif
 		if (_uart_fd < 0 && !_is_usb_uart) {
-			PX4_ERR("could not open %s", _device_name);
 			return PX4_ERROR;
 
 		} else if (_uart_fd < 0 && _is_usb_uart) {
@@ -2209,7 +2238,7 @@ Mavlink::task_main(int argc, char *argv[])
 			return PX4_OK;
 		}
 	}
-
+#ifndef __PX4_QURT
 #if defined(MAVLINK_UDP)
 
 	/* init socket if necessary */
@@ -2218,29 +2247,34 @@ Mavlink::task_main(int argc, char *argv[])
 	}
 
 #endif // MAVLINK_UDP
-
+#endif
 	/* if the protocol is serial, we send the system version blindly */
 	if (get_protocol() == Protocol::SERIAL) {
 		send_autopilot_capabilities();
 	}
-
 	/* start the MAVLink receiver last to avoid a race */
+#ifndef __PX4_QURT
 	MavlinkReceiver::receive_start(&_receive_thread, this);
+#else
+	pthread_attr_t receiveloop_attr;
+	pthread_attr_init(&receiveloop_attr);
+	pthread_attr_setstacksize(&receiveloop_attr,
+				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2840 + MAVLINK_RECEIVER_NET_ADDED_STACK));
+	pthread_create(&_receive_thread, &receiveloop_attr, MavlinkReceiver::start_helper, (void *) this);
+	pthread_attr_destroy(&receiveloop_attr);
+#endif
 
 	_mavlink_start_time = hrt_absolute_time();
 
 	while (!_task_should_exit) {
 		/* main loop */
 		px4_usleep(_main_loop_delay);
-
 		if (!should_transmit()) {
 			check_requested_subscriptions();
 			continue;
 		}
-
 		perf_count(_loop_interval_perf);
 		perf_begin(_loop_perf);
-
 		const hrt_abstime t = hrt_absolute_time();
 
 		update_rate_mult();
@@ -2253,7 +2287,6 @@ Mavlink::task_main(int argc, char *argv[])
 
 			// update parameters from storage
 			mavlink_update_parameters();
-
 #if defined(CONFIG_NET)
 
 			if (_param_mav_broadcast.get() != BROADCAST_MODE_MULTICAST) {
@@ -2639,7 +2672,11 @@ void Mavlink::configure_sik_radio()
 
 			if (_param_sik_radio_id.get() > 0) {
 				/* set channel */
-				fprintf(fs, "ATS3=%u\n", _param_sik_radio_id.get());
+#ifndef __PX4_QURT
+				fprintf(fs, "ATS3=%d\n", _param_sik_radio_id.get());
+#else
+				fprintf(fs, "ATS3=%ld\n", _param_sik_radio_id.get());
+#endif
 				px4_usleep(200000);
 
 			} else {
@@ -2809,7 +2846,7 @@ Mavlink::display_status()
 	       _ftp_on ? "YES" : "NO",
 	       _transmitting_enabled ? "YES" : "NO");
 	printf("\tmode: %s\n", mavlink_mode_str(_mode));
-	printf("\tMAVLink version: %i\n", _protocol_version);
+	printf("\tMAVLink version: %li\n", _protocol_version);
 
 	printf("\ttransport protocol: ");
 
@@ -2818,7 +2855,7 @@ Mavlink::display_status()
 
 	case Protocol::UDP:
 		printf("UDP (%i, remote port: %i)\n", _network_port, _remote_port);
-#ifdef __PX4_POSIX
+#if defined(__PX4_POSIX) && !defined(__PX4_QURT)
 
 		if (get_client_source_initialized()) {
 			printf("\tpartner IP: %s\n", inet_ntoa(get_client_source_address().sin_addr));
@@ -2839,7 +2876,7 @@ Mavlink::display_status()
 		printf("\t  mean: %0.2f ms\n", (double)_ping_stats.mean_rtt);
 		printf("\t  max: %0.2f ms\n", (double)_ping_stats.max_rtt);
 		printf("\t  min: %0.2f ms\n", (double)_ping_stats.min_rtt);
-		printf("\t  dropped packets: %u\n", _ping_stats.dropped_packets);
+		printf("\t  dropped packets: %lu\n", _ping_stats.dropped_packets);
 	}
 }
 
@@ -3046,7 +3083,7 @@ functionality, this needs to be take into account, in order to avoid race condit
 
 ### Examples
 Start mavlink on ttyS1 serial with baudrate 921600 and maximum sending rate of 80kB/s:
-$ mavlink start -d /dev/ttyS1 -b 921600 -m onboard -r 80000
+$ mavlink start -d /dev/uart_esc -b 921600 -m onboard -r 80000
 
 Start mavlink on UDP port 14556 and enable the HIGHRES_IMU message with 50Hz:
 $ mavlink start -u 14556 -r 1000000
@@ -3058,7 +3095,7 @@ $ mavlink stream -u 14556 -s HIGHRES_IMU -r 50
 	PRINT_MODULE_USAGE_PARAM_STRING('d', "/dev/ttyS1", "<file:dev>", "Select Serial Device", true);
 	PRINT_MODULE_USAGE_PARAM_INT('b', 57600, 9600, 3000000, "Baudrate (can also be p:<param_name>)", true);
 	PRINT_MODULE_USAGE_PARAM_INT('r', 0, 10, 10000000, "Maximum sending data rate in B/s (if 0, use baudrate / 20)", true);
-#if defined(CONFIG_NET) || defined(__PX4_POSIX)
+#if defined(CONFIG_NET) || defined(__PX4_POSIX) && !defined(__PX4_QURT)
 	PRINT_MODULE_USAGE_PARAM_INT('u', 14556, 0, 65536, "Select UDP Network Port (local)", true);
 	PRINT_MODULE_USAGE_PARAM_INT('o', 14550, 0, 65536, "Select UDP Network Port (remote)", true);
 	PRINT_MODULE_USAGE_PARAM_STRING('t', "127.0.0.1", nullptr,
@@ -3082,7 +3119,7 @@ $ mavlink stream -u 14556 -s HIGHRES_IMU -r 50
 	PRINT_MODULE_USAGE_ARG("streams", "Print all enabled streams", true);
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stream", "Configure the sending rate of a stream for a running instance");
-#if defined(CONFIG_NET) || defined(__PX4_POSIX)
+#if defined(CONFIG_NET) || defined(__PX4_POSIX) && !defined(__PX4_QURT)
 	PRINT_MODULE_USAGE_PARAM_INT('u', -1, 0, 65536, "Select Mavlink instance via local Network Port", true);
 #endif
 	PRINT_MODULE_USAGE_PARAM_STRING('d', nullptr, "<file:dev>", "Select Mavlink instance via Serial Device", true);

@@ -37,7 +37,7 @@
 #ifdef __PX4_DARWIN
 #include <sys/param.h>
 #include <sys/mount.h>
-#else
+#elif !defined(__PX4_QURT)
 #include <sys/statfs.h>
 #endif
 
@@ -73,20 +73,23 @@ private:
 	bool send() override
 	{
 		mavlink_storage_information_t storage_info{};
+#ifndef __PX4_QURT
 		const char *microsd_dir = PX4_STORAGEDIR;
-
+#endif
 		if (_storage_id == 0 || _storage_id == 1) { // request is for all or the first storage
 			storage_info.storage_id = 1;
 
-			struct statfs statfs_buf;
 			uint64_t total_bytes = 0;
 			uint64_t avail_bytes = 0;
+
+#ifndef __PX4_QURT
+			struct statfs statfs_buf;
 
 			if (statfs(microsd_dir, &statfs_buf) == 0) {
 				total_bytes = (uint64_t)statfs_buf.f_blocks * statfs_buf.f_bsize;
 				avail_bytes = (uint64_t)statfs_buf.f_bavail * statfs_buf.f_bsize;
 			}
-
+#endif
 			if (total_bytes == 0) { // on NuttX we get 0 total bytes if no SD card is inserted
 				storage_info.storage_count = 0;
 				storage_info.status = 0; // not available

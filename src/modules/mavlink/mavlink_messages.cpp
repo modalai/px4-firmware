@@ -462,7 +462,7 @@ protected:
 			uint32_t custom_mode = 0;
 			uint8_t system_status = 0;
 			get_mavlink_mode_state(&status, &system_status, &base_mode, &custom_mode);
-
+			PX4_ERR("SENDING HEARTBEAT");
 			mavlink_msg_heartbeat_send(_mavlink->get_channel(), _mavlink->get_system_type(), MAV_AUTOPILOT_PX4,
 						   base_mode, custom_mode, system_status);
 

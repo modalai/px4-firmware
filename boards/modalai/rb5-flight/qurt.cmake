@@ -5,7 +5,6 @@
 # the DSP side.
 
 message(STATUS "*** Entering qurt.cmake ***")
-
 set(QC_SOC_TARGET "QRB5165")
 
 include(px4_git)
@@ -26,8 +25,8 @@ message(STATUS "in qurt.make: CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
     ${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
+    ${PX4_SOURCE_DIR}/platforms/nuttx/Nuttx/nuttx/include
        )
-
 include_directories(${HEXAGON_SDK_INCLUDES})
 
 set(CONFIG_SHMEM "0")
@@ -45,7 +44,8 @@ set(CONFIG_PARAM_CLIENT "1")
 set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
 
 # This definition allows to differentiate the specific board.
-add_definitions(-D__PX4_QURT_EXCELSIOR)
+add_definitions(-D__PX4_QURT_EXCELSIOR
+)
 
 px4_add_board(
 	PLATFORM qurt
@@ -53,7 +53,7 @@ px4_add_board(
 	MODEL excelsior
 	LABEL qurt
 	DRIVERS
-        barometer/icp10100
+        #barometer/icp10100
 		qshell/qurt
         #magnetometer/hmc5883
         magnetometer/isentek/ist8310
@@ -63,18 +63,18 @@ px4_add_board(
 		px4io
         power_monitor/voxlpm
         imu/invensense/icm42688p
-				lights/rgbled_ncp5623c
+	#			lights/rgbled_ncp5623c
 		pwm_out_sim
-		spektrum_rc
-		gps
-		uart_loopback
+	#	spektrum_rc
+	#	gps
+	#	uart_loopback
 	MODULES
-		attitude_estimator_q
+	#	attitude_estimator_q
 		# commander
-		ekf2
+	#	ekf2
 		#fw_att_control
 		#fw_pos_control_l1
-		land_detector
+	#	land_detector
 		#landing_target_estimator
 		#local_position_estimator
 		mc_att_control
@@ -85,6 +85,7 @@ px4_add_board(
 		#rc_update
 		#rover_pos_control
 		sensors
+		mavlink
 		# temperature_compensation
 		# vmount
 	SYSTEMCMDS
