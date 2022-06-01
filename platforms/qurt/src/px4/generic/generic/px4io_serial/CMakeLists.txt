@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2019 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2015-2019 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,4 +31,6 @@
 #
 ############################################################################
 
-add_subdirectory(px4io_serial)
+px4_add_library(arch_px4io_serial
+	px4io_serial.cpp
+)

@@ -38,8 +38,9 @@
  */
 
 #include <px4_arch/px4io_serial.h>
+#include <drivers/device/qurt/uart.h>
 
-#include <termios.h>
+#define ASYNC_UART_READ_WAIT_US 2000
 
 uint8_t ArchPX4IOSerial::_io_buffer_storage[sizeof(IOPacket)];
 
@@ -62,7 +63,8 @@ ArchPX4IOSerial::init()
 	}
 
 	if (uart_fd < 0) {
-		uart_fd = open("/dev/ttyHS1", O_RDWR | O_NONBLOCK);
+		// uart_fd = qurt_uart_open("2", 1000000);
+		uart_fd = qurt_uart_open("2", 921600);
 	}
 
 	if (uart_fd < 0) {
@@ -70,65 +72,6 @@ ArchPX4IOSerial::init()
 		return -1;
 	} else {
 		PX4_INFO("serial port fd %d", uart_fd);
-	}
-
-	// Configuration copied from dsm_config
-	struct termios uart_config;
-
-	int termios_state;
-
-	/* fill the struct for the new configuration */
-	tcgetattr(uart_fd, &uart_config);
-
-	/* properly configure the terminal (see also https://en.wikibooks.org/wiki/Serial_Programming/termios ) */
-
-	//
-	// Input flags - Turn off input processing
-	//
-	// convert break to null byte, no CR to NL translation,
-	// no NL to CR translation, don't mark parity errors or breaks
-	// no input parity check, don't strip high bit off,
-	// no XON/XOFF software flow control
-	//
-	uart_config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
-			                     INLCR | PARMRK | INPCK | ISTRIP | IXON);
-	//
-	// Output flags - Turn off output processing
-	//
-	// no CR to NL translation, no NL to CR-NL translation,
-	// no NL to CR translation, no column 0 CR suppression,
-	// no Ctrl-D suppression, no fill characters, no case mapping,
-	// no local output processing
-	//
-	// config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
-	//                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
-	uart_config.c_oflag = 0;
-
-	//
-	// No line processing
-	//
-	// echo off, echo newline off, canonical mode off,
-	// extended input processing off, signal chars off
-	//
-	uart_config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
-
-	/* no parity, one stop bit, disable flow control */
-	uart_config.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
-
-	/* set baud rate */
-	if ((termios_state = cfsetispeed(&uart_config, B921600)) < 0) {
-		PX4_ERR("ERR: %d (cfsetispeed)", termios_state);
-		return -1;
-	}
-
-	if ((termios_state = cfsetospeed(&uart_config, B921600)) < 0) {
-		PX4_ERR("ERR: %d (cfsetospeed)", termios_state);
-		return -1;
-	}
-
-	if ((termios_state = tcsetattr(uart_fd, TCSANOW, &uart_config)) < 0) {
-		PX4_ERR("ERR: %d (tcsetattr)", termios_state);
-		return -1;
 	}
 
 	return 0;
@@ -171,14 +114,17 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 
 	perf_begin(_pc_txns);
 
-	int ret = ::write(uart_fd, _packet, sizeof(IOPacket));
+	int ret = qurt_uart_write(uart_fd, (const char*) _packet, sizeof(IOPacket));
 
 	if (ret > 0) {
 			// PX4_INFO("Write %d bytes", ret);
 
-			px4_usleep(2000);
+			usleep(20000);
 
-			ret = ::read(uart_fd, _packet, sizeof(IOPacket));
+		    // The UART read on SLPI is via an asynchronous service so specify a timeout
+		    // for the return. The driver will poll periodically until the read comes in
+		    // so this may block for a while. However, it will timeout if no read comes in.
+		    ret = qurt_uart_read(uart_fd, (char*) _packet, sizeof(IOPacket), ASYNC_UART_READ_WAIT_US);
 
 			if (ret > 0){
 				// PX4_INFO("Read %d bytes", ret);
@@ -190,7 +136,7 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 				if ((crc != crc_packet(_packet)) || (PKT_CODE(*_packet) == PKT_CODE_CORRUPT)){
 					perf_count(_pc_crcerrs);
 					perf_end(_pc_txns);
-					// PX4_ERR("Packet CRC error");
+					PX4_ERR("Packet CRC error");
 					return -EIO;
 				}
 			}

@@ -31,7 +31,7 @@
 #
 ############################################################################
 
-if(${PX4_PLATFORM} STREQUAL "posix")
+if(${PX4_PLATFORM} STREQUAL "posix" OR ${PX4_PLATFORM} STREQUAL "qurt")
 	set(UPLOADER_SRC)
 else()
 	set(UPLOADER_SRC px4io_uploader.cpp)
@@ -52,7 +52,7 @@ px4_add_module(
 		mixer
 	)
 
-if(NOT ${PX4_PLATFORM} STREQUAL "posix")
+if(NOT ${PX4_PLATFORM} STREQUAL "posix" AND NOT ${PX4_PLATFORM} STREQUAL "qurt")
 	# include the px4io binary in ROMFS
 	message(STATUS "Building and including ${config_io_board}")
 

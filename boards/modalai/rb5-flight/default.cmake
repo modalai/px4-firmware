@@ -72,6 +72,7 @@ px4_add_board(
 		#camera_feedback
 		commander
 		dataman
+		modalai_gps_timer
 		#ekf2
 		#events
         flight_mode_manager

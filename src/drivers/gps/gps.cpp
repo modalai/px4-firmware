@@ -584,6 +584,11 @@ int GPS::setBaudrate(unsigned baud)
 		GPS_ERR("ERR: %d (tcsetattr)", termios_state);
 		return -1;
 	}
+#else
+	if (qurt_uart_open(_port, baud) < 0) {
+		PX4_ERR("GPS: failed to set baud rate %u on serial port", baud);
+		return -1;
+	}
 #endif
 
 	return 0;
@@ -659,15 +664,25 @@ GPS::run()
 	if (!_fake_gps) {
 		/* open the serial port */
 #ifdef __PX4_QURT
-		_serial_fd = qurt_uart_open("6", 115200);
+		if (_configured_baudrate) {
+			_serial_fd = qurt_uart_open(_port, _configured_baudrate);
+		} else {
+			// Qurt needs a valid baud rate to successfully open a port
+			_serial_fd = qurt_uart_open(_port, 9600);
+		}
+
+		if (_serial_fd < 0) {
+			PX4_ERR("GPS: failed to open serial port. errno: %d", errno);
+			return;
+		}
 #else
 		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
-#endif
 
 		if (_serial_fd < 0) {
 			PX4_ERR("GPS: failed to open serial port: %s err: %d", _port, errno);
 			return;
 		}
+#endif
 
 #ifdef __PX4_LINUX
 
@@ -1207,7 +1222,11 @@ GPS *GPS::instantiate(int argc, char *argv[])
 
 GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 {
+#ifdef __PX4_QURT
+	const char *device_name = "6";
+#else
 	const char *device_name = "/dev/ttyS3";
+#endif
 	const char *device_name_secondary = nullptr;
 	int baudrate_main = 0;
 	int baudrate_secondary = 0;
