@@ -45,6 +45,7 @@
 
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/esc_status.h>
 
 #include "modalai_esc_serial.hpp"
 
@@ -187,6 +188,9 @@ private:
 	uORB::Subscription 	_parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription	_led_update_sub{ORB_ID(led_control)};
 
+	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
+	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)}; 	///< mixer status flags
+
 	uart_esc_params_t	_parameters;
 	int			update_params();
 	int			load_params(uart_esc_params_t *params, ch_assign_t *map);
@@ -201,6 +205,7 @@ private:
 
 	EscChan			_esc_chans[MODALAI_ESC_OUTPUT_CHANNELS];
 	Command			_esc_cmd;
+	esc_status_s		_esc_status;
 
 	led_rsc_t	 	_led_rsc;
 	void 			updateLeds(vehicle_control_mode_s mode, led_control_s control);

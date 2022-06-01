@@ -53,6 +53,11 @@ ModalaiEsc::ModalaiEsc() :
 
 	_mixing_output.setAllFailsafeValues(0);
 	_mixing_output.setAllDisarmedValues(0);
+
+	_esc_status.timestamp = hrt_absolute_time();
+	_esc_status.counter = 0;
+	_esc_status.esc_count = MODALAI_ESC_OUTPUT_CHANNELS;
+	_esc_status.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
 }
 
 ModalaiEsc::~ModalaiEsc()
@@ -270,6 +275,16 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len)
 				_esc_chans[id].state = fb.state & 0x0F;
 				_esc_chans[id].cmd_counter = fb.cmd_counter;
 				_esc_chans[id].voltage = 9.0 + fb.voltage / 34.0;
+
+				// also update our internal report for logging
+				_esc_status.esc[id].timestamp = hrt_absolute_time();
+				_esc_status.esc[id].esc_rpm = fb.rpm;
+				_esc_status.esc[id].esc_state = fb.state & 0x0F;
+				_esc_status.esc[id].esc_cmdcount = fb.cmd_counter;
+				_esc_status.esc[id].esc_voltage = 9.0 + fb.voltage / 34.0;
+
+				_esc_status.timestamp = _esc_status.esc[id].timestamp;
+				_esc_status.counter++;
 			}
 		}
 
@@ -872,6 +887,21 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	if (res > 0) {
 		parseResponse(cmd.buf, res);
 	}
+
+	// publish the actual command that we sent and the feedback received
+	{
+		actuator_outputs_s actuator_outputs{};
+		actuator_outputs.noutputs = num_outputs;
+
+		for (size_t i = 0; i < num_outputs; ++i) {
+			actuator_outputs.output[i] = _esc_chans[i].rate_req;
+		}
+		actuator_outputs.timestamp = hrt_absolute_time();
+
+		_outputs_debug_pub.publish(actuator_outputs);
+		_esc_status_pub.publish(_esc_status);
+	}
+
 
 	perf_count(_output_update_perf);
 
