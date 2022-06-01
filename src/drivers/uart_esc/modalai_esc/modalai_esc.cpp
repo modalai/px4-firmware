@@ -58,6 +58,14 @@ ModalaiEsc::ModalaiEsc() :
 	_esc_status.counter = 0;
 	_esc_status.esc_count = MODALAI_ESC_OUTPUT_CHANNELS;
 	_esc_status.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
+	for (unsigned i = 0; i != MODALAI_ESC_OUTPUT_CHANNELS; ++i) {
+		_esc_status.esc[i].timestamp = _esc_status.timestamp;
+		_esc_status.esc[i].esc_rpm = 0;
+		_esc_status.esc[i].esc_state = 0;
+		_esc_status.esc[i].esc_cmdcount = 0;
+		_esc_status.esc[i].esc_voltage = 0;
+	}
+
 	// @TODO replace these with actual feedback from ESCs, if available
 	_esc_status.esc_online_flags = (1 << MODALAI_ESC_OUTPUT_CHANNELS) - 1;
 	_esc_status.esc_armed_flags = (1 << MODALAI_ESC_OUTPUT_CHANNELS) - 1;
