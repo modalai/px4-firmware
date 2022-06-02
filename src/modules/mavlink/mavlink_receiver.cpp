@@ -121,6 +121,7 @@ MavlinkReceiver::acknowledge(uint8_t sysid, uint8_t compid, uint16_t command, ui
 void
 MavlinkReceiver::handle_message(mavlink_message_t *msg)
 {
+	//PX4_ERR("HANDLING MESSAGE");
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long(msg);
@@ -3048,7 +3049,7 @@ MavlinkReceiver::Run()
 			speed_t speed = 921600;
 			_uart_fd = qurt_uart_open(dev, speed);
 			nread = qurt_uart_read(_uart_fd, (char*) buf, sizeof(buf), ASYNC_UART_READ_WAIT_US);
-			//nread = ::read(fds[0].fd, buf, sizeof(buf));
+			//PX4_ERR("NREAD DONE");
 			ret = 1;
 			if (nread == -1 && errno == ENOTCONN) { // Not connected (can happen for USB)
 				PX4_ERR("INSIDE SLEEPER FUNCTION");
@@ -3096,9 +3097,9 @@ MavlinkReceiver::Run()
 				for (ssize_t i = 0; i < nread; i++) {
 					if (mavlink_parse_char(_mavlink->get_channel(), buf[i], &msg, &_status)) {
 
-						if(msg.msgid != 107 && msg.msgid != 331){
-							PX4_ERR("MSG ID: %d", msg.msgid);
-						}
+						//if(msg.msgid != 107 && msg.msgid != 331){
+						//PX4_ERR("MSG ID: %d", msg.msgid);
+						//}
 						//PX4_ERR("PARSING MAVLINK CHANNEL WITH MESSAGE");
 						_total_received_counter++;
 

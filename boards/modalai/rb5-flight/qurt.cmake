@@ -59,7 +59,7 @@ px4_add_board(
         magnetometer/isentek/ist8310
         magnetometer/qmc5883l
         uart_esc/modalai_esc
-	uart_dsp/modalai_dsp
+	#uart_dsp/modalai_dsp
 		px4io
         power_monitor/voxlpm
         imu/invensense/icm42688p
@@ -71,10 +71,10 @@ px4_add_board(
 	MODULES
 	#	attitude_estimator_q
 		# commander
-	#	ekf2
+		ekf2
 		#fw_att_control
 		#fw_pos_control_l1
-	#	land_detector
+		land_detector
 		#landing_target_estimator
 		#local_position_estimator
 		mc_att_control

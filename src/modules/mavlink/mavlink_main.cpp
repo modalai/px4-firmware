@@ -101,11 +101,9 @@ extern "C" __EXPORT int mavlink_main(int argc, char *argv[]);
 void mavlink_send_uart_bytes(mavlink_channel_t chan, const uint8_t *ch, int length)
 {
 	Mavlink *m = Mavlink::get_instance(chan);
-
 	if (m != nullptr) {
 		m->send_bytes(ch, length);
 #ifdef MAVLINK_PRINT_PACKETS
-
 		for (unsigned i = 0; i < length; i++) {
 			printf("%02x", (unsigned char)ch[i]);
 		}
@@ -733,7 +731,6 @@ Mavlink::set_hil_enabled(bool hil_enabled)
 	if (hil_enabled && !_hil_enabled && _datarate > 5000) {
 		_hil_enabled = true;
 		ret = configure_stream("HIL_ACTUATOR_CONTROLS", 200.0f);
-
 		if (_param_sys_hitl.get() == 2) {		// Simulation in Hardware enabled ?
 			configure_stream("HIL_STATE_QUATERNION", 25.0f); // ground truth to display the SIH
 
@@ -745,6 +742,7 @@ Mavlink::set_hil_enabled(bool hil_enabled)
 	/* disable HIL */
 	if (!hil_enabled && _hil_enabled) {
 		_hil_enabled = false;
+		PX4_ERR("HIL DISABLED");
 		ret = configure_stream("HIL_ACTUATOR_CONTROLS", 0.0f);
 
 		configure_stream("HIL_STATE_QUATERNION", 0.0f);
@@ -898,7 +896,9 @@ void Mavlink::send_bytes(const uint8_t *buf, unsigned packet_len)
 		if (_buf_fill + packet_len < sizeof(_buf)) {
 			memcpy(&_buf[_buf_fill], buf, packet_len);
 			_buf_fill += packet_len;
-
+#ifdef __PX4_QURT
+			(void) qurt_uart_write(_uart_fd, (const char*) _buf, _buf_fill);
+#endif
 		} else {
 			perf_count(_send_byte_error_perf);
 		}
@@ -1296,9 +1296,11 @@ Mavlink::configure_stream(const char *stream_name, const float rate)
 
 	// search for stream with specified name in supported streams list
 	// create new instance if found
+	PX4_ERR("NAME OF STREAM CONFIGURED: %s", stream_name);
 	MavlinkStream *stream = create_mavlink_stream(stream_name, this);
 
 	if (stream != nullptr) {
+		PX4_ERR("Stream added to _streams");
 		stream->set_interval(interval);
 		_streams.add(stream);
 
@@ -1449,9 +1451,16 @@ Mavlink::pass_message(const mavlink_message_t *msg)
 {
 	if (_forwarding_on) {
 		/* size is 8 bytes plus variable payload */
-		int size = MAVLINK_NUM_NON_PAYLOAD_BYTES + msg->len;
 		pthread_mutex_lock(&_message_buffer_mutex);
+#ifndef __PX4_QURT
+		int size = MAVLINK_NUM_NON_PAYLOAD_BYTES + msg->len;
 		message_buffer_write(msg, size);
+#else
+		uint8_t  newBuf[512];
+		uint16_t newBufLen = 0;
+		newBufLen = mavlink_msg_to_send_buffer(newBuf, msg);
+		(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 		PX4_ERR("MSG BUFFER WRITE SENT");
 		pthread_mutex_unlock(&_message_buffer_mutex);
 	}
@@ -2255,6 +2264,7 @@ Mavlink::task_main(int argc, char *argv[])
 	/* start the MAVLink receiver last to avoid a race */
 #ifndef __PX4_QURT
 	MavlinkReceiver::receive_start(&_receive_thread, this);
+	PX4_ERR("Starting pthread INSIDE mavlink receiver code");
 #else
 	pthread_attr_t receiveloop_attr;
 	pthread_attr_init(&receiveloop_attr);
@@ -2262,6 +2272,7 @@ Mavlink::task_main(int argc, char *argv[])
 				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2840 + MAVLINK_RECEIVER_NET_ADDED_STACK));
 	pthread_create(&_receive_thread, &receiveloop_attr, MavlinkReceiver::start_helper, (void *) this);
 	pthread_attr_destroy(&receiveloop_attr);
+	PX4_ERR("Starting pthread in main mavlink code");
 #endif
 
 	_mavlink_start_time = hrt_absolute_time();
@@ -2414,23 +2425,28 @@ Mavlink::task_main(int argc, char *argv[])
 		check_requested_subscriptions();
 
 		/* update streams */
+		//PX4_ERR("LENGHT OF _STREAMS: %d", (int) _streams.size());
 		for (const auto &stream : _streams) {
-			stream->update(t);
+			const char* stream_name = stream->get_name();
+			const char* actuator_name = "HIL_ACTUATOR_CONTROLS";
+			if(stream_name == actuator_name){
+				//PX4_ERR("STREAM UPDATE CALLED");
+				stream->update(t);
 
-			if (!_first_heartbeat_sent) {
-				if (_mode == MAVLINK_MODE_IRIDIUM) {
-					if (stream->get_id() == MAVLINK_MSG_ID_HIGH_LATENCY2) {
-						_first_heartbeat_sent = stream->first_message_sent();
-					}
+				if (!_first_heartbeat_sent) {
+					if (_mode == MAVLINK_MODE_IRIDIUM) {
+						if (stream->get_id() == MAVLINK_MSG_ID_HIGH_LATENCY2) {
+							_first_heartbeat_sent = stream->first_message_sent();
+						}
 
-				} else {
-					if (stream->get_id() == MAVLINK_MSG_ID_HEARTBEAT) {
-						_first_heartbeat_sent = stream->first_message_sent();
+					} else {
+						if (stream->get_id() == MAVLINK_MSG_ID_HEARTBEAT) {
+							_first_heartbeat_sent = stream->first_message_sent();
+						}
 					}
 				}
 			}
 		}
-
 		/* check for ulog streaming messages */
 		if (_mavlink_ulog) {
 			if (_mavlink_ulog_stop_requested) {
@@ -2536,6 +2552,7 @@ Mavlink::task_main(int argc, char *argv[])
 	_subscribe_to_stream = nullptr;
 
 	/* delete streams */
+	PX4_ERR("STREAM CLEARED");
 	_streams.clear();
 
 	if (_uart_fd >= 0 && !_is_usb_uart) {
