@@ -462,9 +462,25 @@ protected:
 			uint32_t custom_mode = 0;
 			uint8_t system_status = 0;
 			get_mavlink_mode_state(&status, &system_status, &base_mode, &custom_mode);
-			PX4_ERR("SENDING HEARTBEAT");
+
+#ifndef __PX4_QURT
 			mavlink_msg_heartbeat_send(_mavlink->get_channel(), _mavlink->get_system_type(), MAV_AUTOPILOT_PX4,
 						   base_mode, custom_mode, system_status);
+#else
+			mavlink_heartbeat_t hb = {};
+			mavlink_message_t hb_message = {};
+			hb.type = _mavlink->get_system_type();
+			hb.autopilot = 12;
+			hb.base_mode = base_mode;
+			hb.custom_mode = custom_mode;
+			hb.system_status = system_status;
+			mavlink_msg_heartbeat_encode(1, 1, &hb_message, &hb);
+
+			uint8_t  hb_newBuf[MAVLINK_MAX_PACKET_LEN];
+			uint16_t hb_newBufLen = 0;
+			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
+			(void) qurt_uart_write(_uart_fd, (const char*) hb_newBuf, hb_newBufLen);
+#endif
 
 			return true;
 		}
@@ -534,8 +550,23 @@ protected:
 
 				if (!cmd.from_external) {
 					PX4_DEBUG("sending command %d to %d/%d", cmd.command, cmd.target_system, cmd.target_component);
+ 					MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
+// #ifndef __PX4_QURT
+// 					MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
+// #else
 
-					MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
+// 					mavlink_command_long_t long_msg{};
+// 					long_msg.command = cmd.command;
+// 					long_msg.target_system = cmd.target_system;
+// 					long_msg.target_component = cmd.target_component;
+// 					mavlink_message_t message{};
+// 					mavlink_msg_command_long_encode(1, 1, &message, &long_msg);
+
+// 					uint8_t  newBuf[512];
+// 					uint16_t newBufLen = 0;
+// 					newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+// 					(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+// #endif
 					sent = true;
 
 				} else {
@@ -650,9 +681,17 @@ protected:
 				msg.current_battery = -1;
 				msg.battery_remaining = -1;
 			}
-
+#ifndef __PX4_QURT
 			mavlink_msg_sys_status_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_sys_status_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -772,9 +811,17 @@ protected:
 						bat_msg.voltages[cell] = UINT16_MAX;
 					}
 				}
-
+#ifndef __PX4_QURT
 				mavlink_msg_battery_status_send_struct(_mavlink->get_channel(), &bat_msg);
+#else
+				mavlink_message_t message{};
+				mavlink_msg_battery_status_encode(1, 1, &message, &bat_msg);
 
+				uint8_t  newBuf[512];
+				uint16_t newBufLen = 0;
+				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+				(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 				updated = true;
 			}
 		}
@@ -868,9 +915,17 @@ protected:
 				msg.charging_minimum_voltage = -1;
 				msg.resting_minimum_voltage = -1;
 
-
+#ifndef __PX4_QURT
 				mavlink_msg_smart_battery_info_send_struct(_mavlink->get_channel(), &msg);
+#else
+				mavlink_message_t message{};
+				mavlink_msg_smart_battery_info_encode(1, 1, &message, &msg);
 
+				uint8_t  newBuf[512];
+				uint16_t newBufLen = 0;
+				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+				(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 				updated = true;
 			}
 
@@ -1054,9 +1109,17 @@ protected:
 			msg.pressure_alt = air_data.baro_alt_meter;
 			msg.temperature = air_data.baro_temp_celcius;
 			msg.fields_updated = fields_updated;
-
+#ifndef __PX4_QURT
 			mavlink_msg_highres_imu_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_highres_imu_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -1108,9 +1171,19 @@ protected:
 			msg.press_abs = sensor_baro.pressure;
 			msg.press_diff = differential_pressure.differential_pressure_raw_pa;
 			msg.temperature = sensor_baro.temperature;
+ 			Derived::send(_mavlink->get_channel(), &msg);
 
-			Derived::send(_mavlink->get_channel(), &msg);
+// #ifndef __PX4_QURT
+// 			Derived::send(_mavlink->get_channel(), &msg);
+// #else
+// 			mavlink_message_t message{};
+// 			mavlink_msg_scaled_pressure_encode(1, 1, &message, &msg);
 
+// 			uint8_t  newBuf[512];
+// 			uint16_t newBufLen = 0;
+// 			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+// 			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+// #endif
 			return true;
 		}
 
@@ -1318,9 +1391,17 @@ protected:
 			if (lpos.v_z_valid) {
 				msg.climb = -lpos.vz;
 			}
-
+#ifndef __PX4_QURT
 			mavlink_msg_vfr_hud_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_vfr_hud_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -1394,9 +1475,17 @@ protected:
 			msg.vel = cm_uint16_from_m_float(gps.vel_m_s);
 			msg.cog = math::degrees(wrap_2pi(gps.cog_rad)) * 1e2f;
 			msg.satellites_visible = gps.satellites_used;
-
+#ifndef __PX4_QURT
 			mavlink_msg_gps_raw_int_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_gps_raw_int_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -1467,9 +1556,17 @@ protected:
 			msg.satellites_visible = gps.satellites_used;
 			//msg.dgps_numch = // Number of DGPS satellites
 			//msg.dgps_age = // Age of DGPS info
-
+#ifndef __PX4_QURT
 			mavlink_msg_gps2_raw_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_gps2_raw_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -1531,7 +1628,17 @@ protected:
 		// If the time is before 2001-01-01, it's probably the default 2000
 		// and we don't need to bother sending it because it's definitely wrong.
 		if (msg.time_unix_usec > 978307200000000) {
+#ifndef __PX4_QURT
 			mavlink_msg_system_time_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_system_time_encode(1, 1, &message, &msg);
+
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -1587,9 +1694,17 @@ protected:
 
 		msg.tc1 = 0;
 		msg.ts1 = hrt_absolute_time() * 1000; // boot time in nanoseconds
-
+#ifndef __PX4_QURT
 		mavlink_msg_timesync_send_struct(_mavlink->get_channel(), &msg);
+#else
+		mavlink_message_t message{};
+		mavlink_msg_timesync_encode(1, 1, &message, &msg);
 
+		uint8_t  newBuf[512];
+		uint16_t newBufLen = 0;
+		newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+		(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 		return true;
 	}
 };
@@ -1681,8 +1796,17 @@ protected:
 			if (pos.flags & transponder_report_s::PX4_ADSB_FLAGS_VALID_CALLSIGN) { msg.flags |= ADSB_FLAGS_VALID_CALLSIGN; }
 
 			if (pos.flags & transponder_report_s::PX4_ADSB_FLAGS_VALID_SQUAWK) { msg.flags |= ADSB_FLAGS_VALID_SQUAWK; }
-
+#ifndef __PX4_QURT
 			mavlink_msg_adsb_vehicle_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_adsb_vehicle_encode(1, 1, &message, &msg);
+
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			sent = true;
 		}
 
@@ -1856,9 +1980,17 @@ protected:
 			}
 
 			msg.update_rate = 0; // Data driven mode
-
+#ifndef __PX4_QURT
 			mavlink_msg_utm_global_position_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_utm_global_position_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -1965,9 +2097,17 @@ protected:
 				digicam_ctrl_cmd.param5 = 1;   // take 1 picture
 				digicam_ctrl_cmd.param6 = NAN;
 				digicam_ctrl_cmd.param7 = NAN;
-
+#ifndef __PX4_QURT
 				mavlink_msg_command_long_send_struct(_mavlink->get_channel(), &digicam_ctrl_cmd);
+#else
+				mavlink_message_t message{};
+				mavlink_msg_command_long_encode(1, 1, &message, &digicam_ctrl_cmd);
 
+				uint8_t  newBuf[512];
+				uint16_t newBufLen = 0;
+				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+				(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 				return true;
 			}
 		}
@@ -2046,9 +2186,17 @@ protected:
 			msg.image_index = capture.seq;
 			msg.capture_result = capture.result;
 			msg.file_url[0] = '\0';
-
+#ifndef __PX4_QURT
 			mavlink_msg_camera_image_captured_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_camera_image_captured_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2151,9 +2299,17 @@ protected:
 			msg.vz = lpos.vz * 100.0f;
 
 			msg.hdg = math::degrees(wrap_2pi(lpos.heading)) * 100.0f;
-
+#ifndef __PX4_QURT
 			mavlink_msg_global_position_int_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_global_position_int_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2306,9 +2462,17 @@ protected:
 			for (size_t i = 0; i < VEL_URT_SIZE; i++) {
 				msg.velocity_covariance[i] = odom.velocity_covariance[i];
 			}
-
+#ifndef __PX4_QURT
 			mavlink_msg_odometry_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_odometry_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2375,9 +2539,17 @@ protected:
 			msg.vx = lpos.vx;
 			msg.vy = lpos.vy;
 			msg.vz = lpos.vz;
-
+#ifndef __PX4_QURT
 			mavlink_msg_local_position_ned_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_local_position_ned_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2457,8 +2629,17 @@ protected:
 			est_msg.pos_horiz_accuracy = est.pos_horiz_accuracy;
 			est_msg.pos_vert_accuracy = est.pos_vert_accuracy;
 			est_msg.flags = est.solution_status_flags;
+#ifndef __PX4_QURT
 			mavlink_msg_estimator_status_send_struct(_mavlink->get_channel(), &est_msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_estimator_status_encode(1, 1, &message, &est_msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2575,9 +2756,17 @@ protected:
 					}
 				}
 			}
-
+#ifndef __PX4_QURT
 			mavlink_msg_vibration_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_vibration_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2644,9 +2833,17 @@ protected:
 			msg.x = mocap.x;
 			msg.y = mocap.y;
 			msg.z = mocap.z;
-
+#ifndef __PX4_QURT
 			mavlink_msg_att_pos_mocap_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_att_pos_mocap_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2728,9 +2925,17 @@ protected:
 				msg.approach_z = 0.0f;
 
 				msg.time_usec = home.timestamp;
-
+#ifndef __PX4_QURT
 				mavlink_msg_home_position_send_struct(_mavlink->get_channel(), &msg);
+#else
+				mavlink_message_t message{};
+				mavlink_msg_home_position_encode(1, 1, &message, &msg);
 
+				uint8_t  newBuf[512];
+				uint16_t newBufLen = 0;
+				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+				(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 				return true;
 			}
 		}
@@ -2818,9 +3023,17 @@ protected:
 			msg.servo14_raw = act.output[13];
 			msg.servo15_raw = act.output[14];
 			msg.servo16_raw = act.output[15];
-
+#ifndef __PX4_QURT
 			mavlink_msg_servo_output_raw_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_servo_output_raw_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2923,9 +3136,17 @@ protected:
 			for (unsigned i = 0; i < sizeof(msg.controls) / sizeof(msg.controls[0]); i++) {
 				msg.controls[i] = act_ctrl.control[i];
 			}
-
+#ifndef __PX4_QURT
 			mavlink_msg_actuator_control_target_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_actuator_control_target_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 
@@ -2996,8 +3217,17 @@ protected:
 			msg.param5 = 0;
 			msg.param6 = 0;
 			msg.param7 = 0;
-
+#ifndef __PX4_QURT
 			mavlink_msg_command_long_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_command_long_encode(1, 1, &message, &msg);
+
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 		}
 
 		return true;

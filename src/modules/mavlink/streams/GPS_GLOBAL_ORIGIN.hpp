@@ -92,7 +92,17 @@ protected:
 			msg.longitude = static_cast<int32_t>(vehicle_local_position.ref_lon * 1e7); // double degree -> int32 degreeE7
 			msg.altitude = static_cast<int32_t>(vehicle_local_position.ref_alt * 1e3f); // float m -> int32 mm
 			msg.time_usec = vehicle_local_position.timestamp; // int64 time since system boot
+#ifndef __PX4_QURT
 			mavlink_msg_gps_global_origin_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_gps_global_origin_encode(1, 1, &message, &msg);
+
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 

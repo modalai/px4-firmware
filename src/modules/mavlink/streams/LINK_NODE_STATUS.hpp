@@ -71,9 +71,17 @@ private:
 			link_node_status.messages_lost = tstatus.rx_message_lost_count;
 
 			link_node_status.timestamp = hrt_absolute_time();
-
+#ifndef __PX4_QURT
 			mavlink_msg_link_node_status_send_struct(_mavlink->get_channel(), &link_node_status);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_link_node_status_encode(1, 1, &message, &link_node_status);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 

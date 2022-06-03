@@ -94,9 +94,17 @@ private:
 				msg.min_distance     = dist_sensor.min_distance * 1e2f;     // m to cm
 				msg.orientation      = dist_sensor.orientation;
 				msg.covariance       = dist_sensor.variance * 1e4f;         // m^2 to cm^2
-
+#ifndef __PX4_QURT
 				mavlink_msg_distance_sensor_send_struct(_mavlink->get_channel(), &msg);
+#else
+				mavlink_message_t message{};
+				mavlink_msg_distance_sensor_encode(1, 1, &message, &msg);
 
+				uint8_t  newBuf[512];
+				uint16_t newBufLen = 0;
+				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+				(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 				updated = true;
 			}
 		}

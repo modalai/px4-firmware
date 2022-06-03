@@ -44,7 +44,9 @@
 #include <drivers/drv_hrt.h>
 #include <px4_platform_common/module_params.h>
 #include <containers/List.hpp>
-
+#ifdef __PX4_QURT
+#include <drivers/device/qurt/uart.h>
+#endif
 class Mavlink;
 
 class MavlinkStream : public ListNode<MavlinkStream *>
@@ -60,6 +62,12 @@ public:
 	MavlinkStream &operator=(const MavlinkStream &) = delete;
 	MavlinkStream(MavlinkStream &&) = delete;
 	MavlinkStream &operator=(MavlinkStream &&) = delete;
+
+#ifdef __PX4_QURT
+	const char *dev = "2";
+	speed_t speed = 921600;
+	int _uart_fd = qurt_uart_open(dev, speed);
+#endif
 
 	/**
 	 * Get the interval

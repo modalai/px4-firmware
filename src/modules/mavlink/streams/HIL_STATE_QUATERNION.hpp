@@ -101,9 +101,17 @@ private:
 			msg.xacc = lpos.ax;
 			msg.yacc = lpos.ay;
 			msg.zacc = lpos.az;
-
+#ifndef __PX4_QURT
 			mavlink_msg_hil_state_quaternion_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_hil_state_quaternion_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 

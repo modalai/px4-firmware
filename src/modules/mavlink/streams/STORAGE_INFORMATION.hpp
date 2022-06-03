@@ -107,7 +107,17 @@ private:
 		}
 
 		storage_info.time_boot_ms = hrt_absolute_time() / 1000;
+#ifndef __PX4_QURT
 		mavlink_msg_storage_information_send_struct(_mavlink->get_channel(), &storage_info);
+#else
+		mavlink_message_t message{};
+		mavlink_msg_storage_information_encode(1, 1, &message, &storage_info);
+
+		uint8_t  newBuf[512];
+		uint16_t newBufLen = 0;
+		newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+		(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 		return true;
 	}
 };

@@ -76,9 +76,17 @@ private:
 			if (param_get(_param_com_flight_uuid, &flight_uuid) == PX4_OK) {
 				flight_info.flight_uuid = static_cast<uint64_t>(flight_uuid);
 			}
-
+#ifndef __PX4_QURT
 			mavlink_msg_flight_information_send_struct(_mavlink->get_channel(), &flight_info);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_flight_information_encode(1, 1, &message, &flight_info);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 

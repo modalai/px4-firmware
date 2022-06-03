@@ -188,24 +188,16 @@ private:
 			}
 
 			msg.flags = 0;
-			PX4_ERR("ACTUATOR DATA BEING SENT");
 #ifndef __PX4_QURT
 			mavlink_msg_hil_actuator_controls_send_struct(_mavlink->get_channel(), &msg);
 #else
-			int _uart_fd = -1;
-			const char *dev = "2";
-			speed_t speed = 921600;
-			_uart_fd = qurt_uart_open(dev, speed);
-
 			mavlink_message_t message{};
 			mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &msg);
 
 			uint8_t  newBuf[512];
 			uint16_t newBufLen = 0;
 			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-			int writeRetval = qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
-			//int writeRetval = writeResponse(&newBuf, newBufLen);
-			PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
 #endif
 			return true;
 		}

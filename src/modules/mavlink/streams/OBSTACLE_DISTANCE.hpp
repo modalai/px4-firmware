@@ -74,9 +74,17 @@ private:
 			msg.angle_offset = obstacle_distance.angle_offset;
 			msg.increment_f = obstacle_distance.increment;
 			msg.frame = obstacle_distance.frame;
-
+#ifndef __PX4_QURT
 			mavlink_msg_obstacle_distance_send_struct(_mavlink->get_channel(), &msg);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_obstacle_distance_encode(1, 1, &message, &msg);
 
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			return true;
 		}
 

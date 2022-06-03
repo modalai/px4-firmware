@@ -2428,9 +2428,9 @@ Mavlink::task_main(int argc, char *argv[])
 		//PX4_ERR("LENGHT OF _STREAMS: %d", (int) _streams.size());
 		for (const auto &stream : _streams) {
 			const char* stream_name = stream->get_name();
-			const char* actuator_name = "HIL_ACTUATOR_CONTROLS";
-			if(stream_name == actuator_name){
-				//PX4_ERR("STREAM UPDATE CALLED");
+			const char* actuator_name = "COMMAND_LONG";
+			if(stream_name != actuator_name){
+				PX4_ERR("STREAM UPDATE CALLED");
 				stream->update(t);
 
 				if (!_first_heartbeat_sent) {
