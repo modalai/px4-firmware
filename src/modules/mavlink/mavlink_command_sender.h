@@ -50,7 +50,9 @@
 #include "timestamped_list.h"
 #include "mavlink_bridge_header.h"
 #include <v2.0/mavlink_types.h>
-
+#ifdef __PX4_QURT
+#include <drivers/device/qurt/uart.h>
+#endif
 /**
  * @class MavlinkCommandSender
  */
@@ -83,6 +85,12 @@ public:
 	 */
 	void handle_mavlink_command_ack(const mavlink_command_ack_t &ack, uint8_t from_sysid, uint8_t from_compid,
 					uint8_t channel);
+
+#ifdef __PX4_QURT
+	const char *dev = "2";
+	speed_t speed = 921600;
+	int _uart_fd = qurt_uart_open(dev, speed);
+#endif
 
 private:
 	MavlinkCommandSender() = default;

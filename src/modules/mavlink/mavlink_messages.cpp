@@ -551,22 +551,6 @@ protected:
 				if (!cmd.from_external) {
 					PX4_DEBUG("sending command %d to %d/%d", cmd.command, cmd.target_system, cmd.target_component);
  					MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
-// #ifndef __PX4_QURT
-// 					MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
-// #else
-
-// 					mavlink_command_long_t long_msg{};
-// 					long_msg.command = cmd.command;
-// 					long_msg.target_system = cmd.target_system;
-// 					long_msg.target_component = cmd.target_component;
-// 					mavlink_message_t message{};
-// 					mavlink_msg_command_long_encode(1, 1, &message, &long_msg);
-
-// 					uint8_t  newBuf[512];
-// 					uint16_t newBufLen = 0;
-// 					newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-// 					(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
-// #endif
 					sent = true;
 
 				} else {
@@ -574,9 +558,9 @@ protected:
 				}
 			}
 		}
-
+		//PX4_ERR("CHECKING TIMEOUT");
 		MavlinkCommandSender::instance().check_timeout(_mavlink->get_channel());
-
+		//PX4_ERR("VALUE OF SENT: %d", (int) sent);
 		return sent;
 	}
 };

@@ -896,9 +896,6 @@ void Mavlink::send_bytes(const uint8_t *buf, unsigned packet_len)
 		if (_buf_fill + packet_len < sizeof(_buf)) {
 			memcpy(&_buf[_buf_fill], buf, packet_len);
 			_buf_fill += packet_len;
-#ifdef __PX4_QURT
-			(void) qurt_uart_write(_uart_fd, (const char*) _buf, _buf_fill);
-#endif
 		} else {
 			perf_count(_send_byte_error_perf);
 		}
@@ -1296,11 +1293,9 @@ Mavlink::configure_stream(const char *stream_name, const float rate)
 
 	// search for stream with specified name in supported streams list
 	// create new instance if found
-	PX4_ERR("NAME OF STREAM CONFIGURED: %s", stream_name);
 	MavlinkStream *stream = create_mavlink_stream(stream_name, this);
 
 	if (stream != nullptr) {
-		PX4_ERR("Stream added to _streams");
 		stream->set_interval(interval);
 		_streams.add(stream);
 
@@ -2425,24 +2420,18 @@ Mavlink::task_main(int argc, char *argv[])
 		check_requested_subscriptions();
 
 		/* update streams */
-		//PX4_ERR("LENGHT OF _STREAMS: %d", (int) _streams.size());
 		for (const auto &stream : _streams) {
-			const char* stream_name = stream->get_name();
-			const char* actuator_name = "COMMAND_LONG";
-			if(stream_name != actuator_name){
-				PX4_ERR("STREAM UPDATE CALLED");
-				stream->update(t);
+			stream->update(t);
 
-				if (!_first_heartbeat_sent) {
-					if (_mode == MAVLINK_MODE_IRIDIUM) {
-						if (stream->get_id() == MAVLINK_MSG_ID_HIGH_LATENCY2) {
-							_first_heartbeat_sent = stream->first_message_sent();
-						}
+			if (!_first_heartbeat_sent) {
+				if (_mode == MAVLINK_MODE_IRIDIUM) {
+					if (stream->get_id() == MAVLINK_MSG_ID_HIGH_LATENCY2) {
+						_first_heartbeat_sent = stream->first_message_sent();
+					}
 
-					} else {
-						if (stream->get_id() == MAVLINK_MSG_ID_HEARTBEAT) {
-							_first_heartbeat_sent = stream->first_message_sent();
-						}
+				} else {
+					if (stream->get_id() == MAVLINK_MSG_ID_HEARTBEAT) {
+						_first_heartbeat_sent = stream->first_message_sent();
 					}
 				}
 			}

@@ -67,9 +67,10 @@ MavlinkCommandSender::~MavlinkCommandSender()
 
 int MavlinkCommandSender::handle_vehicle_command(const struct vehicle_command_s &command, mavlink_channel_t channel)
 {
+#ifndef __PX4_QURT
 	lock();
+#endif
 	CMD_DEBUG("new command: %d (channel: %d)", command.command, channel);
-
 	mavlink_command_long_t msg = {};
 	msg.target_system = command.target_system;
 	msg.target_component = command.target_component;
@@ -82,8 +83,17 @@ int MavlinkCommandSender::handle_vehicle_command(const struct vehicle_command_s 
 	msg.param5 = command.param5;
 	msg.param6 = command.param6;
 	msg.param7 = command.param7;
+#ifndef __PX4_QURT
 	mavlink_msg_command_long_send_struct(channel, &msg);
+#else
+	mavlink_message_t message{};
+	mavlink_msg_command_long_encode(1, 1, &message, &msg);
 
+	uint8_t  newBuf[MAVLINK_MAX_PACKET_LEN];
+	uint16_t newBufLen = 0;
+	newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+	(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 	bool already_existing = false;
 	_commands.reset_to_start();
 
@@ -106,8 +116,9 @@ int MavlinkCommandSender::handle_vehicle_command(const struct vehicle_command_s 
 		new_item.last_time_sent_us = hrt_absolute_time();
 		_commands.put(new_item);
 	}
-
+#ifndef __PX4_QURT
 	unlock();
+#endif
 	return 0;
 }
 
@@ -116,8 +127,9 @@ void MavlinkCommandSender::handle_mavlink_command_ack(const mavlink_command_ack_
 {
 	CMD_DEBUG("handling result %d for command %d (from %d:%d)",
 		  ack.result, ack.command, from_sysid, from_compid);
+#ifndef __PX4_QURT
 	lock();
-
+#endif
 	_commands.reset_to_start();
 
 	while (command_item_s *item = _commands.get_next()) {
@@ -131,13 +143,16 @@ void MavlinkCommandSender::handle_mavlink_command_ack(const mavlink_command_ack_
 		}
 	}
 
+#ifndef __PX4_QURT
 	unlock();
+#endif
 }
 
 void MavlinkCommandSender::check_timeout(mavlink_channel_t channel)
 {
+#ifndef __PX4_QURT
 	lock();
-
+#endif
 	_commands.reset_to_start();
 
 	while (command_item_s *item = _commands.get_next()) {
@@ -190,8 +205,16 @@ void MavlinkCommandSender::check_timeout(mavlink_channel_t channel)
 		if (item->num_sent_per_channel[channel] < max_sent && item->num_sent_per_channel[channel] != -1) {
 			// We are behind and need to do a retransmission.
 			item->command.confirmation = ++item->num_sent_per_channel[channel];
+#ifndef __PX4_QURT
 			mavlink_msg_command_long_send_struct(channel, &item->command);
-
+#else
+			mavlink_message_t message{};
+			mavlink_msg_command_long_encode(1, 1, &message, &item->command);
+			uint8_t  newBuf[MAVLINK_MAX_PACKET_LEN];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			CMD_DEBUG("command %d sent (not first, retries: %d/%d, channel: %d)",
 				  item->command.command,
 				  item->num_sent_per_channel[channel],
@@ -211,7 +234,16 @@ void MavlinkCommandSender::check_timeout(mavlink_channel_t channel)
 
 			// We are the first of a new retransmission series.
 			item->command.confirmation = ++item->num_sent_per_channel[channel];
+#ifndef __PX4_QURT
 			mavlink_msg_command_long_send_struct(channel, &item->command);
+#else
+			mavlink_message_t message{};
+			mavlink_msg_command_long_encode(1, 1, &message, &item->command);
+			uint8_t  newBuf[MAVLINK_MAX_PACKET_LEN];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			(void) qurt_uart_write(_uart_fd, (const char*) newBuf, newBufLen);
+#endif
 			// Therefore, we are the ones setting the timestamp of this retry round.
 			item->last_time_sent_us = hrt_absolute_time();
 
@@ -228,5 +260,7 @@ void MavlinkCommandSender::check_timeout(mavlink_channel_t channel)
 		}
 	}
 
+#ifndef __PX4_QURT
 	unlock();
+#endif
 }
