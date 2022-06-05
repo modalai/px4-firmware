@@ -41,12 +41,10 @@
 class TunePublisher
 {
 public:
-#ifndef __PX4_QURT
 	void set_tune_string(const char *tune, const hrt_abstime &now);
 	void publish_next_tune(const hrt_abstime now);
-#endif
+
 private:
-#ifndef __PX4_QURT
 	static constexpr unsigned MAX_TUNE_LEN {248};
 
 	Tunes _tunes {};
@@ -54,5 +52,4 @@ private:
 	hrt_abstime _next_publish_time {0};
 
 	uORB::Publication<tune_control_s> _tune_control_pub{ORB_ID(tune_control)};
-#endif
 };

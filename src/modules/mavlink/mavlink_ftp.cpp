@@ -51,10 +51,6 @@
 #include <v2.0/standard/mavlink.h>
 #endif
 
-#ifdef __PX4_QURT
-#include <drivers/device/qurt/uart.h>
-#endif
-
 using namespace time_literals;
 
 constexpr const char MavlinkFTP::_root_dir[];
@@ -411,11 +407,10 @@ MavlinkFTP::_workList(PayloadHeader *payload)
 		}
 
 		uint32_t fileSize = 0;
-		char direntType = kDirentSkip;
-#ifndef __PX4_QURT
+		char direntType;
+
 		// Determine the directory entry type
 		switch (result->d_type) {
-
 #ifdef __PX4_NUTTX
 
 		case DTYPE_FILE: {
@@ -454,22 +449,19 @@ MavlinkFTP::_workList(PayloadHeader *payload)
 			}
 
 			break;
+
 		default:
 			// We only send back file and diretory entries, skip everything else
 			direntType = kDirentSkip;
 		}
-#endif
+
 		if (direntType == kDirentSkip) {
 			// Skip send only dirent identifier
 			_work_buffer2[0] = '\0';
 
 		} else if (direntType == kDirentFile) {
 			// Files send filename and file length
-#ifndef __PX4_QURT
-			int ret = snprintf(_work_buffer2, _work_buffer2_len, "%s\t%u", result->d_name, fileSize);
-#else
-			int ret = snprintf(_work_buffer2, _work_buffer2_len, "%s\t%lu", result->d_name, fileSize);
-#endif
+			int ret = snprintf(_work_buffer2, _work_buffer2_len, "%s\t%d", result->d_name, fileSize);
 			bool buf_is_ok = ((ret > 0) && (ret < _work_buffer2_len));
 
 			if (!buf_is_ok) {
@@ -571,12 +563,11 @@ MavlinkFTP::_workRead(PayloadHeader *payload)
 		return kErrEOF;
 	}
 
-#ifndef __PX4_QURT
 	if (lseek(_session_info.fd, payload->offset, SEEK_SET) < 0) {
 		PX4_ERR("seek fail");
 		return kErrFailErrno;
 	}
-#endif
+
 	int bytes_read = ::read(_session_info.fd, &payload->data[0], kMaxDataLength);
 
 	if (bytes_read < 0) {
@@ -619,19 +610,15 @@ MavlinkFTP::_workWrite(PayloadHeader *payload)
 	if (payload->session != 0 && _session_info.fd < 0) {
 		return kErrInvalidSession;
 	}
-#ifndef __PX4_QURT
+
 	if (lseek(_session_info.fd, payload->offset, SEEK_SET) < 0) {
 		// Unable to see to the specified location
 		PX4_ERR("seek fail");
 		return kErrFailErrno;
 	}
-#endif
 
-#ifndef __PX4_QURT
 	int bytes_written = ::write(_session_info.fd, &payload->data[0], payload->size);
-#else
-	int bytes_written = qurt_uart_write(_session_info.fd, (const char*) &payload->data[0], payload->size);
-#endif
+
 	if (bytes_written < 0) {
 		// Negative return indicates error other than eof
 		PX4_ERR("write fail %d", bytes_written);
@@ -652,7 +639,7 @@ MavlinkFTP::_workRemoveFile(PayloadHeader *payload)
 	strncpy(_work_buffer1 + _root_dir_len, _data_as_cstring(payload), _work_buffer1_len - _root_dir_len);
 	// ensure termination
 	_work_buffer1[_work_buffer1_len - 1] = '\0';
-#ifndef __PX4_QURT
+
 	if (unlink(_work_buffer1) == 0) {
 		payload->size = 0;
 		return kErrNone;
@@ -660,8 +647,6 @@ MavlinkFTP::_workRemoveFile(PayloadHeader *payload)
 	} else {
 		return kErrFailErrno;
 	}
-#endif
-	return kErrFailErrno;
 }
 
 /// @brief Responds to a TruncateFile command
@@ -725,13 +710,9 @@ MavlinkFTP::_workTruncateFile(PayloadHeader *payload)
 			return kErrFailErrno;
 		}
 
-#ifndef __PX4_QURT
 		bool ok = 1 == ::write(fd, "", 1);
 		::close(fd);
-#else
-		bool ok = 1 == qurt_uart_write(fd, (const char*) "", 1);
-		uart_close();
-#endif
+
 		return (ok) ? kErrNone : kErrFailErrno;
 
 	} else {
@@ -751,7 +732,7 @@ MavlinkFTP::_workTruncateFile(PayloadHeader *payload)
 		return kErrNone;
 	}
 
-#elif !defined(__PX4_QURT)
+#else
 	int ret = truncate(_work_buffer1, payload->offset);
 
 	if (ret == 0) {
@@ -760,8 +741,6 @@ MavlinkFTP::_workTruncateFile(PayloadHeader *payload)
 
 	return kErrFailErrno;
 #endif /* __PX4_NUTTX */
-	return kErrFailErrno;
-
 }
 
 /// @brief Responds to a Terminate command
@@ -931,7 +910,7 @@ MavlinkFTP::_copy_file(const char *src_path, const char *dst_path, size_t length
 
 	dst_fd = ::open(dst_path, O_CREAT | O_TRUNC | O_WRONLY
 // POSIX requires the permissions to be supplied if O_CREAT passed
-#if defined(__PX4_POSIX) && !defined(__PX4_QURT)
+#ifdef __PX4_POSIX
 			, 0666
 #endif
 		       );
@@ -958,11 +937,9 @@ MavlinkFTP::_copy_file(const char *src_path, const char *dst_path, size_t length
 			op_errno = errno;
 			break;
 		}
-#ifndef __PX4_QURT
+
 		bytes_written = ::write(dst_fd, _work_buffer2, bytes_read);
-#else
-		bytes_written = qurt_uart_write(dst_fd, (const char*) _work_buffer2, bytes_read);
-#endif
+
 		if (bytes_written != bytes_read) {
 			PX4_ERR("cp: short write");
 			op_errno = errno;
@@ -1055,7 +1032,7 @@ void MavlinkFTP::send()
 			PX4_INFO("stream download: sending Nak EOF");
 #endif
 		}
-#ifndef __PX4_QURT
+
 		if (error_code == kErrNone) {
 			if (lseek(_session_info.fd, payload->offset, SEEK_SET) < 0) {
 				error_code = kErrFailErrno;
@@ -1064,7 +1041,7 @@ void MavlinkFTP::send()
 #endif
 			}
 		}
-#endif
+
 		if (error_code == kErrNone) {
 			int bytes_read = ::read(_session_info.fd, &payload->data[0], kMaxDataLength);
 
