@@ -41,8 +41,6 @@
  */
 
 #include <termios.h>
-#include "mavlink_receiver.h"
-#include <pthread.h>
 
 #ifdef CONFIG_NET
 #include <arpa/inet.h>
@@ -54,7 +52,6 @@
 #include <lib/mathlib/mathlib.h>
 #include <lib/systemlib/mavlink_log.h>
 #include <lib/version/version.h>
-#include <px4_platform_common/tasks.h>
 
 #include "mavlink_receiver.h"
 #include "mavlink_main.h"
@@ -71,12 +68,6 @@
 // Guard against flow control misconfiguration
 #if defined (CRTSCTS) && defined (__PX4_NUTTX) && (CRTSCTS != (CRTS_IFLOW | CCTS_OFLOW))
 #error The non-standard CRTSCTS define is incorrect. Fix this in the OS or replace with (CRTS_IFLOW | CCTS_OFLOW)
-#endif
-
-#ifdef CONFIG_NET
-#define MAVLINK_RECEIVER_NET_ADDED_STACK 1360
-#else
-#define MAVLINK_RECEIVER_NET_ADDED_STACK 0
 #endif
 
 #ifdef CONFIG_NET
@@ -1306,7 +1297,6 @@ Mavlink::configure_stream(const char *stream_name, const float rate)
 	}
 
 	/* if we reach here, the stream list does not contain the stream */
-	PX4_WARN("stream %s not found", stream_name);
 	PX4_ERR("stream %s not found", stream_name);
 
 	return PX4_ERROR;
@@ -1453,7 +1443,6 @@ Mavlink::pass_message(const mavlink_message_t *msg)
 		int size = MAVLINK_NUM_NON_PAYLOAD_BYTES + msg->len;
 		pthread_mutex_lock(&_message_buffer_mutex);
 		message_buffer_write(msg, size);
-		PX4_ERR("MSG BUFFER WRITE SENT");
 		pthread_mutex_unlock(&_message_buffer_mutex);
 	}
 }
@@ -1844,25 +1833,15 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 
 	case MAVLINK_MODE_MINIMAL:
 		configure_stream_local("ALTITUDE", 0.5f);
-		if (ret) PX4_ERR("ALTITUDE");
 		configure_stream_local("ATTITUDE", 10.0f);
-		if (ret) PX4_ERR("ATTITUDE");
 		configure_stream_local("EXTENDED_SYS_STATE", 0.1f);
-		if (ret) PX4_ERR("EXTENDED_SYS_STATE");
 		configure_stream_local("GLOBAL_POSITION_INT", 5.0f);
-		if (ret) PX4_ERR("GLOBAL_POSITION_INT");
 		configure_stream_local("GPS_RAW_INT", 0.5f);
-		if (ret) PX4_ERR("GPS_RAW_INT");
 		configure_stream_local("HOME_POSITION", 0.1f);
-		if (ret) PX4_ERR("HOME_POSITION");
 		configure_stream_local("NAMED_VALUE_FLOAT", 1.0f);
-		if (ret) PX4_ERR("NAMED_VALUE_FLOAT");
 		configure_stream_local("RC_CHANNELS", 0.5f);
-		if (ret) PX4_ERR("RC_CHANNELS");
 		configure_stream_local("SYS_STATUS", 0.1f);
-		if (ret) PX4_ERR("SYS_STATUS");
 		configure_stream_local("VFR_HUD", 1.0f);
-		if (ret) PX4_ERR("VFR_HUD");
 
 #if !defined(CONSTRAINED_FLASH)
 		configure_stream_local("LINK_NODE_STATUS", 1.0f);
@@ -2121,7 +2100,10 @@ Mavlink::task_main(int argc, char *argv[])
 		return PX4_ERROR;
 	}
 
+#ifdef __PX4_QURT
+	// Qurt can only work in minimal mode due to memory constraints
 	_mode = MAVLINK_MODE_MINIMAL;
+#endif
 
 	/* USB serial is indicated by /dev/ttyACMx */
 	if (strcmp(_device_name, "/dev/ttyACM0") == OK || strcmp(_device_name, "/dev/ttyACM1") == OK) {
@@ -2246,11 +2228,10 @@ Mavlink::task_main(int argc, char *argv[])
 #ifndef __PX4_QURT
 		_uart_fd = mavlink_open_uart(_baudrate, _device_name, _flow_control);
 #else
-		PX4_ERR("Mavlink main opening QURT uart %s at %d rate", _device_name, _baudrate);
-		// _uart_fd = qurt_uart_open("2", 115200);
 		_uart_fd = qurt_uart_open(_device_name, _baudrate);
 #endif
 		if (_uart_fd < 0 && !_is_usb_uart) {
+			PX4_ERR("could not open %s", _device_name);
 			return PX4_ERROR;
 
 		} else if (_uart_fd < 0 && _is_usb_uart) {
@@ -2279,7 +2260,7 @@ Mavlink::task_main(int argc, char *argv[])
 	pthread_attr_t receiveloop_attr;
 	pthread_attr_init(&receiveloop_attr);
 	pthread_attr_setstacksize(&receiveloop_attr,
-				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2840 + MAVLINK_RECEIVER_NET_ADDED_STACK));
+				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2840));
 	pthread_create(&_receive_thread, &receiveloop_attr, MavlinkReceiver::start_helper, (void *) this);
 	pthread_attr_destroy(&receiveloop_attr);
 #endif
@@ -2297,10 +2278,6 @@ Mavlink::task_main(int argc, char *argv[])
 		perf_count(_loop_interval_perf);
 		perf_begin(_loop_perf);
 		const hrt_abstime t = hrt_absolute_time();
-
-// #ifdef __PX4_QURT
-// 		PX4_ERR("Mavlink main loop start. Duration %u", _main_loop_delay);
-// #endif
 
 		update_rate_mult();
 
@@ -2440,10 +2417,6 @@ Mavlink::task_main(int argc, char *argv[])
 
 		check_requested_subscriptions();
 
-// #ifdef __PX4_QURT
-// 		PX4_ERR("Mavlink main loop updating streams");
-// #endif
-
 		/* update streams */
 		for (const auto &stream : _streams) {
 			stream->update(t);
@@ -2537,10 +2510,6 @@ Mavlink::task_main(int argc, char *argv[])
 		}
 #endif
 
-// #ifdef __PX4_QURT
-// 		PX4_ERR("Mavlink main loop updating rates");
-// #endif
-
 		/* update TX/RX rates*/
 		if (t > _bytes_timestamp + 1_s) {
 			if (_bytes_timestamp != 0) {
@@ -2564,10 +2533,6 @@ Mavlink::task_main(int argc, char *argv[])
 		}
 
 		perf_end(_loop_perf);
-
-// #ifdef __PX4_QURT
-// 		PX4_ERR("Mavlink main loop ending");
-// #endif
 	}
 
 	/* first wait for threads to complete before tearing down anything */
@@ -3130,7 +3095,7 @@ functionality, this needs to be take into account, in order to avoid race condit
 
 ### Examples
 Start mavlink on ttyS1 serial with baudrate 921600 and maximum sending rate of 80kB/s:
-$ mavlink start -d /dev/uart_esc -b 921600 -m onboard -r 80000
+$ mavlink start -d /dev/ttyS1 -b 921600 -m onboard -r 80000
 
 Start mavlink on UDP port 14556 and enable the HIGHRES_IMU message with 50Hz:
 $ mavlink start -u 14556 -r 1000000

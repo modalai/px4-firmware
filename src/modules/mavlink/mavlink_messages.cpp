@@ -102,9 +102,9 @@ using matrix::wrap_2pi;
 #include "streams/ALTITUDE.hpp"
 #include "streams/ATTITUDE.hpp"
 #include "streams/RC_CHANNELS.hpp"
-# include "streams/NAMED_VALUE_FLOAT.hpp"
+#include "streams/NAMED_VALUE_FLOAT.hpp"
 #include "streams/EXTENDED_SYS_STATE.hpp"
-# include "streams/LINK_NODE_STATUS.hpp"
+#include "streams/LINK_NODE_STATUS.hpp"
 
 #else
 

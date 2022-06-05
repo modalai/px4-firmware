@@ -78,7 +78,6 @@
 #else
 #define MAVLINK_RECEIVER_NET_ADDED_STACK 0
 #endif
-#define ASYNC_UART_READ_WAIT_US 2000
 
 using matrix::wrap_2pi;
 
@@ -3023,10 +3022,6 @@ MavlinkReceiver::Run()
 		fds[0].fd = _mavlink->get_uart_fd();
 		fds[0].events = POLLIN;
 	}
-#else
-	if (_mavlink->get_protocol() == Protocol::SERIAL) {
-		_mavlink->get_uart_fd();
-	}
 #endif
 
 #ifndef __PX4_QURT
@@ -3070,6 +3065,7 @@ MavlinkReceiver::Run()
 				}
 			}
 #else
+#define ASYNC_UART_READ_WAIT_US 2000
 		nread = qurt_uart_read(_mavlink->get_uart_fd(), (char*) buf, sizeof(buf), ASYNC_UART_READ_WAIT_US);
 		ret = 1;
 		if (nread == -1 && errno == ENOTCONN) { // Not connected (can happen for USB)
