@@ -44,8 +44,7 @@ set(CONFIG_PARAM_CLIENT "1")
 set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
 
 # This definition allows to differentiate the specific board.
-add_definitions(-D__PX4_QURT_EXCELSIOR
-)
+add_definitions(-D__PX4_QURT_EXCELSIOR)
 
 px4_add_board(
 	PLATFORM qurt
@@ -53,49 +52,35 @@ px4_add_board(
 	MODEL excelsior
 	LABEL qurt
 	DRIVERS
-        #barometer/icp10100
+        barometer/icp10100
 		qshell/qurt
-        #magnetometer/hmc5883
         magnetometer/isentek/ist8310
         magnetometer/qmc5883l
         uart_esc/modalai_esc
-	uart_dsp/modalai_dsp
+		# uart_dsp/modalai_dsp
 		px4io
         power_monitor/voxlpm
         imu/invensense/icm42688p
-	#			lights/rgbled_ncp5623c
+		lights/rgbled_ncp5623c
 		pwm_out_sim
-	#	spektrum_rc
-	#	gps
-	#	uart_loopback
+		spektrum_rc
+		gps
+		uart_loopback
 	MODULES
-	#	attitude_estimator_q
-		# commander
-	#	ekf2
-		#fw_att_control
-		#fw_pos_control_l1
-	#	land_detector
-		#landing_target_estimator
-		#local_position_estimator
+		attitude_estimator_q
+		ekf2
+		land_detector
 		mc_att_control
 		mc_pos_control
 		mc_rate_control
 		mc_hover_thrust_estimator
 		muorb/slpi
-		#rc_update
-		#rover_pos_control
 		sensors
 		mavlink
-		# temperature_compensation
-		# vmount
 	SYSTEMCMDS
-		# led_control
 		mixer
-		# motor_ramp
-		# motor_test
 		param
 		perf
-		# pwm
 		ver
 		work_queue
 	)

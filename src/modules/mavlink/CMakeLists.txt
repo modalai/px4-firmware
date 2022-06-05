@@ -33,6 +33,26 @@
 
 px4_add_git_submodule(TARGET git_mavlink_v2 PATH "${PX4_SOURCE_DIR}/mavlink/include/mavlink/v2.0")
 
+if(${PX4_PLATFORM} STREQUAL "qurt")
+	set(MAVLINK_FTP_SRC)
+	set(MAVLINK_LOG_HANDLER_SRC)
+	set(MAVLINK_SIMPLE_ANALYZER_SRC)
+	set(MAVLINK_TIMESYNC_SRC)
+	set(MAVLINK_TUNE_PUBLISHER_SRC)
+	set(MAVLINK_SHELL_SRC)
+	set(MAVLINK_ULOG_SRC)
+	set(MAVLINK_PARAMETERS_SRC)
+else()
+	set(MAVLINK_PARAMETERS_SRC mavlink_parameters.cpp)
+	set(MAVLINK_FTP_SRC mavlink_ftp.cpp)
+	set(MAVLINK_LOG_HANDLER_SRC mavlink_log_handler.cpp)
+	set(MAVLINK_SIMPLE_ANALYZER_SRC mavlink_simple_analyzer.cpp)
+	set(MAVLINK_TIMESYNC_SRC mavlink_timesync.cpp)
+	set(MAVLINK_TUNE_PUBLISHER_SRC tune_publisher.cpp)
+	set(MAVLINK_SHELL_SRC mavlink_shell.cpp)
+	set(MAVLINK_ULOG_SRC mavlink_ulog.cpp)
+endif()
+
 px4_add_module(
 	MODULE modules__mavlink
 	MAIN mavlink
@@ -46,20 +66,20 @@ px4_add_module(
 	SRCS
 		mavlink.c
 		mavlink_command_sender.cpp
-		mavlink_ftp.cpp
-		mavlink_log_handler.cpp
 		mavlink_main.cpp
 		mavlink_messages.cpp
 		mavlink_mission.cpp
-		mavlink_parameters.cpp
 		mavlink_rate_limiter.cpp
 		mavlink_receiver.cpp
-		mavlink_shell.cpp
-		mavlink_simple_analyzer.cpp
 		mavlink_stream.cpp
-		mavlink_timesync.cpp
-		mavlink_ulog.cpp
-		tune_publisher.cpp
+		${MAVLINK_PARAMETERS_SRC}
+		${MAVLINK_ULOG_SRC}
+		${MAVLINK_SHELL_SRC}
+		${MAVLINK_FTP_SRC}
+		${MAVLINK_TUNE_PUBLISHER_SRC}
+		${MAVLINK_LOG_HANDLER_SRC}
+		${MAVLINK_SIMPLE_ANALYZER_SRC}
+		${MAVLINK_TIMESYNC_SRC}
 	MODULE_CONFIG
 		module.yaml
 	DEPENDS

@@ -96,11 +96,16 @@ MavlinkReceiver::~MavlinkReceiver()
 MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	ModuleParams(nullptr),
 	_mavlink(parent),
+#ifndef __PX4_QURT
 	_mavlink_ftp(parent),
 	_mavlink_log_handler(parent),
 	_mission_manager(parent),
 	_parameters_manager(parent),
 	_mavlink_timesync(parent)
+#else
+	_mission_manager(parent)
+	// _parameters_manager(parent)
+#endif
 {
 }
 
@@ -234,10 +239,11 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 		handle_message_serial_control(msg);
 		break;
 
+#ifndef __PX4_QURT
 	case MAVLINK_MSG_ID_LOGGING_ACK:
 		handle_message_logging_ack(msg);
 		break;
-#ifndef __PX4_QURT
+
 	case MAVLINK_MSG_ID_PLAY_TUNE:
 		handle_message_play_tune(msg);
 		break;
@@ -508,6 +514,7 @@ void MavlinkReceiver::handle_message_command_both(mavlink_message_t *msg, const 
 			return;
 		}
 
+#ifndef __PX4_QURT
 		if (cmd_mavlink.command == MAV_CMD_LOGGING_START) {
 			// check that we have enough bandwidth available: this is given by the configured logger topics
 			// and rates. The 5000 is somewhat arbitrary, but makes sure that we cannot enable log streaming
@@ -516,7 +523,6 @@ void MavlinkReceiver::handle_message_command_both(mavlink_message_t *msg, const 
 				send_ack = true;
 				result = vehicle_command_ack_s::VEHICLE_RESULT_DENIED;
 				_mavlink->send_statustext_critical("Not enough bandwidth to enable log streaming");
-
 			} else {
 				// we already instanciate the streaming object, because at this point we know on which
 				// mavlink channel streaming was requested. But in fact it's possible that the logger is
@@ -524,11 +530,12 @@ void MavlinkReceiver::handle_message_command_both(mavlink_message_t *msg, const 
 				// from the logger.
 				_mavlink->try_start_ulog_streaming(msg->sysid, msg->compid);
 			}
-
 		} else if (cmd_mavlink.command == MAV_CMD_LOGGING_STOP) {
 			_mavlink->request_stop_ulog_streaming();
-
 		} else if (cmd_mavlink.command == MAV_CMD_DO_CHANGE_SPEED) {
+#else
+		if (cmd_mavlink.command == MAV_CMD_DO_CHANGE_SPEED) {
+#endif
 			vehicle_control_mode_s control_mode{};
 			_control_mode_sub.copy(&control_mode);
 
@@ -788,7 +795,11 @@ MavlinkReceiver::handle_message_att_pos_mocap(mavlink_message_t *msg)
 	vehicle_odometry_s mocap_odom{};
 
 	mocap_odom.timestamp = hrt_absolute_time();
+#ifndef __PX4_QURT
 	mocap_odom.timestamp_sample = _mavlink_timesync.sync_stamp(mocap.time_usec);
+#else
+	mocap_odom.timestamp_sample = 0;
+#endif
 
 	mocap_odom.x = mocap.x;
 	mocap_odom.y = mocap.y;
@@ -1304,7 +1315,11 @@ MavlinkReceiver::handle_message_vision_position_estimate(mavlink_message_t *msg)
 	vehicle_odometry_s visual_odom{};
 
 	visual_odom.timestamp = hrt_absolute_time();
+#ifndef __PX4_QURT
 	visual_odom.timestamp_sample = _mavlink_timesync.sync_stamp(ev.usec);
+#else
+	visual_odom.timestamp_sample = 0;
+#endif
 
 	visual_odom.x = ev.x;
 	visual_odom.y = ev.y;
@@ -1343,7 +1358,11 @@ MavlinkReceiver::handle_message_odometry(mavlink_message_t *msg)
 	vehicle_odometry_s odometry{};
 
 	odometry.timestamp = hrt_absolute_time();
+#ifndef __PX4_QURT
 	odometry.timestamp_sample = _mavlink_timesync.sync_stamp(odom.time_usec);
+#else
+	odometry.timestamp_sample = 0;
+#endif
 
 	/* The position is in a local FRD frame */
 	odometry.x = odom.x;
@@ -1772,6 +1791,7 @@ MavlinkReceiver::handle_message_battery_status(mavlink_message_t *msg)
 void
 MavlinkReceiver::handle_message_serial_control(mavlink_message_t *msg)
 {
+#ifndef __PX4_QURT
 	mavlink_serial_control_t serial_control_mavlink;
 	mavlink_msg_serial_control_decode(msg, &serial_control_mavlink);
 
@@ -1794,8 +1814,10 @@ MavlinkReceiver::handle_message_serial_control(mavlink_message_t *msg)
 			_mavlink->close_shell();
 		}
 	}
+#endif
 }
 
+#ifndef __PX4_QURT
 void
 MavlinkReceiver::handle_message_logging_ack(mavlink_message_t *msg)
 {
@@ -1809,7 +1831,6 @@ MavlinkReceiver::handle_message_logging_ack(mavlink_message_t *msg)
 	}
 }
 
-#ifndef __PX4_QURT
 void
 MavlinkReceiver::handle_message_play_tune(mavlink_message_t *msg)
 {
@@ -1903,7 +1924,11 @@ MavlinkReceiver::handle_message_trajectory_representation_bezier(mavlink_message
 
 	vehicle_trajectory_bezier_s trajectory_bezier{};
 
+#ifndef __PX4_QURT
 	trajectory_bezier.timestamp =  _mavlink_timesync.sync_stamp(trajectory.time_usec);
+#else
+	trajectory_bezier.timestamp = 0;
+#endif
 
 	for (int i = 0; i < vehicle_trajectory_bezier_s::NUMBER_POINTS; ++i) {
 		trajectory_bezier.control_points[i].position[0] = trajectory.pos_x[i];
@@ -2427,7 +2452,11 @@ MavlinkReceiver::handle_message_landing_target(mavlink_message_t *msg)
 	if (landing_target.position_valid && landing_target.frame == MAV_FRAME_LOCAL_NED) {
 		landing_target_pose_s landing_target_pose{};
 
+#ifndef __PX4_QURT
 		landing_target_pose.timestamp = _mavlink_timesync.sync_stamp(landing_target.time_usec);
+#else
+		landing_target_pose.timestamp = 0;
+#endif
 		landing_target_pose.abs_pos_valid = true;
 		landing_target_pose.x_abs = landing_target.x;
 		landing_target_pose.y_abs = landing_target.y;
@@ -2953,13 +2982,14 @@ void
 MavlinkReceiver::Run()
 {
 
-	PX4_ERR("Starting run thread");
+#ifndef __PX4_QURT
 	/* set thread name */
 	{
 		char thread_name[17];
 		snprintf(thread_name, sizeof(thread_name), "mavlink_rcv_if%d", _mavlink->get_instance_id());
 		px4_prctl(PR_SET_NAME, thread_name, px4_getpid());
 	}
+#endif
 
 	// make sure mavlink app has booted before we start processing anything (parameter sync, etc)
 	while (!_mavlink->boot_complete()) {
@@ -3014,6 +3044,7 @@ MavlinkReceiver::Run()
 	ssize_t nread = 0;
 	hrt_abstime last_send_update = 0;
 	int ret;
+
 	while (!_mavlink->_task_should_exit) {
 
 		// check for parameter updates
@@ -3039,21 +3070,12 @@ MavlinkReceiver::Run()
 				}
 			}
 #else
-		//int ret = poll(&fds[0], 1, timeout);
-		int _uart_fd = -1;
-		//if (ret > 0) {
-		if (_mavlink->get_protocol() == Protocol::SERIAL) {
-			/* non-blocking read. read may return negative values */
-			const char *dev = "2";
-			speed_t speed = 921600;
-			_uart_fd = qurt_uart_open(dev, speed);
-			nread = qurt_uart_read(_uart_fd, (char*) buf, sizeof(buf), ASYNC_UART_READ_WAIT_US);
-			//nread = ::read(fds[0].fd, buf, sizeof(buf));
-			ret = 1;
-			if (nread == -1 && errno == ENOTCONN) { // Not connected (can happen for USB)
-				PX4_ERR("INSIDE SLEEPER FUNCTION");
-				usleep(100000);
-			}
+		nread = qurt_uart_read(_mavlink->get_uart_fd(), (char*) buf, sizeof(buf), ASYNC_UART_READ_WAIT_US);
+		ret = 1;
+		if (nread == -1 && errno == ENOTCONN) { // Not connected (can happen for USB)
+			PX4_ERR("INSIDE SLEEPER FUNCTION");
+			usleep(100000);
+		} else if (nread > 0) {
 #endif
 
 #ifndef __PX4_QURT
@@ -3096,10 +3118,6 @@ MavlinkReceiver::Run()
 				for (ssize_t i = 0; i < nread; i++) {
 					if (mavlink_parse_char(_mavlink->get_channel(), buf[i], &msg, &_status)) {
 
-						if(msg.msgid != 107 && msg.msgid != 331){
-							PX4_ERR("MSG ID: %d", msg.msgid);
-						}
-						//PX4_ERR("PARSING MAVLINK CHANNEL WITH MESSAGE");
 						_total_received_counter++;
 
 						/* check if we received version 2 and request a switch. */
@@ -3114,7 +3132,7 @@ MavlinkReceiver::Run()
 						/* handle packet with mission manager */
 						_mission_manager.handle_message(&msg);
 
-
+#ifndef __PX4_QURT
 						/* handle packet with parameter component */
 						_parameters_manager.handle_message(&msg);
 
@@ -3128,6 +3146,7 @@ MavlinkReceiver::Run()
 
 						/* handle packet with timesync component */
 						_mavlink_timesync.handle_message(&msg);
+#endif
 
 						/* handle packet with parent object */
 						_mavlink->handle_message(&msg);
@@ -3270,6 +3289,7 @@ MavlinkReceiver::Run()
 			_mission_manager.check_active_mission();
 			_mission_manager.send();
 
+#ifndef __PX4_QURT
 			_parameters_manager.send();
 
 			if (_mavlink->ftp_enabled()) {
@@ -3277,6 +3297,8 @@ MavlinkReceiver::Run()
 			}
 
 			_mavlink_log_handler.send();
+#endif
+
 			last_send_update = t;
 		}
 

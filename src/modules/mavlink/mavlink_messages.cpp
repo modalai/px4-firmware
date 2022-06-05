@@ -97,6 +97,17 @@
 using matrix::Vector3f;
 using matrix::wrap_2pi;
 
+#ifdef __PX4_QURT
+
+#include "streams/ALTITUDE.hpp"
+#include "streams/ATTITUDE.hpp"
+#include "streams/RC_CHANNELS.hpp"
+# include "streams/NAMED_VALUE_FLOAT.hpp"
+#include "streams/EXTENDED_SYS_STATE.hpp"
+# include "streams/LINK_NODE_STATUS.hpp"
+
+#else
+
 #include "streams/ACTUATOR_OUTPUT_STATUS.hpp"
 #include "streams/ALTITUDE.hpp"
 #include "streams/ATTITUDE.hpp"
@@ -139,6 +150,8 @@ using matrix::wrap_2pi;
 # include "streams/NAMED_VALUE_FLOAT.hpp"
 # include "streams/LINK_NODE_STATUS.hpp"
 #endif // !CONSTRAINED_FLASH
+
+#endif
 
 // ensure PX4 rotation enum and MAV_SENSOR_ROTATION align
 static_assert(MAV_SENSOR_ROTATION_NONE == static_cast<MAV_SENSOR_ORIENTATION>(ROTATION_NONE),
@@ -462,7 +475,6 @@ protected:
 			uint32_t custom_mode = 0;
 			uint8_t system_status = 0;
 			get_mavlink_mode_state(&status, &system_status, &base_mode, &custom_mode);
-			PX4_ERR("SENDING HEARTBEAT");
 			mavlink_msg_heartbeat_send(_mavlink->get_channel(), _mavlink->get_system_type(), MAV_AUTOPILOT_PX4,
 						   base_mode, custom_mode, system_status);
 
@@ -3004,13 +3016,31 @@ protected:
 	}
 };
 
+#ifdef __PX4_QURT
 static const StreamListItem streams_list[] = {
-	create_stream_list_item<MavlinkStreamHeartbeat>(),
+ 	create_stream_list_item<MavlinkStreamHeartbeat>(),
+ 	// create_stream_list_item<MavlinkStreamCommandLong>(),
+ 	create_stream_list_item<MavlinkStreamSysStatus>(),
+ 	create_stream_list_item<MavlinkStreamAttitude>(),
+ 	create_stream_list_item<MavlinkStreamVFRHUD>(),
+ 	create_stream_list_item<MavlinkStreamGPSRawInt>(),
+ 	create_stream_list_item<MavlinkStreamGlobalPositionInt>(),
+ 	create_stream_list_item<MavlinkStreamHomePosition>(),
+ 	create_stream_list_item<MavlinkStreamRCChannels>(),
+ 	create_stream_list_item<MavlinkStreamNamedValueFloat>(),
+ 	create_stream_list_item<MavlinkStreamExtendedSysState>(),
+ 	create_stream_list_item<MavlinkStreamAltitude>(),
+ 	create_stream_list_item<MavlinkStreamLinkNodeStatus>()
+
+};
+#else
+static const StreamListItem streams_list[] = {
+ 	create_stream_list_item<MavlinkStreamHeartbeat>(),
 #if defined(STATUSTEXT_HPP)
 	create_stream_list_item<MavlinkStreamStatustext>(),
 #endif // STATUSTEXT_HPP
-	create_stream_list_item<MavlinkStreamCommandLong>(),
-	create_stream_list_item<MavlinkStreamSysStatus>(),
+ 	create_stream_list_item<MavlinkStreamCommandLong>(),
+ 	create_stream_list_item<MavlinkStreamSysStatus>(),
 	create_stream_list_item<MavlinkStreamBatteryStatus>(),
 	create_stream_list_item<MavlinkStreamSmartBatteryInfo>(),
 	create_stream_list_item<MavlinkStreamHighresIMU>(),
@@ -3026,26 +3056,26 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamActuatorOutputStatus>(),
 #endif // ACTUATOR_OUTPUT_STATUS_HPP
 #if defined(ATTITUDE_HPP)
-	create_stream_list_item<MavlinkStreamAttitude>(),
+ 	create_stream_list_item<MavlinkStreamAttitude>(),
 #endif // ATTITUDE_HPP
 #if defined(ATTITUDE_QUATERNION_HPP)
 	create_stream_list_item<MavlinkStreamAttitudeQuaternion>(),
 #endif // ATTITUDE_QUATERNION_HPP
-	create_stream_list_item<MavlinkStreamVFRHUD>(),
+ 	create_stream_list_item<MavlinkStreamVFRHUD>(),
 #if defined(GPS_GLOBAL_ORIGIN_HPP)
 	create_stream_list_item<MavlinkStreamGpsGlobalOrigin>(),
 #endif // GPS_GLOBAL_ORIGIN_HPP
-	create_stream_list_item<MavlinkStreamGPSRawInt>(),
+ 	create_stream_list_item<MavlinkStreamGPSRawInt>(),
 	create_stream_list_item<MavlinkStreamGPS2Raw>(),
 	create_stream_list_item<MavlinkStreamSystemTime>(),
 	create_stream_list_item<MavlinkStreamTimesync>(),
-	create_stream_list_item<MavlinkStreamGlobalPositionInt>(),
+ 	create_stream_list_item<MavlinkStreamGlobalPositionInt>(),
 	create_stream_list_item<MavlinkStreamLocalPositionNED>(),
 	create_stream_list_item<MavlinkStreamOdometry>(),
 	create_stream_list_item<MavlinkStreamEstimatorStatus>(),
 	create_stream_list_item<MavlinkStreamVibration>(),
 	create_stream_list_item<MavlinkStreamAttPosMocap>(),
-	create_stream_list_item<MavlinkStreamHomePosition>(),
+ 	create_stream_list_item<MavlinkStreamHomePosition>(),
 	create_stream_list_item<MavlinkStreamServoOutputRaw<0> >(),
 	create_stream_list_item<MavlinkStreamServoOutputRaw<1> >(),
 #if defined(HIL_ACTUATOR_CONTROLS_HPP)
@@ -3061,7 +3091,7 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamAttitudeTarget>(),
 #endif // ATTITUDE_TARGET_HPP
 #if defined(RC_CHANNELS_HPP)
-	create_stream_list_item<MavlinkStreamRCChannels>(),
+ 	create_stream_list_item<MavlinkStreamRCChannels>(),
 #endif // RC_CHANNELS_HPP
 #if defined(MANUAL_CONTROL_HPP)
 	create_stream_list_item<MavlinkStreamManualControl>(),
@@ -3075,7 +3105,7 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamActuatorControlTarget<0> >(),
 	create_stream_list_item<MavlinkStreamActuatorControlTarget<1> >(),
 #if defined(NAMED_VALUE_FLOAT_HPP)
-	create_stream_list_item<MavlinkStreamNamedValueFloat>(),
+ 	create_stream_list_item<MavlinkStreamNamedValueFloat>(),
 #endif // NAMED_VALUE_FLOAT_HPP
 #if defined(DEBUG_HPP)
 	create_stream_list_item<MavlinkStreamDebug>(),
@@ -3096,10 +3126,10 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamDistanceSensor>(),
 #endif // DISTANCE_SENSOR_HPP
 #if defined(EXTENDED_SYS_STATE_HPP)
-	create_stream_list_item<MavlinkStreamExtendedSysState>(),
+ 	create_stream_list_item<MavlinkStreamExtendedSysState>(),
 #endif // EXTENDED_SYS_STATE_HPP
 #if defined(ALTITUDE_HPP)
-	create_stream_list_item<MavlinkStreamAltitude>(),
+ 	create_stream_list_item<MavlinkStreamAltitude>(),
 #endif // ALTITUDE_HPP
 	create_stream_list_item<MavlinkStreamADSBVehicle>(),
 	create_stream_list_item<MavlinkStreamUTMGlobalPosition>(),
@@ -3146,7 +3176,7 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamGPSStatus>(),
 #endif // GPS_STATUS_HPP
 #if defined(LINK_NODE_STATUS_HPP)
-	create_stream_list_item<MavlinkStreamLinkNodeStatus>(),
+ 	create_stream_list_item<MavlinkStreamLinkNodeStatus>(),
 #endif // LINK_NODE_STATUS_HPP
 #if defined(STORAGE_INFORMATION_HPP)
 	create_stream_list_item<MavlinkStreamStorageInformation>(),
@@ -3155,6 +3185,7 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamRawRpm>()
 #endif // RAW_RPM_HPP
 };
+#endif
 
 const char *get_stream_name(const uint16_t msg_id)
 {

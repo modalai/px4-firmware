@@ -252,11 +252,15 @@ private:
 
 	Mavlink				*_mavlink;
 
+#ifndef __PX4_QURT
 	MavlinkFTP			_mavlink_ftp;
 	MavlinkLogHandler		_mavlink_log_handler;
+#endif
 	MavlinkMissionManager		_mission_manager;
+#ifndef __PX4_QURT
 	MavlinkParametersManager	_parameters_manager;
 	MavlinkTimesync			_mavlink_timesync;
+#endif
 
 	mavlink_status_t		_status{}; ///< receiver status, used for mavlink_parse_char()
 

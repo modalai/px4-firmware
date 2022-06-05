@@ -474,6 +474,7 @@ public:
 
 	unsigned		get_main_loop_delay() const { return _main_loop_delay; }
 
+#ifndef __PX4_QURT
 	/** get the Mavlink shell. Create a new one if there isn't one. It is *always* created via MavlinkReceiver thread.
 	 *  Returns nullptr if shell cannot be created */
 	MavlinkShell		*get_shell();
@@ -492,6 +493,7 @@ public:
 	{
 		if (_mavlink_ulog) { _mavlink_ulog_stop_requested = true; }
 	}
+#endif
 
 	bool ftp_enabled() const { return _ftp_on; }
 
@@ -559,10 +561,12 @@ private:
 
 	List<MavlinkStream *>		_streams;
 
+#ifndef __PX4_QURT
 	MavlinkShell		*_mavlink_shell{nullptr};
 	MavlinkULog		*_mavlink_ulog{nullptr};
 
 	volatile bool		_mavlink_ulog_stop_requested{false};
+#endif
 
 	MAVLINK_MODE 		_mode{MAVLINK_MODE_NORMAL};
 

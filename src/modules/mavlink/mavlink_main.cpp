@@ -1307,6 +1307,7 @@ Mavlink::configure_stream(const char *stream_name, const float rate)
 
 	/* if we reach here, the stream list does not contain the stream */
 	PX4_WARN("stream %s not found", stream_name);
+	PX4_ERR("stream %s not found", stream_name);
 
 	return PX4_ERROR;
 }
@@ -1457,6 +1458,7 @@ Mavlink::pass_message(const mavlink_message_t *msg)
 	}
 }
 
+#ifndef __PX4_QURT
 MavlinkShell *
 Mavlink::get_shell()
 {
@@ -1488,6 +1490,7 @@ Mavlink::close_shell()
 		_mavlink_shell = nullptr;
 	}
 }
+#endif
 
 void
 Mavlink::update_rate_mult()
@@ -1507,9 +1510,11 @@ Mavlink::update_rate_mult()
 
 	float mavlink_ulog_streaming_rate_inv = 1.0f;
 
+#ifndef __PX4_QURT
 	if (_mavlink_ulog) {
 		mavlink_ulog_streaming_rate_inv = 1.0f - _mavlink_ulog->current_data_rate();
 	}
+#endif
 
 	/* scale up and down as the link permits */
 	float bandwidth_mult = (float)(_datarate * mavlink_ulog_streaming_rate_inv - const_rate) / rate;
@@ -1839,18 +1844,29 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 
 	case MAVLINK_MODE_MINIMAL:
 		configure_stream_local("ALTITUDE", 0.5f);
+		if (ret) PX4_ERR("ALTITUDE");
 		configure_stream_local("ATTITUDE", 10.0f);
+		if (ret) PX4_ERR("ATTITUDE");
 		configure_stream_local("EXTENDED_SYS_STATE", 0.1f);
+		if (ret) PX4_ERR("EXTENDED_SYS_STATE");
 		configure_stream_local("GLOBAL_POSITION_INT", 5.0f);
+		if (ret) PX4_ERR("GLOBAL_POSITION_INT");
 		configure_stream_local("GPS_RAW_INT", 0.5f);
+		if (ret) PX4_ERR("GPS_RAW_INT");
 		configure_stream_local("HOME_POSITION", 0.1f);
+		if (ret) PX4_ERR("HOME_POSITION");
 		configure_stream_local("NAMED_VALUE_FLOAT", 1.0f);
+		if (ret) PX4_ERR("NAMED_VALUE_FLOAT");
 		configure_stream_local("RC_CHANNELS", 0.5f);
+		if (ret) PX4_ERR("RC_CHANNELS");
 		configure_stream_local("SYS_STATUS", 0.1f);
+		if (ret) PX4_ERR("SYS_STATUS");
 		configure_stream_local("VFR_HUD", 1.0f);
+		if (ret) PX4_ERR("VFR_HUD");
 
 #if !defined(CONSTRAINED_FLASH)
 		configure_stream_local("LINK_NODE_STATUS", 1.0f);
+		if (ret) PX4_ERR("LINK_NODE_STATUS");
 #endif // !CONSTRAINED_FLASH
 
 		break;
@@ -2105,6 +2121,8 @@ Mavlink::task_main(int argc, char *argv[])
 		return PX4_ERROR;
 	}
 
+	_mode = MAVLINK_MODE_MINIMAL;
+
 	/* USB serial is indicated by /dev/ttyACMx */
 	if (strcmp(_device_name, "/dev/ttyACM0") == OK || strcmp(_device_name, "/dev/ttyACM1") == OK) {
 		if (_datarate == 0) {
@@ -2228,6 +2246,8 @@ Mavlink::task_main(int argc, char *argv[])
 #ifndef __PX4_QURT
 		_uart_fd = mavlink_open_uart(_baudrate, _device_name, _flow_control);
 #else
+		PX4_ERR("Mavlink main opening QURT uart %s at %d rate", _device_name, _baudrate);
+		// _uart_fd = qurt_uart_open("2", 115200);
 		_uart_fd = qurt_uart_open(_device_name, _baudrate);
 #endif
 		if (_uart_fd < 0 && !_is_usb_uart) {
@@ -2267,6 +2287,7 @@ Mavlink::task_main(int argc, char *argv[])
 	_mavlink_start_time = hrt_absolute_time();
 
 	while (!_task_should_exit) {
+
 		/* main loop */
 		px4_usleep(_main_loop_delay);
 		if (!should_transmit()) {
@@ -2276,6 +2297,10 @@ Mavlink::task_main(int argc, char *argv[])
 		perf_count(_loop_interval_perf);
 		perf_begin(_loop_perf);
 		const hrt_abstime t = hrt_absolute_time();
+
+// #ifdef __PX4_QURT
+// 		PX4_ERR("Mavlink main loop start. Duration %u", _main_loop_delay);
+// #endif
 
 		update_rate_mult();
 
@@ -2398,6 +2423,7 @@ Mavlink::task_main(int argc, char *argv[])
 			}
 		}
 
+#ifndef __PX4_QURT
 		/* check for shell output */
 		if (_mavlink_shell && _mavlink_shell->available() > 0) {
 			if (get_free_tx_buf() >= MAVLINK_MSG_ID_SERIAL_CONTROL_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) {
@@ -2410,8 +2436,13 @@ Mavlink::task_main(int argc, char *argv[])
 				mavlink_msg_serial_control_send_struct(get_channel(), &msg);
 			}
 		}
+#endif
 
 		check_requested_subscriptions();
+
+// #ifdef __PX4_QURT
+// 		PX4_ERR("Mavlink main loop updating streams");
+// #endif
 
 		/* update streams */
 		for (const auto &stream : _streams) {
@@ -2431,6 +2462,7 @@ Mavlink::task_main(int argc, char *argv[])
 			}
 		}
 
+#ifndef __PX4_QURT
 		/* check for ulog streaming messages */
 		if (_mavlink_ulog) {
 			if (_mavlink_ulog_stop_requested) {
@@ -2503,6 +2535,11 @@ Mavlink::task_main(int argc, char *argv[])
 				resend_message(&msg);
 			}
 		}
+#endif
+
+// #ifdef __PX4_QURT
+// 		PX4_ERR("Mavlink main loop updating rates");
+// #endif
 
 		/* update TX/RX rates*/
 		if (t > _bytes_timestamp + 1_s) {
@@ -2527,6 +2564,10 @@ Mavlink::task_main(int argc, char *argv[])
 		}
 
 		perf_end(_loop_perf);
+
+// #ifdef __PX4_QURT
+// 		PX4_ERR("Mavlink main loop ending");
+// #endif
 	}
 
 	/* first wait for threads to complete before tearing down anything */
@@ -2553,10 +2594,12 @@ Mavlink::task_main(int argc, char *argv[])
 		pthread_mutex_destroy(&_message_buffer_mutex);
 	}
 
+#ifndef __PX4_QURT
 	if (_mavlink_ulog) {
 		_mavlink_ulog->stop();
 		_mavlink_ulog = nullptr;
 	}
+#endif
 
 	pthread_mutex_destroy(&_send_mutex);
 
@@ -2738,7 +2781,9 @@ int Mavlink::start_helper(int argc, char *argv[])
 int
 Mavlink::start(int argc, char *argv[])
 {
+#ifndef __PX4_QURT
 	MavlinkULog::initialize();
+#endif
 	MavlinkCommandSender::initialize();
 
 	// Wait for the instance count to go up one
@@ -2837,10 +2882,12 @@ Mavlink::display_status()
 	printf("\t  rx: %.1f B/s\n", (double)_tstatus.rx_rate_avg);
 	printf("\t  rx loss: %.1f%%\n", (double)_tstatus.rx_message_lost_rate);
 
+#ifndef __PX4_QURT
 	if (_mavlink_ulog) {
 		printf("\tULog rate: %.1f%% of max %.1f%%\n", (double)_mavlink_ulog->current_data_rate() * 100.,
 		       (double)_mavlink_ulog->maximum_data_rate() * 100.);
 	}
+#endif
 
 	printf("\tFTP enabled: %s, TX enabled: %s\n",
 	       _ftp_on ? "YES" : "NO",
