@@ -67,7 +67,10 @@ MavlinkCommandSender::~MavlinkCommandSender()
 
 int MavlinkCommandSender::handle_vehicle_command(const struct vehicle_command_s &command, mavlink_channel_t channel)
 {
+#ifndef __PX4_QURT
 	lock();
+#endif
+
 	CMD_DEBUG("new command: %d (channel: %d)", command.command, channel);
 
 	mavlink_command_long_t msg = {};
@@ -107,7 +110,10 @@ int MavlinkCommandSender::handle_vehicle_command(const struct vehicle_command_s 
 		_commands.put(new_item);
 	}
 
+#ifndef __PX4_QURT
 	unlock();
+#endif
+
 	return 0;
 }
 
@@ -116,7 +122,10 @@ void MavlinkCommandSender::handle_mavlink_command_ack(const mavlink_command_ack_
 {
 	CMD_DEBUG("handling result %d for command %d (from %d:%d)",
 		  ack.result, ack.command, from_sysid, from_compid);
+
+#ifndef __PX4_QURT
 	lock();
+#endif
 
 	_commands.reset_to_start();
 
@@ -131,12 +140,16 @@ void MavlinkCommandSender::handle_mavlink_command_ack(const mavlink_command_ack_
 		}
 	}
 
+#ifndef __PX4_QURT
 	unlock();
+#endif
 }
 
 void MavlinkCommandSender::check_timeout(mavlink_channel_t channel)
 {
+#ifndef __PX4_QURT
 	lock();
+#endif
 
 	_commands.reset_to_start();
 
@@ -228,5 +241,7 @@ void MavlinkCommandSender::check_timeout(mavlink_channel_t channel)
 		}
 	}
 
+#ifndef __PX4_QURT
 	unlock();
+#endif
 }

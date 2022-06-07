@@ -105,6 +105,7 @@ using matrix::wrap_2pi;
 #include "streams/NAMED_VALUE_FLOAT.hpp"
 #include "streams/EXTENDED_SYS_STATE.hpp"
 #include "streams/LINK_NODE_STATUS.hpp"
+#include "streams/STATUSTEXT.hpp"
 
 #else
 
@@ -3019,7 +3020,8 @@ protected:
 #ifdef __PX4_QURT
 static const StreamListItem streams_list[] = {
  	create_stream_list_item<MavlinkStreamHeartbeat>(),
- 	// create_stream_list_item<MavlinkStreamCommandLong>(),
+ 	create_stream_list_item<MavlinkStreamStatustext>(),
+ 	create_stream_list_item<MavlinkStreamCommandLong>(),
  	create_stream_list_item<MavlinkStreamSysStatus>(),
  	create_stream_list_item<MavlinkStreamAttitude>(),
  	create_stream_list_item<MavlinkStreamVFRHUD>(),

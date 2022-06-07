@@ -102,8 +102,8 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_parameters_manager(parent),
 	_mavlink_timesync(parent)
 #else
-	_mission_manager(parent)
-	// _parameters_manager(parent)
+	_mission_manager(parent),
+	_parameters_manager(parent)
 #endif
 {
 }
@@ -3128,10 +3128,10 @@ MavlinkReceiver::Run()
 						/* handle packet with mission manager */
 						_mission_manager.handle_message(&msg);
 
-#ifndef __PX4_QURT
 						/* handle packet with parameter component */
 						_parameters_manager.handle_message(&msg);
 
+#ifndef __PX4_QURT
 						if (_mavlink->ftp_enabled()) {
 							/* handle packet with ftp component */
 							_mavlink_ftp.handle_message(&msg);
@@ -3285,9 +3285,9 @@ MavlinkReceiver::Run()
 			_mission_manager.check_active_mission();
 			_mission_manager.send();
 
-#ifndef __PX4_QURT
 			_parameters_manager.send();
 
+#ifndef __PX4_QURT
 			if (_mavlink->ftp_enabled()) {
 				_mavlink_ftp.send();
 			}

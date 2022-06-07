@@ -257,8 +257,8 @@ private:
 	MavlinkLogHandler		_mavlink_log_handler;
 #endif
 	MavlinkMissionManager		_mission_manager;
-#ifndef __PX4_QURT
 	MavlinkParametersManager	_parameters_manager;
+#ifndef __PX4_QURT
 	MavlinkTimesync			_mavlink_timesync;
 #endif
 
