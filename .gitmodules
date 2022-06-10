@@ -20,7 +20,7 @@
 	branch = master
 [submodule "src/lib/ecl"]
 	path = src/lib/ecl
-	url = https://github.com/PX4/PX4-ECL.git
+	url = https://github.com/modalai/ecl.git
 	branch = master
 [submodule "boards/atlflight/cmake_hexagon"]
 	path = boards/atlflight/cmake_hexagon
