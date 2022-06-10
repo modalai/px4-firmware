@@ -58,7 +58,7 @@ px4_add_board(
         magnetometer/qmc5883l
         uart_esc/modalai_esc
 		# uart_dsp/modalai_dsp
-		# px4io
+		px4io
         power_monitor/voxlpm
         imu/invensense/icm42688p
 		lights/rgbled_ncp5623c
@@ -76,7 +76,7 @@ px4_add_board(
 		mc_hover_thrust_estimator
 		muorb/slpi
 		sensors
-		mavlink
+		# mavlink
 	SYSTEMCMDS
 		mixer
 		param
