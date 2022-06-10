@@ -1,0 +1,28 @@
+{
+	"continuous": 1,
+	"rate": 50,
+	"message_type": "rc_channel_override",
+	"mavlink_message": {
+		"target_system" : 1,
+		"target_component": 1,
+		"chan1_raw": 65535,
+		"chan2_raw": 65535,
+		"chan3_raw": 65535,
+		"chan4_raw": 65535,
+		"chan5_raw": 65535,
+		"chan6_raw": 65535,
+		"chan7_raw": 65535,
+		"chan8_raw": 65535,
+		"chan9_raw": 65535,
+		"chan10_raw": 65535,
+		"chan11_raw": 65535,
+		"chan12_raw": 65535,
+		"chan13_raw": 65535,
+		"chan14_raw": 65535,
+		"chan15_raw": 65535,
+		"chan16_raw": 65535,
+		"chan17_raw": 65535,
+		"chan18_raw": 65535
+	}
+
+}

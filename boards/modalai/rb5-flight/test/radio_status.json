@@ -1,0 +1,15 @@
+{
+	"continuous": 1,
+	"rate": 50,
+	"message_type": "radio_status",
+	"mavlink_message": {
+		"rssi": 1,
+		"remrssi": 1,
+		"txbuf": 1,
+		"noise": 1,
+		"remnoise": 1,
+		"rxerrors": 1,
+		"fixed": 1
+	}
+
+}
