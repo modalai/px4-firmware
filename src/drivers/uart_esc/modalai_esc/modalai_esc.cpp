@@ -289,11 +289,13 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 				memcpy(&fb,_fb_packet.buffer,packet_size);
 
 				uint32_t id_raw         = (fb.id_state & 0xF0) >> 4;
+				int32_t id              = -1;
 
-				if (id_raw < MODALAI_ESC_OUTPUT_CHANNELS) {
+        //get the mapped id from raw id and map
+				if (id_raw < MODALAI_ESC_OUTPUT_CHANNELS)
+				  id = _output_map[id_raw].number - 1; //map is 1-4, so subtract 1
 
-					//get the id from the ID map
-					uint32_t id             = _output_map[id_raw].number;
+				if (id < MODALAI_ESC_OUTPUT_CHANNELS) {
 
 					if (print_feedback)
 					{
@@ -302,7 +304,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 						uint32_t voltage     = fb.voltage;
 						int32_t  current     = fb.current * 8;
 						int32_t  temperature = fb.temperature / 100;
-						PX4_INFO("[%lld] ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC",tnow, id, rpm, power, voltage, current,temperature);
+						PX4_INFO("[%lld] ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC",tnow, id+1, rpm, power, voltage, current,temperature);
 					}
 
 				  _esc_chans[id].rate_meas     = fb.rpm;
@@ -610,6 +612,14 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 				}
 			}
 
+			uint8_t id_fb_raw = 0;
+			if      (esc_id & 1) id_fb_raw = 0;
+			else if (esc_id & 2) id_fb_raw = 1;
+			else if (esc_id & 4) id_fb_raw = 2;
+			else if (esc_id & 8) id_fb_raw = 3;
+
+			uint8_t id_fb = map[id_fb_raw].number-1;
+
 			cmd.len = qc_esc_create_rpm_packet4_fb(rate_req[0],
 							    rate_req[1],
 							    rate_req[2],
@@ -618,7 +628,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 							    0,
 							    0,
 							    0,
-									0,  /* ESC ID .. need to fix for correct ID.. but what about multiple ESCs in bit mask.. */
+									id_fb,
 							    cmd.buf,
 							    sizeof(cmd.buf));
 
@@ -661,6 +671,14 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 				}
 			}
 
+			uint8_t id_fb_raw = 0;
+			if      (esc_id & 1) id_fb_raw = 0;
+			else if (esc_id & 2) id_fb_raw = 1;
+			else if (esc_id & 4) id_fb_raw = 2;
+			else if (esc_id & 8) id_fb_raw = 3;
+
+			uint8_t id_fb = map[id_fb_raw].number-1;
+
 			cmd.len = qc_esc_create_pwm_packet4_fb(rate_req[0],
 							    rate_req[1],
 							    rate_req[2],
@@ -669,7 +687,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 							    0,
 							    0,
 							    0,
-									0,  /* ESC ID .. need to fix for correct ID.. but what about multiple ESCs in bit mask.. */
+									id_fb,  /* ESC ID .. need to fix for correct ID.. but what about multiple ESCs in bit mask.. */
 							    cmd.buf,
 							    sizeof(cmd.buf));
 
