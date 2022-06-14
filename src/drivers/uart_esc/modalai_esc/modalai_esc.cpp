@@ -295,7 +295,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 				if (id_raw < MODALAI_ESC_OUTPUT_CHANNELS)
 				  id = _output_map[id_raw].number - 1; //map is 1-4, so subtract 1
 
-				if (id < MODALAI_ESC_OUTPUT_CHANNELS) {
+				if (id >=0 && id < MODALAI_ESC_OUTPUT_CHANNELS) {
 
 					if (print_feedback)
 					{
