@@ -49,7 +49,6 @@ def encode_rc_channel(json_data):
 	f = fifo()
 	mavlink_message = mavlink2.MAVLink(f)
 	m = mavlink_message.rc_channels_override_encode(**json_data)
-	print(m)
 	m.pack(mavlink_message)
 	encoded_buffer = m.get_msgbuf()
 	return encoded_buffer
@@ -58,7 +57,6 @@ def encode_radio_status(json_data):
 	f = fifo()
 	mavlink_message = mavlink2.MAVLink(f)
 	m = mavlink_message.radio_status_encode(**json_data)
-	print(m)
 	m.pack(mavlink_message)
 	encoded_buffer = m.get_msgbuf()
 	return encoded_buffer
@@ -75,6 +73,8 @@ def main():
 
 	args = parser.parse_args()
 	hz_rate =   1 / args.rate
+	encoded_rc_json = None
+	encoded_radio_status_json = None
 
 	if(args.rc_channel_json):
 		rc_channel_json = json.load(open(args.rc_channel_json))
@@ -95,14 +95,19 @@ def main():
 				json_data = json.loads(data)
 				if(json_data):
 					if(json_data['message_type'] == 'rc_channel'):
-						rc_channel_json['mavlink_message'[json_data["parameter_name"]]] = json_data["parameter_value"]
-						encoded_rc_json = encode_rc_channel(rc_channel_json['mavlink_message'])
-						writer.write(encoded_rc_json)
+						if('parameter_name' in json_data and 'parameter_value' in json_data):
+							rc_channel_json['mavlink_message'][json_data["parameter_name"]] = int(json_data["parameter_value"])
+							encoded_rc_json = encode_rc_channel(rc_channel_json['mavlink_message'])
+						else:
+							encoded_rc_json = encode_rc_channel(json_data['mavlink_message'])
 
 					if(json_data['message_type'] == 'radio_status'):
-						radio_status_json['mavlink_message'[json_data["parameter_name"]]] = json_data["parameter_value"]
-						encoded_radio_status_json = encode_radio_status(radio_status_json)
-						writer.write(encoded_radio_status_json)
+						if('parameter_name' in json_data and 'parameter_value' in json_data):
+							radio_status_json['mavlink_message'][json_data["parameter_name"]] = int(json_data["parameter_value"])
+							encoded_radio_status_json = encode_radio_status(radio_status_json)
+						else:
+							encoded_rc_json = encode_radio_status(json_data['mavlink_message'])
+
 				else:
 					data = None
 
