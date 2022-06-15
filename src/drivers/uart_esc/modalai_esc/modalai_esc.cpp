@@ -288,14 +288,11 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 				QC_ESC_FB_RESPONSE_V2 fb;
 				memcpy(&fb,_fb_packet.buffer,packet_size);
 
-				uint32_t id_raw         = (fb.id_state & 0xF0) >> 4;
-				int32_t id              = -1;
+				uint32_t id             = (fb.id_state & 0xF0) >> 4;  //ID of the ESC based on hardware address
 
-        //get the mapped id from raw id and map
-				if (id_raw < MODALAI_ESC_OUTPUT_CHANNELS)
-				  id = _output_map[id_raw].number - 1; //map is 1-4, so subtract 1
+				if (id < MODALAI_ESC_OUTPUT_CHANNELS) {
 
-				if (id >=0 && id < MODALAI_ESC_OUTPUT_CHANNELS) {
+					int motor_idx = _output_map[id].number-1; // mapped motor id.. user defined mapping is 1-4, array is 0-3
 
 					if (print_feedback)
 					{
@@ -304,7 +301,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 						uint32_t voltage     = fb.voltage;
 						int32_t  current     = fb.current * 8;
 						int32_t  temperature = fb.temperature / 100;
-						PX4_INFO("[%lld] ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC",tnow, id+1, rpm, power, voltage, current,temperature);
+						PX4_INFO("[%lld] ID_RAW=%d ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC",tnow, id, motor_idx+1, rpm, power, voltage, current,temperature);
 					}
 
 				  _esc_chans[id].rate_meas     = fb.rpm;
@@ -317,7 +314,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_chans[id].feedback_time = tnow;
 
 					// also update our internal report for logging
-					_esc_status.esc[id].esc_address  = id_raw; //actual ESC address, not mapped one
+					_esc_status.esc[id].esc_address  = motor_idx; //remapped motor ID
 					_esc_status.esc[id].timestamp    = tnow;
 					_esc_status.esc[id].esc_rpm      = fb.rpm;
 					_esc_status.esc[id].esc_state    = fb.id_state & 0x0F;
@@ -598,27 +595,30 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			outputs[2] = (esc_id & 4) ? rate : 0;
 			outputs[3] = (esc_id & 8) ? rate : 0;
 
+			//the motor mapping is.. if I want to spin Motor 1 (1-4) then i need to provide non-zero rpm for motor map[m-1]
+
 			uart_esc_params_t params;
 			ch_assign_t map[MODALAI_ESC_OUTPUT_CHANNELS];
 			get_instance()->load_params(&params, (ch_assign_t *)&map);
 
-			for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
-				int motor_idx = map[i].number;
-
-				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
-					/* user defined mapping is 1-4, array is 0-3 */
-					motor_idx--;
-					rate_req[i] = outputs[motor_idx] * map[i].direction;
-				}
-			}
-
 			uint8_t id_fb_raw = 0;
+			uint8_t id_fb = 0;
 			if      (esc_id & 1) id_fb_raw = 0;
 			else if (esc_id & 2) id_fb_raw = 1;
 			else if (esc_id & 4) id_fb_raw = 2;
 			else if (esc_id & 8) id_fb_raw = 3;
 
-			uint8_t id_fb = map[id_fb_raw].number-1;
+			for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
+				int motor_idx = map[i].number-1;  // user defined mapping is 1-4, array is 0-3
+
+				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
+					rate_req[i] = outputs[motor_idx] * map[i].direction;
+				}
+
+				if (motor_idx == id_fb_raw){
+					id_fb = i;
+				}
+			}
 
 			cmd.len = qc_esc_create_rpm_packet4_fb(rate_req[0],
 							    rate_req[1],
@@ -638,6 +638,8 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			cmd.repeat_delay_us = repeat_delay_us;
 			cmd.print_feedback  = true;
 
+			PX4_INFO("ESC map: %d %d %d %d",map[0].number,map[1].number,map[2].number,map[3].number);
+			PX4_INFO("feedback id debug: %i, %i", id_fb_raw, id_fb);
       PX4_INFO("Sending UART ESC RPM command %i", rate);
 
 			return get_instance()->sendCommandThreadSafe(&cmd);
@@ -661,23 +663,24 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			ch_assign_t map[MODALAI_ESC_OUTPUT_CHANNELS];
 			get_instance()->load_params(&params, (ch_assign_t *)&map);
 
-			for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
-				int motor_idx = map[i].number;
-
-				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
-					/* user defined mapping is 1-4, array is 0-3 */
-					motor_idx--;
-					rate_req[i] = outputs[motor_idx] * map[i].direction;
-				}
-			}
-
 			uint8_t id_fb_raw = 0;
+			uint8_t id_fb = 0;
 			if      (esc_id & 1) id_fb_raw = 0;
 			else if (esc_id & 2) id_fb_raw = 1;
 			else if (esc_id & 4) id_fb_raw = 2;
 			else if (esc_id & 8) id_fb_raw = 3;
 
-			uint8_t id_fb = map[id_fb_raw].number-1;
+			for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
+				int motor_idx = map[i].number-1; // user defined mapping is 1-4, array is 0-3
+
+				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
+					rate_req[i] = outputs[motor_idx] * map[i].direction;
+				}
+
+				if (motor_idx == id_fb_raw){
+					id_fb = i;
+				}
+			}
 
 			cmd.len = qc_esc_create_pwm_packet4_fb(rate_req[0],
 							    rate_req[1],
@@ -697,6 +700,8 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			cmd.repeat_delay_us = repeat_delay_us;
 			cmd.print_feedback  = true;
 
+			PX4_INFO("ESC map: %d %d %d %d",map[0].number,map[1].number,map[2].number,map[3].number);
+			PX4_INFO("feedback id debug: %i, %i", id_fb_raw, id_fb);
       PX4_INFO("Sending UART ESC power command %i", rate);
 
 
