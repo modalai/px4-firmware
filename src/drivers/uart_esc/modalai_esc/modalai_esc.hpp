@@ -156,7 +156,7 @@ private:
 	} uart_esc_params_t;
 
 	struct EscChan {
-		uint16_t	rate_req;
+		int16_t	  rate_req;
 		uint8_t		state;
 		uint16_t	rate_meas;
 		uint8_t   power_applied;
