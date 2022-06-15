@@ -1,6 +1,5 @@
 {
 	"continuous": 1,
-	"rate": 50,
 	"message_type": "rc_channel_override",
 	"mavlink_message": {
 		"target_system" : 1,

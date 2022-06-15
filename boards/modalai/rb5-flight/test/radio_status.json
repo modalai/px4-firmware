@@ -1,6 +1,5 @@
 {
 	"continuous": 1,
-	"rate": 50,
 	"message_type": "radio_status",
 	"mavlink_message": {
 		"rssi": 1,

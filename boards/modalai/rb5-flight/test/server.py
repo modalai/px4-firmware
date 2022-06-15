@@ -49,6 +49,7 @@ def encode_rc_channel(json_data):
 	f = fifo()
 	mavlink_message = mavlink2.MAVLink(f)
 	m = mavlink_message.rc_channels_override_encode(**json_data)
+	print(m)
 	m.pack(mavlink_message)
 	encoded_buffer = m.get_msgbuf()
 	return encoded_buffer
@@ -57,55 +58,66 @@ def encode_radio_status(json_data):
 	f = fifo()
 	mavlink_message = mavlink2.MAVLink(f)
 	m = mavlink_message.radio_status_encode(**json_data)
+	print(m)
 	m.pack(mavlink_message)
 	encoded_buffer = m.get_msgbuf()
 	return encoded_buffer
 
 def main():
+
 	parser = argparse.ArgumentParser(description='Get parameters for serial and server')
 	parser.add_argument('--server_port', '-s', type=int, required=True)
 	parser.add_argument('--serial_port', '-p', type=str, required=True)
 	parser.add_argument('--serial_baudrate', '-b', type=int, required=True)
 	parser.add_argument('--rc_channel_json', '-rc', type=str, required=False)
 	parser.add_argument('--radio_status_json', '-rs', type=str, required=False)
+	parser.add_argument('--rate', '-r', type=int, required=True)
 
 	args = parser.parse_args()
+	hz_rate =   1 / args.rate
 
 	if(args.rc_channel_json):
-		rc_channel_json = json.load(args.rc_channel_json)
+		rc_channel_json = json.load(open(args.rc_channel_json))
 		encoded_rc_json = encode_rc_channel(rc_channel_json['mavlink_message'])
 
 	if(args.radio_status_json):
-		radio_status_json = json.load(args.radio_status_json)
+		radio_status_json = json.load(open(args.radio_status_json))
 		encoded_radio_status_json = encode_radio_status(radio_status_json['mavlink_message'])
 
 	writer = serialWrite(args.serial_port, args.serial_baudrate)
 	server = serverSocket(args.server_port)
+	counter = 0
 
 	while True:
 		data = server.receive_msgs()
 		try:
-			json_data = json.loads(data)
-			if(json_data):
-				if(json_data['message_type'] == 'rc_channel'):
-					encoded_rc_json = encode_rc_channel(json_data)
-					writer.write(encoded_rc_channel_data)
+			if(data):
+				json_data = json.loads(data)
+				if(json_data):
+					if(json_data['message_type'] == 'rc_channel'):
+						rc_channel_json['mavlink_message'[json_data["parameter_name"]]] = json_data["parameter_value"]
+						encoded_rc_json = encode_rc_channel(rc_channel_json['mavlink_message'])
+						writer.write(encoded_rc_json)
 
-				if(json_data['message_type'] == 'radio_status'):
-					encoded_radio_status_json = encode_radio_status(json_data)
-					writer.write(encoded_radio_status_data)
+					if(json_data['message_type'] == 'radio_status'):
+						radio_status_json['mavlink_message'[json_data["parameter_name"]]] = json_data["parameter_value"]
+						encoded_radio_status_json = encode_radio_status(radio_status_json)
+						writer.write(encoded_radio_status_json)
+				else:
+					data = None
 
 			if(encoded_radio_status_json or encoded_rc_json):
 				if(encoded_radio_status_json):
-					writer.write(encoded_radio_status_data)
+					writer.write(encoded_radio_status_json)
 
 				if(encoded_rc_json):
 					writer.write(encoded_rc_json)
 
-				pass
-
 		except Exception as e:
+			print(e)
 			pass
+
+		time.sleep(hz_rate)
 
 if __name__ == "__main__":
 	main()
