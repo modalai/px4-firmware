@@ -10,6 +10,7 @@ uint8 esc_cmdcount					# Counter of number of commands
 uint8 esc_state					# State of ESC - depend on Vendor
 
 uint8 failures					# Bitmask to indicate the internal ESC faults
+int8 esc_power          # Applied power 0-100 in % (negative values reserved)
 
 uint8 FAILURE_NONE = 0
 uint8 FAILURE_OVER_CURRENT_MASK = 1 		# (1 << 0)
