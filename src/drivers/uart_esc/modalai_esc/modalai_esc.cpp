@@ -57,6 +57,8 @@ ModalaiEsc::ModalaiEsc() :
 	_esc_status.counter            = 0;
 	_esc_status.esc_count          = MODALAI_ESC_OUTPUT_CHANNELS;
 	_esc_status.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
+	_esc_status.esc_online_flags = (1 << MODALAI_ESC_OUTPUT_CHANNELS) - 1;
+	_esc_status.esc_armed_flags = (1 << MODALAI_ESC_OUTPUT_CHANNELS) - 1;
 
 	for (unsigned i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
 		_esc_status.esc[i].timestamp       = 0;
@@ -67,7 +69,7 @@ ModalaiEsc::ModalaiEsc() :
 		_esc_status.esc[i].esc_voltage     = 0;
 		_esc_status.esc[i].esc_current     = 0;
 		_esc_status.esc[i].esc_temperature = 0;
-	  _esc_status.esc[i].esc_errorcount	 = 0;
+		_esc_status.esc[i].esc_errorcount	 = 0;
 		_esc_status.esc[i].failures        = 0;
 	}
 
