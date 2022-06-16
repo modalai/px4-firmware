@@ -40,6 +40,9 @@
 #define MODALAI_ESC_DEFAULT_PORT 	"/dev/ttyS1"
 #define MODALAI_ESC_VOXL_PORT     "/dev/ttyS4"
 
+//TODO: make this a param!!!
+#define MODALAI_PUBLISH_ESC_STATUS 1
+
 const char *_device;
 
 ModalaiEsc::ModalaiEsc() :
@@ -372,11 +375,13 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 		}
 		else  //parser error
 		{
+			/*
 			switch (ret)
 			{
 				case ESC_ERROR_BAD_CHECKSUM: PX4_INFO("BAD ESC packet checksum"); break;
 				case ESC_ERROR_BAD_LENGTH:   PX4_INFO("BAD ESC packet length");   break;
 			}
+			*/
 		}
 	}
 
@@ -1094,7 +1099,7 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	}
 
 	// publish the actual command that we sent and the feedback received
-	if (0) {
+	if (MODALAI_PUBLISH_ESC_STATUS) {
 		actuator_outputs_s actuator_outputs{};
 		actuator_outputs.noutputs = num_outputs;
 
