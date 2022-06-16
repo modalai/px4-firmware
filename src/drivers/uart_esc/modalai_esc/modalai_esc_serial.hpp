@@ -51,9 +51,11 @@ public:
 	int		uart_write(FAR void *buf, size_t len);
 	int		uart_read(FAR void *buf, size_t len);
 	bool		is_open() { return _uart_fd >= 0; };
+	int   uart_get_baud() {return _speed; }
 
 private:
 	int			_uart_fd = -1;
 	struct termios		_orig_cfg;
 	struct termios		_cfg;
+	int   _speed = -1;
 };

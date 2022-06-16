@@ -72,6 +72,7 @@ ModalaiEsc::ModalaiEsc() :
 	}
 
 	qc_esc_packet_init(&_fb_packet);
+	qc_esc_packet_init(&_uart_bridge_packet);
 
 	_fb_idx = 0;
 }
@@ -314,13 +315,14 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_chans[id].feedback_time = tnow;
 
 					// also update our internal report for logging
-					_esc_status.esc[id].esc_address  = motor_idx; //remapped motor ID
+					_esc_status.esc[id].esc_address  = motor_idx+1; //remapped motor ID
 					_esc_status.esc[id].timestamp    = tnow;
 					_esc_status.esc[id].esc_rpm      = fb.rpm;
+					_esc_status.esc[id].esc_power    = fb.power;
 					_esc_status.esc[id].esc_state    = fb.id_state & 0x0F;
 					_esc_status.esc[id].esc_cmdcount = fb.cmd_counter;
 					_esc_status.esc[id].esc_voltage  = _esc_chans[id].voltage;
-					_esc_status.esc[id].esc_voltage  = _esc_chans[id].current;
+					_esc_status.esc[id].esc_current  = _esc_chans[id].current;
 					_esc_status.esc[id].failures     = 0; //not implemented
 
 					int32_t t = fb.temperature / 100;  //divide by 100 to get deg C and cap for int8
@@ -331,6 +333,15 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 
 					_esc_status.timestamp = _esc_status.esc[id].timestamp;
 					_esc_status.counter++;
+
+					//print ESC status just for debugging
+					/*
+					PX4_INFO("[%lld] ID=%d, ADDR %d, STATE=%d, RPM=%5d, PWR=%3d%%, V=%.2fdV, I=%.2fA, T=%+3dC, CNT %d, FAIL %d",
+					 	_esc_status.esc[id].timestamp, id, _esc_status.esc[id].esc_address,
+						_esc_status.esc[id].esc_state, _esc_status.esc[id].esc_rpm, _esc_status.esc[id].esc_power,
+						(double)_esc_status.esc[id].esc_voltage, (double)_esc_status.esc[id].esc_current, _esc_status.esc[id].esc_temperature,
+					  _esc_status.esc[id].esc_cmdcount, _esc_status.esc[id].failures);
+					*/
 				}
 			}
 
@@ -1222,7 +1233,38 @@ void ModalaiEsc::Run()
 				uint8_t uart_buf[128];
 				int bytes_read = _uart_port_bridge->uart_read(uart_buf,sizeof(uart_buf));
 				if (bytes_read > 0)
+				{
 					_uart_port->uart_write(uart_buf,bytes_read);
+
+					for (int i=0; i<bytes_read; i++)
+					{
+						int16_t ret = qc_esc_packet_process_char(uart_buf[i], &_uart_bridge_packet);
+						if (ret > 0)
+						{
+							//PX4_INFO("got packet of length %i",ret);
+							uint8_t packet_type = qc_esc_packet_get_type(&_uart_bridge_packet);
+							//uint8_t packet_size = qc_esc_packet_get_size(&_uart_bridge_packet);
+							//if we received a command for ESC to reset, most likely firmware update is coming, switch to bootloader baud rate
+							if (packet_type == ESC_PACKET_TYPE_RESET_CMD)
+							{
+								int bootloader_baud_rate = 230400;
+								if (_uart_port->uart_get_baud() != bootloader_baud_rate)
+								{
+								  px4_usleep(5000);
+								  _uart_port->uart_set_baud(bootloader_baud_rate);
+								}
+							}
+							else
+							{
+								if (_uart_port->uart_get_baud() != _parameters.baud_rate)
+								{
+								  px4_usleep(5000);
+								  _uart_port->uart_set_baud(_parameters.baud_rate);  //restore normal baud rate
+								}
+							}
+						}
+					}
+				}
 
 				bytes_read = _uart_port->uart_read(uart_buf,sizeof(uart_buf));
 				if (bytes_read > 0)

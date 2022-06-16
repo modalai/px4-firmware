@@ -98,6 +98,8 @@ int ModalaiEscSerial::uart_open(const char *dev, speed_t speed)
 		return -1;
 	}
 
+	_speed =  speed;
+
 	return 0;
 }
 
@@ -114,6 +116,8 @@ int ModalaiEscSerial::uart_set_baud(speed_t speed)
 	if (tcsetattr(_uart_fd, TCSANOW, &_cfg) < 0) {
 		return -1;
 	}
+
+	_speed = speed;
 
 	return 0;
 }

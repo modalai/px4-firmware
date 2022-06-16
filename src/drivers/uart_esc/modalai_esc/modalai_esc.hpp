@@ -218,6 +218,7 @@ private:
 	Command			_esc_cmd;
 	esc_status_s _esc_status;
 	EscPacket   _fb_packet;
+	EscPacket   _uart_bridge_packet;
 
 	led_rsc_t	 	_led_rsc;
 	int         _fb_idx;
