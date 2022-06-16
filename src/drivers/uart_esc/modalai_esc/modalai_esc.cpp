@@ -450,7 +450,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 	uint32_t repeat_delay_us = 10000;
 
 	if (argc < 3) {
-		return print_usage("unknown command");
+		return print_usage("Not enough input arguments.");
 	}
 
 	const char *verb = argv[argc - 1];
@@ -513,7 +513,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			break;
 
 		default:
-			print_usage("Unknown command");
+			print_usage("Unknown argument flag.");
 			return 0;
 		}
 	}
@@ -702,7 +702,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 
 			PX4_INFO("ESC map: %d %d %d %d",map[0].number,map[1].number,map[2].number,map[3].number);
 			PX4_INFO("feedback id debug: %i, %i", id_fb_raw, id_fb);
-      PX4_INFO("Sending UART ESC power command %i", rate);
+      			PX4_INFO("Sending UART ESC power command %i", rate);
 
 
 			return get_instance()->sendCommandThreadSafe(&cmd);
