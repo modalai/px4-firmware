@@ -56,8 +56,10 @@ extern "C" {
 // Header of the packet. Each packet must start with this header
 #define ESC_PACKET_HEADER    0xAF
 
-enum { ESC_ERROR_BAD_CHECKSUM = -1,
-       ESC_NO_PACKET
+enum { ESC_ERROR_BAD_LENGTH   = -3,
+       ESC_ERROR_BAD_HEADER   = -2,
+       ESC_ERROR_BAD_CHECKSUM = -1,
+       ESC_NO_PACKET          = 0
      };
 
 // Defines for the constatnt offsets of different parts of the packet
@@ -73,7 +75,7 @@ typedef struct {
 	uint8_t  len_expected; // Expected number of chars based on header
 	uint8_t   *bp;         // Pointer to the next write position in the buffer
 	uint16_t crc;          // Accumulated CRC value so far
-	uint8_t  buffer[32];   // Buffer to hold incoming data that is being parsed
+	uint8_t  buffer[64];   // Buffer to hold incoming data that is being parsed
 } EscPacket;
 
 
@@ -91,11 +93,26 @@ typedef struct {
 	uint16_t crc;
 }  __attribute__((__packed__)) QC_ESC_VERSION_INFO;
 
-// Definition of the feedbak response packet from ESC
+typedef struct
+{
+  uint8_t  header;
+  uint8_t  length;
+  uint8_t  type;
+  uint8_t  id;
+  uint16_t sw_version;
+  uint16_t hw_version;
+  uint8_t  unique_id[12];
+  char     firmware_git_version[12];
+  char     bootloader_git_version[12];
+  uint16_t bootloader_version;
+  uint16_t crc;
+}  __attribute__ ((__packed__)) QC_ESC_EXTENDED_VERSION_INFO;
+
+// Definition of the feedback response packet from ESC
 typedef struct {
 	uint8_t  header;
 	uint8_t  length;       // Total length of the packet
-	uint8_t  type;         // This will be equal to ESC_PACKET_TYPE_VERSION_RESPONSE
+	uint8_t  type;         // This will be equal to ESC_PACKET_TYPE_FB_RESPONSE
 
 	uint8_t  state;        // bits 0:3 = state, bits 4:7 = ID
 	uint16_t rpm;          // Current RPM of the motor
@@ -106,6 +123,24 @@ typedef struct {
 
 	uint16_t crc;
 }  __attribute__((__packed__)) QC_ESC_FB_RESPONSE;
+
+// Definition of the feedback response packet from ESC
+typedef struct {
+	uint8_t  header;
+	uint8_t  length;       // Total length of the packet
+	uint8_t  type;         // This will be equal to ESC_PACKET_TYPE_FB_RESPONSE
+	uint8_t  id_state;     // bits 0:3 = state, bits 4:7 = ID
+
+	uint16_t rpm;          // Current RPM of the motor
+	uint8_t  cmd_counter;  // Number of commands received by the ESC
+	uint8_t  power;        // Applied power [0..100]
+
+  uint16_t voltage;      // Voltage measured by the ESC in mV
+	int16_t  current;      // Current measured by the ESC in 8mA resolution
+  int16_t  temperature;  // Temperature measured by the ESC in 0.01 degC resolution
+
+	uint16_t crc;
+}  __attribute__((__packed__)) QC_ESC_FB_RESPONSE_V2;
 
 
 //-------------------------------------------------------------------------
@@ -122,6 +157,7 @@ int32_t qc_esc_create_packet(uint8_t type, uint8_t *input_data, uint16_t input_s
 // Create a packet for requesting version information from ESC with desired id
 // If an ESC with this id is connected and receives this command, it will reply with it's version information
 int32_t qc_esc_create_version_request_packet(uint8_t id, uint8_t *out, uint16_t out_size);
+int32_t qc_esc_create_extended_version_request_packet(uint8_t id, uint8_t *out, uint16_t out_size);
 
 // Create a packet for requesting an ESC with desired id to reset
 // When ESC with the particular id receives this command, and it's not spinning, ESC will reset
