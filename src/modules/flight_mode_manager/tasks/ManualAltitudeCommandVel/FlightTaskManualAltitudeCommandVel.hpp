@@ -85,7 +85,6 @@ private:
 	float _yawspeed_filter_state{}; /**< state of low-pass filter in rad/s */
 
 	matrix::Vector3f _last_position; /**< last loop's vehicle position */
-	float _z_bias_lpf; /**< low passed version of z vel bias */
 
 	AlphaFilter<matrix::Vector2f> _man_input_filter;
 };

@@ -67,7 +67,6 @@ bool FlightTaskManualAltitudeCommandVel::activate(const vehicle_local_position_s
 	_yawspeed_setpoint = 0.f;
 	_acceleration_setpoint = Vector3f(0.f, 0.f, NAN); // altitude is controlled from velocity
 	_last_position = _position;			// initialize loop to assume we're stable
-	_z_bias_lpf = 0;
 	_position_setpoint(2) = NAN;
 	_velocity_setpoint(2) = 0.f;
 	_setDefaultConstraints();
@@ -84,12 +83,6 @@ void FlightTaskManualAltitudeCommandVel::_scaleSticks()
 	// Use sticks input with deadzone and exponential curve for vertical velocity
 	const float vel_max_z = (_sticks.getPosition()(2) > 0.0f) ? _constraints.speed_down : _constraints.speed_up;
 	_velocity_setpoint(2) = vel_max_z * _sticks.getPositionExpo()(2);
-
-	// apply bias to overcome steady state errors
-	const float z_bias = math::constrain(_velocity(2) - ((_position(2) - _last_position(2)) / _deltatime), -0.5f, 0.5f);
-	const float alpha = 0.1;
-	_z_bias_lpf = (_z_bias_lpf * (1 - alpha)) + (z_bias * alpha);
-	_velocity_setpoint(2) += _z_bias_lpf;
 }
 
 float FlightTaskManualAltitudeCommandVel::_applyYawspeedFilter(float yawspeed_target)
