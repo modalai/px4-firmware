@@ -1085,7 +1085,7 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	}
 
 	// publish the actual command that we sent and the feedback received
-	if (0) {
+	{
 		actuator_outputs_s actuator_outputs{};
 		actuator_outputs.noutputs = num_outputs;
 
