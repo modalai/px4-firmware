@@ -58,3 +58,18 @@ PARAM_DEFINE_INT32(LND_FLIGHT_T_HI, 0);
  *
  */
 PARAM_DEFINE_INT32(LND_FLIGHT_T_LO, 0);
+
+/**
+ * Assume land detection is uncertain, e.g. to allow arming / disarming.
+ *
+ * This is a roundabout what of allowing arming and disarming checks
+ * to ignore landing status, and to ensure we don't disarm when landed.
+ *
+ * @min 0
+ * @max 1
+ * @volatile
+ * @category system
+ * @group Land Detector
+ *
+ */
+PARAM_DEFINE_INT32(LND_FLIGHT_UNCRT, 0);

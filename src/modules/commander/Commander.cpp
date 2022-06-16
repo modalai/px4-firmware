@@ -502,11 +502,12 @@ static constexpr const char *main_state_str(uint8_t main_state)
 transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_preflight_checks)
 {
 	// allow a grace period for re-arming: preflight checks don't need to pass during that time, for example for accidential in-air disarming
-	if (_param_com_rearm_grace.get() && (hrt_elapsed_time(&_last_disarmed_timestamp) < 5_s)) {
+	if (!_param_preflt_checks_required.get() || (_param_com_rearm_grace.get() && (hrt_elapsed_time(&_last_disarmed_timestamp) < 5_s))) {
 		run_preflight_checks = false;
 	}
 
 	if (run_preflight_checks) {
+		_manual_control.update();
 		if (_vehicle_control_mode.flag_control_manual_enabled) {
 			if (_vehicle_control_mode.flag_control_climb_rate_enabled && _manual_control.isThrottleAboveCenter()) {
 				mavlink_log_critical(&_mavlink_log_pub, "Arming denied: throttle above center");
@@ -638,6 +639,10 @@ Commander::try_mode_change(main_state_t desired_mode)
 			desired_mode = commander_state_s::MAIN_STATE_MANUAL;
 			res = main_state_transition(_status, desired_mode, _status_flags, _internal_state);
 		}
+
+		// indicate that we're changing to something other than our originally desired mode
+		if (res == TRANSITION_CHANGED)
+			res = TRANSITION_CHANGED_FALLBACK;
 	}
 
 	return res;
@@ -1886,7 +1891,7 @@ Commander::run()
 
 					// prevent disarming via safety button if not landed
 					if (hrt_elapsed_time(&_land_detector.timestamp) < 10_s) {
-						if (!_land_detector.landed) {
+						if (!_land_detector.maybe_landed) {
 							safety_disarm_allowed = false;
 						}
 					}
@@ -2265,11 +2270,11 @@ Commander::run()
 			const bool rc_arming_enabled = (_status.rc_input_mode != vehicle_status_s::RC_IN_MODE_OFF);
 
 			if (rc_arming_enabled) {
-				if (_manual_control.wantsDisarm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.landed)) {
+				if (_manual_control.wantsDisarm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.maybe_landed)) {
 					disarm(arm_disarm_reason_t::RC_STICK);
 				}
 
-				if (_manual_control.wantsArm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.landed)) {
+				if (_manual_control.wantsArm(_vehicle_control_mode, _status, _manual_control_switches, _land_detector.maybe_landed)) {
 					if (_vehicle_control_mode.flag_control_manual_enabled) {
 						arm(arm_disarm_reason_t::RC_STICK);
 
@@ -2333,13 +2338,13 @@ Commander::run()
 						_landing_gear_pub.publish(landing_gear);
 					}
 				}
+			}
 
-				// evaluate the main state machine according to mode switches
-				if (set_main_state(_status_changed) == TRANSITION_CHANGED) {
-					// play tune on mode change only if armed, blink LED always
-					tune_positive(_armed.armed);
-					_status_changed = true;
-				}
+			// evaluate the main state machine according to mode switches
+			if (set_main_state(_status_changed) == TRANSITION_CHANGED) {
+				// play tune on mode change only if armed, blink LED always
+				tune_positive(_armed.armed);
+				_status_changed = true;
 			}
 
 			/* check throttle kill switch */
@@ -2985,8 +2990,6 @@ Commander::set_main_state_rc()
 		return TRANSITION_NOT_CHANGED;
 	}
 
-	_last_manual_control_switches = _manual_control_switches;
-
 	// reset the position and velocity validity calculation to give the best change of being able to select
 	// the desired mode
 	reset_posvel_validity();
@@ -3051,8 +3054,6 @@ Commander::set_main_state_rc()
 		} else {
 			res = try_mode_change(new_mode);
 		}
-
-		return res;
 
 	} else if (_manual_control_switches.mode_switch != manual_control_switches_s::SWITCH_POS_NONE) {
 		/* offboard and RTL switches off or denied, check main mode switch */
@@ -3133,6 +3134,9 @@ Commander::set_main_state_rc()
 
 	}
 
+	// check if we've transitioned; if not, keep around our previous state to allow the next iteration to try
+	if (res == TRANSITION_CHANGED)
+		_last_manual_control_switches = _manual_control_switches;
 	return res;
 }
 

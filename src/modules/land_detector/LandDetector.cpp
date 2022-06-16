@@ -120,7 +120,7 @@ void LandDetector::Run()
 
 	const bool freefallDetected = _freefall_hysteresis.get_state();
 	const bool ground_contactDetected = _ground_contact_hysteresis.get_state();
-	const bool maybe_landedDetected = _maybe_landed_hysteresis.get_state();
+	const bool maybe_landedDetected = (_param_flight_uncertain.get()) ? true : _maybe_landed_hysteresis.get_state();
 	const bool landDetected = _landed_hysteresis.get_state();
 	const float alt_max = _get_max_altitude() > 0.0f ? _get_max_altitude() : (float)INFINITY;
 	const bool in_ground_effect = _ground_effect_hysteresis.get_state();

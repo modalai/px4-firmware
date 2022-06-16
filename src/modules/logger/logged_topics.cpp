@@ -204,6 +204,8 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("vehicle_attitude");
 	add_topic("vehicle_attitude_setpoint");
 	add_topic("vehicle_rates_setpoint");
+	add_topic("actuator_outputs_debug");
+	add_topic("esc_status");
 }
 
 void LoggedTopics::add_debug_topics()

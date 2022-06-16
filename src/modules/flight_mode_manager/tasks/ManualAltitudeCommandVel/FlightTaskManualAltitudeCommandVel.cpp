@@ -63,7 +63,7 @@ bool FlightTaskManualAltitudeCommandVel::updateInitialize()
 bool FlightTaskManualAltitudeCommandVel::activate(const vehicle_local_position_setpoint_s &last_setpoint)
 {
 	bool ret = FlightTask::activate(last_setpoint);
-	_yaw_setpoint = NAN;
+	_yaw_setpoint = NAN;				// always use stick commands (or 0)
 	_yawspeed_setpoint = 0.f;
 	_acceleration_setpoint = Vector3f(0.f, 0.f, NAN); // altitude is controlled from velocity
 	_last_position = _position;			// initialize loop to assume we're stable
@@ -108,36 +108,8 @@ void FlightTaskManualAltitudeCommandVel::_rotateIntoHeadingFrame(Vector2f &v)
 	v(1) = v_r(1);
 }
 
-void FlightTaskManualAltitudeCommandVel::_updateHeadingSetpoints()
-{
-	/*
-	 * A threshold larger than FLT_EPSILON is required because the
-	 * _yawspeed_setpoint comes from an IIR filter and takes too much
-	 * time to reach zero.
-	 */
-	if (fabsf(_yawspeed_setpoint) > 0.001f) {
-		// no fixed heading when rotating around yaw by stick
-		_yaw_setpoint = NAN;
-	} else {
-		// hold the current heading when no more rotation commanded
-		if (!PX4_ISFINITE(_yaw_setpoint)) {
-			_yaw_setpoint = _yaw;
-		}
-	}
-}
-
-void FlightTaskManualAltitudeCommandVel::_ekfResetHandlerHeading(float delta_psi)
-{
-	// Only reset the yaw setpoint when the heading is locked
-	if (PX4_ISFINITE(_yaw_setpoint)) {
-		_yaw_setpoint += delta_psi;
-	}
-}
-
 void FlightTaskManualAltitudeCommandVel::_updateSetpoints()
 {
-	_updateHeadingSetpoints(); // get yaw setpoint
-
 	// Thrust in xy are extracted directly from stick inputs. A magnitude of
 	// 1 means that maximum thrust along xy is demanded. A magnitude of 0 means no
 	// thrust along xy is demanded. The maximum thrust along xy depends on the thrust
