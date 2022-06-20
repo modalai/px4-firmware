@@ -116,12 +116,14 @@ ArchPX4IOSerial::init()
 	uart_config.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
 
 	/* set baud rate */
-	if ((termios_state = cfsetispeed(&uart_config, B1000000)) < 0) {
+	// if ((termios_state = cfsetispeed(&uart_config, B1000000)) < 0) {
+	if ((termios_state = cfsetispeed(&uart_config, B921600)) < 0) {
 		PX4_ERR("ERR: %d (cfsetispeed)", termios_state);
 		return -1;
 	}
 
-	if ((termios_state = cfsetospeed(&uart_config, B1000000)) < 0) {
+	// if ((termios_state = cfsetospeed(&uart_config, B1000000)) < 0) {
+	if ((termios_state = cfsetospeed(&uart_config, B921600)) < 0) {
 		PX4_ERR("ERR: %d (cfsetospeed)", termios_state);
 		return -1;
 	}
