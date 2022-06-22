@@ -95,6 +95,8 @@ MultirotorMixer::MultirotorMixer(ControlCallback control_cb, uintptr_t cb_handle
 	for (unsigned i = 0; i < _rotor_count; ++i) {
 		_outputs_prev[i] = -1.f;
 	}
+
+	_max_thrust_now = 0.8f; //default value is 1.f
 }
 
 MultirotorMixer::~MultirotorMixer()
@@ -223,7 +225,7 @@ MultirotorMixer::mix_airmode_rp(float roll, float pitch, float yaw, float thrust
 		_tmp_array[i] = _rotors[i].thrust_scale;
 	}
 
-	minimize_saturation(_tmp_array, outputs, _saturation_status);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now);
 
 	// Mix yaw independently
 	mix_yaw(yaw, outputs);
@@ -245,7 +247,7 @@ MultirotorMixer::mix_airmode_rpy(float roll, float pitch, float yaw, float thrus
 		_tmp_array[i] = _rotors[i].thrust_scale;
 	}
 
-	minimize_saturation(_tmp_array, outputs, _saturation_status);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now);
 
 	// Unsaturate yaw (in case upper and lower bounds are exceeded)
 	// to prioritize roll/pitch over yaw.
@@ -253,7 +255,7 @@ MultirotorMixer::mix_airmode_rpy(float roll, float pitch, float yaw, float thrus
 		_tmp_array[i] = _rotors[i].yaw_scale;
 	}
 
-	minimize_saturation(_tmp_array, outputs, _saturation_status);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now);
 }
 
 void
@@ -272,20 +274,20 @@ MultirotorMixer::mix_airmode_disabled(float roll, float pitch, float yaw, float 
 	}
 
 	// only reduce thrust
-	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, 1.f, true);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now, true);
 
 	// Reduce roll/pitch acceleration if needed to unsaturate
 	for (unsigned i = 0; i < _rotor_count; i++) {
 		_tmp_array[i] = _rotors[i].roll_scale;
 	}
 
-	minimize_saturation(_tmp_array, outputs, _saturation_status);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now);
 
 	for (unsigned i = 0; i < _rotor_count; i++) {
 		_tmp_array[i] = _rotors[i].pitch_scale;
 	}
 
-	minimize_saturation(_tmp_array, outputs, _saturation_status);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now);
 
 	// Mix yaw independently
 	mix_yaw(yaw, outputs);
@@ -303,14 +305,14 @@ void MultirotorMixer::mix_yaw(float yaw, float *outputs)
 
 	// Change yaw acceleration to unsaturate the outputs if needed (do not change roll/pitch),
 	// and allow some yaw response at maximum thrust
-	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, 1.15f);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now + 0.15f);
 
 	for (unsigned i = 0; i < _rotor_count; i++) {
 		_tmp_array[i] = _rotors[i].thrust_scale;
 	}
 
 	// reduce thrust only
-	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, 1.f, true);
+	minimize_saturation(_tmp_array, outputs, _saturation_status, 0.f, _max_thrust_now, true);
 }
 
 unsigned

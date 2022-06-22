@@ -252,4 +252,6 @@ private:
 
 	float 				*_outputs_prev{nullptr};
 	float 				*_tmp_array{nullptr};
+
+	float					_max_thrust_now;
 };
