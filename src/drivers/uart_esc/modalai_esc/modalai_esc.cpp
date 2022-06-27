@@ -219,7 +219,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len)
 			PX4_INFO("ESC ID: %i", ver.id);
 			PX4_INFO("HW Version: %i", ver.hw_version);
 			PX4_INFO("SW Version: %i", ver.sw_version);
-			PX4_INFO("Unique ID: %i", ver.unique_id);
+			PX4_INFO("Unique ID: %lu", ver.unique_id);
 		}
 
 		break;
@@ -505,13 +505,13 @@ int ModalaiEsc::ioctl(file *filp, int cmd, unsigned long arg)
 		break;
 
 	case MIXERIOCRESET:
-		_mixing_output.resetMixerThreadSafe();
+		_mixing_output.resetMixer();
 		break;
 
 	case MIXERIOCLOADBUF: {
 			const char *buf = (const char *)arg;
 			unsigned buflen = strlen(buf);
-			ret = _mixing_output.loadMixerThreadSafe(buf, buflen);
+			ret = _mixing_output.loadMixer(buf, buflen);
 		}
 		break;
 
@@ -882,14 +882,14 @@ int ModalaiEsc::print_status()
 
 	PX4_INFO("");
 
-	PX4_INFO("Params: UART_ESC_CONFIG: %i", _parameters.config);
-	PX4_INFO("Params: UART_ESC_BAUD: %i", _parameters.baud_rate);
-	PX4_INFO("Params: UART_ESC_MOTOR1: %i", _parameters.motor_map[0]);
-	PX4_INFO("Params: UART_ESC_MOTOR2: %i", _parameters.motor_map[1]);
-	PX4_INFO("Params: UART_ESC_MOTOR3: %i", _parameters.motor_map[2]);
-	PX4_INFO("Params: UART_ESC_MOTOR4: %i", _parameters.motor_map[3]);
-	PX4_INFO("Params: UART_ESC_RPM_MIN: %i", _parameters.rpm_min);
-	PX4_INFO("Params: UART_ESC_RPM_MAX: %i", _parameters.rpm_max);
+	PX4_INFO("Params: UART_ESC_CONFIG: %lu", _parameters.config);
+	PX4_INFO("Params: UART_ESC_BAUD: %lu", _parameters.baud_rate);
+	PX4_INFO("Params: UART_ESC_MOTOR1: %lu", _parameters.motor_map[0]);
+	PX4_INFO("Params: UART_ESC_MOTOR2: %lu", _parameters.motor_map[1]);
+	PX4_INFO("Params: UART_ESC_MOTOR3: %lu", _parameters.motor_map[2]);
+	PX4_INFO("Params: UART_ESC_MOTOR4: %lu", _parameters.motor_map[3]);
+	PX4_INFO("Params: UART_ESC_RPM_MIN: %lu", _parameters.rpm_min);
+	PX4_INFO("Params: UART_ESC_RPM_MAX: %lu", _parameters.rpm_max);
 
 	PX4_INFO("");
 

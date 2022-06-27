@@ -31,9 +31,13 @@
 #
 ############################################################################
 
+set(PARAM_PREFIX UART_ESC)
+
 px4_add_module(
 	MODULE drivers__uart_esc__modalai_esc
 	MAIN modalai_esc
+	COMPILE_FLAGS
+		-DPARAM_PREFIX="${PARAM_PREFIX}"
 	SRCS
 		crc16.c
 		qc_esc_packet.c
