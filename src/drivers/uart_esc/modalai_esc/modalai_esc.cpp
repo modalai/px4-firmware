@@ -975,7 +975,7 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 							}
 							else if(_manual_control_setpoint.y < -(_parameters.dead_zone_1)) {
 								if(_manual_control_setpoint.x > -(_parameters.dead_zone_2)) {
-									setpoint = _manual_control_setpoint.y;
+									setpoint = fabs(_manual_control_setpoint.y);
 									use_setpoint = true;
 									//PX4_ERR("motor3");
 								}
