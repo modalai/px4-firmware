@@ -18,7 +18,13 @@ param set-default SDLOG_PROFILE 5
 param set-default SDLOG_MODE 2
 param set-default COM_ARM_SDCARD 1
 
-# Params to simplify arming / disarming
+# Params to simplify arming
+param set-default COM_ARM_EKF_HGT 0
+param set-default COM_ARM_ACC_MIN 0
+param set-default COM_ARM_ACC_MAX 0
+param set-default COM_ARM_EKF_BIAS 0
+
+# Params to simplify disarming
 param set-default COM_DISARM_LAND 0
 param set-default COM_DISARM_PRFLT 0
 param set-default COM_DISARM_FORCE 1
