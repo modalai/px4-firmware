@@ -38,7 +38,7 @@
 #include "FlightTaskManualAltitudeCommandVel.hpp"
 #include <float.h>
 #include <mathlib/mathlib.h>
-#include <ecl/geo/geo.h>
+#include <geo/geo.h>
 
 using namespace matrix;
 
@@ -50,7 +50,7 @@ bool FlightTaskManualAltitudeCommandVel::updateInitialize()
 {
 	bool ret = FlightTask::updateInitialize();
 
-	_sticks.checkAndSetStickInputs();
+	_sticks.checkAndUpdateStickInputs();
 
 	if (_sticks_data_required) {
 		ret = ret && _sticks.isAvailable();
