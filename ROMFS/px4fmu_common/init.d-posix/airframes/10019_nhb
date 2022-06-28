@@ -18,6 +18,11 @@ param set-default SDLOG_PROFILE 5
 param set-default SDLOG_MODE 2
 param set-default COM_ARM_SDCARD 1
 
+# Params to simplify arming / disarming
+param set-default COM_DISARM_LAND 0
+param set-default COM_DISARM_PRFLT 0
+param set-default COM_DISARM_FORCE 1
+
 # update control defaults
 param set-default MPC_Z_VEL_MAX_UP 1.5
 param set-default MPC_Z_VEL_MAX_DN 1.5
