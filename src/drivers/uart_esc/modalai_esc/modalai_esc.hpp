@@ -183,7 +183,7 @@ private:
 	} led_rsc_t;
 
 	ch_assign_t		_output_map[MODALAI_ESC_OUTPUT_CHANNELS] {{1, 1}, {2, 1}, {3, 1}, {4, 1}};
-	MixingOutput 		_mixing_output{MODALAI_ESC_OUTPUT_CHANNELS, *this, MixingOutput::SchedulingPolicy::Auto, false, false};
+	MixingOutput 		_mixing_output{PARAM_PREFIX, MODALAI_ESC_OUTPUT_CHANNELS, *this, MixingOutput::SchedulingPolicy::Auto, false, false};
 
 	int			_class_instance{-1};
 
