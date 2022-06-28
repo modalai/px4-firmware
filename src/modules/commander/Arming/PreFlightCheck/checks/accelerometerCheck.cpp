@@ -39,6 +39,7 @@
 #include <px4_defines.h>
 #include <lib/sensor_calibration/Utilities.hpp>
 #include <lib/systemlib/mavlink_log.h>
+#include <lib/parameters/param.h>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/estimator_status.h>
 #include <uORB/topics/sensor_accel.h>
@@ -74,6 +75,11 @@ bool PreFlightCheck::accelerometerCheck(orb_advert_t *mavlink_log_pub, vehicle_s
 	bool is_calibration_valid = false;
 	bool is_value_valid = false;
 
+	float acc_mag_min = 4.0f;
+	param_get(param_find("COM_ARM_ACC_MIN"), &acc_mag_min);
+	float acc_mag_max = 15.0f;
+	param_get(param_find("COM_ARM_ACC_MAX"), &acc_mag_max);
+
 	if (exists) {
 		uORB::SubscriptionData<sensor_accel_s> accel{ORB_ID(sensor_accel), instance};
 
@@ -91,7 +97,7 @@ bool PreFlightCheck::accelerometerCheck(orb_advert_t *mavlink_log_pub, vehicle_s
 						    + accel.get().y * accel.get().y
 						    + accel.get().z * accel.get().z);
 
-		if (accel_magnitude > 4.0f && accel_magnitude < 15.0f /* m/s^2 */) {
+		if (accel_magnitude > acc_mag_min && (acc_mag_max <= 0.0f || accel_magnitude < acc_mag_max) /* m/s^2 */) {
 			is_value_valid = true;
 		}
 	}

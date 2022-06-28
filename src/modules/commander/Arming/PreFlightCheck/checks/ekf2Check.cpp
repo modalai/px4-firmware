@@ -124,7 +124,7 @@ bool PreFlightCheck::ekf2Check(orb_advert_t *mavlink_log_pub, vehicle_status_s &
 	}
 
 	// check vertical position innovation test ratio
-	if (status.hgt_test_ratio > hgt_test_ratio_limit) {
+	if (hgt_test_ratio_limit > 0 && status.hgt_test_ratio > hgt_test_ratio_limit) {
 		if (report_fail) {
 			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Height estimate error");
 		}
@@ -249,16 +249,20 @@ bool PreFlightCheck::ekf2CheckSensorBias(orb_advert_t *mavlink_log_pub, const bo
 	uORB::SubscriptionData<estimator_sensor_bias_s> estimator_sensor_bias_sub{ORB_ID(estimator_sensor_bias), estimator_selector_status_sub.get().primary_instance};
 	const estimator_sensor_bias_s &bias = estimator_sensor_bias_sub.get();
 
+	float sensor_bias_sigma = 3.0f;
+	param_get(param_find("COM_ARM_EKF_BIAS"), &sensor_bias_sigma);
+
+
 	if (hrt_elapsed_time(&bias.timestamp) < 30_s) {
 
 		// check accelerometer bias estimates
-		if (bias.accel_bias_valid) {
+		if (bias.accel_bias_valid && sensor_bias_sigma > 0.0f) {
 			const float ekf_ab_test_limit = 0.75f * bias.accel_bias_limit;
 
 			for (uint8_t axis_index = 0; axis_index < 3; axis_index++) {
 				// allow for higher uncertainty in estimates for axes that are less observable to prevent false positives
-				// adjust test threshold by 3-sigma
-				const float test_uncertainty = 3.0f * sqrtf(fmaxf(bias.accel_bias_variance[axis_index], 0.0f));
+				// adjust test threshold by N-sigma
+				const float test_uncertainty = sensor_bias_sigma * sqrtf(fmaxf(bias.accel_bias_variance[axis_index], 0.0f));
 
 				if (fabsf(bias.accel_bias[axis_index]) > ekf_ab_test_limit + test_uncertainty) {
 					if (report_fail) {
@@ -273,13 +277,13 @@ bool PreFlightCheck::ekf2CheckSensorBias(orb_advert_t *mavlink_log_pub, const bo
 		}
 
 		// check gyro bias estimates
-		if (bias.gyro_bias_valid) {
+		if (bias.gyro_bias_valid && sensor_bias_sigma > 0.0f) {
 			const float ekf_gb_test_limit = 0.75f * bias.gyro_bias_limit;
 
 			for (uint8_t axis_index = 0; axis_index < 3; axis_index++) {
 				// allow for higher uncertainty in estimates for axes that are less observable to prevent false positives
-				// adjust test threshold by 3-sigma
-				const float test_uncertainty = 3.0f * sqrtf(fmaxf(bias.gyro_bias_variance[axis_index], 0.0f));
+				// adjust test threshold by N-sigma
+				const float test_uncertainty = sensor_bias_sigma * sqrtf(fmaxf(bias.gyro_bias_variance[axis_index], 0.0f));
 
 				if (fabsf(bias.gyro_bias[axis_index]) > ekf_gb_test_limit + test_uncertainty) {
 					if (report_fail) {
