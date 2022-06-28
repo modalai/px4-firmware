@@ -276,7 +276,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 {
 	hrt_abstime tnow = hrt_absolute_time();
 
-  for (int i=0; i<len; i++)
+	for (int i=0; i<len; i++)
 	{
 		int16_t ret = qc_esc_packet_process_char(buf[i], &_fb_packet);
 		if (ret > 0)
@@ -355,9 +355,9 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 
 				uint8_t * u = &ver.unique_id[0];
 				PX4_INFO("\tUnique ID  : 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-			    u[11],u[10],u[9],u[8],u[7],u[6],u[5],u[4],u[3],u[2],u[1],u[0]);
+			            u[11],u[10],u[9],u[8],u[7],u[6],u[5],u[4],u[3],u[2],u[1],u[0]);
 
-			  PX4_INFO("\tFirmware   : version %4d, hash %.12s",ver.sw_version,ver.firmware_git_version);
+				PX4_INFO("\tFirmware   : version %4d, hash %.12s",ver.sw_version,ver.firmware_git_version);
 				PX4_INFO("\tBootloader : version %4d, hash %.12s",ver.bootloader_version,ver.bootloader_git_version);
 			}
 		}
@@ -642,7 +642,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 
 			PX4_INFO("ESC map: %d %d %d %d",map[0].number,map[1].number,map[2].number,map[3].number);
 			PX4_INFO("feedback id debug: %i, %i", id_fb_raw, id_fb);
-      PX4_INFO("Sending UART ESC RPM command %i", rate);
+			PX4_INFO("Sending UART ESC RPM command %i", rate);
 
 			return get_instance()->sendCommandThreadSafe(&cmd);
 
@@ -704,7 +704,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 
 			PX4_INFO("ESC map: %d %d %d %d",map[0].number,map[1].number,map[2].number,map[3].number);
 			PX4_INFO("feedback id debug: %i, %i", id_fb_raw, id_fb);
-      			PX4_INFO("Sending UART ESC power command %i", rate);
+			PX4_INFO("Sending UART ESC power command %i", rate);
 
 
 			return get_instance()->sendCommandThreadSafe(&cmd);
@@ -1232,7 +1232,7 @@ void ModalaiEsc::Run()
 			}
 		}
 	}
-  else {
+	else {
 		if (_uart_port_bridge->is_open()) {
 			PX4_INFO("Closed UART ESC Bridge device");
 			_uart_port_bridge->uart_close();
