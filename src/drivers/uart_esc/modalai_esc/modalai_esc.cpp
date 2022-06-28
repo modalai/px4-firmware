@@ -1057,9 +1057,8 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 		return false;
 	}
 
-	if (_fb_idx++ >= MODALAI_ESC_OUTPUT_CHANNELS) {
-		_fb_idx = 0;
-	}
+	// round robin
+	_fb_idx = (_fb_idx + 1) % MODALAI_ESC_OUTPUT_CHANNELS;
 
 	/*
 	 * Comparing this to SNAV, there wasn't a delay between reading
