@@ -117,6 +117,7 @@ private:
 	static constexpr uint16_t MODALAI_ESC_OUTPUT_DISABLED = 0;
 
 	static constexpr uint32_t MODALAI_ESC_WRITE_WAIT_US = 200;
+	static constexpr uint32_t MODALAI_ESC_DISCONNECT_TIMEOUT_US = 500000;
 
 	static constexpr uint16_t DISARMED_VALUE = 0;
 
@@ -147,8 +148,8 @@ private:
 	typedef struct {
 		int32_t		config{MODALAI_ESC_UART_CONFIG};
 		int32_t		mode{MODALAI_ESC_MODE};
-		float		  dead_zone_1{MODALAI_ESC_MODE_DEAD_ZONE_1};
-		float		  dead_zone_2{MODALAI_ESC_MODE_DEAD_ZONE_2};
+		float		dead_zone_1{MODALAI_ESC_MODE_DEAD_ZONE_1};
+		float		dead_zone_2{MODALAI_ESC_MODE_DEAD_ZONE_2};
 		int32_t		baud_rate{MODALAI_ESC_DEFAULT_BAUD};
 		int32_t		rpm_min{MODALAI_ESC_DEFAULT_RPM_MIN};
 		int32_t		rpm_max{MODALAI_ESC_DEFAULT_RPM_MAX};
@@ -231,7 +232,8 @@ private:
 	void 			updateLeds(vehicle_control_mode_s mode, led_control_s control);
 
 	int			populateCommand(uart_esc_cmd_t cmd_type, uint8_t cmd_mask, Command *out_cmd);
-	int 		readResponse(Command *out_cmd);
-	int 		parseResponse(uint8_t *buf, uint8_t len, bool print_feedback);
-	int     flushUartRx();
+	int 			readResponse(Command *out_cmd);
+	int 			parseResponse(uint8_t *buf, uint8_t len, bool print_feedback);
+	int			flushUartRx();
+	int			checkForEscTimeout();
 };
