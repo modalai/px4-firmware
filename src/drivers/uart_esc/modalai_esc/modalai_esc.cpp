@@ -308,7 +308,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 						PX4_INFO("[%lld] ID_RAW=%d ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC",tnow, id, motor_idx+1, rpm, power, voltage, current,temperature);
 					}
 
-				  _esc_chans[id].rate_meas     = fb.rpm;
+					_esc_chans[id].rate_meas     = fb.rpm;
 					_esc_chans[id].power_applied = fb.power;
 					_esc_chans[id].state         = fb.id_state & 0x0F;
 					_esc_chans[id].cmd_counter   = fb.cmd_counter;
@@ -327,6 +327,15 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_status.esc[id].esc_voltage  = _esc_chans[id].voltage;
 					_esc_status.esc[id].esc_current  = _esc_chans[id].current;
 					_esc_status.esc[id].failures     = 0; //not implemented
+
+					// use PX4 motor index here (already brough down to 0-3 above), so reporting of ESC online maps to PX4 motors
+					_esc_status.esc_online_flags |= (1 << motor_idx);
+
+					// state == 0 is stopped, but in turtle mode idle is OK so consider armed
+					if (_esc_chans[id].state > 0 || _turtle_mode_en)
+						_esc_status.esc_armed_flags |= (1 << motor_idx);
+					else
+						_esc_status.esc_armed_flags &= ~(1 << motor_idx);
 
 					int32_t t = fb.temperature / 100;  //divide by 100 to get deg C and cap for int8
 					if (t<-127) t = -127;
@@ -431,6 +440,31 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 */
 
 	return 0;
+}
+
+int ModalaiEsc::checkForEscTimeout()
+{
+	hrt_abstime tnow = hrt_absolute_time();
+
+	for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
+		// PX4 motor indexed user defined mapping is 1-4, we want to use in bitmask (0-3)
+		uint8_t motor_idx = _output_map[i].number - 1;
+
+		if(motor_idx < MODALAI_ESC_OUTPUT_CHANNELS){
+			// we are using PX4 motor index in the bitmask
+			if (_esc_status.esc_online_flags & (1 << motor_idx)) {
+				// using index i here for esc_chans enumeration stored in ESC ID order
+				if ((tnow - _esc_chans[i].feedback_time) > MODALAI_ESC_DISCONNECT_TIMEOUT_US) {
+					// stale data, assume offline and clear armed
+					_esc_status.esc_online_flags &= ~(1 << motor_idx);
+					_esc_status.esc_armed_flags &= ~(1 << motor_idx);
+				}
+			}
+		}
+	}
+
+	return 0;
+
 }
 
 int ModalaiEsc::sendCommandThreadSafe(Command *cmd)
@@ -1074,16 +1108,6 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	// round robin
 	_fb_idx = (_fb_idx + 1) % MODALAI_ESC_OUTPUT_CHANNELS;
 
-	/*
-	 * Comparing this to SNAV, there wasn't a delay between reading
-	 * feedback... without some delay on the PX4 side of things we
-	 * can have some read failures.  The update rate of this task
-	 * is ~2000us, we can afford to delay a little here
-	 */
-
-	//px4_usleep(MODALAI_ESC_WRITE_WAIT_US);
-
-	//memset(&cmd.buf, 0x00, sizeof(cmd.buf));
 
 	/*
 	 * Here we parse the feedback response.  Rarely the packet is mangled
@@ -1096,6 +1120,9 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	if (res > 0) {
 		parseResponse(_read_buf, res, false);
 	}
+
+	/* handle loss of comms / disconnect */
+	checkForEscTimeout();
 
 	// publish the actual command that we sent and the feedback received
 	if (MODALAI_PUBLISH_ESC_STATUS) {
