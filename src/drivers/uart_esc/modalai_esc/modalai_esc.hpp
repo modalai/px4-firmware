@@ -189,6 +189,9 @@ private:
 
 	perf_counter_t		_cycle_perf;
 	perf_counter_t		_output_update_perf;
+	perf_counter_t		_dev_write_perf;
+	perf_counter_t		_dev_read_perf;
+	perf_counter_t		_cycle_start_timing;
 
 	bool			_outputs_on{false};
 

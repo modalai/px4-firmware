@@ -46,7 +46,10 @@ ModalaiEsc::ModalaiEsc() :
 	CDev(MODALAI_ESC_DEVICE_PATH),
 	OutputModuleInterface(MODULE_NAME, px4::wq_configurations::hp_default),
 	_cycle_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
-	_output_update_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": output update interval"))
+	_output_update_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": output update interval")),
+	_dev_write_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": device_write")),
+	_dev_read_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": device_read")),
+	_cycle_start_timing(perf_alloc(PC_INTERVAL, MODULE_NAME": cycle_start_timing"))
 {
 	_device = MODALAI_ESC_DEFAULT_PORT;
 
@@ -1052,10 +1055,12 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 					       sizeof(cmd.buf));
 
 
+	perf_begin(_dev_write_perf);
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
 		PX4_ERR("Failed to send packet");
 		return false;
 	}
+	perf_end(_dev_write_perf);
 
 	// round robin
 	_fb_idx = (_fb_idx + 1) % MODALAI_ESC_OUTPUT_CHANNELS;
@@ -1077,7 +1082,9 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	 * around in roughly 8ms for another... so don't freak out and keep on
 	 * trucking I say
 	 */
+	perf_begin(_dev_read_perf);
 	int res = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+	perf_end(_dev_read_perf);
 
 	if (res > 0) {
 		parseResponse(_read_buf, res, false);
@@ -1113,6 +1120,7 @@ void ModalaiEsc::Run()
 		return;
 	}
 
+	perf_count(_cycle_start_timing);
 	perf_begin(_cycle_perf);
 
 	/* Open serial port in this thread */
@@ -1376,6 +1384,9 @@ int ModalaiEsc::print_status()
 
 	perf_print_counter(_cycle_perf);
 	perf_print_counter(_output_update_perf);
+	perf_print_counter(_cycle_start_timing);
+	perf_print_counter(_dev_read_perf);
+	perf_print_counter(_dev_write_perf);
 
 	_mixing_output.printStatus();
 
