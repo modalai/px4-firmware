@@ -64,7 +64,7 @@ ArchPX4IOSerial::init()
 
 	if (uart_fd < 0) {
 		// uart_fd = qurt_uart_open("2", 1000000);
-		uart_fd = qurt_uart_open("2", 921600);
+		uart_fd = qurt_uart_open("7", 921600);
 	}
 
 	if (uart_fd < 0) {
