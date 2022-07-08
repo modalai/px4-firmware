@@ -9,12 +9,22 @@
 #include <arch/board/board.h>
 
 // v2
-#ifdef CONFIG_ARCH_CHIP_STM32H743ZI
+// #ifdef CONFIG_ARCH_CHIP_STM32H743ZI		// old chip?
+#ifdef CONFIG_ARCH_CHIP_STM32H753II		// chip on M0087
+
 
 #include "modalai_fc-v2.h"
 
 void modalai_print_usage_v2(void)
 {
+	PRINT_MODULE_DESCRIPTION("ModalAI Test utility\n");
+
+	PRINT_MODULE_USAGE_NAME_SIMPLE("modalai", "command");
+
+	PRINT_MODULE_USAGE_COMMAND_DESCR("led", "LED Test");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("con", "Connector Output Test (as GPIO)");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("buzz", "Automated buzz out test");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("detect", "Detect board type");
 	return;
 }
 void modalai_print_usage_con_gpio_test_v2(void)

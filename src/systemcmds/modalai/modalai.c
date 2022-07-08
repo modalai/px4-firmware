@@ -8,7 +8,8 @@
 #include <arch/board/board.h>
 
 // v2
-#ifdef CONFIG_ARCH_CHIP_STM32H743ZI
+// #ifdef CONFIG_ARCH_CHIP_STM32H743ZI		// old chip?
+#ifdef CONFIG_ARCH_CHIP_STM32H753II		// chip on M0087
 #include "modalai_fc-v2.h"
 #define MODALAI_FC_V2 1
 #else
@@ -28,11 +29,12 @@ int modalai_main(int argc, char *argv[])
 
 #ifdef MODALAI_FC_V2
 
-	if (hw_rev == 0 && hw_ver == 3) {
-		hw_type = eM0079;
+	// if (hw_rev == 0 && hw_ver == 3) {
+	// 	hw_type = eM0079;
 
-	}
-	if ((hw_rev == 1 && hw_ver == 3)) {	// || hw_rev == 0 && hw_ver == 3
+	// }
+	// else
+	if ((hw_rev == 1 && hw_ver == 3)|| (hw_rev == 0 && hw_ver == 3)) {	// either or for now (should be hw_rev == 1 && hw_ver == 3)
 		hw_type = eM0087;
 
 	}
