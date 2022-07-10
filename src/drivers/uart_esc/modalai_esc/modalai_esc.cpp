@@ -595,7 +595,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 
 	} else if (!strcmp(verb, "version-ext")) {
 		if (esc_id < 4) {
-			PX4_INFO("Request version for ESC: %i", esc_id);
+			PX4_INFO("Request extended version for ESC: %i", esc_id);
 			cmd.len = qc_esc_create_extended_version_request_packet(esc_id, cmd.buf, sizeof(cmd.buf));
 			cmd.response = true;
 			cmd.resp_delay_us = 5000;
@@ -661,7 +661,7 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
 				int motor_idx = map[i].number-1;  // user defined mapping is 1-4, array is 0-3
 
-				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
+				if (motor_idx >= 0 && motor_idx < MODALAI_ESC_OUTPUT_CHANNELS) {
 					rate_req[i] = outputs[motor_idx] * map[i].direction;
 				}
 
@@ -723,8 +723,9 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
 				int motor_idx = map[i].number-1; // user defined mapping is 1-4, array is 0-3
 
-				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
+				if (motor_idx >= 0 && motor_idx < MODALAI_ESC_OUTPUT_CHANNELS) {
 					rate_req[i] = outputs[motor_idx] * map[i].direction;
+					PX4_INFO("rate_req[%d]=%d",i,rate_req[i]);
 				}
 
 				if (motor_idx == id_fb_raw){
