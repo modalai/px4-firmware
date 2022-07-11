@@ -201,12 +201,43 @@ if(EXISTS ${BOARD_DEFCONFIG})
     endforeach()
 
     if(PLATFORM)
-        # set OS, and append specific platform module path
-        set(PX4_PLATFORM ${PLATFORM} CACHE STRING "PX4 board OS" FORCE)
-        list(APPEND CMAKE_MODULE_PATH ${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/cmake)
+        if ("${PX4_BOARD}" MATCHES "modalai_rb5-flight")
 
-        # platform-specific include path
-        include_directories(${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/src/px4/common/include)
+		## rb5 flight
+		include(px4_git)
+		list(APPEND CMAKE_MODULE_PATH
+		                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon"
+		                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon/toolchain"
+		)
+		set(QC_SOC_TARGET "QRB5165")
+
+		set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
+
+		set(CONFIG_SHMEM "0")
+		add_definitions(-DORB_COMMUNICATOR)
+		add_definitions(-DRELEASE_BUILD)
+
+		set(CONFIG_PARAM_SERVER "1")
+
+		add_compile_options($<$<COMPILE_LANGUAGE:C>:-std=gnu99>)
+		add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=gnu++14>)
+
+		add_compile_options(
+				-Wno-array-bounds
+		)
+
+		add_definitions(
+				-D__PX4_POSIX_RB5
+				-D__PX4_LINUX
+				-DCONFIG_BOARDCTL_RESET
+		)
+		link_directories(/home ${PX4_SOURCE_DIR}/boards/modalai/rb5-flight/lib)
+        endif()
+    	# set OS, and append specific platform module path
+        set(PX4_PLATFORM ${PLATFORM} CACHE STRING "PX4 board OS" FORCE)
+	list(APPEND CMAKE_MODULE_PATH ${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/cmake)
+	# platform-specific include path
+	include_directories(${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/src/px4/common/include)
     endif()
 
 	if(ARCHITECTURE)

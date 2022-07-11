@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Make sure that the SLPI DSP test signature is there otherwise px4 cannot run
+# on the DSP
+if /bin/ls /usr/lib/rfsa/adsp/testsig-*.so &> /dev/null; then
+    /bin/echo "Found DSP signature file"
+else
+    /bin/echo "Error, could not find DSP signature file"
+    exit 0
+fi
+
+DAEMON=" "
+G="HOLYBRO"
+R="SPEKTRUM"
+
+while getopts "dmr" flag
+do
+    case "${flag}" in
+        # Use -d to put PX4 into daemon mode
+        d) DAEMON="-d";;
+        # Use -m to specify Mateksys M8Q-5883 GPS unit
+        m) G="MATEK";;
+        # Use -r to specify TBS Crossfire RC receiver
+        r) R="CRSF";;
+    esac
+done
+
+if [ ! -f /data/px4/param/parameters ]; then
+   echo "Setting default parameters for PX4 on voxl"
+   px4 $DAEMON -s /etc/modalai/voxl-px4-set-default-parameters.config
+   /bin/sync
+fi
+
+GPS=$G RC=$R px4 $DAEMON -s /etc/modalai/voxl-px4.config
