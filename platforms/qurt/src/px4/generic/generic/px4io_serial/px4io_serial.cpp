@@ -121,7 +121,7 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 
 	(void) qurt_uart_write(uart_fd, (const char*) _packet, packet_size);
 
-	usleep(5000);
+	usleep(100);
 
     // The UART read on SLPI is via an asynchronous service so specify a timeout
     // for the return. The driver will poll periodically until the read comes in
