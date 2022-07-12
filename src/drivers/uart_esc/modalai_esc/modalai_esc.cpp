@@ -36,9 +36,9 @@
 #include "modalai_esc.hpp"
 #include "modalai_esc_serial.hpp"
 
-#define MODALAI_ESC_DEVICE_PATH 	"/dev/uart_esc"
-#define MODALAI_ESC_DEFAULT_PORT 	"/dev/ttyS1"
-#define MODALAI_ESC_VOXL_PORT     "/dev/ttyS4"
+#define MODALAI_ESC_DEVICE_PATH		"/dev/uart_esc"
+#define MODALAI_ESC_DEFAULT_PORT	"/dev/ttyS1"
+#define MODALAI_ESC_VOXL_PORT		"/dev/ttyS4"
 
 //TODO: make this a param!!!
 #define MODALAI_PUBLISH_ESC_STATUS 1
@@ -328,12 +328,13 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_status.esc[id].esc_current  = _esc_chans[id].current;
 					_esc_status.esc[id].failures     = 0; //not implemented
 
-					// use PX4 motor index here (already brough down to 0-3 above), so reporting of ESC online maps to PX4 motors
-					_esc_status.esc_online_flags |= (1 << motor_idx);
+					// this is hacky, but we need to set all 4 to online otherwise commander times out on arming
+					_esc_status.esc_online_flags = (1 << _esc_status.esc_count) - 1;
 
 					// state == 0 is stopped, but in turtle mode idle is OK so consider armed
 					if (_esc_chans[id].state > 0 || _turtle_mode_en)
-						_esc_status.esc_armed_flags |= (1 << motor_idx);
+						// this is hacky, but we need to set all 4 to armed otherwise commander times out on arming
+						_esc_status.esc_armed_flags =  (1 << _esc_status.esc_count) - 1;
 					else
 						_esc_status.esc_armed_flags &= ~(1 << motor_idx);
 
