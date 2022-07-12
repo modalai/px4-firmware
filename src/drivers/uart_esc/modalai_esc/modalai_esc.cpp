@@ -328,15 +328,11 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_status.esc[id].esc_voltage  = _esc_chans[id].current;
 					_esc_status.esc[id].failures     = 0; //not implemented
 
-					// this is hacky, but we need to set all 4 to online otherwise commander times out on arming
+					// this is hacky, but we need to set all 4 to online/armed otherwise commander times out on arming
 					_esc_status.esc_online_flags = (1 << _esc_status.esc_count) - 1;
+					// this is hacky, but we need to set all 4 to armed otherwise commander times out on arming
+					_esc_status.esc_armed_flags =  (1 << _esc_status.esc_count) - 1;
 
-					// state == 0 is stopped, but in turtle mode idle is OK so consider armed
-					if (_esc_chans[id].state > 0 || _turtle_mode_en)
-						// this is hacky, but we need to set all 4 to armed otherwise commander times out on arming
-						_esc_status.esc_armed_flags =  (1 << _esc_status.esc_count) - 1;
-					else
-						_esc_status.esc_armed_flags &= ~(1 << motor_idx);
 
 					int32_t t = fb.temperature / 100;  //divide by 100 to get deg C and cap for int8
 					if (t<-127) t = -127;
@@ -1117,7 +1113,8 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	}
 
 	/* handle loss of comms / disconnect */
-	checkForEscTimeout();
+	// TODO - enable after CRC issues in feedback are addressed
+	//checkForEscTimeout();
 
 	// publish the actual command that we sent and the feedback received
 	{
