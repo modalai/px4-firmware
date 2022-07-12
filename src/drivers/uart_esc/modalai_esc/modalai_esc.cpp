@@ -284,6 +284,7 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 		if (ret > 0)
 		{
 			//PX4_INFO("got packet of length %i",ret);
+			_rx_packet_count++;
 			uint8_t packet_type = qc_esc_packet_get_type(&_fb_packet);
 			uint8_t packet_size = qc_esc_packet_get_size(&_fb_packet);
 			if (packet_type == ESC_PACKET_TYPE_FB_RESPONSE && packet_size == sizeof(QC_ESC_FB_RESPONSE_V2))
@@ -381,13 +382,16 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 		}
 		else  //parser error
 		{
-			/*
 			switch (ret)
 			{
-				case ESC_ERROR_BAD_CHECKSUM: PX4_INFO("BAD ESC packet checksum"); break;
-				case ESC_ERROR_BAD_LENGTH:   PX4_INFO("BAD ESC packet length");   break;
+				case ESC_ERROR_BAD_CHECKSUM:
+				  _rx_crc_error_count++;
+					//PX4_INFO("BAD ESC packet checksum");
+					break;
+				case ESC_ERROR_BAD_LENGTH:
+					//PX4_INFO("BAD ESC packet length");
+					break;
 			}
-			*/
 		}
 	}
 
@@ -1339,6 +1343,9 @@ void ModalaiEsc::Run()
 
 				px4_usleep(_current_cmd.repeat_delay_us);
 			} while (_current_cmd.repeats-- > 0);
+
+			PX4_INFO("RX packet count: %d", _rx_packet_count);
+			PX4_INFO("CRC error count: %d",_rx_crc_error_count);
 
 		} else {
 			Command *new_cmd = _pending_cmd.load();

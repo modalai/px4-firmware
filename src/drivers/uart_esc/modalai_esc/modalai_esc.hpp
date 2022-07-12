@@ -223,6 +223,8 @@ private:
 
 	led_rsc_t	 	_led_rsc;
 	int         _fb_idx;
+	uint32_t    _rx_crc_error_count{0};
+	uint32_t    _rx_packet_count{0};
 
 	static const uint8_t READ_BUF_SIZE = 128;
 	uint8_t     _read_buf[READ_BUF_SIZE];
