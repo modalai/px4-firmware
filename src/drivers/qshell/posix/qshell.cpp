@@ -113,7 +113,7 @@ int QShell::_wait_for_retval()
 	qshell_retval_s retval;
     memset(&retval, 0, sizeof(qshell_retval_s));
 
-	while (hrt_elapsed_time(&time_started_us) < 3000000) {
+	while (hrt_elapsed_time(&time_started_us) < 10000000) {
 		if (_qshell_retval_sub.update(&retval)) {
 			if (retval.return_sequence != _current_sequence) {
 				PX4_WARN("Ignoring return value with wrong sequence");

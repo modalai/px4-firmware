@@ -114,35 +114,46 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 
 	perf_begin(_pc_txns);
 
-	int ret = qurt_uart_write(uart_fd, (const char*) _packet, sizeof(IOPacket));
+	int ret = 0;
+	int read_retries = 3;
+	int read_succeeded = 0;
+	int packet_size = sizeof(IOPacket);
 
-	if (ret > 0) {
-			// PX4_INFO("Write %d bytes", ret);
+	(void) qurt_uart_write(uart_fd, (const char*) _packet, packet_size);
 
-			usleep(20000);
+	usleep(5000);
 
-		    // The UART read on SLPI is via an asynchronous service so specify a timeout
-		    // for the return. The driver will poll periodically until the read comes in
-		    // so this may block for a while. However, it will timeout if no read comes in.
-		    ret = qurt_uart_read(uart_fd, (char*) _packet, sizeof(IOPacket), ASYNC_UART_READ_WAIT_US);
+    // The UART read on SLPI is via an asynchronous service so specify a timeout
+    // for the return. The driver will poll periodically until the read comes in
+    // so this may block for a while. However, it will timeout if no read comes in.
+	while (read_retries) {
+    	ret = qurt_uart_read(uart_fd, (char*) _packet, packet_size, ASYNC_UART_READ_WAIT_US);
+		if (ret) {
+			// PX4_INFO("Read %d bytes", ret);
 
-			if (ret > 0){
-				// PX4_INFO("Read %d bytes", ret);
+			/* Check CRC */
+			uint8_t crc = _packet->crc;
+			_packet->crc = 0;
 
-				/* Check CRC */
-				uint8_t crc = _packet->crc;
-				_packet->crc = 0;
-
-				if ((crc != crc_packet(_packet)) || (PKT_CODE(*_packet) == PKT_CODE_CORRUPT)){
-					perf_count(_pc_crcerrs);
-					perf_end(_pc_txns);
-					PX4_ERR("Packet CRC error");
-					return -EIO;
-				}
+			if (crc != crc_packet(_packet)) {
+				perf_count(_pc_crcerrs);
+				perf_end(_pc_txns);
+				// PX4_ERR("PX4IO packet CRC error");
+				return -EIO;
+			} else if (PKT_CODE(*_packet) == PKT_CODE_CORRUPT) {
+				perf_end(_pc_txns);
+				// PX4_ERR("PX4IO packet corruption");
+				return -EIO;
+			} else {
+				read_succeeded = 1;
+				break;
 			}
+		}
+		// PX4_ERR("Read attempt failed");
+		read_retries--;
 	}
 
-	if (ret <= 0) {
+	if ( ! read_succeeded) {
 		// Not really a DMA failure, but we don't use DMA so we'll reuse the
 		// counter to mean read / write failures.
 		// perf_count(_pc_dmaerrs);

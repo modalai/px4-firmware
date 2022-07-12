@@ -37,6 +37,7 @@
  * Serial interface for PX4IO
  */
 
+#include <px4_platform_common/time.h>
 #include "px4io_driver.h"
 
 #include <px4_arch/px4io_serial.h>
@@ -118,6 +119,7 @@ PX4IO_serial::write(unsigned address, void *data, unsigned count)
 	px4_sem_wait(&_bus_semaphore);
 
 	int result;
+	int success = 0;
 
 	for (unsigned retries = 0; retries < 3; retries++) {
 		_io_buffer_ptr->count_code = count | PKT_CODE_WRITE;
@@ -142,11 +144,16 @@ PX4IO_serial::write(unsigned address, void *data, unsigned count)
 			if (PKT_CODE(*_io_buffer_ptr) == PKT_CODE_ERROR) {
 
 				/* IO didn't like it - no point retrying */
+				PX4_ERR("px4io got PKT_CODE_ERROR on write to page %u offset %u", page, offset);
+
 				result = -EINVAL;
 				perf_count(_pc_protoerrs);
+			} else {
+				success = 1;
+				break;
 			}
 
-			break;
+			// break;
 		}
 
 		perf_count(_pc_retries);
@@ -157,6 +164,8 @@ PX4IO_serial::write(unsigned address, void *data, unsigned count)
 	if (result == OK) {
 		result = count;
 	}
+
+	if ( ! success) PX4_ERR("px4io write failed to %u", page);
 
 	return result;
 }
@@ -175,6 +184,7 @@ PX4IO_serial::read(unsigned address, void *data, unsigned count)
 	px4_sem_wait(&_bus_semaphore);
 
 	int result;
+	int success = 0;
 
 	for (unsigned retries = 0; retries < 3; retries++) {
 
@@ -209,7 +219,7 @@ PX4IO_serial::read(unsigned address, void *data, unsigned count)
 				/* successful read */
 
 			} else {
-
+				success = 1;
 				/* copy back the result */
 				memcpy(values, &_io_buffer_ptr->regs[0], (2 * count));
 			}
@@ -221,6 +231,8 @@ PX4IO_serial::read(unsigned address, void *data, unsigned count)
 	}
 
 	px4_sem_post(&_bus_semaphore);
+
+	if ( ! success) PX4_ERR("px4io read failed");
 
 	if (result == OK) {
 		result = count;
