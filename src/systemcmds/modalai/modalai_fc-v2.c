@@ -240,12 +240,12 @@ int modalai_buzz_test_v2(eHW_TYPE hw_type)
 		//
 		//
 		PX4_INFO(">> Testing J1");
-		stm32_configgpio(M0087_J1_PIN_2_OUT); // 2-3
-		stm32_configgpio(M0087_J1_PIN_3_IN);  // 3-2
+		stm32_configgpio(M0087_J1_PIN_2_IN); // 3-2
+		stm32_configgpio(M0087_J1_PIN_3_OUT);  // 2-3
 		stm32_configgpio(M0087_J1_PIN_4_OUT); // 4-5
 		stm32_configgpio(M0087_J1_PIN_5_IN);  // 5-4
 
-		if (test_pair(M0087_J1_PIN_2_OUT, M0087_J1_PIN_3_IN)) {
+		if (test_pair(M0087_J1_PIN_3_OUT, M0087_J1_PIN_2_IN)) {
 			PX4_INFO("PASS: M0087_J1_PIN_2_OUT M0087_J1_PIN_3_IN");
 
 		} else {
@@ -355,10 +355,10 @@ int modalai_buzz_test_v2(eHW_TYPE hw_type)
 		stm32_configgpio(M0087_J12_PIN_3_IN);  // 3-2
 
 		if (test_pair(M0087_J12_PIN_2_OUT, M0087_J12_PIN_3_IN)) {
-			PX4_INFO("PASS: M0087_J12_PIN_2 M0087_J12_PIN_3");
+			PX4_INFO("PASS: M0087_J12_PIN_2_OUT M0087_J12_PIN_3_IN");
 
 		} else {
-			PX4_ERR("FAIL: M0087_J12_PIN_2 M0087_J12_PIN_3");
+			PX4_ERR("FAIL: M0087_J12_PIN_2_OUT M0087_J12_PIN_3_IN");
 		}
 
 
@@ -376,7 +376,7 @@ int modalai_hw_detect_v2(eHW_TYPE hw_type)
 		result = 0;
 
 	} else if (hw_type == eM0087 ) {
-		PX4_INFO("V# - M0087");
+		PX4_INFO("V230 - M0087");
 		result = 0;
 	} else {
 		PX4_ERR("Unknown hardware");

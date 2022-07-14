@@ -94,10 +94,10 @@ typedef enum {
 //	       PF8   PIN4 - out
 //	       PE10  PIN5 - in
 //
-#define M0087_J1_PIN_2_OUT             _MK_GPIO_OUTPUT(GPIO_PORTF|GPIO_PIN6)
-#define M0087_J1_PIN_3_IN              _MK_GPIO_INPUT(GPIO_PORTE|GPIO_PIN8)
-#define M0087_J1_PIN_4_OUT             _MK_GPIO_OUTPUT(GPIO_PORTF|GPIO_PIN8)
-#define M0087_J1_PIN_5_IN              _MK_GPIO_INPUT(GPIO_PORTE|GPIO_PIN10)
+#define M0087_J1_PIN_2_IN             	_MK_GPIO_INPUT(GPIO_PORTF|GPIO_PIN6)
+#define M0087_J1_PIN_3_OUT              _MK_GPIO_OUTPUT(GPIO_PORTE|GPIO_PIN8)
+#define M0087_J1_PIN_4_OUT             	_MK_GPIO_OUTPUT(GPIO_PORTF|GPIO_PIN8)
+#define M0087_J1_PIN_5_IN              	_MK_GPIO_INPUT(GPIO_PORTE|GPIO_PIN10)
 
 //
 // TELEM2
