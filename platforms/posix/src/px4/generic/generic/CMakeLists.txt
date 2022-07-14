@@ -31,6 +31,11 @@
 #
 ############################################################################
 
-
+px4_add_library(px4_arch
+	./include/px4_arch/i2c_hw_description.h
+	./include/px4_arch/micro_hal.h
+	./include/px4_arch/spi_hw_description.h
+)
 add_subdirectory(tone_alarm)
+
 

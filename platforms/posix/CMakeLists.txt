@@ -31,7 +31,7 @@ if ("${PX4_BOARD}" MATCHES "modalai_rb5-flight")
         include(linux_app)
 
         FASTRPC_STUB_GEN(../qurt/px4muorb.idl)
-	
+
 	LINUX_APP(
 		APP_NAME px4
 		IDL_NAME px4muorb
@@ -83,7 +83,7 @@ else()
         	parameters
 	)
 	target_link_libraries(px4 PRIVATE uORB)
-	
+
 	#=============================================================================
 	# install
 	#

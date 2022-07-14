@@ -30,6 +30,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
+#/home/john/ModalAI/rb5-flight-px4-build-docker/px4-firmware/platforms/posix/src/px4
+
 
 add_library(drivers_board
 	board_config.h
@@ -37,3 +39,9 @@ add_library(drivers_board
     i2c.cpp
     spi.cpp
     )
+
+    target_include_directories(drivers_board PRIVATE px4_arch)
+
+
+    add_dependencies(drivers_board px4_arch)
+
