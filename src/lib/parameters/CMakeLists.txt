@@ -89,12 +89,12 @@ add_custom_command(OUTPUT ${generated_serial_params_file} ${generated_module_par
 		--serial-ports ${board_serial_ports} ${added_arguments} ${constrained_flash_arg}
 		--config-files ${module_config_files}
 		#--verbose
-	COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/module_config/generate_params.py
-		--params-file ${generated_module_params_file}
-		${added_arguments} ${board_with_io_arg}
-		--timer-config ${PX4_BOARD_DIR}/src/timer_config.cpp
-		--config-files ${module_config_files}
-		--board ${PX4_BOARD}
+		#COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/module_config/generate_params.py
+		#--params-file ${generated_module_params_file}
+		#${added_arguments} ${board_with_io_arg}
+		#--timer-config ${PX4_BOARD_DIR}/src/timer_config.cpp
+		#--config-files ${module_config_files}
+		#--board ${PX4_BOARD}
 		#--verbose
 	DEPENDS
 		${module_config_files}
