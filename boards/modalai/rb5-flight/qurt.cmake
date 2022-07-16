@@ -62,7 +62,6 @@ px4_add_board(
         power_monitor/voxlpm
         imu/invensense/icm42688p
 		lights/rgbled_ncp5623c
-		pwm_out_sim
 		spektrum_rc
 		gps
 		uart_loopback
@@ -81,6 +80,7 @@ px4_add_board(
 		mixer
 		param
 		perf
+		pwm
 		ver
 		work_queue
 	)

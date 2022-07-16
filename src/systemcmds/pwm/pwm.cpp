@@ -52,7 +52,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifndef __PX4_QURT
 #include <poll.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
@@ -641,11 +643,12 @@ pwm_main(int argc, char *argv[])
 		/* perform PWM output */
 
 		/* Open console directly to grab CTRL-C signal */
+#ifndef __PX4_QURT
 		struct pollfd fds;
 		fds.fd = 0; /* stdin */
 		fds.events = POLLIN;
-
-		if (::ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
+#endif
+		if (::ioctl(fd, PWM_SERVO_SET_MODE, (void *)PWM_SERVO_ENTER_TEST_MODE) < 0) {
 				PX4_ERR("Failed to Enter pwm test mode");
 				goto err_out_no_test;
 		}
@@ -666,8 +669,11 @@ pwm_main(int argc, char *argv[])
 
 			/* abort on user request */
 			char c;
+#ifndef __PX4_QURT
 			ret = poll(&fds, 1, 0);
-
+#else
+			ret = 0;
+#endif
 			if (ret > 0) {
 
 				ret = read(0, &c, 1);
@@ -705,7 +711,7 @@ pwm_main(int argc, char *argv[])
 		}
 		rv = 0;
 err_out:
-			if (::ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
+			if (::ioctl(fd, PWM_SERVO_SET_MODE, (void *)PWM_SERVO_EXIT_TEST_MODE) < 0) {
 					rv = 1;
 					PX4_ERR("Failed to Exit pwm test mode");
 			}
@@ -737,14 +743,15 @@ err_out_no_test:
 		/* perform PWM output */
 
 		/* Open console directly to grab CTRL-C signal */
+#ifndef __PX4_QURT
 		struct pollfd fds;
 		fds.fd = 0; /* stdin */
 		fds.events = POLLIN;
-
+#endif
 		PX4_WARN("Running 5 steps. WARNING! Motors will be live in 5 seconds\nPress any key to abort now.");
 		px4_sleep(5);
 
-		if (::ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
+		if (::ioctl(fd, PWM_SERVO_SET_MODE, (void *)PWM_SERVO_ENTER_TEST_MODE) < 0) {
 				PX4_ERR("Failed to Enter pwm test mode");
 				goto err_out_no_test;
 		}
@@ -792,8 +799,11 @@ err_out_no_test:
 
 				/* abort on user request */
 				char c;
+#ifndef __PX4_QURT
 				ret = poll(&fds, 1, 0);
-
+#else
+				ret = 1;
+#endif
 				if (ret > 0) {
 
 					ret = read(0, &c, 1);
@@ -927,10 +937,18 @@ err_out_no_test:
 				printf("channel %u: %u us", i + 1, spos);
 
 				if (info_alt_rate_mask & (1 << i)) {
+#ifndef __PX4_QURT
 					printf(" (alternative rate: %d Hz", info_alt_rate);
+#else
+					printf(" (alternative rate: %lu Hz", info_alt_rate);
+#endif
 
 				} else {
+#ifndef __PX4_QURT
 					printf(" (default rate: %d Hz", info_default_rate);
+#else
+					printf(" (alternative rate: %lu Hz", info_alt_rate);
+#endif
 				}
 
 
