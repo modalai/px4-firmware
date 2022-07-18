@@ -10,34 +10,130 @@
 
 . ${R}etc/init.d/rc.mc_defaults
 
-param set-default MC_ROLL_P 8
-param set-default MC_ROLLRATE_P 0.08
-param set-default MC_ROLLRATE_I 0.25
-param set-default MC_ROLLRATE_D 0.001
+# hardware specific params
+param set-default BAT1_CAPACITY 1300.0000
+param set-default BAT1_N_CELLS 6
+param set-default BAT1_R_INTERNAL 0.0300
+param set-default BAT_N_CELLS 6
+
+# arming / disarming params
+param set-default COM_ARM_EKF_BIAS 0.0000
+param set-default COM_ARM_EKF_HGT 0.0000
+param set-default COM_ARM_MAG_ANG 30		# disable?
+param set-default COM_ARM_ACC_MAX 0.0000
+param set-default COM_ARM_ACC_MIN 0.0000
+param set-default COM_DISARM_FORCE 1
+param set-default COM_DISARM_LAND -1.0000
+param set-default COM_DISARM_PRFLT -1.0000
+param set-default FD_FAIL_P 180
+param set-default FD_FAIL_R 180
+
+# PID controller tuning params
 param set-default MC_PITCH_P 8
-param set-default MC_PITCHRATE_P 0.08
-param set-default MC_PITCHRATE_D 0.001
-param set-default MC_YAW_P 4
-
-
-param set-default MC_ROLLRATE_MAX 1600
+param set-default MC_PITCHRATE_D 0.0013
+param set-default MC_PITCHRATE_I 0.7312
 param set-default MC_PITCHRATE_MAX 1600
-param set-default MC_YAWRATE_MAX 1000
+param set-default MC_PITCHRATE_P 0.1050
+param set-default MC_ROLL_P 8
+param set-default MC_ROLLRATE_D 0.0013
+param set-default MC_ROLLRATE_I 0.5685
+param set-default MC_ROLLRATE_MAX 1600
+param set-default MC_ROLLRATE_P 0.0908
+param set-default MC_YAW_P 4
+param set-default MC_YAWRATE_I 0.4875
+param set-default MC_YAWRATE_MAX 1300.0000
+param set-default MC_YAWRATE_P 0.1875
 
-param set-default MPC_MANTHR_MIN 0
-param set-default MPC_MAN_TILT_MAX 60
+# RC controller feel params
+param set-default MC_ACRO_EXPO 0.3000
+param set-default MC_ACRO_EXPO_Y 0.3000
+param set-default MC_ACRO_P_MAX 900.0000
+param set-default MC_ACRO_R_MAX 900.0000
+param set-default MC_ACRO_SUPEXPO 0.8400
+param set-default MC_ACRO_SUPEXPOY 0.8400
+param set-default MC_ACRO_Y_MAX 900.0000
 
-# use thrust curve factor (instead of TPA)
-param set-default THR_MDL_FAC 0.3
+# RC controller mapping params
+#  @TODO should these even be here?
+param set-default COM_FLTMODE1 1
+param set-default COM_FLTMODE4 8
+param set-default COM_FLTMODE6 6
 
-param set-default PWM_MAIN_MIN 1075
-# enable one-shot
-param set-default PWM_MAIN_RATE 0
+# Flight Performance restriction params
+param set-default MPC_MANTHR_MIN 0.0400
+param set-default MPC_MAN_TILT_MAX 20.0000
+param set-default MPC_MAN_Y_MAX 500.0000
+param set-default MPC_THR_MAX 0.8000
+param set-default MPC_THR_MIN 0.0400
+param set-default MPC_Z_VEL_MAX_DN 1.3411
+param set-default MPC_Z_VEL_MAX_UP 1.3411
+param set-default MPC_Z_VEL_P_ACC 9.5000
+param set-default MPC_Z_V_AUTO_UP 1.3411
 
-# enable high-rate logging profile (helps with tuning)
-param set-default SDLOG_PROFILE 19
+# ESC driver params
+param set-default UART_ESC_CONFIG 1
+param set-default UART_ESC_MODE 1
+param set-default UART_ESC_MOTOR1 2
+param set-default UART_ESC_MOTOR2 4
+param set-default UART_ESC_MOTOR3 -1
+param set-default UART_ESC_MOTOR4 -3
+param set-default UART_ESC_RPM_MAX 24000
+param set-default UART_ESC_RPM_MIN 3000
+param set-default UAVCAN_ENABLE 0
 
-param set-default IMU_DGYRO_CUTOFF 50
-param set-default IMU_GYRO_CUTOFF 90
+# EKF params
+param set-default EKF2_AID_MASK 33
+param set-default EKF2_ARSP_THR 0.1000
+param set-default EKF2_BCOEF_X 102.0000
+param set-default EKF2_BCOEF_Y 102.0000
+param set-default EKF2_FUSE_BETA 1
+param set-default EKF2_GPS_CHECK 0
+param set-default EKF2_MAG_CHECK 0
+param set-default EKF2_MAG_TYPE 4
+param set-default EKF2_MCOEF 0.3200
+param set-default EKF2_OF_DELAY 5.0000
+param set-default EKF2_RNG_AID 0
 
+# noise filtering params
+param set-default IMU_DGYRO_CUTOFF 60.0000
+param set-default IMU_GYRO_CUTOFF 180.0000
+param set-default IMU_GYRO_DNF_BW 20.0000
+param set-default IMU_GYRO_DNF_EN 2
+param set-default IMU_GYRO_FFT_LEN 1024
+param set-default IMU_GYRO_FFT_MAX 192.0000
+param set-default IMU_GYRO_FFT_MIN 32.0000
+
+# miscellaneous important params
+param set-default SDLOG_MODE 2
+param set-default SDLOG_PROFILE 1
+param set-default MPC_POS_MODE 1
+param set-default MPC_THR_HOVER 0.2000
+param set-default MAN_ARM_GESTURE 0
+
+# consider setting to default or disabling
+param set-default COM_OF_LOSS_T 0.5000
+param set-default COM_PREARM_MODE 1
+param set-default COM_RC_STICK_OV 12.0000
+param set-default GF_ACTION 1
+param set-default HTE_HT_NOISE 0.0005
+param set-default MPC_LAND_ALT1 5.0000
+param set-default MPC_LAND_ALT2 2.0000
+param set-default MAV_1_MODE 0
+param set-default NAV_LOITER_RAD 50.0000
+param set-default NAV_RCL_ACT 6
+param set-default RTL_CONE_ANG 0
+param set-default RTL_LOITER_RAD 50.0000
+param set-default RTL_MIN_DIST 5.0000
+
+# uninvestigated params
 param set-default CBRK_IO_SAFETY 22027
+param set-default COM_RC_IN_MODE 0
+param set-default LNDMC_ALT_GND -1.0000
+param set-default PWM_AUX_OUT 1234
+param set-default PWM_MAIN_MIN 1075
+param set-default PWM_MAIN_OUT 1234
+param set-default PWM_MAIN_RATE 0
+param set-default SENS_MAG_RATE 50.0000
+param set-default SER_TEL1_BAUD 115200
+param set-default SER_TEL2_BAUD 115200
+param set-default THR_MDL_FAC 0.8000
