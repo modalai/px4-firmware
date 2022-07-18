@@ -1,0 +1,5 @@
+menuconfig SYSTEMCMDS_MODALAI
+	bool "modalai"
+	default n
+	---help---
+		Enable support for modalai
