@@ -9,7 +9,6 @@
 #include <arch/board/board.h>
 
 // v2
-// #ifdef CONFIG_ARCH_CHIP_STM32H743ZI		// old chip?
 #ifdef CONFIG_ARCH_CHIP_STM32H753II		// chip on M0087
 
 

@@ -1,0 +1,36 @@
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  image: px4io/px4-dev-nuttx-bionic:2021-12-11
+  script:
+    - make modalai_fc-v1
+    - make modalai_fc-v2_bootloader
+    - make modalai_fc-v2
+  only:
+    - modalai-1.13
+  artifacts:
+    untracked: true
+    expire_in: 20 min
+
+deploy:
+  stage: deploy
+  image: google/cloud-sdk:latest
+  script:
+    - BUILD=$(git describe --tags)
+    - DATE=$(date +"%Y-%m-%d--%H-%M")
+    - DEST_DIR=/tank/modalai/public/px4/firmware/
+    - BUILD_DIR=$DATE-$BUILD
+    - PX4_VER_BASE=v1.12
+    - GCLOUD_BUCKET=gs://modalai_public/flightcore-builds/$PX4_VER_BASE/$BUILD_DIR
+    - gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY
+    - gsutil cp build/modalai_fc-v1_default/modalai_fc-v1.bin $GCLOUD_BUCKET/fc-v1/
+    - gsutil cp build/modalai_fc-v1_default/modalai_fc-v1_default.px4 $GCLOUD_BUCKET/fc-v1/
+    - gsutil cp build/modalai_fc-v2_default/modalai_fc-v2.bin $GCLOUD_BUCKET/fc-v2/app/
+    - gsutil cp build/modalai_fc-v2_default/modalai_fc-v2_default.px4 $GCLOUD_BUCKET/fc-v2/app/
+    - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2.bin $GCLOUD_BUCKET/fc-v2/bl/
+    - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.px4 $GCLOUD_BUCKET/fc-v2/bl/
+  only:
+    - modalai-1.13
