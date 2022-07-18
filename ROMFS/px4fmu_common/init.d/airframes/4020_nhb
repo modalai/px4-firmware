@@ -19,7 +19,6 @@ param set-default BAT_N_CELLS 6
 # arming / disarming params
 param set-default COM_ARM_EKF_BIAS 0.0000
 param set-default COM_ARM_EKF_HGT 0.0000
-param set-default COM_ARM_MAG_ANG 30		# disable?
 param set-default COM_ARM_ACC_MAX 0.0000
 param set-default COM_ARM_ACC_MIN 0.0000
 param set-default COM_DISARM_FORCE 1
@@ -54,7 +53,6 @@ param set-default MC_ACRO_SUPEXPOY 0.8400
 param set-default MC_ACRO_Y_MAX 900.0000
 
 # RC controller mapping params
-#  @TODO should these even be here?
 param set-default COM_FLTMODE1 1
 param set-default COM_FLTMODE4 8
 param set-default COM_FLTMODE6 6
@@ -120,6 +118,7 @@ param set-default THR_MDL_FAC 0.8000
 param set-default COM_PREARM_MODE 1
 param set-default MPC_LAND_ALT1 5.0000
 param set-default MPC_LAND_ALT2 2.0000
+param set-default COM_ARM_MAG_ANG 30
 
 # uninvestigated params
 param set-default PWM_AUX_OUT 1234
