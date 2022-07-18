@@ -1308,10 +1308,6 @@ void ModalaiEsc::Run()
 
 				px4_usleep(_current_cmd.repeat_delay_us);
 			} while (_current_cmd.repeats-- > 0);
-
-			PX4_INFO("RX packet count: %lu", _rx_packet_count);
-			PX4_INFO("CRC error count: %lu",_rx_crc_error_count);
-
 		} else {
 			Command *new_cmd = _pending_cmd.load();
 
@@ -1393,6 +1389,8 @@ int ModalaiEsc::print_status()
 	PX4_INFO("Outputs on: %s", _outputs_on ? "yes" : "no");
 	PX4_INFO("UART port: %s", _device);
 	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
+	PX4_INFO("RX packet count: %lu", _rx_packet_count);
+	PX4_INFO("CRC error count: %lu",_rx_crc_error_count);
 
 	PX4_INFO("");
 
