@@ -1309,8 +1309,8 @@ void ModalaiEsc::Run()
 				px4_usleep(_current_cmd.repeat_delay_us);
 			} while (_current_cmd.repeats-- > 0);
 
-			PX4_INFO("RX packet count: %d", _rx_packet_count);
-			PX4_INFO("CRC error count: %d",_rx_crc_error_count);
+			PX4_INFO("RX packet count: %lu", _rx_packet_count);
+			PX4_INFO("CRC error count: %lu",_rx_crc_error_count);
 
 		} else {
 			Command *new_cmd = _pending_cmd.load();
