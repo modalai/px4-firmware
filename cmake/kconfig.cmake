@@ -229,8 +229,14 @@ if(EXISTS ${BOARD_DEFCONFIG})
 		add_definitions(
 				-D__PX4_POSIX_RB5
 				-D__PX4_LINUX
-				-DCONFIG_BOARDCTL_RESET
 		)
+
+        if(PLATFORM STREQUAL "nuttx")
+            add_definitions(
+                -DCONFIG_BOARDCTL_RESET
+            )
+        endif()
+
 		link_directories(/home ${PX4_SOURCE_DIR}/boards/modalai/rb5-flight/lib)
         endif()
     	# set OS, and append specific platform module path
