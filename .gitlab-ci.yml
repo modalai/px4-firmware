@@ -26,11 +26,11 @@ deploy:
     - PX4_VER_BASE=v1.13
     - GCLOUD_BUCKET=gs://modalai_public/flightcore-builds/$PX4_VER_BASE/$BUILD_DIR
     - gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY
-    - gsutil cp build/modalai_fc-v1_default/modalai_fc-v1.bin $GCLOUD_BUCKET/fc-v1/
+    - gsutil cp build/modalai_fc-v1_default/modalai_fc-v1_default.bin $GCLOUD_BUCKET/fc-v1/
     - gsutil cp build/modalai_fc-v1_default/modalai_fc-v1_default.px4 $GCLOUD_BUCKET/fc-v1/
-    - gsutil cp build/modalai_fc-v2_default/modalai_fc-v2.bin $GCLOUD_BUCKET/fc-v2/app/
+    - gsutil cp build/modalai_fc-v2_default/modalai_fc-v2_default.bin $GCLOUD_BUCKET/fc-v2/app/
     - gsutil cp build/modalai_fc-v2_default/modalai_fc-v2_default.px4 $GCLOUD_BUCKET/fc-v2/app/
-    - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2.bin $GCLOUD_BUCKET/fc-v2/bl/
+    - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.bin $GCLOUD_BUCKET/fc-v2/bl/
     - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.px4 $GCLOUD_BUCKET/fc-v2/bl/
   only:
     - modalai-1.13
