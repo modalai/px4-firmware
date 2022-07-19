@@ -26,7 +26,7 @@ px4_posix_generate_alias(
 )
 
 message(STATUS "BEFORE PX4 BOARD IF STATEMENT")
-if ("${PX4_BOARD}" MATCHES "modalai_rb5-flight")
+if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
 	include(fastrpc)
         include(linux_app)
 

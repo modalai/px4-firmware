@@ -201,7 +201,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
     endforeach()
 
     if(PLATFORM)
-        if ("${PX4_BOARD}" MATCHES "modalai_rb5-flight")
+        if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
 
 		## rb5 flight
 		include(px4_git)
