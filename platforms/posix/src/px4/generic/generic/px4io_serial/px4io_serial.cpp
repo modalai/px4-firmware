@@ -39,6 +39,7 @@
 
 #include <px4_arch/px4io_serial.h>
 
+#include <poll.h>
 #include <termios.h>
 
 uint8_t ArchPX4IOSerial::_io_buffer_storage[sizeof(IOPacket)];
@@ -169,31 +170,38 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 {
 	_current_packet = _packet;
 
+	struct pollfd fd_monitor;
+	fd_monitor.fd     = uart_fd;
+	fd_monitor.events = POLLIN;
+
 	perf_begin(_pc_txns);
+
+	tcflush(uart_fd, TCIOFLUSH);
 
 	int ret = ::write(uart_fd, _packet, sizeof(IOPacket));
 
 	if (ret > 0) {
-			// PX4_INFO("Write %d bytes", ret);
+		// PX4_INFO("Write %d bytes", ret);
 
-			px4_usleep(2000);
+		// int poll_status = ::poll(&fd_monitor, 1, 1000);
+		(void) ::poll(&fd_monitor, 1, 1000);
 
-			ret = ::read(uart_fd, _packet, sizeof(IOPacket));
+		ret = ::read(uart_fd, _packet, sizeof(IOPacket));
 
-			if (ret > 0){
-				// PX4_INFO("Read %d bytes", ret);
+		if (ret > 0){
+			// PX4_INFO("Read %d bytes", ret);
 
-				/* Check CRC */
-				uint8_t crc = _packet->crc;
-				_packet->crc = 0;
+			/* Check CRC */
+			uint8_t crc = _packet->crc;
+			_packet->crc = 0;
 
-				if ((crc != crc_packet(_packet)) || (PKT_CODE(*_packet) == PKT_CODE_CORRUPT)){
-					perf_count(_pc_crcerrs);
-					perf_end(_pc_txns);
-					// PX4_ERR("Packet CRC error");
-					return -EIO;
-				}
+			if ((crc != crc_packet(_packet)) || (PKT_CODE(*_packet) == PKT_CODE_CORRUPT)){
+				perf_count(_pc_crcerrs);
+				perf_end(_pc_txns);
+				// PX4_ERR("Packet CRC error");
+				return -EIO;
 			}
+		}
 	}
 
 	if (ret <= 0) {
