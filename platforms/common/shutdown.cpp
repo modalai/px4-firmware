@@ -202,7 +202,7 @@ static void shutdown_worker(void *arg)
 
 	} else {
 		pthread_mutex_unlock(&shutdown_mutex);
-		work_queue(HPWORK, &shutdown_work, (worker_t)&shutdown_worker, nullptr, USEC2TICK(10000));
+		//work_queue(HPWORK, &shutdown_work, (worker_t)&shutdown_worker, nullptr, USEC2TICK(10000));
 	}
 }
 

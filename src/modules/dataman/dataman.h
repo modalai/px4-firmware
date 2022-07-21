@@ -82,6 +82,13 @@ struct dataman_compat_s {
 	uint64_t key;
 };
 
+/** Data persistence levels */
+typedef enum {
+        DM_PERSIST_POWER_ON_RESET = 0,  /* Data survives all resets */
+        DM_PERSIST_IN_FLIGHT_RESET,     /* Data survives in-flight resets only */
+        DM_PERSIST_VOLATILE             /* Data does not survive resets */
+} dm_persitence_t;
+
 /* increment this define whenever a binary incompatible change is performed */
 #define DM_COMPAT_VERSION	2ULL
 

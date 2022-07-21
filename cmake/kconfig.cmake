@@ -34,7 +34,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
     # Depend on BOARD_DEFCONFIG so that we reconfigure on config change
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${BOARD_DEFCONFIG})
 
-    if(${LABEL} MATCHES "default" OR ${LABEL} MATCHES "recovery" OR ${LABEL} MATCHES "bootloader" OR ${LABEL} MATCHES "canbootloader")
+    if(${LABEL} MATCHES "default" OR ${LABEL} MATCHES "qurt" OR ${LABEL} MATCHES "recovery" OR ${LABEL} MATCHES "bootloader" OR ${LABEL} MATCHES "canbootloader")
         # Generate boardconfig from saved defconfig
         execute_process(COMMAND ${CMAKE_COMMAND} -E env ${COMMON_KCONFIG_ENV_SETTINGS}
                         ${DEFCONFIG_PATH} ${BOARD_DEFCONFIG}
@@ -154,15 +154,38 @@ if(EXISTS ${BOARD_DEFCONFIG})
 
         # Find variable name
         string(REGEX MATCH "^CONFIG_MODULES[^=]+" Modules ${NameAndValue})
-
-        if(Modules)
+	if(Modules)
             # Find the value
             string(REPLACE "${Name}=" "" Value ${NameAndValue})
-            string(REPLACE "CONFIG_MODULES_" "" module ${Name})
+	    string(REPLACE "CONFIG_MODULES_" "" module ${Name})
             string(TOLOWER ${module} module)
+	    if(${module} STREQUAL "muorb_slpi" OR ${module} STREQUAL "muorb_apps")
+		    string(REPLACE "_" "/" module_path ${module})
+		    
+		    # Pattern 1 XXX / XXX_XXX
+                    string(REGEX REPLACE "(^[a-z]+)_([a-z0-9]+_[a-z0-9]+).*$" "\\1" module_p1_folder ${module})
+            	    string(REGEX REPLACE "(^[a-z]+)_([a-z0-9]+_[a-z0-9]+).*$" "\\2" module_p1_subfolder ${module})
 
-            list(APPEND config_module_list modules/${module})
-        endif()
+            	    # Pattern 2 XXX_XXX / XXXXXX
+            	    string(REGEX REPLACE "(^[a-z]+_[a-z0-9]+)_([a-z0-9]+).*$" "\\1" module_p2_folder ${module})
+            	    string(REGEX REPLACE "(^[a-z]+_[a-z0-9]+)_([a-z0-9]+).*$" "\\2" module_p2_subfolder ${module})
+
+            	    # Trick circumvent PX4 src naming problem with underscores and slashes
+            	    if(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module})
+                	list(APPEND config_module_list modules/${module})
+            	    elseif(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_path})
+                	list(APPEND config_module_list modules/${module_path})
+            	    elseif(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_p1_folder}/${module_p1_subfolder})
+                	list(APPEND config_module_list modules/${module_p1_folder}/${module_p1_subfolder})
+            	    elseif(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_p2_folder}/${module_p2_subfolder})
+                	list(APPEND config_module_list modules/${module_p2_folder}/${module_p2_subfolder})
+            	    else()
+                	message(FATAL_ERROR "Couldn't find path for ${module}")
+	   	    endif() 
+	    else()
+		    list(APPEND config_module_list modules/${module})
+    	    endif()
+    	endif()
 
         # Find variable name
         string(REGEX MATCH "^CONFIG_SYSTEMCMDS[^=]+" Systemcmds ${NameAndValue})
@@ -201,44 +224,84 @@ if(EXISTS ${BOARD_DEFCONFIG})
     endforeach()
 
     if(PLATFORM)
-        if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
-
-		## rb5 flight
-		include(px4_git)
-		list(APPEND CMAKE_MODULE_PATH
+	    if("${PX4_BOARD}" MATCHES "modalai_voxl2")
+		    if (PLATFORM STREQUAL "posix")
+			    ## rb5 flight
+			    include(px4_git)
+			    list(APPEND CMAKE_MODULE_PATH
 		                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon"
 		                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon/toolchain"
-		)
-		set(QC_SOC_TARGET "QRB5165")
+			    )
+			    set(QC_SOC_TARGET "QRB5165")
 
-		set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
+			    set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
 
-		set(CONFIG_SHMEM "0")
-		add_definitions(-DORB_COMMUNICATOR)
-		add_definitions(-DRELEASE_BUILD)
+			    set(CONFIG_SHMEM "0")
+			    add_definitions(-DORB_COMMUNICATOR)
+			    add_definitions(-DRELEASE_BUILD)
 
-		set(CONFIG_PARAM_SERVER "1")
+			    set(CONFIG_PARAM_SERVER "1")
 
-		add_compile_options($<$<COMPILE_LANGUAGE:C>:-std=gnu99>)
-		add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=gnu++14>)
+			    add_compile_options($<$<COMPILE_LANGUAGE:C>:-std=gnu99>)
+			    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=gnu++14>)
 
-		add_compile_options(
+			    add_compile_options(
 				-Wno-array-bounds
-		)
+			    )
 
-		add_definitions(
+			    add_definitions(
 				-D__PX4_POSIX_RB5
 				-D__PX4_LINUX
-		)
+			    )
+	
+			    link_directories(/home ${PX4_SOURCE_DIR}/boards/modalai/rb5-flight/lib)
+		    elseif (PLATFORM STREQUAL "qurt")
+			    message(STATUS "*** Entering qurt.cmake ***")
+			    set(QC_SOC_TARGET "QRB5165")
+			    include(px4_git)
+                            list(APPEND CMAKE_MODULE_PATH
+                                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon"
+                                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon/toolchain"
+                            )
 
-        if(PLATFORM STREQUAL "nuttx")
+
+			    if ("$ENV{HEXAGON_SDK_ROOT}" STREQUAL "")
+			    	message(FATAL_ERROR "Enviroment variable HEXAGON_SDK_ROOT must be set")
+			    else()
+				set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
+			    endif()
+
+			    include(toolchain/Toolchain-qurt)
+			    message(STATUS "in qurt.make before qurt_flags.cmake")
+			    include(qurt_flags)
+			    message(STATUS "in qurt.make after qurt_flags.cmake")
+			    message(STATUS "in qurt.make: CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+
+			    set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
+    				${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
+    				${PX4_SOURCE_DIR}/platforms/nuttx/Nuttx/nuttx/include
+       			    )
+			    include_directories(${HEXAGON_SDK_INCLUDES})
+
+			    set(CONFIG_SHMEM "0")
+			    add_definitions(-DORB_COMMUNICATOR)
+			    # add_definitions(-DDEBUG_BUILD)
+			    add_definitions(-DRELEASE_BUILD)
+
+			    set(CONFIG_PARAM_CLIENT "1")
+
+			    set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
+
+			    add_definitions(-D__PX4_QURT_EXCELSIOR)
+		    endif()
+	    endif()
+	
+	if(PLATFORM STREQUAL "nuttx")
             add_definitions(
                 -DCONFIG_BOARDCTL_RESET
             )
         endif()
 
-		link_directories(/home ${PX4_SOURCE_DIR}/boards/modalai/rb5-flight/lib)
-        endif()
     	# set OS, and append specific platform module path
         set(PX4_PLATFORM ${PLATFORM} CACHE STRING "PX4 board OS" FORCE)
 	list(APPEND CMAKE_MODULE_PATH ${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/cmake)
@@ -460,3 +523,4 @@ else()
         COMMAND_EXPAND_LISTS
     )
 endif()
+

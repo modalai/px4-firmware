@@ -51,6 +51,8 @@
 #include <float.h>
 #include <math.h>
 
+#include <sys/unistd.h>
+
 #include <containers/Bitset.hpp>
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>

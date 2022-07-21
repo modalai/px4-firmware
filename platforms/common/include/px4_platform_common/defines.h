@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <sys/stat.h>
 #include <px4_platform_common/log.h>
 
 /****************************************************************************
@@ -50,10 +51,8 @@
 
 /* Define PX4_ISFINITE */
 #ifdef __cplusplus
-static inline constexpr bool PX4_ISFINITE(float x) { return __builtin_isfinite(x); }
-static inline constexpr bool PX4_ISFINITE(double x) { return __builtin_isfinite(x); }
-#else
-#define PX4_ISFINITE(x) __builtin_isfinite(x)
+constexpr bool PX4_ISFINITE(float x) { return __builtin_isfinite(x); }
+constexpr bool PX4_ISFINITE(double x) { return __builtin_isfinite(x); }
 #endif /* __cplusplus */
 
 #if defined(__PX4_NUTTX)
@@ -91,14 +90,33 @@ static inline constexpr bool PX4_ISFINITE(double x) { return __builtin_isfinite(
 #define USEC_PER_TICK (1000000/PX4_TICKS_PER_SEC)
 #define USEC2TICK(x) (((x)+(USEC_PER_TICK/2))/USEC_PER_TICK)
 
+#ifdef __PX4_QURT
+
+// QURT specific
+#  include "dspal_math.h"
+#  define PX4_ROOTFSDIR "."
+#  define PX4_TICKS_PER_SEC 1000L
+
+#else // __PX4_QURT
+
+// All POSIX except QURT.
+
 __BEGIN_DECLS
 extern long PX4_TICKS_PER_SEC;
 __END_DECLS
 
-#define PX4_ROOTFSDIR "."
+#  if defined(__PX4_POSIX_RB5)
+#    define PX4_ROOTFSDIR "/data/px4"
+#  else
+#    define PX4_ROOTFSDIR "."
+#  endif
+
+#endif // __PX4_QURT
 
 #define PX4_STORAGEDIR PX4_ROOTFSDIR
+#endif // __PX4_POSIX
 
+#if defined(__PX4_POSIX)
 /****************************************************************************
  * Defines for POSIX and ROS
  ****************************************************************************/

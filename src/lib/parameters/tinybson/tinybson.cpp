@@ -43,6 +43,8 @@
 #include <stdlib.h>
 #include <systemlib/err.h>
 
+#include <sys/unistd.h>
+
 #include "tinybson.h"
 
 #if 0
@@ -522,9 +524,8 @@ bson_encoder_fini(bson_encoder_t encoder)
 	const int32_t bson_doc_bytes = encoder->total_document_size;
 
 	if (encoder->fd > -1) {
-		if ((lseek(encoder->fd, 0, SEEK_SET) != 0)
-		    || (::write(encoder->fd, &bson_doc_bytes, sizeof(bson_doc_bytes)) != sizeof(bson_doc_bytes))) {
-
+		if ((lseek(encoder->fd, 0, SEEK_SET) != 0) 
+			|| (::write(encoder->fd, &bson_doc_bytes, sizeof(bson_doc_bytes)) != sizeof(bson_doc_bytes))) {
 			CODER_KILL(encoder, "write error on document length");
 		}
 
