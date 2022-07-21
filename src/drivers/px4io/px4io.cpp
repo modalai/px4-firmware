@@ -1467,7 +1467,7 @@ PX4IO::io_set_control_state(unsigned group)
 
 	unsigned num_controls = sizeof(controls.control) / sizeof(controls.control[0]);
 
-	uint16_t regs[] = {(uint16_t) num_controls};
+	uint16_t regs[sizeof(controls.control) / sizeof(controls.control[0])] = {};
 
 	for (unsigned i = 0; (i < _max_controls) && (i < num_controls); i++) {
 		
