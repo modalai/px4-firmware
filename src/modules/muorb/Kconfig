@@ -1,3 +1,12 @@
-menu "MUORB"
-rsource "*/Kconfig"
-endmenu #MUORB
+menuconfig MODULES_MUORB
+        bool "muorb"
+        default n
+        ---help---
+                Enable support for muorb apps
+
+menuconfig USER_MUORB
+	bool "muorb running as userspace module"
+	default y
+	depends on BOARD_PROTECTED && MODULES_MUORB
+	---help---
+		Put muorb in userspace memory

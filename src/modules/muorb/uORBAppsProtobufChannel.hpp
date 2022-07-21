@@ -37,7 +37,7 @@
 #include <stdint.h>
 #include <string>
 #include <pthread.h>
-#include "uORB/uORBCommunicator.hpp"
+#include <uORB/uORBCommunicator.hpp>
 #include <map>
 #include "drivers/drv_hrt.h"
 
@@ -54,20 +54,15 @@ public:
 	 */
 	static uORB::AppsProtobufChannel *GetInstance()
 	{
-		if (_InstancePtr == nullptr) {
-			_InstancePtr = new uORB::AppsProtobufChannel();
-		}
-
 		return _InstancePtr;
 	}
-
-	/**
-	 * Static method to check if there is an instance.
-	 */
-	static bool isInstance()
-	{
-		return (_InstancePtr != nullptr);
-	}
+	 /**
+	  * Static method to check if there is an instance.
+	  */
+	 static bool isInstance()
+	 {
+	 	return (_InstancePtr != nullptr);
+	 }
 
     bool Initialize(bool enable_debug);
 
@@ -168,3 +163,4 @@ private://class members.
 };
 
 #endif /* _uORBAppsProtobufChannel_hpp_ */
+

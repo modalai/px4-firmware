@@ -74,7 +74,7 @@ void uORB::AppsProtobufChannel::AdvertiseCallback(const char *topic) {
     if (_Debug) PX4_INFO("Got advertisement callback for topic %s", topic);
 
     if (_RxHandler) {
-        _RxHandler->process_remote_topic(topic);
+        _RxHandler->process_remote_topic(topic, true);
     } else {
         PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
     }
@@ -88,7 +88,7 @@ void uORB::AppsProtobufChannel::SubscribeCallback(const char *topic) {
     pthread_mutex_unlock(&_rx_mutex);
 
     if (_RxHandler) {
-        _RxHandler->process_add_subscription(topic);
+        _RxHandler->process_add_subscription(topic, true);
     } else {
         // This can happen on startup if the remote entity is up and
         // running before this side has completed initialization. It is
@@ -197,3 +197,4 @@ int16_t uORB::AppsProtobufChannel::send_message(const char *messageName, int len
     }
     return -1;
 }
+

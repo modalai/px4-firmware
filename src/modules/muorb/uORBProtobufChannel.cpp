@@ -146,139 +146,143 @@ __BEGIN_DECLS
 extern int dspal_main(int argc, char *argv[]);
 __END_DECLS
 
-static bool px4muorb_orb_initialized = false;
+//static bool px4muorb_orb_initialized = false;
 
 int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 {
-    // Make sure SLPI clock is, more or less, aligned with apps clock. This
-    // alignment drifts over time so this function will get called to update
-    // the offset.
-    // PX4_INFO("Got time offset %d", clock_offset_us);
-    hrt_set_absolute_time_offset(clock_offset_us);
+    printf("Inside px4muorb orb initialize");
+    // // Make sure SLPI clock is, more or less, aligned with apps clock. This
+    // // alignment drifts over time so this function will get called to update
+    // // the offset.
+    // // PX4_INFO("Got time offset %d", clock_offset_us);
+    // hrt_set_absolute_time_offset(clock_offset_us);
 
-    // If this is the first time this function has been called, initialize
-    // everything. Otherwise it is just being called to update the time offset.
-    if ( ! px4muorb_orb_initialized) {
-    	// The uORB Manager needs to be initialized first up, otherwise the instance is nullptr.
-    	uORB::Manager::initialize();
-    	// Register the protobuf muorb with uORBManager.
-    	uORB::Manager::get_instance()->set_uorb_communicator(
-    		uORB::ProtobufChannel::GetInstance());
+    // // If this is the first time this function has been called, initialize
+    // // everything. Otherwise it is just being called to update the time offset.
+    // if ( ! px4muorb_orb_initialized) {
+    // 	// The uORB Manager needs to be initialized first up, otherwise the instance is nullptr.
+    // 	uORB::Manager::initialize();
+    // 	// Register the protobuf muorb with uORBManager.
+    // 	uORB::Manager::get_instance()->set_uorb_communicator(
+    // 		uORB::ProtobufChannel::GetInstance());
 
-    	// Now continue with the usual dspal startup.
-    	const char *argv[3] = { "dspal", "start" };
-    	int argc = 2;
+    // 	// Now continue with the usual dspal startup.
+    // 	const char *argv[3] = { "dspal", "start" };
+    // 	int argc = 2;
 
-        // Make sure that argv has a NULL pointer in the end.
-        argv[argc] = NULL;
+    //     // Make sure that argv has a NULL pointer in the end.
+    //     argv[argc] = NULL;
 
-    	if (dspal_main(argc, (char **) argv)) {
-            PX4_ERR("dspal_main failed in %s", __FUNCTION__);
-            return -1;
-        }
+    // 	if (dspal_main(argc, (char **) argv)) {
+    //         PX4_ERR("dspal_main failed in %s", __FUNCTION__);
+    //         return -1;
+    //     }
 
-        if (func_ptrs == NULL) {
-            PX4_ERR("NULL func_ptrs in %s", __FUNCTION__);
-            return -1;
-        }
+    //     if (func_ptrs == NULL) {
+    //         PX4_ERR("NULL func_ptrs in %s", __FUNCTION__);
+    //         return -1;
+    //     }
 
-        // Save off the function pointers needed to get access to
-        // the SLPI protobuf functions.
-        muorb_func_ptrs = *func_ptrs;
-        if ((muorb_func_ptrs.advertise_func_ptr == NULL) ||
-            (muorb_func_ptrs.subscribe_func_ptr == NULL) ||
-            (muorb_func_ptrs.unsubscribe_func_ptr == NULL) ||
-            (muorb_func_ptrs.topic_data_func_ptr == NULL) ||
-            (muorb_func_ptrs.config_spi_bus == NULL) ||
-            (muorb_func_ptrs.spi_transfer == NULL) ||
-            (muorb_func_ptrs.config_i2c_bus == NULL) ||
-            (muorb_func_ptrs.set_i2c_address == NULL) ||
-            (muorb_func_ptrs.i2c_transfer == NULL) ||
-            (muorb_func_ptrs.open_uart_func == NULL) ||
-            (muorb_func_ptrs.write_uart_func == NULL) ||
-            (muorb_func_ptrs.read_uart_func == NULL) ||
-            (muorb_func_ptrs.register_interrupt_callback == NULL)) {
-            PX4_ERR("NULL function pointers in %s", __FUNCTION__);
-            return -1;
-        }
+    //     // Save off the function pointers needed to get access to
+    //     // the SLPI protobuf functions.
+    //     muorb_func_ptrs = *func_ptrs;
+    //     if ((muorb_func_ptrs.advertise_func_ptr == NULL) ||
+    //         (muorb_func_ptrs.subscribe_func_ptr == NULL) ||
+    //         (muorb_func_ptrs.unsubscribe_func_ptr == NULL) ||
+    //         (muorb_func_ptrs.topic_data_func_ptr == NULL) ||
+    //         (muorb_func_ptrs.config_spi_bus == NULL) ||
+    //         (muorb_func_ptrs.spi_transfer == NULL) ||
+    //         (muorb_func_ptrs.config_i2c_bus == NULL) ||
+    //         (muorb_func_ptrs.set_i2c_address == NULL) ||
+    //         (muorb_func_ptrs.i2c_transfer == NULL) ||
+    //         (muorb_func_ptrs.open_uart_func == NULL) ||
+    //         (muorb_func_ptrs.write_uart_func == NULL) ||
+    //         (muorb_func_ptrs.read_uart_func == NULL) ||
+    //         (muorb_func_ptrs.register_interrupt_callback == NULL)) {
+    //         PX4_ERR("NULL function pointers in %s", __FUNCTION__);
+    //         return -1;
+    //     }
 
-        // Configure the I2C driver function pointers
-        device::I2C::configure_callbacks(muorb_func_ptrs.config_i2c_bus, muorb_func_ptrs.set_i2c_address, muorb_func_ptrs.i2c_transfer);
+    //     // Configure the I2C driver function pointers
+    //     device::I2C::configure_callbacks(muorb_func_ptrs.config_i2c_bus, muorb_func_ptrs.set_i2c_address, muorb_func_ptrs.i2c_transfer);
 
-        // Configure the SPI driver function pointers
-        device::SPI::configure_callbacks(muorb_func_ptrs.config_spi_bus, muorb_func_ptrs.spi_transfer);
+    //     // Configure the SPI driver function pointers
+    //     device::SPI::configure_callbacks(muorb_func_ptrs.config_spi_bus, muorb_func_ptrs.spi_transfer);
 
-        // Configure the UART driver function pointers
-        configure_uart_callbacks(muorb_func_ptrs.open_uart_func, muorb_func_ptrs.write_uart_func, muorb_func_ptrs.read_uart_func);
+    //     // Configure the UART driver function pointers
+    //     configure_uart_callbacks(muorb_func_ptrs.open_uart_func, muorb_func_ptrs.write_uart_func, muorb_func_ptrs.read_uart_func);
 
-        // Initialize the interrupt callback registration
-        register_interrupt_callback_initalizer(muorb_func_ptrs.register_interrupt_callback);
+    //     // Initialize the interrupt callback registration
+    //     register_interrupt_callback_initalizer(muorb_func_ptrs.register_interrupt_callback);
 
-        px4muorb_orb_initialized = true;
-    }
+    //     px4muorb_orb_initialized = true;
+    // }
 
-    // Proof of concept to send debug messages to Apps side.
-    // char hello_world_message[] = "Hello, World!";
-	// uORBCommunicator::IChannel *ch = uORB::Manager::get_instance()->get_uorb_communicator();
-	// if (ch != nullptr) {
-	// 	ch->send_message("slpi_debug", strlen(hello_world_message) + 1, (uint8_t *) hello_world_message);
-	// }
+    // // Proof of concept to send debug messages to Apps side.
+    // // char hello_world_message[] = "Hello, World!";
+	// // uORBCommunicator::IChannel *ch = uORB::Manager::get_instance()->get_uorb_communicator();
+	// // if (ch != nullptr) {
+	// // 	ch->send_message("slpi_debug", strlen(hello_world_message) + 1, (uint8_t *) hello_world_message);
+	// // }
 
 	return 0;
 }
 
 int px4muorb_topic_advertised(const char *topic_name)
 {
-	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
-    if (channel) {
-        if (channel->DebugEnabled()) PX4_INFO("px4muorb_topic_advertised [%s] on remote side...", topic_name);
-        uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
-        if (rxHandler) {
-            return rxHandler->process_remote_topic(topic_name, 0);
-        } else {
-            PX4_ERR("Null rx handler in %s", __FUNCTION__);
-        }
-    } else {
-        PX4_ERR("Null channel pointer in %s", __FUNCTION__);
-    }
+    printf("inside px4muorb topic advertised");
+	// uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
+    // if (channel) {
+    //     if (channel->DebugEnabled()) PX4_INFO("px4muorb_topic_advertised [%s] on remote side...", topic_name);
+    //     uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
+    //     if (rxHandler) {
+    //         return rxHandler->process_remote_topic(topic_name, 0);
+    //     } else {
+    //         PX4_ERR("Null rx handler in %s", __FUNCTION__);
+    //     }
+    // } else {
+    //     PX4_ERR("Null channel pointer in %s", __FUNCTION__);
+    // }
 
 	return -1;
 }
 
 int px4muorb_add_subscriber(const char *topic_name)
 {
-	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
-    if (channel) {
-        if (channel->DebugEnabled()) PX4_INFO("px4muorb_add_subscriber [%s] on remote side...", topic_name);
-    	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
-    	if (rxHandler) {
-            channel->AddRemoteSubscriber(topic_name);
-    		return rxHandler->process_add_subscription(topic_name);
-    	} else {
-            PX4_ERR("Null rx handler in %s", __FUNCTION__);
-    	}
-    } else {
-        PX4_ERR("Null channel pointer in %s", __FUNCTION__);
-    }
+    printf("inside px4muorb add subscriber");
+	// uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
+    // if (channel) {
+    //     if (channel->DebugEnabled()) PX4_INFO("px4muorb_add_subscriber [%s] on remote side...", topic_name);
+    // 	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
+    // 	if (rxHandler) {
+    //         channel->AddRemoteSubscriber(topic_name);
+    // 		return rxHandler->process_add_subscription(topic_name);
+    // 	} else {
+    //         PX4_ERR("Null rx handler in %s", __FUNCTION__);
+    // 	}
+    // } else {
+    //     PX4_ERR("Null channel pointer in %s", __FUNCTION__);
+    // }
 
 	return -1;
 }
 
 int px4muorb_remove_subscriber(const char *topic_name)
 {
-	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
-    if (channel) {
-        if (channel->DebugEnabled()) PX4_INFO("px4muorb_remove_subscriber [%s] on remote side...", topic_name);
-    	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
-    	if (rxHandler) {
-            channel->RemoveRemoteSubscriber(topic_name);
-    		return rxHandler->process_remove_subscription(topic_name);
-    	} else {
-            PX4_ERR("Null rx handler in %s", __FUNCTION__);
-    	}
-    } else {
-        PX4_ERR("Null channel pointer in %s", __FUNCTION__);
-    }
+    printf("inside px4muorb remove subscriber");
+	// uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
+    // if (channel) {
+    //     if (channel->DebugEnabled()) PX4_INFO("px4muorb_remove_subscriber [%s] on remote side...", topic_name);
+    // 	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
+    // 	if (rxHandler) {
+    //         channel->RemoveRemoteSubscriber(topic_name);
+    // 		return rxHandler->process_remove_subscription(topic_name);
+    // 	} else {
+    //         PX4_ERR("Null rx handler in %s", __FUNCTION__);
+    // 	}
+    // } else {
+    //     PX4_ERR("Null channel pointer in %s", __FUNCTION__);
+    // }
 
 	return -1;
 }
@@ -286,20 +290,22 @@ int px4muorb_remove_subscriber(const char *topic_name)
 int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 			                 int data_len_in_bytes)
 {
-	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
-    if (channel) {
-        if (channel->DebugEnabled()) PX4_INFO("px4muorb_send_topic_data [%s] on remote side...", topic_name);
-    	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
-    	if (rxHandler) {
-    		return rxHandler->process_received_message(topic_name,
-                                                       data_len_in_bytes,
-    				                                   (uint8_t *) data);
-    	} else {
-            PX4_ERR("Null rx handler in %s", __FUNCTION__);
-    	}
-    } else {
-        PX4_ERR("Null channel pointer in %s", __FUNCTION__);
-    }
+    printf("px4muorb send topic data");
+	// uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
+    // if (channel) {
+    //     if (channel->DebugEnabled()) PX4_INFO("px4muorb_send_topic_data [%s] on remote side...", topic_name);
+    // 	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
+    // 	if (rxHandler) {
+    // 		return rxHandler->process_received_message(topic_name,
+    //                                                    data_len_in_bytes,
+    // 				                                   (uint8_t *) data);
+    // 	} else {
+    //         PX4_ERR("Null rx handler in %s", __FUNCTION__);
+    // 	}
+    // } else {
+    //     PX4_ERR("Null channel pointer in %s", __FUNCTION__);
+    // }
 
 	return -1;
 }
+

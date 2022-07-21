@@ -30,6 +30,20 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
+include(hexagon_sdk)
+
+px4_add_module(
+	MODULE modules__muorb__apps
+	MAIN muorb
+	COMPILE_FLAGS
+		-Wno-cast-align # TODO: fix and enable
+	INCLUDES
+		${HEXAGON_SDK_INCLUDES}
+		${PX4_BINARY_DIR}/platforms/posix
+	SRCS
+		uORBAppsProtobufChannel.cpp
+		muorb_main.cpp
+	)
 
 px4_add_library(modules__muorb__slpi
 	uORBProtobufChannel.cpp

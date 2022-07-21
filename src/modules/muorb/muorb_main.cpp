@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 #include <string.h>
-#include "modules/uORB/uORBManager.hpp"
+#include "uORB/uORBManager.hpp"
 #include "uORBAppsProtobufChannel.hpp"
 
 extern "C" { __EXPORT int muorb_main(int argc, char *argv[]); }
@@ -83,3 +83,4 @@ muorb_main(int argc, char *argv[])
 	usage();
 	return -EINVAL;
 }
+
