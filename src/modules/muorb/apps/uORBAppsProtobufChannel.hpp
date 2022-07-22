@@ -54,9 +54,14 @@ public:
 	 */
 	static uORB::AppsProtobufChannel *GetInstance()
 	{
+		if (_InstancePtr == nullptr) {
+			_InstancePtr = new uORB::AppsProtobufChannel();
+		}
+
 		return _InstancePtr;
 	}
-	 /**
+ 
+	/**
 	  * Static method to check if there is an instance.
 	  */
 	 static bool isInstance()

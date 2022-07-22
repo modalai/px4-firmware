@@ -157,9 +157,34 @@ if(EXISTS ${BOARD_DEFCONFIG})
 	if(Modules)
             # Find the value
             string(REPLACE "${Name}=" "" Value ${NameAndValue})
-	        string(REPLACE "CONFIG_MODULES_" "" module ${Name})
+	    string(REPLACE "CONFIG_MODULES_" "" module ${Name})
             string(TOLOWER ${module} module)
+	    if(${module} STREQUAL "muorb_slpi" OR ${module} STREQUAL "muorb_apps")
+		    string(REPLACE "_" "/" module_path ${module})
+
+		    # Pattern 1 XXX / XXX_XXX
+                    string(REGEX REPLACE "(^[a-z]+)_([a-z0-9]+_[a-z0-9]+).*$" "\\1" module_p1_folder ${module})
+            	    string(REGEX REPLACE "(^[a-z]+)_([a-z0-9]+_[a-z0-9]+).*$" "\\2" module_p1_subfolder ${module})
+
+            	    # Pattern 2 XXX_XXX / XXXXXX
+            	    string(REGEX REPLACE "(^[a-z]+_[a-z0-9]+)_([a-z0-9]+).*$" "\\1" module_p2_folder ${module})
+            	    string(REGEX REPLACE "(^[a-z]+_[a-z0-9]+)_([a-z0-9]+).*$" "\\2" module_p2_subfolder ${module})
+
+            	    # Trick circumvent PX4 src naming problem with underscores and slashes
+            	    if(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module})
+                	list(APPEND config_module_list modules/${module})
+            	    elseif(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_path})
+                	list(APPEND config_module_list modules/${module_path})
+            	    elseif(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_p1_folder}/${module_p1_subfolder})
+                	list(APPEND config_module_list modules/${module_p1_folder}/${module_p1_subfolder})
+            	    elseif(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_p2_folder}/${module_p2_subfolder})
+                	list(APPEND config_module_list modules/${module_p2_folder}/${module_p2_subfolder})
+            	    else()
+                	message(FATAL_ERROR "Couldn't find path for ${module}")
+	   	    endif() 
+	    else()
 		    list(APPEND config_module_list modules/${module})
+    	    endif()
     	endif()
 
         # Find variable name
