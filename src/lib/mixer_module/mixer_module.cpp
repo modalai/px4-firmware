@@ -351,6 +351,32 @@ bool MixingOutput::update()
 		}
 	}
 
+	static int bat_cnt = 0;
+
+	// check battery status
+	if (_battery_status_sub.updated()) {
+		battery_status_s battery_status;
+
+		_battery_status_sub.copy(&battery_status);
+
+		bat_cnt += 1;
+
+		float rel_thrust_volt_limit0 = 0.6084;
+		float rel_thrust_volt_limit1 = 0.018;
+		float rel_thrust_volt_limit2 = 0.0;
+
+		float max_thrust_now = rel_thrust_volt_limit2 * battery_status.voltage_filtered_v * battery_status.voltage_filtered_v + rel_thrust_volt_limit1 * battery_status.voltage_filtered_v + rel_thrust_volt_limit0;
+
+		printf("voltage filtered %i, %f, %f \n", bat_cnt, (double)battery_status.voltage_filtered_v, (double)max_thrust_now);
+
+
+		// printf("min_value, max_value %f, %f, %f\n", (double)_min_value[0], (double)_max_value[0], (double)_param_thr_mdl_fac.get());
+
+		_mixers->set_max_thrust_now(0.8f);
+
+	}
+
+
 	// check for motor test
 	if (!_armed.armed && !_armed.manual_lockdown) {
 		unsigned num_motor_test = motorTest();

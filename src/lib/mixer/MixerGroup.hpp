@@ -161,6 +161,8 @@ public:
 	 */
 	void				set_thrust_factor(float val);
 
+	void				set_max_thrust_now(float val);
+
 	void				set_airmode(Mixer::Airmode airmode);
 
 	unsigned			get_multirotor_count();

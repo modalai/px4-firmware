@@ -147,6 +147,8 @@ public:
 
 	void 			set_airmode(Airmode airmode) override { _airmode = airmode; }
 
+	void      set_max_thrust_now(float val) override { _max_thrust_now = math::constrain(val, 0.5f, 1.0f); }
+
 	unsigned		get_multirotor_count() override { return _rotor_count; }
 
 	union saturation_status {

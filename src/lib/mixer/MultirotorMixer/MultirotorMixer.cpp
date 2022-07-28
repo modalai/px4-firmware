@@ -96,7 +96,7 @@ MultirotorMixer::MultirotorMixer(ControlCallback control_cb, uintptr_t cb_handle
 		_outputs_prev[i] = -1.f;
 	}
 
-	_max_thrust_now = 0.8f; //default value is 1.f
+	_max_thrust_now = 1.f; //default value is 1.f
 }
 
 MultirotorMixer::~MultirotorMixer()
@@ -271,6 +271,8 @@ MultirotorMixer::mix_airmode_disabled(float roll, float pitch, float yaw, float 
 
 		// Thrust will be used to unsaturate if needed
 		_tmp_array[i] = _rotors[i].thrust_scale;
+
+		//printf("rotor %i: { %f, %f, %f, %f } \n", i, (double)_rotors[i].roll_scale, (double)_rotors[i].pitch_scale, (double)_rotors[i].yaw_scale, (double)_rotors[i].thrust_scale);
 	}
 
 	// only reduce thrust
@@ -357,6 +359,9 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 					(1.0f - _thrust_factor) / (4.0f * _thrust_factor * _thrust_factor) + (outputs[i] < 0.0f ? 0.0f : outputs[i] /
 							_thrust_factor));
 		}
+
+		//TODO add another constraint here based on max thrust
+		// outputs[i] = math::constrain(outputs[i], 0.f, 0.8f);
 
 		outputs[i] = math::constrain((2.f * outputs[i] - 1.f), -1.f, 1.f);
 	}

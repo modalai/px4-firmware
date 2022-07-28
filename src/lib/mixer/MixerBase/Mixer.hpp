@@ -231,6 +231,9 @@ public:
 
 	virtual void 			set_dt_once(float dt) {}
 
+	virtual void 			set_max_thrust_now(float val) {}
+
+
 protected:
 
 	/** client-supplied callback used when fetching control values */

@@ -129,6 +129,14 @@ MixerGroup::set_thrust_factor(float val)
 }
 
 void
+MixerGroup::set_max_thrust_now(float val)
+{
+	for (auto mixer : _mixers) {
+		mixer->set_max_thrust_now(val);
+	}
+}
+
+void
 MixerGroup::set_airmode(Mixer::Airmode airmode)
 {
 	for (auto mixer : _mixers) {
