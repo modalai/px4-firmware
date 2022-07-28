@@ -248,7 +248,7 @@ void MspOsd::Run()
 		_msp_fd = open(_port, O_RDWR | O_NONBLOCK);
 
 		if (_msp_fd < 0) {
-			_initialization_failure = true;
+			_performance_data.initialization_problems = true;
 			return;
 		}
 
@@ -293,12 +293,12 @@ void MspOsd::Run()
 	matrix::Eulerf euler_attitude(matrix::Quatf(_vehicle_attitude_struct.q));
 
 	memcpy(variant.flightControlIdentifier, "BTFL", sizeof(variant.flightControlIdentifier));
-	_msp.Send(MSP_FC_VARIANT, &variant);
+	_msp.Send(MSP_FC_VARIANT, &variant) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_NAME
 	snprintf(name.craft_name, sizeof(name.craft_name), "> %i", _x);
 	name.craft_name[14] = '\0';
-	_msp.Send(MSP_NAME, &name);
+	_msp.Send(MSP_NAME, &name) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_STATUS
 	if (_vehicle_status_struct.arming_state == _vehicle_status_struct.ARMING_STATE_ARMED) {
@@ -333,14 +333,14 @@ void MspOsd::Run()
 
 	status_BF.arming_disable_flags_count = 1;
 	status_BF.arming_disable_flags  = !(_vehicle_status_struct.arming_state == _vehicle_status_struct.ARMING_STATE_ARMED);
-	_msp.Send(MSP_STATUS, &status_BF);
+	_msp.Send(MSP_STATUS, &status_BF) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_ANALOG
 	analog.vbat = _battery_status_struct.voltage_v * 10; // bottom right... v * 10
 	analog.rssi = (uint16_t)((_input_rc_struct.rssi * 1023.0f) / 100.0f);
 	analog.amperage = _battery_status_struct.current_a * 100; // main amperage
 	analog.mAhDrawn = _battery_status_struct.discharged_mah; // unused
-	_msp.Send(MSP_ANALOG, &analog);
+	_msp.Send(MSP_ANALOG, &analog) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_BATTERY_STATE
 	battery_state.amperage = _battery_status_struct.current_a; // not used?
@@ -358,7 +358,7 @@ void MspOsd::Run()
 	}
 
 	battery_state.legacyBatteryVoltage = _battery_status_struct.voltage_v * 10;
-	_msp.Send(MSP_BATTERY_STATE, &battery_state);
+	_msp.Send(MSP_BATTERY_STATE, &battery_state) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_RAW_GPS
 	if (_vehicle_gps_position_struct.fix_type >= 2) {
@@ -402,7 +402,7 @@ void MspOsd::Run()
 	}
 
 	//PX4_WARN("%f\r\n",  (double)_battery_status_struct.current_a);
-	_msp.Send(MSP_RAW_GPS, &raw_gps);
+	_msp.Send(MSP_RAW_GPS, &raw_gps) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// Calculate distance and direction to home
 	if (_home_position_struct.valid_hpos
@@ -427,13 +427,13 @@ void MspOsd::Run()
 	// MSP_COMP_GPS
 	comp_gps.heartbeat = _heartbeat;
 	_heartbeat = !_heartbeat;
-	_msp.Send(MSP_COMP_GPS, &comp_gps);
+	_msp.Send(MSP_COMP_GPS, &comp_gps) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_ATTITUDE
 	attitude.pitch = math::degrees(euler_attitude.theta()) * 10;
 	attitude.roll = math::degrees(euler_attitude.phi()) * 10;
 	attitude.yaw = math::degrees(euler_attitude.psi()) * 10;
-	_msp.Send(MSP_ATTITUDE, &attitude);
+	_msp.Send(MSP_ATTITUDE, &attitude) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_ALTITUDE
 	if (_estimator_status_struct.solution_status_flags & (1 << 5)) {
@@ -443,12 +443,12 @@ void MspOsd::Run()
 		altitude.estimatedActualVelocity = 0;
 	}
 
-	_msp.Send(MSP_ALTITUDE, &altitude);
+	_msp.Send(MSP_ALTITUDE, &altitude) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	// MSP_MOTOR_TELEMETRY
 	esc_sensor_data.rpm = 0;
 	esc_sensor_data.temperature = 50;
-	_msp.Send(MSP_ESC_SENSOR_DATA, &esc_sensor_data);
+	_msp.Send(MSP_ESC_SENSOR_DATA, &esc_sensor_data) ? _performance_data.successful_sends++ : _performance_data.unsuccessful_sends++;
 
 	SendConfig();
 }
@@ -480,7 +480,9 @@ int MspOsd::print_status()
 {
 	PX4_INFO("Running on port %s", _port);
 	PX4_INFO("\tinitialized: %d", _is_initialized);
-	PX4_INFO("\tinitialization issues: %d", _initialization_failure);
+	PX4_INFO("\tinitialization issues: %d", _performance_data.initialization_problems);
+	PX4_INFO("\tsuccessful sends: %lu", _performance_data.successful_sends);
+	PX4_INFO("\tunsuccessful sends: %lu", _performance_data.unsuccessful_sends);
 
 	return 0;
 }
