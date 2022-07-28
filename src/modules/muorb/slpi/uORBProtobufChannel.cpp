@@ -151,10 +151,10 @@ __END_DECLS
 int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 {
     printf("Inside px4muorb orb initialize");
-    // // Make sure SLPI clock is, more or less, aligned with apps clock. This
-    // // alignment drifts over time so this function will get called to update
-    // // the offset.
-    // // PX4_INFO("Got time offset %d", clock_offset_us);
+    // Make sure SLPI clock is, more or less, aligned with apps clock. This
+    // alignment drifts over time so this function will get called to update
+    // the offset.
+    // PX4_INFO("Got time offset %d", clock_offset_us);
     // hrt_set_absolute_time_offset(clock_offset_us);
 
     // // If this is the first time this function has been called, initialize
@@ -218,12 +218,12 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
     //     px4muorb_orb_initialized = true;
     // }
 
-    // // Proof of concept to send debug messages to Apps side.
-    // // char hello_world_message[] = "Hello, World!";
-	// // uORBCommunicator::IChannel *ch = uORB::Manager::get_instance()->get_uorb_communicator();
-	// // if (ch != nullptr) {
-	// // 	ch->send_message("slpi_debug", strlen(hello_world_message) + 1, (uint8_t *) hello_world_message);
-	// // }
+    // Proof of concept to send debug messages to Apps side.
+    // char hello_world_message[] = "Hello, World!";
+	// uORBCommunicator::IChannel *ch = uORB::Manager::get_instance()->get_uorb_communicator();
+	// if (ch != nullptr) {
+	// 	ch->send_message("slpi_debug", strlen(hello_world_message) + 1, (uint8_t *) hello_world_message);
+	// }
 
 	return 0;
 }
@@ -256,7 +256,7 @@ int px4muorb_add_subscriber(const char *topic_name)
     // 	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
     // 	if (rxHandler) {
     //         channel->AddRemoteSubscriber(topic_name);
-    // 		return rxHandler->process_add_subscription(topic_name);
+    // 		return rxHandler->process_add_subscription(topic_name, true);
     // 	} else {
     //         PX4_ERR("Null rx handler in %s", __FUNCTION__);
     // 	}

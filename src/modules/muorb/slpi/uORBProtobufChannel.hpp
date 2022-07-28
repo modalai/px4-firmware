@@ -40,8 +40,8 @@
 #include <semaphore.h>
 #include <set>
 #include <px4_platform_common/sem.h>
-#include <lib/drivers/device/i2c.h>
-#include <lib/drivers/device/spi.h>
+#include <lib/drivers/device/qurt/I2C.hpp>
+#include <lib/drivers/device/qurt/SPI.hpp>
 #include <lib/drivers/device/qurt/uart.h>
 
 namespace uORB

@@ -40,6 +40,7 @@
 #include <uORB/uORBCommunicator.hpp>
 #include <map>
 #include "drivers/drv_hrt.h"
+#include <px4_platform_common/log.h>
 
 namespace uORB
 {
@@ -60,7 +61,7 @@ public:
 
 		return _InstancePtr;
 	}
- 
+
 	/**
 	  * Static method to check if there is an instance.
 	  */

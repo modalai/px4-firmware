@@ -34,4 +34,7 @@
 px4_add_library(modules__muorb__slpi
 	uORBProtobufChannel.cpp
 )
+
 target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/platforms/common/uORB)
+target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/platforms/common/include)
+target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/src/lib/drivers/device)
