@@ -242,13 +242,13 @@ void MspOsd::Run()
 	}
 
 	if (!_is_initialized) {
-		_is_initialized = true;
 
 		struct termios t;
 
-		_msp_fd = open("/dev/ttyS3", O_RDWR | O_NONBLOCK);
+		_msp_fd = open(_port, O_RDWR | O_NONBLOCK);
 
 		if (_msp_fd < 0) {
+			_initialization_failure = true;
 			return;
 		}
 
@@ -262,7 +262,7 @@ void MspOsd::Run()
 
 		_msp = MspV1(_msp_fd);
 
-		PX4_WARN("Startup");
+		_is_initialized = true;
 	}
 
 	msp_battery_state_t battery_state = {0};
@@ -478,7 +478,9 @@ int MspOsd::task_spawn(int argc, char *argv[])
 
 int MspOsd::print_status()
 {
-	PX4_INFO("Running");
+	PX4_INFO("Running on port %s", _port);
+	PX4_INFO("\tinitialized: %d", _is_initialized);
+	PX4_INFO("\tinitialization issues: %d", _initialization_failure);
 
 	return 0;
 }
