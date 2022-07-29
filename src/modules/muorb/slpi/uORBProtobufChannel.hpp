@@ -40,7 +40,8 @@
 #include <semaphore.h>
 #include <set>
 #include <px4_platform_common/sem.h>
-#include <lib/drivers/device/qurt/I2C.hpp>
+// #include <px4_platform_common/i2c.h>
+// #include <lib/drivers/device/qurt/I2C.hpp>
 #include <lib/drivers/device/qurt/SPI.hpp>
 #include <lib/drivers/device/qurt/uart.h>
 
@@ -166,19 +167,19 @@ private://class members.
 // TODO: This has to be defined in the slpi_proc build and in the PX4 build.
 // Make it accessible from one file to both builds.
 typedef struct {
-    int (*advertise_func_ptr)(const char *topic_name);
-    int (*subscribe_func_ptr)(const char *topic_name);
-    int (*unsubscribe_func_ptr)(const char *topic_name);
-    int (*topic_data_func_ptr)(const char *name, const uint8_t *data, int data_len_in_bytes);
-    device::SPI::_config_spi_bus_func_t config_spi_bus;
-    device::SPI::_spi_transfer_func_t spi_transfer;
-    device::I2C::_config_i2c_bus_func_t config_i2c_bus;
-    device::I2C::_set_i2c_address_func_t set_i2c_address;
-    device::I2C::_i2c_transfer_func_t i2c_transfer;
-    open_uart_func_t open_uart_func;
-    write_uart_func_t write_uart_func;
-    read_uart_func_t read_uart_func;
-    int (*register_interrupt_callback)(int (*)(int, void*, void*), void* arg);
+//     int (*advertise_func_ptr)(const char *topic_name);
+//     int (*subscribe_func_ptr)(const char *topic_name);
+//     int (*unsubscribe_func_ptr)(const char *topic_name);
+//     int (*topic_data_func_ptr)(const char *name, const uint8_t *data, int data_len_in_bytes);
+//     device::SPI::_config_spi_bus_func_t config_spi_bus;
+//     device::SPI::_spi_transfer_func_t spi_transfer;
+//     device::I2C::_config_i2c_bus_func_t config_i2c_bus;
+//     device::I2C::_set_i2c_address_func_t set_i2c_address;
+//     device::I2C::_i2c_transfer_func_t i2c_transfer;
+//     open_uart_func_t open_uart_func;
+//     write_uart_func_t write_uart_func;
+//     read_uart_func_t read_uart_func;
+//     int (*register_interrupt_callback)(int (*)(int, void*, void*), void* arg);
 } fc_func_ptrs;
 
 extern "C" {

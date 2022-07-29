@@ -31,10 +31,23 @@
 #
 ############################################################################
 
-px4_add_library(modules__muorb__slpi
-	uORBProtobufChannel.cpp
-)
+#px4_add_library(modules__muorb__slpi
+#	uORBProtobufChannel.cpp
+#)
 
-target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/platforms/common/uORB)
-target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/platforms/common/include)
-target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/src/lib/drivers/device)
+#target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/platforms/common/uORB)
+
+include(hexagon_sdk)
+
+px4_add_module(
+	MODULE modules__muorb__slpi
+	MAIN muorb
+	COMPILE_FLAGS
+		-Wno-cast-align # TODO: fix and enable
+	INCLUDES
+		${HEXAGON_SDK_INCLUDES}
+		${PX4_BINARY_DIR}/platforms/qurt
+		${PX4_BINARY_DIR}/platforms/common/uORB
+	SRCS
+		uORBProtobufChannel.cpp
+	)

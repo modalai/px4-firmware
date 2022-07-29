@@ -30,7 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#include "uORBManager.hpp"
+#include "uORB/uORBManager.hpp"
 #include "uORBProtobufChannel.hpp"
 #include <px4_platform_common/log.h>
 #include <algorithm>
@@ -53,15 +53,15 @@ bool uORB::ProtobufChannel::_debug = false;
 //==============================================================================
 int16_t uORB::ProtobufChannel::topic_advertised(const char *messageName)
 {
-	if (_debug) PX4_INFO("Advertising %s on remote side", messageName);
-	if (muorb_func_ptrs.advertise_func_ptr) {
-        pthread_mutex_lock(&_tx_mutex);
-        int16_t rc = muorb_func_ptrs.advertise_func_ptr(messageName);
-        pthread_mutex_unlock(&_tx_mutex);
-        return rc;
-    }
+	// if (_debug) PX4_INFO("Advertising %s on remote side", messageName);
+	// if (muorb_func_ptrs.advertise_func_ptr) {
+    //     pthread_mutex_lock(&_tx_mutex);
+    //     int16_t rc = muorb_func_ptrs.advertise_func_ptr(messageName);
+    //     pthread_mutex_unlock(&_tx_mutex);
+    //     return rc;
+    // }
 
-    PX4_ERR("advertise_func_ptr is null in %s", __FUNCTION__);
+    // PX4_ERR("advertise_func_ptr is null in %s", __FUNCTION__);
     return -1;
 }
 
@@ -69,15 +69,15 @@ int16_t uORB::ProtobufChannel::topic_advertised(const char *messageName)
 //==============================================================================
 int16_t uORB::ProtobufChannel::add_subscription(const char *messageName, int32_t msgRateInHz)
 {
-	if (_debug) PX4_INFO("Subscribing to %s on remote side", messageName);
-	if (muorb_func_ptrs.subscribe_func_ptr) {
-        pthread_mutex_lock(&_tx_mutex);
-        int16_t rc = muorb_func_ptrs.subscribe_func_ptr(messageName);
-        pthread_mutex_unlock(&_tx_mutex);
-        return rc;
-    }
+	// if (_debug) PX4_INFO("Subscribing to %s on remote side", messageName);
+	// if (muorb_func_ptrs.subscribe_func_ptr) {
+    //     pthread_mutex_lock(&_tx_mutex);
+    //     int16_t rc = muorb_func_ptrs.subscribe_func_ptr(messageName);
+    //     pthread_mutex_unlock(&_tx_mutex);
+    //     return rc;
+    // }
 
-    PX4_ERR("subscribe_func_ptr is null in %s", __FUNCTION__);
+    // PX4_ERR("subscribe_func_ptr is null in %s", __FUNCTION__);
     return -1;
 }
 
@@ -85,15 +85,15 @@ int16_t uORB::ProtobufChannel::add_subscription(const char *messageName, int32_t
 //==============================================================================
 int16_t uORB::ProtobufChannel::remove_subscription(const char *messageName)
 {
-	if (_debug) PX4_INFO("Unsubscribing from %s on remote side", messageName);
-	if (muorb_func_ptrs.unsubscribe_func_ptr) {
-        pthread_mutex_lock(&_tx_mutex);
-        int16_t rc = muorb_func_ptrs.unsubscribe_func_ptr(messageName);
-        pthread_mutex_unlock(&_tx_mutex);
-        return rc;
-    }
+	// if (_debug) PX4_INFO("Unsubscribing from %s on remote side", messageName);
+	// if (muorb_func_ptrs.unsubscribe_func_ptr) {
+    //     pthread_mutex_lock(&_tx_mutex);
+    //     int16_t rc = muorb_func_ptrs.unsubscribe_func_ptr(messageName);
+    //     pthread_mutex_unlock(&_tx_mutex);
+    //     return rc;
+    // }
 
-    PX4_ERR("unsubscribe_func_ptr is null in %s", __FUNCTION__);
+    // PX4_ERR("unsubscribe_func_ptr is null in %s", __FUNCTION__);
     return -1;
 }
 
@@ -101,7 +101,7 @@ int16_t uORB::ProtobufChannel::remove_subscription(const char *messageName)
 //==============================================================================
 int16_t uORB::ProtobufChannel::register_handler(uORBCommunicator::IChannelRxHandler *handler)
 {
-	_RxHandler = handler;
+	// _RxHandler = handler;
 	return 0;
 }
 
@@ -113,32 +113,32 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
     // This function can be called from the PX4 log function so we have to make
     // sure that we do not call PX4_INFO, PX4_ERR, etc. That would cause an
     // infinite loop!
-    bool is_not_slpi_log = true;
-    if ((strcmp(messageName, "slpi_debug") == 0) || (strcmp(messageName, "slpi_error") == 0)) is_not_slpi_log = false;
+    // bool is_not_slpi_log = true;
+    // if ((strcmp(messageName, "slpi_debug") == 0) || (strcmp(messageName, "slpi_error") == 0)) is_not_slpi_log = false;
 
-    if (muorb_func_ptrs.topic_data_func_ptr) {
-        if ((_debug) && (is_not_slpi_log)) PX4_INFO("Got message for topic %s", messageName);
-        std::string temp(messageName);
-        int has_subscribers = 0;
-        pthread_mutex_lock(&_rx_mutex);
-        has_subscribers = _AppsSubscriberCache[temp];
-        pthread_mutex_unlock(&_rx_mutex);
+    // if (muorb_func_ptrs.topic_data_func_ptr) {
+    //     if ((_debug) && (is_not_slpi_log)) PX4_INFO("Got message for topic %s", messageName);
+    //     std::string temp(messageName);
+    //     int has_subscribers = 0;
+    //     pthread_mutex_lock(&_rx_mutex);
+    //     has_subscribers = _AppsSubscriberCache[temp];
+    //     pthread_mutex_unlock(&_rx_mutex);
 
-        if ((has_subscribers) || (is_not_slpi_log == false)) {
-            if ((_debug) && (is_not_slpi_log)) PX4_INFO("Sending message for topic %s", messageName);
-            pthread_mutex_lock(&_tx_mutex);
-            int16_t rc = muorb_func_ptrs.topic_data_func_ptr(messageName, data, length);
-            pthread_mutex_unlock(&_tx_mutex);
-            return rc;
-        }
+    //     if ((has_subscribers) || (is_not_slpi_log == false)) {
+    //         if ((_debug) && (is_not_slpi_log)) PX4_INFO("Sending message for topic %s", messageName);
+    //         pthread_mutex_lock(&_tx_mutex);
+    //         int16_t rc = muorb_func_ptrs.topic_data_func_ptr(messageName, data, length);
+    //         pthread_mutex_unlock(&_tx_mutex);
+    //         return rc;
+    //     }
 
-        // If there are no remote subscribers then we do not need to send the
-        // message over. That is still a success.
-        if ((_debug) && (is_not_slpi_log)) PX4_INFO("Skipping message for topic %s", messageName);
-        return 0;
-    }
+    //     // If there are no remote subscribers then we do not need to send the
+    //     // message over. That is still a success.
+    //     if ((_debug) && (is_not_slpi_log)) PX4_INFO("Skipping message for topic %s", messageName);
+    //     return 0;
+    // }
 
-    if (is_not_slpi_log) PX4_ERR("topic_data_func_ptr is null in %s", __FUNCTION__);
+    // if (is_not_slpi_log) PX4_ERR("topic_data_func_ptr is null in %s", __FUNCTION__);
     return -1;
 }
 
