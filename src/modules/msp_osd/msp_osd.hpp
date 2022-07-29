@@ -57,6 +57,7 @@
 #include <uORB/topics/input_rc.h>
 
 #include "MspV1.hpp"
+#include "message_display.hpp"
 
 using namespace time_literals;
 
@@ -96,6 +97,8 @@ private:
 
 	MspV1 _msp;
 	int _msp_fd{-1};
+
+	msp_osd::MessageDisplay _display;
 
 	bool _is_initialized{false};
 
