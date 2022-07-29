@@ -12,7 +12,7 @@
 #    notice, this list of conditions and the following disclaimer in
 #    the documentation and/or other materials provided with the
 #    distribution.
-# 3. Neither the name ATLFLight nor the names of its contributors may be
+# 3. Neither the name PX4 nor the names of its contributors may be
 #    used to endorse or promote products derived from this software
 #    without specific prior written permission.
 #
@@ -31,33 +31,62 @@
 #
 ############################################################################
 
-all: dspal_tester version_test
+# Overview:
+# Hexagon SDK paths need to be set based on env variables
+#
+# PREREQUISITES:
+#
+# Environment variables:
+#	HEXAGON_TOOLS_ROOT
+#	HEXAGON_SDK_ROOT
+#
+# CMake Variables:
+#	QC_SOC_TARGET
+#
+# OPTIONAL:
+#	DSP_TYPE (ADSP or SLPI)
 
-QC_SOC_TARGET?=APQ8074
+# message(FATAL_ERROR "ERIC hexagon_sdk.cmake")
 
-UPDATE_SUB_MODULE_2_LATEST?=0
+set(TOOLS_ERROR_MSG
+		"HEXAGON_Tools must be installed and the environment variable HEXAGON_TOOLS_ROOT must be set"
+		"(e.g. export HEXAGON_TOOLS_ROOT=$ENV{HOME}/Qualcomm/Hexagon_SDK/4.1.0.4/tools)")
 
-ifeq (${UPDATE_SUB_MODULE_2_LATEST},1)
-        SUBMODULE_FLAG=--remote
-else
-        SUBMODULE_FLAG=--init
-endif
+if ("$ENV{HEXAGON_TOOLS_ROOT}" STREQUAL "")
+	message(FATAL_ERROR ${TOOLS_ERROR_MSG})
+else()
+	set(HEXAGON_TOOLS_ROOT $ENV{HEXAGON_TOOLS_ROOT})
+endif()
 
-.PHONY: ENV_VARS
-ENV_VARS:
-	@[ ! -z "${HEXAGON_SDK_ROOT}" ] || (echo "HEXAGON_SDK_ROOT not set" && false)
-	@[ ! -z "${HEXAGON_TOOLS_ROOT}" ] || (echo "HEXAGON_TOOLS_ROOT not set" && false)
+if ("$ENV{HEXAGON_SDK_ROOT}" STREQUAL "")
+	message(FATAL_ERROR "HEXAGON_SDK_ROOT not set")
+endif()
 
-.PHONY submodules:
-	cd ../ && git submodule init && git submodule update ${SUBMODULE_FLAG}
+set(SDKINC incs)
+set(SDKLIB libs)
+set(SDKRPCMEMINC /inc)
 
-.PHONY: dspal_tester version_test
-dspal_tester: ENV_VARS submodules
-	mkdir -p build && cd build && cmake -Wno-dev .. -DQC_SOC_TARGET=${QC_SOC_TARGET} -DCMAKE_TOOLCHAIN_FILE=../cmake_hexagon/toolchain/Toolchain-qurt.cmake
-	cd build && make
-	
-load: dspal_tester
-	cd build && make dspal_tester-load && make version_test-load
+set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
 
-clean:
-	rm -rf build
+set(HEXAGON_SDK_INCLUDES
+	${HEXAGON_SDK_ROOT}/${SDKINC}
+	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
+	)
+
+if ("${QC_SOC_TARGET}" STREQUAL "QRB5165")
+	# Set the default to SLPI
+	if ("${DSP_TYPE}" STREQUAL "")
+		set(DSP_TYPE "SLPI")
+	endif()
+	set(V_ARCH "v66")
+	set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
+		${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
+		)
+else()
+	message(FATAL_ERROR "QC_SOC_TARGET not set")
+endif()
+
+# Validate DSP_TYPE
+if (NOT ("${DSP_TYPE}" STREQUAL "ADSP" OR "${DSP_TYPE}" STREQUAL "SLPI"))
+	message(FATAL_ERROR "DSP_TYPE set to invalid value")
+endif()

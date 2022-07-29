@@ -181,7 +181,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
                 	list(APPEND config_module_list modules/${module_p2_folder}/${module_p2_subfolder})
             	    else()
                 	message(FATAL_ERROR "Couldn't find path for ${module}")
-	   	    endif() 
+	   	    endif()
 	    else()
 		    list(APPEND config_module_list modules/${module})
     	    endif()
@@ -229,8 +229,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
 			    ## rb5 flight
 			    include(px4_git)
 			    list(APPEND CMAKE_MODULE_PATH
-		                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon"
-		                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon/toolchain"
+		                "${PX4_SOURCE_DIR}/platforms/posix/cmake"
 			    )
 			    set(QC_SOC_TARGET "QRB5165")
 
@@ -260,8 +259,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
 			    set(QC_SOC_TARGET "QRB5165")
 			    include(px4_git)
                             list(APPEND CMAKE_MODULE_PATH
-                                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon"
-                                "${PX4_SOURCE_DIR}/boards/modalai/cmake_hexagon/toolchain"
+		                        "${PX4_SOURCE_DIR}/platforms/qurt/cmake"
                             )
 
 
@@ -271,7 +269,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
 				set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
 			    endif()
 
-			    include(toolchain/Toolchain-qurt)
+			    include(Toolchain-qurt)
 			    message(STATUS "in qurt.make before qurt_flags.cmake")
 			    include(qurt_flags)
 			    message(STATUS "in qurt.make after qurt_flags.cmake")

@@ -47,10 +47,11 @@ if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
 				${module_libraries}
 				${FASTRPC_ARM_LIBS}
 				pthread m rt
+				fc_sensor
 			-Wl,--end-group
 		)
-
-	target_link_libraries(px4 fc_sensor)
+	message("ADDED FC SENSOR")
+	#target_link_libraries(px4 fc_sensor)
 
 else()
         if (CMAKE_BUILD_TYPE STREQUAL FuzzTesting)

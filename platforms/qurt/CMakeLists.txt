@@ -1,7 +1,7 @@
 px4_add_git_submodule(TARGET git_dspal PATH "${PX4_SOURCE_DIR}/platforms/qurt/dspal")
 
 list(APPEND CMAKE_MODULE_PATH "${PX4_SOURCE_DIR}/platforms/qurt/dspal/cmake_hexagon")
-include(toolchain/Toolchain-qurt)
+include(Toolchain-qurt)
 include(fastrpc)
 include(qurt_lib)
 include(qurt_flags)
@@ -19,9 +19,9 @@ px4_qurt_generate_builtin_commands(
 # FASTRPC_STUB_GEN(px4muorb.idl)
 
 # add_definitions(-D__QAIC_SKEL_EXPORT=__EXPORT)
-
 # Enable build without HexagonSDK to check link dependencies
 if ("${QURT_ENABLE_STUBS}" STREQUAL "1")
+	message("INSIDE QURT ENABLE 1 LIB")
 
 	add_definitions(-D QURT_EXE_BUILD=1)
 
