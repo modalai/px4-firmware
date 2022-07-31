@@ -1,0 +1,23 @@
+
+
+Work items for mavlink dsp bridge
+---------------------------------
+
+1. DSP TBS Crossfire driver
+    - RC UART connection (port 7, 115200 rate)
+    - Handle RC_CHANNELS_OVERRIDE mavlink message from UART
+    - All other mavlink messages from UART forwarded on, packed, as mavlink_rx_msg uorb message
+    - Subscribe to mavlink_tx_msg uorb topic
+    - Send all received mavlink_tx_msg directly to UART
+
+2. Apps side mavlink bridge
+    - Subscribe to mavlink_rx_msg uorb topic
+    - Send all received mavlink_rx_msg messages out on socket (already packed)
+    - Listen on socket for incoming UDP packets
+    - parse incoming UDP bytes for individual mavlink messages
+    - Pack each individual mavlink message into mavlink_tx_msg uorb message and publish
+
+3. voxl-vision-px4 allow local host QGC if from correct port
+
+4. Test
+    - SW throttling at Mavlink
