@@ -66,6 +66,7 @@ px4_add_board(
 		spektrum_rc
 		gps
 		uart_loopback
+		modalai/tbs_crossfire
 	MODULES
 		attitude_estimator_q
 		ekf2
@@ -76,7 +77,6 @@ px4_add_board(
 		mc_hover_thrust_estimator
 		muorb/slpi
 		sensors
-		# mavlink
 	SYSTEMCMDS
 		mixer
 		param
