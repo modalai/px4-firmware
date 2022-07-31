@@ -37,8 +37,10 @@
 #include <px4_platform_common/getopt.h>
 #include <drivers/device/qurt/uart.h>
 #include <uORB/uORB.h>
+#include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/input_rc.h>
+#include <uORB/topics/mavlink_msg.h>
 #include <v2.0/standard/mavlink.h>
 #include <px4_log.h>
 
@@ -58,7 +60,8 @@ bool debug = false;
 std::string port = "7";
 uint32_t baudrate = 115200;
 
-uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
+uORB::Publication<mavlink_msg_s> _mav_rx_pub{ORB_ID(mavlink_rx_msg)};
+uORB::PublicationMulti<input_rc_s> _rc_pub{ORB_ID(input_rc)};
 
 int openPort(const char *dev, speed_t speed);
 int closePort();
@@ -83,6 +86,10 @@ void handle_message_dsp(mavlink_message_t *msg) {
 		break;
 	default:
 		// Send everything else off to the mavlink module
+		mavlink_msg_s tmp_msg;
+		tmp_msg.timestamp = hrt_absolute_time();
+		tmp_msg.msg_len = mavlink_msg_to_send_buffer(tmp_msg.msg, msg);
+		_mav_rx_pub.publish(tmp_msg);
 		break;
 	}
 }
@@ -146,14 +153,15 @@ void task_main(int argc, char *argv[])
 	}
 }
 
-void
-handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
-{
+void handle_message_rc_channels_override_dsp(mavlink_message_t *msg) {
 	mavlink_rc_channels_override_t man;
 	mavlink_msg_rc_channels_override_decode(msg, &man);
 
+	if (debug) PX4_INFO("RC channels override msg received");
+
 	// Check target
 	if (man.target_system != 0) {
+		PX4_ERR("Message has incorrect target system %u", man.target_system);
 		return;
 	}
 
@@ -199,7 +207,6 @@ handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
 		if (ignore_max || ignore_zero) {
 			// set all ignored values to zero
 			rc.values[i] = 0;
-
 		} else {
 			// first channel to not ignore -> set count considering zero-based index
 			rc.channel_count = i + 1;
@@ -209,10 +216,6 @@ handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
 
 	// publish uORB message
 	_rc_pub.publish(rc);
-
-	if(debug){
-		PX4_INFO("RC Message received");
-	}
 }
 
 int openPort(const char *dev, speed_t speed)
