@@ -64,7 +64,7 @@ px4_add_board(
         modalai/imu_server
         #modalai/rc_controller
         #modalai/uart_esc_driver
-		#telemetry # all available telemetry drivers
+        modalai/mavlink_bridge
         spektrum_rc
 	MODULES
 		#airspeed_selector

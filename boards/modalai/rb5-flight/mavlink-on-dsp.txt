@@ -16,6 +16,7 @@ Work items for mavlink dsp bridge
     - Listen on socket for incoming UDP packets
     - parse incoming UDP bytes for individual mavlink messages
     - Pack each individual mavlink message into mavlink_tx_msg uorb message and publish
+*** Verify that voxl-vision-px4 will not send partial messages in UDP ***
 
 3. voxl-vision-px4 allow local host QGC if from correct port
 
