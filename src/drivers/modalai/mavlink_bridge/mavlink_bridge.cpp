@@ -33,6 +33,8 @@
 
 #include <string>
 #include <stdint.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/getopt.h>
 #include <v2.0/standard/mavlink.h>
@@ -49,6 +51,8 @@ namespace mavlink_bridge
 static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
+static int sockfd_vvpx4;
+static struct sockaddr_in vvpx4_addr;
 bool debug = false;
 
 int start(int argc, char *argv[]);
@@ -84,6 +88,8 @@ void task_main(int argc, char *argv[]) {
     	if (fds[0].revents & POLLIN) {
     		orb_copy(ORB_ID(mavlink_rx_msg), mavlink_rx_msg_fd, &incoming_msg);
 			PX4_INFO("Got incoming mavlink msg of length %u", incoming_msg.msg_len);
+			sendto(sockfd_vvpx4, incoming_msg.msg, incoming_msg.msg_len,
+			       MSG_CONFIRM, (const struct sockaddr*) &vvpx4_addr, sizeof(vvpx4_addr));
 		}
 		usleep(500);
 	}
@@ -95,6 +101,17 @@ int start(int argc, char *argv[])
 		PX4_WARN("already running");
 		return -1;
 	}
+
+	sockfd_vvpx4 = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd_vvpx4 < 0) {
+		PX4_ERR("ERROR: UDP socket creation failed");
+		return -1;
+	}
+
+	// Address of the QGC port in voxl-vision-px4
+	vvpx4_addr.sin_family = AF_INET;
+	vvpx4_addr.sin_port = htons(14550);
+	vvpx4_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
 	_task_should_exit = false;
 

@@ -22,3 +22,6 @@ Work items for mavlink dsp bridge
 
 4. Test
     - SW throttling at Mavlink
+
+5. Issues
+    - Verify that whole git_mavlink_v2 custom target cmake thing on fresh build
