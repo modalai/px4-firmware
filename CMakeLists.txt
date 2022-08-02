@@ -425,7 +425,11 @@ add_library(kernel_parameters_interface INTERFACE)
 include(px4_add_library)
 add_subdirectory(src/lib EXCLUDE_FROM_ALL)
 
-add_subdirectory(platforms/${PX4_PLATFORM}/src/px4)
+if(NOT PLATFORM STREQUAL "qurt")
+	add_subdirectory(platforms/${PX4_PLATFORM}/src/px4)
+else()
+	set(config_module_list modules/muorb/slpi)
+endif()
 add_subdirectory(platforms EXCLUDE_FROM_ALL)
 
 if(EXISTS "${PX4_BOARD_DIR}/CMakeLists.txt")
@@ -473,7 +477,7 @@ add_custom_command(OUTPUT ${uorb_graph_config}
 		--file ${PX4_SOURCE_DIR}/Tools/uorb_graph/graph_${uorb_graph_config}
 	WORKING_DIRECTORY ${PX4_SOURCE_DIR}
 	COMMENT "Generating uORB graph"
-)
+	)
 add_custom_target(uorb_graph DEPENDS ${uorb_graph_config})
 
 

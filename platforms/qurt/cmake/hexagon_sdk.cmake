@@ -1,6 +1,6 @@
 ############################################################################
 #
-# Copyright (c) 2018 PX4 Development Team. All rights reserved.
+# Copyright (c) 2015 Mark Charlebois. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,24 +30,63 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-include(px4_list_make_absolute)
 
-#=============================================================================
+# Overview:
+# Hexagon SDK paths need to be set based on env variables
 #
-#	px4_add_library
+# PREREQUISITES:
 #
-#	Like add_library but with PX4 platform dependencies
+# Environment variables:
+#	HEXAGON_TOOLS_ROOT
+#	HEXAGON_SDK_ROOT
 #
-function(px4_add_library target)
-	add_library(${target} EXCLUDE_FROM_ALL ${ARGN})
+# CMake Variables:
+#	QC_SOC_TARGET
+#
+# OPTIONAL:
+#	DSP_TYPE (ADSP or SLPI)
 
-	target_compile_definitions(${target} PRIVATE MODULE_NAME="${target}")
+# message(FATAL_ERROR "ERIC hexagon_sdk.cmake")
 
-	# all PX4 libraries have access to parameters and uORB
-	#add_dependencies(${target} uorb_headers parameters)
-	target_link_libraries(${target} PRIVATE prebuild_targets)
+set(TOOLS_ERROR_MSG
+		"HEXAGON_Tools must be installed and the environment variable HEXAGON_TOOLS_ROOT must be set"
+		"(e.g. export HEXAGON_TOOLS_ROOT=$ENV{HOME}/Qualcomm/Hexagon_SDK/4.1.0.4/tools)")
 
-	set_property(GLOBAL APPEND PROPERTY PX4_MODULE_PATHS ${CMAKE_CURRENT_SOURCE_DIR})
-	px4_list_make_absolute(ABS_SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${ARGN})
-	set_property(GLOBAL APPEND PROPERTY PX4_SRC_FILES ${ABS_SRCS})
-endfunction()
+if ("$ENV{HEXAGON_TOOLS_ROOT}" STREQUAL "")
+	message(FATAL_ERROR ${TOOLS_ERROR_MSG})
+else()
+	set(HEXAGON_TOOLS_ROOT $ENV{HEXAGON_TOOLS_ROOT})
+endif()
+
+if ("$ENV{HEXAGON_SDK_ROOT}" STREQUAL "")
+	message(FATAL_ERROR "HEXAGON_SDK_ROOT not set")
+endif()
+
+set(SDKINC incs)
+set(SDKLIB libs)
+set(SDKRPCMEMINC /inc)
+
+set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
+
+set(HEXAGON_SDK_INCLUDES
+	${HEXAGON_SDK_ROOT}/${SDKINC}
+	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
+	)
+
+if ("${QC_SOC_TARGET}" STREQUAL "QRB5165")
+	# Set the default to SLPI
+	if ("${DSP_TYPE}" STREQUAL "")
+		set(DSP_TYPE "SLPI")
+	endif()
+	set(V_ARCH "v66")
+	set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
+		${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
+		)
+else()
+	message(FATAL_ERROR "QC_SOC_TARGET not set")
+endif()
+
+# Validate DSP_TYPE
+if (NOT ("${DSP_TYPE}" STREQUAL "ADSP" OR "${DSP_TYPE}" STREQUAL "SLPI"))
+	message(FATAL_ERROR "DSP_TYPE set to invalid value")
+endif()

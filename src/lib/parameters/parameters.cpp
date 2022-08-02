@@ -62,6 +62,8 @@
 #include <px4_platform_common/shutdown.h>
 #include "uthash/utarray.h"
 
+#include <sys/unistd.h>
+
 using namespace time_literals;
 
 #include "uORB/uORB.h"
