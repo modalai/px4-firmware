@@ -477,7 +477,7 @@ add_custom_command(OUTPUT ${uorb_graph_config}
 		--file ${PX4_SOURCE_DIR}/Tools/uorb_graph/graph_${uorb_graph_config}
 	WORKING_DIRECTORY ${PX4_SOURCE_DIR}
 	COMMENT "Generating uORB graph"
-	)
+)
 add_custom_target(uorb_graph DEPENDS ${uorb_graph_config})
 
 

@@ -62,7 +62,7 @@ function(px4_add_common_flags)
 		-fno-strict-aliasing
 
 		# visibility
-		#-fvisibility=hidden
+		-fvisibility=hidden
 		-include visibility.h
 
 		# Warnings
@@ -190,10 +190,10 @@ function(px4_add_common_flags)
 		${PX4_SOURCE_DIR}/src/lib
 		${PX4_SOURCE_DIR}/src/lib/matrix
 		${PX4_SOURCE_DIR}/src/modules
-		)
+	)
 	if(EXISTS ${PX4_BOARD_DIR}/include)
 		include_directories(${PX4_BOARD_DIR}/include)
-		endif()
+	endif()
 
 	add_definitions(
 		-DCONFIG_ARCH_BOARD_${PX4_BOARD_NAME}
