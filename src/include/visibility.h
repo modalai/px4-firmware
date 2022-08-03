@@ -41,11 +41,8 @@
 
 #pragma once
 
-
 typedef int             pid_t;
 typedef unsigned int    uid_t;
-
-
 
 #ifdef __EXPORT
 #  undef __EXPORT
