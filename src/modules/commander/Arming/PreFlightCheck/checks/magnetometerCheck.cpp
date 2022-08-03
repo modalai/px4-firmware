@@ -85,7 +85,7 @@ bool PreFlightCheck::magnetometerCheck(orb_advert_t *mavlink_log_pub, vehicle_st
 		if (!optional && report_fail) {
 			mavlink_log_critical(mavlink_log_pub, "Preflight Fail: Compass Sensor %u missing", instance);
 		}
-        if (instance == 0) PX4_INFO("Preflight Fail: Compass Sensor missing");
+        // if (instance == 0) PX4_INFO("Preflight Fail: Compass Sensor missing");
 	}
 
 	const bool success = calibration_valid && valid;

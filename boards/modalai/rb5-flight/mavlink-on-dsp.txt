@@ -3,25 +3,34 @@
 Work items for mavlink dsp bridge
 ---------------------------------
 
-1. DSP TBS Crossfire driver
-    - RC UART connection (port 7, 115200 rate)
-    - Handle RC_CHANNELS_OVERRIDE mavlink message from UART
-    - All other mavlink messages from UART forwarded on, packed, as mavlink_rx_msg uorb message
-    - Subscribe to mavlink_tx_msg uorb topic
-    - Send all received mavlink_tx_msg directly to UART
+1. Notes
+    - We configure mavlink for UDP but it then goes over serial. Mavlink needs to understand that.
 
-2. Apps side mavlink bridge
-    - Subscribe to mavlink_rx_msg uorb topic
-    - Send all received mavlink_rx_msg messages out on socket (already packed)
-    - Listen on socket for incoming UDP packets
-    - parse incoming UDP bytes for individual mavlink messages
-    - Pack each individual mavlink message into mavlink_tx_msg uorb message and publish
-*** Verify that voxl-vision-px4 will not send partial messages in UDP ***
+2. Mavlink tuning
+    - max_num_to_send in MavlinkParametersManager::send()
+    - timeout in MavlinkReceiver::Run()
+    - "-r" option in mavlink start
+        - This is _datarate in mavlink_main.cpp
+            - Used to calculate _main_loop_delay
+            - Used to calculate bandwith_mult
 
-3. voxl-vision-px4 allow local host QGC if from correct port
+3. Mavlink logging at QGC
+    - Temporary logs are stored in /tmp/FlightData....mavlink
+    - Enable saving of logs in QGC application settings for "Telemetry logs from vehicle"
+    - Logs are stored in ~/Documents/QGroundControl/Telemetry/*.tlog
+    - Analyze with mavlogdump.py
 
-4. Test
+4. Parameter sending
+    - There are 580+ "used" parameters! Why so many??? (It's only the "used" parameters)
+    - If the parameter send rate is too high, many parameters get lost
+    - If the parameter rate is too low, QGC times out before entire list is received
+
+5. Test
     - SW throttling at Mavlink
+    - Verify no UART errors reported by OS in flight_controller_sensor instance
+    - Is FTDI read latency too high for QGC connection? (See HITL issues)
 
-5. Issues
-    - Verify that whole git_mavlink_v2 custom target cmake thing on fresh build
+6. Issues
+    - Fix that whole git_mavlink_v2 custom target cmake thing on fresh build
+    - Update px4-alias.sh and create symlink for mavlink_bridge
+    - QGC does not handle LINK_NODE_STATUS mavlink message

@@ -50,8 +50,8 @@ namespace mavlink_bridge
 
 #define UDP_READ_BUF_LEN (32*1024)
 
-static int sockfd_vvpx4;
-static struct sockaddr_in vvpx4_addr;
+static int sockfd_vms;
+static struct sockaddr_in vms_addr;
 
 bool debug = false;
 
@@ -67,12 +67,13 @@ void recv_task(int argc, char *argv[]) {
 	socklen_t slen = sizeof(si_other);
 	mavlink_message_t msg;
 	mavlink_status_t status;
+    orb_advert_t mavlink_tx_msg_h = nullptr;
 
 	if (debug) PX4_INFO("Recv task starting");
 
 	while (true) {
-		// Receive UDP message from voxl-vision-px4, this is blocking with timeout
-		bytes_read = recvfrom(sockfd_vvpx4, buf, UDP_READ_BUF_LEN, MSG_WAITALL,
+		// Receive UDP message from voxl-mavlink_server, this is blocking with timeout
+		bytes_read = recvfrom(sockfd_vms, buf, UDP_READ_BUF_LEN, MSG_WAITALL,
 							  (struct sockaddr*) &si_other, &slen);
 
 		if (bytes_read < 0) {
@@ -99,9 +100,15 @@ void recv_task(int argc, char *argv[]) {
 
 						if (i != bytes_read - 1) {
 							PX4_INFO("Warning: more than one Mavlink packet in UDP packet. %d %d", i, bytes_read);
-							PX4_INFO("         Suggest setting udp_mtu to 0 in voxl-vision-px4");
 						}
 					}
+
+					// Pack and publish the message
+					mavlink_msg_s tmp_msg;
+					tmp_msg.timestamp = hrt_absolute_time();
+					tmp_msg.msg_len = mavlink_msg_to_send_buffer(tmp_msg.msg, &msg);
+					if (mavlink_tx_msg_h == nullptr) mavlink_tx_msg_h = orb_advertise(ORB_ID(mavlink_tx_msg), &tmp_msg);
+					else orb_publish(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_h, &tmp_msg);
 				}
 
 				if (( ! msg_received) && (i == bytes_read - 1) && (debug)) {
@@ -151,8 +158,8 @@ void task_main(int argc, char *argv[]) {
     	if (fds[0].revents & POLLIN) {
     		orb_copy(ORB_ID(mavlink_rx_msg), mavlink_rx_msg_fd, &incoming_msg);
 			if (debug) PX4_INFO("Got incoming mavlink msg of length %u", incoming_msg.msg_len);
-			sendto(sockfd_vvpx4, incoming_msg.msg, incoming_msg.msg_len,
-			       MSG_CONFIRM, (const struct sockaddr*) &vvpx4_addr, sizeof(vvpx4_addr));
+			sendto(sockfd_vms, incoming_msg.msg, incoming_msg.msg_len,
+			       MSG_CONFIRM, (const struct sockaddr*) &vms_addr, sizeof(vms_addr));
 		}
 	}
 
@@ -161,8 +168,8 @@ void task_main(int argc, char *argv[]) {
 
 int start(int argc, char *argv[])
 {
-	sockfd_vvpx4 = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockfd_vvpx4 < 0) {
+	sockfd_vms = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd_vms < 0) {
 		PX4_ERR("ERROR: UDP socket creation failed");
 		return -1;
 	}
@@ -171,12 +178,12 @@ int start(int argc, char *argv[])
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 500000;
-	setsockopt(sockfd_vvpx4, SOL_SOCKET, SO_RCVTIMEO, (const char*) &tv, sizeof tv);
+	setsockopt(sockfd_vms, SOL_SOCKET, SO_RCVTIMEO, (const char*) &tv, sizeof tv);
 
-	// Address of the QGC port in voxl-vision-px4
-	vvpx4_addr.sin_family = AF_INET;
-	vvpx4_addr.sin_port = htons(14550);
-	vvpx4_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	// Address of the QGC port in voxl-mavlink-server
+	vms_addr.sin_family = AF_INET;
+	vms_addr.sin_port = htons(14557);
+	vms_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
 	int ret = px4_task_spawn_cmd("mavlink_bridge_main",
 								 SCHED_DEFAULT,

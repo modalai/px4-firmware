@@ -40,6 +40,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/input_rc.h>
+#include "uORB/uORBManager.hpp"
 #include <uORB/topics/mavlink_msg.h>
 #include <v2.0/standard/mavlink.h>
 #include <px4_log.h>
@@ -125,15 +126,12 @@ void task_main(int argc, char *argv[])
 
 	_is_running = true;
 
-	// int _actuator_controls_sub = orb_subscribe(ORB_ID(actuator_controls));
-	// PX4_INFO("Got %d from orb_subscribe", _actuator_controls_sub);
-
-	// bool vehicle_updated = false;
-	// (void) orb_check(_vehicle_status_sub, &vehicle_updated);
+    int mavlink_tx_msg_fd = orb_subscribe(ORB_ID(mavlink_tx_msg));
+	struct mavlink_msg_s incoming_msg;
+    bool updated = false;
+	uint8_t rx_buf[1024];
 
 	while ( ! _task_should_exit) {
-
-		uint8_t rx_buf[1024];
 
 		// Check for incoming messages from the TBS Crossfire receiver
 		int nbytes = qurt_uart_read(_uart_fd, (char*) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
@@ -149,7 +147,14 @@ void task_main(int argc, char *argv[])
 			}
 		}
 
-		usleep(500);
+		// Process any incoming mavlink messages for transmission
+		updated = false;
+        (void) orb_check(mavlink_tx_msg_fd, &updated);
+        while (updated) {
+            orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
+			qurt_uart_write(_uart_fd, (char*) &incoming_msg.msg[0], incoming_msg.msg_len);
+        	(void) orb_check(mavlink_tx_msg_fd, &updated);
+		}
 	}
 }
 

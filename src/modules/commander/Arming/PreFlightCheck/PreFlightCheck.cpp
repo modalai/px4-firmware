@@ -250,7 +250,7 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 				      ekf2CheckSensorBias(mavlink_log_pub, report_failures);
 
             if (! ekf2Check(mavlink_log_pub, status, false, report_failures)) {
-                PX4_INFO("Failed EKF health preflight check");
+                // PX4_INFO("Failed EKF health preflight check");
             }
 
             if (! ekf2CheckSensorBias(mavlink_log_pub, report_failures)) {
