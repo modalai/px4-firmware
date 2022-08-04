@@ -225,8 +225,12 @@ if(EXISTS ${BOARD_DEFCONFIG})
 
     if(PLATFORM)
 	    if("${PX4_BOARD}" MATCHES "modalai_voxl2")
-            include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2.cmake)
-	    endif()
+            if(PLATFORM STREQUAL "posix")
+                include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2_posix.cmake)
+            else()
+                include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2_qurt.cmake)
+	        endif()
+        endif()
 
 	    if(PLATFORM STREQUAL "nuttx")
             add_definitions(
