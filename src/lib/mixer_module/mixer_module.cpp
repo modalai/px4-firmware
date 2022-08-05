@@ -354,26 +354,27 @@ bool MixingOutput::update()
 	static int bat_cnt = 0;
 
 	// check battery status
-	if (_battery_status_sub.updated()) {
-		battery_status_s battery_status;
+	if (_param_thr_lmt_vlt_en.get()) {
+		if (_battery_status_sub.updated()) {
+			battery_status_s battery_status;
 
-		_battery_status_sub.copy(&battery_status);
+			_battery_status_sub.copy(&battery_status);
 
-		bat_cnt += 1;
+			bat_cnt += 1;
 
-		float rel_thrust_volt_limit0 = 0.6084;
-		float rel_thrust_volt_limit1 = 0.018;
-		float rel_thrust_volt_limit2 = 0.0;
+			float max_thrust_now = _param_thr_lmt_vlt_2.get() * battery_status.voltage_filtered_v * battery_status.voltage_filtered_v + _param_thr_lmt_vlt_1.get() * battery_status.voltage_filtered_v + _param_thr_lmt_vlt_0.get();
 
-		float max_thrust_now = rel_thrust_volt_limit2 * battery_status.voltage_filtered_v * battery_status.voltage_filtered_v + rel_thrust_volt_limit1 * battery_status.voltage_filtered_v + rel_thrust_volt_limit0;
+			printf("voltage filtered %i, %f, %f \n", bat_cnt, (double)battery_status.voltage_filtered_v, (double)max_thrust_now);
 
-		printf("voltage filtered %i, %f, %f \n", bat_cnt, (double)battery_status.voltage_filtered_v, (double)max_thrust_now);
+			printf("params 0, 1, 2: %f, %f, %f\n", (double)_param_thr_lmt_vlt_0.get(), (double)_param_thr_lmt_vlt_1.get(), (double)_param_thr_lmt_vlt_2.get());
 
+			// printf("min_value, max_value %f, %f, %f\n", (double)_min_value[0], (double)_max_value[0], (double)_param_thr_mdl_fac.get());
 
-		// printf("min_value, max_value %f, %f, %f\n", (double)_min_value[0], (double)_max_value[0], (double)_param_thr_mdl_fac.get());
-
-		_mixers->set_max_thrust_now(0.8f);
-
+			_mixers->set_max_thrust_now(max_thrust_now);
+		}
+	}
+	else {
+		_mixers->set_max_thrust_now(1.0f); //TODO, is it a problem to set this every time
 	}
 
 

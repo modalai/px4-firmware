@@ -69,3 +69,37 @@ PARAM_DEFINE_FLOAT(MOT_SLEW_MAX, 0.0f);
  * @group PWM Outputs
  */
 PARAM_DEFINE_FLOAT(THR_MDL_FAC, 0.0f);
+
+
+/**
+ * Enable thrust limiting based on voltage filtered
+ *
+ * The limit is calculated as: rel_thrust_max = THR_LMT_VLT_0 + THR_LMT_VLT_1*V
+ * + THR_LMT_VLT_2*V^2 where V is the filtered voltage.  rel_thrust_max is then
+ * limited to the range from 0.5 to 1.0.
+ *
+ * @value 0 Disable
+ * @value 1 Enable
+ */
+PARAM_DEFINE_INT32(THR_LMT_VLT_EN, 0);
+
+/**
+ * Thrust Limit Voltage ^0
+ *
+ * @decimal 4
+ */
+PARAM_DEFINE_FLOAT(THR_LMT_VLT_0, 1.0f);
+
+/**
+ * Thrust Limit Voltage ^1
+ *
+ * @decimal 4
+ */
+PARAM_DEFINE_FLOAT(THR_LMT_VLT_1, 0.0f);
+
+/**
+ * Thrust Limit Voltage ^2
+ *
+ * @decimal 4
+ */
+PARAM_DEFINE_FLOAT(THR_LMT_VLT_2, 0.0f);
