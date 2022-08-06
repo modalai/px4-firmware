@@ -1461,7 +1461,7 @@ void EKF2::UpdateAirspeedSample(ekf2_timestamps_s &ekf2_timestamps)
 			_airspeed_validated_timestamp_last = airspeed_validated.timestamp;
 		}
 
-	} else if ((hrt_elapsed_time(&_airspeed_validated_timestamp_last) > 3_s) && _airspeed_sub.updated()) {
+	} else if (((ekf2_timestamps.timestamp - _airspeed_validated_timestamp_last) > 3_s) && _airspeed_sub.updated()) {
 		// use ORB_ID(airspeed) if ORB_ID(airspeed_validated) is unavailable
 		const unsigned last_generation = _airspeed_sub.get_last_generation();
 		airspeed_s airspeed;
@@ -1714,6 +1714,22 @@ bool EKF2::UpdateFlowSample(ekf2_timestamps_s &ekf2_timestamps)
 			new_optical_flow = true;
 		}
 
+		// use optical_flow distance as range sample if distance_sensor unavailable
+		if (PX4_ISFINITE(optical_flow.distance_m) && ((ekf2_timestamps.timestamp - _last_range_sensor_update) > 1_s)) {
+
+			int8_t quality = static_cast<float>(optical_flow.quality) / static_cast<float>(UINT8_MAX) * 100.f;
+
+			rangeSample range_sample {
+				.time_us = optical_flow.timestamp_sample,
+				.rng = optical_flow.distance_m,
+				.quality = quality,
+			};
+			_ekf.setRangeData(range_sample);
+
+			// set sensor limits
+			_ekf.set_rangefinder_limits(optical_flow.min_ground_distance, optical_flow.max_ground_distance);
+		}
+
 		ekf2_timestamps.optical_flow_timestamp_rel = (int16_t)((int64_t)optical_flow.timestamp / 100 -
 				(int64_t)ekf2_timestamps.timestamp / 100);
 	}
@@ -1815,12 +1831,15 @@ void EKF2::UpdateRangeSample(ekf2_timestamps_s &ekf2_timestamps)
 
 	if (_distance_sensor_selected < 0) {
 
+		// only consider distance sensors that have updated within the last 0.1s
+		const hrt_abstime timestamp_stale = math::max(ekf2_timestamps.timestamp, 100_ms) - 100_ms;
+
 		if (_distance_sensor_subs.advertised()) {
 			for (unsigned i = 0; i < _distance_sensor_subs.size(); i++) {
 
 				if (_distance_sensor_subs[i].update(&distance_sensor)) {
 					// only use the first instace which has the correct orientation
-					if ((hrt_elapsed_time(&distance_sensor.timestamp) < 100_ms)
+					if ((distance_sensor.timestamp != 0) && (distance_sensor.timestamp > timestamp_stale)
 					    && (distance_sensor.orientation == distance_sensor_s::ROTATION_DOWNWARD_FACING)) {
 
 						int ndist = orb_group_count(ORB_ID(distance_sensor));
@@ -1871,7 +1890,8 @@ void EKF2::UpdateRangeSample(ekf2_timestamps_s &ekf2_timestamps)
 				(int64_t)ekf2_timestamps.timestamp / 100);
 	}
 
-	if (hrt_elapsed_time(&_last_range_sensor_update) > 1_s) {
+	if (_last_range_sensor_update < ekf2_timestamps.timestamp - 1_s) {
+		// force reselection after timeout
 		_distance_sensor_selected = -1;
 	}
 }
