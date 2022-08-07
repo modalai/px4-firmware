@@ -8,6 +8,7 @@ Work items for mavlink dsp bridge
 
 2. Mavlink tuning
     - max_num_to_send in MavlinkParametersManager::send()
+        - This makes a huge difference. Doesn't like sending more than 1 at a time!
     - timeout in MavlinkReceiver::Run()
     - "-r" option in mavlink start
         - This is _datarate in mavlink_main.cpp
@@ -22,6 +23,7 @@ Work items for mavlink dsp bridge
 
 4. Parameter sending
     - There are 580+ "used" parameters! Why so many??? (It's only the "used" parameters)
+        - PARAM_VALUE message is 25 bytes (200 bits). x 600 is 120kbit.
     - If the parameter send rate is too high, many parameters get lost
     - If the parameter rate is too low, QGC times out before entire list is received
 

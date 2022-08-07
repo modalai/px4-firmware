@@ -62,6 +62,7 @@ class uORB::DeviceNode : public cdev::CDev, public IntrusiveSortedListNode<uORB:
 {
 public:
 	DeviceNode(const struct orb_metadata *meta, const uint8_t instance, const char *path, uint8_t queue_size = 1);
+	// DeviceNode(const struct orb_metadata *meta, const uint8_t instance, const char *path, uint8_t queue_size = 64);
 	virtual ~DeviceNode();
 
 	// no copy, assignment, move, move assignment

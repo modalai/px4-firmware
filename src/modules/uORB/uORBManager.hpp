@@ -335,6 +335,8 @@ public:
 	 */
 	int	orb_get_interval(int handle, unsigned *interval);
 
+	int orb_set_queue_size(int handle, unsigned int queue_size);
+
 #ifdef ORB_COMMUNICATOR
 	/**
 	 * Method to set the uORBCommunicator::IChannel instance.

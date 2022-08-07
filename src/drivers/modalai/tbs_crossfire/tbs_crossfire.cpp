@@ -48,6 +48,8 @@
 #define ASYNC_UART_READ_WAIT_US 2000
 #define RC_INPUT_RSSI_MAX	100
 
+#define TX_BUFFER_LEN 20
+
 extern "C" { __EXPORT int tbs_crossfire_main(int argc, char *argv[]); }
 
 namespace tbs_crossfire
@@ -56,6 +58,7 @@ namespace tbs_crossfire
 static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
+static px4_task_t _task_handle2 = -1;
 int _uart_fd = -1;
 bool debug = false;
 std::string port = "7";
@@ -95,6 +98,47 @@ void handle_message_dsp(mavlink_message_t *msg) {
 	}
 }
 
+void task_main2(int argc, char *argv[])
+{
+    int mavlink_tx_msg_fd = orb_subscribe(ORB_ID(mavlink_tx_msg));
+	(void) orb_set_queue_size(mavlink_tx_msg_fd, 255);
+	struct mavlink_msg_s incoming_msg;
+    bool updated = false;
+	mavlink_message_t msg;
+	mavlink_status_t status{};
+	uint32_t copy_counter = 0;
+
+	while ( ! _task_should_exit) {
+		// Process any incoming mavlink messages for transmission
+		int nwrite = 0;
+		updated = false;
+		copy_counter = 0;
+
+        (void) orb_check(mavlink_tx_msg_fd, &updated);
+		if (! updated) px4_usleep(100);
+        while (updated) {
+			orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
+			for (int i = 0; i < incoming_msg.msg_len; i++) {
+				if (mavlink_parse_char(MAVLINK_COMM_0, incoming_msg.msg[i], &msg, &status)) {
+					if (msg.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
+						mavlink_param_value_t value;
+						mavlink_msg_param_value_decode(&msg, &value);
+						PX4_INFO("%u Received PARAM_VALUE for index %u at %lu", copy_counter++, value.param_index, hrt_absolute_time());
+					}
+					break;
+				}
+			}
+
+			nwrite = qurt_uart_write(_uart_fd, (char*) &incoming_msg.msg[0], incoming_msg.msg_len);
+			if (nwrite != incoming_msg.msg_len) {
+				PX4_INFO("Write failed. Expected %d, got %d", incoming_msg.msg_len, nwrite);
+			}
+
+        	(void) orb_check(mavlink_tx_msg_fd, &updated);
+		}
+	}
+}
+
 void task_main(int argc, char *argv[])
 {
 	int ch;
@@ -124,37 +168,40 @@ void task_main(int argc, char *argv[])
 		return;
 	}
 
+	_task_handle2 = px4_task_spawn_cmd("tbs_crossfire_2",
+					  SCHED_DEFAULT,
+					  SCHED_PRIORITY_DEFAULT,
+					  2000,
+					  (px4_main_t)&task_main2,
+					  (char *const *)argv);
+
+	if (_task_handle2 < 0) {
+		PX4_ERR("task 2 start failed");
+		return;
+	}
+
 	_is_running = true;
 
-    int mavlink_tx_msg_fd = orb_subscribe(ORB_ID(mavlink_tx_msg));
-	struct mavlink_msg_s incoming_msg;
-    bool updated = false;
 	uint8_t rx_buf[1024];
+	mavlink_message_t msg;
+	mavlink_status_t status{};
 
 	while ( ! _task_should_exit) {
 
 		// Check for incoming messages from the TBS Crossfire receiver
-		int nbytes = qurt_uart_read(_uart_fd, (char*) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
-		if (nbytes) {
-			if (debug) PX4_INFO("Read %d bytes", nbytes);
+		int nread = qurt_uart_read(_uart_fd, (char*) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
+		if (nread) {
+			// if (debug) PX4_INFO("Read %d bytes", nread);
+			if (debug) PX4_INFO("%u %u", rx_buf[0], rx_buf[1]);
 			//Take buffer and convert it into mavlink msg
-			mavlink_message_t msg;
-			mavlink_status_t _status{};
-			for (int i = 0; i <= nbytes; i++){
-				if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &_status)) {
+			for (int i = 0; i <= nread; i++){
+				if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &status)) {
 					handle_message_dsp(&msg);
 				}
 			}
 		}
 
-		// Process any incoming mavlink messages for transmission
-		updated = false;
-        (void) orb_check(mavlink_tx_msg_fd, &updated);
-        while (updated) {
-            orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
-			qurt_uart_write(_uart_fd, (char*) &incoming_msg.msg[0], incoming_msg.msg_len);
-        	(void) orb_check(mavlink_tx_msg_fd, &updated);
-		}
+		px4_usleep(5000);
 	}
 }
 
