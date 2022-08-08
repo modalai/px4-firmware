@@ -4,7 +4,7 @@
 #list(APPEND CMAKE_MODULE_PATH "${PX4_SOURCE_DIR}/platforms/qurt/dspal/cmake_hexagon")
 include(Toolchain-qurt)
 #include(fastrpc)
-include(qurt_lib)
+include(modalai)
 #include(qurt_flags)
 
 #include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -16,7 +16,7 @@ px4_qurt_generate_builtin_commands(
 	OUT ${PX4_BINARY_DIR}/apps
 	MODULE_LIST ${module_libraries}
 )
-FASTRPC_STUB_GEN(px4muorb.idl)
+#FASTRPC_STUB_GEN(px4muorb.idl)
 
 # add_definitions(-D__QAIC_SKEL_EXPORT=__EXPORT)
 

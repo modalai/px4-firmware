@@ -30,7 +30,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-include(hexagon_sdk)
+include(modalai)
 
 px4_add_module(
 	MODULE modules__muorb__apps

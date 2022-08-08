@@ -27,8 +27,7 @@ px4_posix_generate_alias(
 
 message(STATUS "BEFORE PX4 BOARD IF STATEMENT")
 if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
-	include(fastrpc)
-        include(linux_app)
+	include(modalai)
 
         FASTRPC_STUB_GEN(../qurt/px4muorb.idl)
 
