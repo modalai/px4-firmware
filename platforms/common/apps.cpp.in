@@ -1,7 +1,5 @@
 /* definitions of builtin command list - automatically generated, do not edit */
 
-#ifndef __PX4_QURT
-
 #include <px4_platform_common/time.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/log.h>
@@ -73,4 +71,3 @@ int sleep_main(int argc, char *argv[])
         px4_usleep(usecs);
         return 0;
 }
-#endif
