@@ -120,3 +120,11 @@ uint8 latest_disarming_reason
 uint64 armed_time       # Arming timestamp (microseconds)
 
 uint64 takeoff_time     # Takeoff timestamp (microseconds)
+bool open_drone_id_system_present
+bool open_drone_id_system_healthy
+
+bool parachute_system_present
+bool parachute_system_healthy
+
+bool avoidance_system_required                    # Set to true if avoidance system is enabled via COM_OBS_AVOID parameter
+bool avoidance_system_valid                       # Status of the obstacle avoidance system

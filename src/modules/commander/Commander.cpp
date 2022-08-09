@@ -3715,6 +3715,23 @@ void Commander::data_link_check()
 				set_health_flags(subsystem_info_s::SUBSYSTEM_TYPE_PARACHUTE, true, true, healthy, _status);
 			}
 
+			if (telemetry.heartbeat_type_open_drone_id) {
+				if (_open_drone_id_system_lost) {
+					_open_drone_id_system_lost = false;
+
+					if (_datalink_last_heartbeat_open_drone_id_system != 0) {
+						mavlink_log_info(&_mavlink_log_pub, "OpenDroneID system regained\t");
+						events::send(events::ID("commander_open_drone_id_regained"), events::Log::Info, "OpenDroneID system regained");
+					}
+				}
+
+				bool healthy = telemetry.open_drone_id_system_healthy;
+
+				_datalink_last_heartbeat_open_drone_id_system = telemetry.timestamp;
+				_vehicle_status.open_drone_id_system_present = true;
+				_vehicle_status.open_drone_id_system_healthy = healthy;
+			}
+
 			if (telemetry.heartbeat_component_obstacle_avoidance) {
 				if (_avoidance_system_lost) {
 					_avoidance_system_lost = false;
@@ -3764,6 +3781,17 @@ void Commander::data_link_check()
 		_parachute_system_lost = true;
 		_status_changed = true;
 		set_health_flags(subsystem_info_s::SUBSYSTEM_TYPE_PARACHUTE, false, true, false, _status);
+	}
+
+	// OpenDroneID system
+	if ((hrt_elapsed_time(&_datalink_last_heartbeat_open_drone_id_system) > 3_s)
+	    && !_open_drone_id_system_lost) {
+		mavlink_log_critical(&_mavlink_log_pub, "OpenDroneID system lost");
+		events::send(events::ID("commander_open_drone_id_lost"), events::Log::Critical, "OpenDroneID system lost");
+		_vehicle_status.open_drone_id_system_present = false;
+		_vehicle_status.open_drone_id_system_healthy = false;
+		_open_drone_id_system_lost = true;
+		_status_changed = true;
 	}
 
 	// AVOIDANCE SYSTEM state check (only if it is enabled)
