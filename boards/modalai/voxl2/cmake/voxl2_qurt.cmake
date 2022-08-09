@@ -19,7 +19,7 @@ endif()
 
 include(Toolchain-qurt)
 message(STATUS "in qurt.make before qurt_flags.cmake")
-include(modalai)
+include(qurt_reqs)
 message(STATUS "in qurt.make after qurt_flags.cmake")
 message(STATUS "in qurt.make: CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 

@@ -27,16 +27,13 @@ px4_posix_generate_alias(
 
 message(STATUS "BEFORE PX4 BOARD IF STATEMENT")
 if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
-	include(modalai)
-
-        FASTRPC_STUB_GEN(../qurt/px4muorb.idl)
+	include(posix_qurt_reqs)
 
 	LINUX_APP(
 		APP_NAME px4
 		IDL_NAME px4muorb
 		APPS_DEST "/home/linaro"
 		SOURCES
-			px4muorb_stub.c
 			src/px4/common/main.cpp
 			apps.cpp
 		LINK_LIBS
@@ -44,7 +41,6 @@ if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
 				px4_layer
 				parameters
 				${module_libraries}
-				${FASTRPC_ARM_LIBS}
 				pthread m rt
 			-Wl,--end-group
 		)
