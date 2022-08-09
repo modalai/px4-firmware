@@ -30,7 +30,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-include(posix_qurt_reqs)
 
 px4_add_module(
 	MODULE modules__muorb__apps
