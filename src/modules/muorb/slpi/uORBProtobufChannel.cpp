@@ -289,10 +289,10 @@ int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
     if (channel) {
         if (channel->DebugEnabled()) PX4_INFO("px4muorb_send_topic_data [%s] on remote side...", topic_name);
-        if ((strcmp(topic_name, "mavlink_tx_msg") == 0) && (data[17] == 22)) {
-            PX4_INFO("slpi mavlink_tx_msg param_value: %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %lu",
-                     data[20], data[21], data[22], data[23], data[24], data[25], data[26], data[27], data[28], data[29], hrt_absolute_time());
-        }
+        // if ((strcmp(topic_name, "mavlink_tx_msg") == 0) && (data[17] == 22)) {
+        //     PX4_INFO("slpi mavlink_tx_msg param_value: %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %lu",
+        //              data[20], data[21], data[22], data[23], data[24], data[25], data[26], data[27], data[28], data[29], hrt_absolute_time());
+        // }
     	uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
     	if (rxHandler) {
     		return rxHandler->process_received_message(topic_name,
