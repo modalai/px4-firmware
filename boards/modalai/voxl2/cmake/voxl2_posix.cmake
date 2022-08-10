@@ -53,8 +53,6 @@ include(px4_git)
 list(APPEND CMAKE_MODULE_PATH
 "${PX4_SOURCE_DIR}/platforms/posix/cmake"
 )
-set(QC_SOC_TARGET "QRB5165")
-
 set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
 
 set(CONFIG_SHMEM "0")
@@ -71,7 +69,6 @@ add_compile_options(
 )
 
 add_definitions(
--D__PX4_POSIX_RB5
 -D__PX4_LINUX
 )
 
@@ -106,18 +103,13 @@ set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
 	)
 
-if ("${QC_SOC_TARGET}" STREQUAL "QRB5165")
-	# Set the default to SLPI
-	if ("${DSP_TYPE}" STREQUAL "")
-		set(DSP_TYPE "SLPI")
-	endif()
-	set(V_ARCH "v66")
-	set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
-		${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
-		)
-else()
-	message(FATAL_ERROR "QC_SOC_TARGET not set")
+# Set the default to SLPI
+if ("${DSP_TYPE}" STREQUAL "")
+	set(DSP_TYPE "SLPI")
 endif()
+set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
+	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
+	)
 
 # Validate DSP_TYPE
 if (NOT ("${DSP_TYPE}" STREQUAL "ADSP" OR "${DSP_TYPE}" STREQUAL "SLPI"))

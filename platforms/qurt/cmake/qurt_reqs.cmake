@@ -71,18 +71,13 @@ set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
 	)
 
-if ("${QC_SOC_TARGET}" STREQUAL "QRB5165")
-	# Set the default to SLPI
-	if ("${DSP_TYPE}" STREQUAL "")
-		set(DSP_TYPE "SLPI")
-	endif()
-	set(V_ARCH "v66")
-	set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
-		${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
-		)
-else()
-	message(FATAL_ERROR "QC_SOC_TARGET not set")
+if ("${DSP_TYPE}" STREQUAL "")
+	set(DSP_TYPE "SLPI")
 endif()
+
+set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
+	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
+		)
 
 # Validate DSP_TYPE
 if (NOT ("${DSP_TYPE}" STREQUAL "ADSP" OR "${DSP_TYPE}" STREQUAL "SLPI"))
@@ -265,12 +260,7 @@ function (QURT_LIB)
 			)
 	endif()
 
-
-	if ("${QC_SOC_TARGET}" STREQUAL "APQ8096")
-		set(DSPLIB_TARGET_PATH "/usr/lib/rfsa/adsp/")
-	else()
-		set(DSPLIB_TARGET_PATH "/usr/share/data/adsp/")
-	endif()
+	set(DSPLIB_TARGET_PATH "/usr/lib/rfsa/adsp/")
 
 	# Add a rule to load the files onto the target that run in the DSP
 	add_custom_target(lib${QURT_LIB_LIB_NAME}-load

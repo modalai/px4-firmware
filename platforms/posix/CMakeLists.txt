@@ -27,7 +27,7 @@ px4_posix_generate_alias(
 
 message(STATUS "BEFORE PX4 BOARD IF STATEMENT")
 if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
-	include(posix_qurt_reqs)
+	include("${PX4_BOARD_DIR}/cmake/voxl2_posix.cmake")
 
 	LINUX_APP(
 		APP_NAME px4
