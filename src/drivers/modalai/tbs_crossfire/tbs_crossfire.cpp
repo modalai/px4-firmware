@@ -115,23 +115,23 @@ void task_main2(int argc, char *argv[])
 		copy_counter = 0;
 
         (void) orb_check(mavlink_tx_msg_fd, &updated);
-		if (! updated) px4_usleep(100);
+		if (! updated) px4_usleep(1000);
         while (updated) {
 			orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
 			for (int i = 0; i < incoming_msg.msg_len; i++) {
 				if (mavlink_parse_char(MAVLINK_COMM_0, incoming_msg.msg[i], &msg, &status)) {
-					if (msg.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
-						mavlink_param_value_t value;
-						mavlink_msg_param_value_decode(&msg, &value);
-						PX4_INFO("%u Received PARAM_VALUE for index %u at %lu", copy_counter++, value.param_index, hrt_absolute_time());
-					}
+					// if (msg.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
+					// 	mavlink_param_value_t value;
+					// 	mavlink_msg_param_value_decode(&msg, &value);
+					// 	PX4_INFO("%u Received PARAM_VALUE for index %u at %lu", copy_counter++, value.param_index, hrt_absolute_time());
+					// }
 					break;
 				}
 			}
 
 			nwrite = qurt_uart_write(_uart_fd, (char*) &incoming_msg.msg[0], incoming_msg.msg_len);
 			if (nwrite != incoming_msg.msg_len) {
-				PX4_INFO("Write failed. Expected %d, got %d", incoming_msg.msg_len, nwrite);
+				PX4_ERR("Write failed. Expected %d, got %d", incoming_msg.msg_len, nwrite);
 			}
 
         	(void) orb_check(mavlink_tx_msg_fd, &updated);

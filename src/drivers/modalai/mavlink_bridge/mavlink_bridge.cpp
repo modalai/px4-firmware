@@ -107,18 +107,18 @@ void recv_task(int argc, char *argv[]) {
 					mavlink_msg_s tmp_msg;
 					tmp_msg.timestamp = hrt_absolute_time();
 					tmp_msg.msg_len = mavlink_msg_to_send_buffer(tmp_msg.msg, &msg);
-					if (msg.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
-						mavlink_param_value_t value;
-						mavlink_msg_param_value_decode(&msg, &value);
-						PX4_INFO("Sending PARAM_VALUE for index %u at %lu", value.param_index, tmp_msg.timestamp);
-					}
+					// if (msg.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
+					// 	mavlink_param_value_t value;
+					// 	mavlink_msg_param_value_decode(&msg, &value);
+					// 	PX4_INFO("Sending PARAM_VALUE for index %u at %lu", value.param_index, tmp_msg.timestamp);
+					// }
 					if (mavlink_tx_msg_h == nullptr) mavlink_tx_msg_h = orb_advertise(ORB_ID(mavlink_tx_msg), &tmp_msg);
 					else orb_publish(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_h, &tmp_msg);
 					px4_usleep(100);
 				}
 
 				if (( ! msg_received) && (i == bytes_read - 1) && (debug)) {
-					PX4_INFO("Detected unused bytes at end of UDP packet");
+					if (debug) PX4_INFO("Detected unused bytes at end of UDP packet");
 				}
 			}
 		} else if (debug) PX4_INFO("recvfrom returned 0");
