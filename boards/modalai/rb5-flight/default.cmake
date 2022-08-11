@@ -88,6 +88,7 @@ px4_add_board(
 		#mc_pos_control
 		#mc_rate_control
 		#micrortps_bridge
+		msp_osd
 		muorb/apps
 		#muorb/test
 		navigator
