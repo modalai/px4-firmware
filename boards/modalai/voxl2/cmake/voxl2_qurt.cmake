@@ -1,9 +1,13 @@
+############################################################################
+#
+# Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+#
+############################################################################
 # VOXL2 is the code name of a board currently in development.
 #
 # This cmake config builds for QURT which is the operating system running on
 # the DSP side.
 
-message(STATUS "*** Entering qurt.cmake ***")
 include(px4_git)
 list(APPEND CMAKE_MODULE_PATH
 	"${PX4_SOURCE_DIR}/platforms/qurt/cmake"
@@ -16,11 +20,7 @@ else()
 endif()
 
 include(Toolchain-qurt)
-message(STATUS "in qurt.make before qurt_flags.cmake")
 include(qurt_reqs)
-message(STATUS "in qurt.make after qurt_flags.cmake")
-message(STATUS "in qurt.make: CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-
 
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
