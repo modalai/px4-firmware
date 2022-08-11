@@ -83,7 +83,6 @@ extern "C" int icm42688p_main(int argc, char *argv[])
 	cli.default_spi_frequency = SPI_SPEED;
 
 	while ((ch = cli.getopt(argc, argv, "R:")) != EOF) {
-		PX4_ERR("STRING VAL %s", ch);
 		switch (ch) {
 		case 'R':
 			cli.rotation = (enum Rotation)atoi(cli.optarg());
