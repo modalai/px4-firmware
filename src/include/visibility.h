@@ -41,9 +41,6 @@
 
 #pragma once
 
-typedef int             pid_t;
-typedef unsigned int    uid_t;
-
 #ifdef __EXPORT
 #  undef __EXPORT
 #endif
@@ -99,7 +96,7 @@ typedef unsigned int    uid_t;
 
 /* We don't poison usleep and sleep because it is used in dependencies
  * like uavcan and DriverFramework. */
-#if !defined(__PX4_NUTTX)
+#if !defined(__PX4_NUTTX) && !defined(__PX4_QURT)
 #include <unistd.h>
 // We can't include this for NuttX otherwise we get conflicts for read/write
 // symbols in cannode.

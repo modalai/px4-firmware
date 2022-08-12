@@ -1,4 +1,4 @@
-include(Toolchain-qurt)
+include(Toolchain-hexagon-sdk-8.4)
 include(qurt_reqs)
 
 set(module_libraries modules__muorb__slpi)

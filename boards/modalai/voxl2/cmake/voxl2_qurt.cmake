@@ -19,7 +19,7 @@ else()
 	set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
 endif()
 
-include(Toolchain-qurt)
+include(Toolchain-hexagon-sdk-8.4)
 include(qurt_reqs)
 
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
