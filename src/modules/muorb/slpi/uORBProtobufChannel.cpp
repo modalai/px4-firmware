@@ -34,27 +34,32 @@
 
 extern "C" void HAP_debug(const char *msg, int level, const char *filename, int line);
 
-extern "C" void qurt_free( void *ptr);
+extern "C" void qurt_free(void *ptr);
 
-__attribute__((visibility("default"))) void free(void *ptr) {
-    qurt_free(ptr);
-    // ptr = 0;
+__attribute__((visibility("default"))) void free(void *ptr)
+{
+	qurt_free(ptr);
+	// ptr = 0;
 }
 
-__attribute__((visibility("default"))) void *malloc(size_t size) {
-    return (void*) 0;
+__attribute__((visibility("default"))) void *malloc(size_t size)
+{
+	return (void *) 0;
 }
 
-__attribute__((visibility("default"))) void *calloc(size_t nmemb, size_t size) {
-    return (void*) 0;
+__attribute__((visibility("default"))) void *calloc(size_t nmemb, size_t size)
+{
+	return (void *) 0;
 }
 
-__attribute__((visibility("default"))) void *realloc(void *ptr, size_t size) {
-    return (void*) 0;
+__attribute__((visibility("default"))) void *realloc(void *ptr, size_t size)
+{
+	return (void *) 0;
 }
 
-__attribute__((visibility("default"))) int nanosleep(const struct timespec *req, struct timespec *rem) {
-    return -1;
+__attribute__((visibility("default"))) int nanosleep(const struct timespec *req, struct timespec *rem)
+{
+	return -1;
 }
 
 int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
@@ -80,7 +85,7 @@ int px4muorb_remove_subscriber(const char *topic_name)
 }
 
 int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
-			                 int data_len_in_bytes)
+			     int data_len_in_bytes)
 {
 	return 0;
 }
