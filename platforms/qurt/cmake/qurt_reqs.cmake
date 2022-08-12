@@ -42,9 +42,7 @@
 #
 # CMake Variables:
 #	QC_SOC_TARGET
-#
-# OPTIONAL:
-#	DSP_TYPE (ADSP or SLPI)
+
 
 set(TOOLS_ERROR_MSG
 		"HEXAGON_Tools must be installed and the environment variable HEXAGON_TOOLS_ROOT must be set"
@@ -71,18 +69,9 @@ set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
 	)
 
-if ("${DSP_TYPE}" STREQUAL "")
-	set(DSP_TYPE "SLPI")
-endif()
-
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
 		)
-
-# Validate DSP_TYPE
-if (NOT ("${DSP_TYPE}" STREQUAL "ADSP" OR "${DSP_TYPE}" STREQUAL "SLPI"))
-	message(FATAL_ERROR "DSP_TYPE set to invalid value")
-endif()
 
 set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
 set(HEXAGON_ARCH_FLAGS
@@ -139,7 +128,6 @@ set(DYNAMIC_LIBS -Wl,${TOOLSLIB}/libc++.a)
 set(ARCHCPUFLAGS
 	-m${V_ARCH}
 	-G0
-	-DDSP_TYPE_${DSP_TYPE}
 	)
 
 add_definitions(

@@ -94,7 +94,7 @@ endif()
 
 set(SDKINC incs)
 set(SDKLIB libs)
-set(SDKRPCMEMINC /inc)
+# set(SDKRPCMEMINC /inc)
 
 set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
 
@@ -103,18 +103,9 @@ set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
 	)
 
-# Set the default to SLPI
-if ("${DSP_TYPE}" STREQUAL "")
-	set(DSP_TYPE "SLPI")
-endif()
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
 	)
-
-# Validate DSP_TYPE
-if (NOT ("${DSP_TYPE}" STREQUAL "ADSP" OR "${DSP_TYPE}" STREQUAL "SLPI"))
-	message(FATAL_ERROR "DSP_TYPE set to invalid value")
-endif()
 
 # Process DSP files
 function (LINUX_LIB)
@@ -130,8 +121,6 @@ function (LINUX_LIB)
 	include_directories(
 		${CMAKE_CURRENT_BINARY_DIR}
 		)
-
-	add_definitions( "-DDSP_TYPE_${DSP_TYPE}" )
 
 	if (NOT "${LINUX_LIB_SOURCES}" STREQUAL "")
 
@@ -173,8 +162,6 @@ function (LINUX_APP)
 		${CMAKE_CURRENT_BINARY_DIR}
 		)
 
-	add_definitions( "-DDSP_TYPE_${DSP_TYPE}" )
-
 	# Build lib that is run on the DSP
 	add_executable(${LINUX_APP_APP_NAME}
 		${LINUX_APP_SOURCES}
@@ -188,4 +175,3 @@ function (LINUX_APP)
 		${LINUX_APP_LINK_LIBS}
 		)
 endfunction()
-
