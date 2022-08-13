@@ -3,12 +3,12 @@
 # Copyright (c) 2022 ModalAI, Inc. All rights reserved.
 #
 ############################################################################
-# VOXL2 is the code name of a board currently in development.
 #
 # This cmake config builds for QURT which is the operating system running on
-# the DSP side.
+# the DSP side of VOXL 2
 
 include(px4_git)
+
 list(APPEND CMAKE_MODULE_PATH
 	"${PX4_SOURCE_DIR}/platforms/qurt/cmake"
 )
