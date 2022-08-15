@@ -1,5 +1,3 @@
-include(Toolchain-qurt)
-include(qurt_reqs)
 
 set(module_libraries modules__muorb__slpi)
 
