@@ -83,42 +83,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
-# The Hexagon compiler doesn't support the -rdynamic flag and this is set
-# in the base cmake scripts. We have to redefine the __linux_compiler_gnu
-# macro for cmake 2.8 to work
-set(__LINUX_COMPILER_GNU 1)
-
 macro(__linux_compiler_gnu lang)
 	set(CMAKE_SHARED_LIBRARY_LINK_${lang}_FLAGS "")
 endmacro()
-
-set(SDK_ERROR_MSG
-	"The Hexagon_SDK must be installed and the environment variable HEXAGON_SDK_ROOT must be set")
-
-if ("$ENV{HEXAGON_SDK_ROOT}" STREQUAL "")
-	message(FATAL_ERROR ${SDK_ERROR_MSG})
-else()
-	set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
-endif()
-
-# GCC version from latest installsdk.sh script
-set(ARM_GCC_DEFAULT "gcc-4.9-2014.11")
-
-if (EXISTS "$ENV{ARM_CROSS_GCC_ROOT}/bin/aarch64-linux-gnu-gcc")
-	set(ARM_CROSS_GCC_ROOT $ENV{ARM_CROSS_GCC_ROOT})
-else()
-	message(FATAL_ERROR "No supported version of ARM GCC cross compiler found in ${ARM_CROSS_GCC_ROOT}/bin")
-endif()
-
-# Find the ARM cross compiler for making a bundle
-foreach(tool aarch64-linux-gnu-gcc aarch64-linux-gnu-g++)
-        string(TOUPPER ${tool} TOOL)
-	find_program(${TOOL} ${tool}
-		PATHS
-			${ARM_CROSS_GCC_ROOT}/bin
-		NO_DEFAULT_PATH
-		)
-	if(NOT ${TOOL})
-		message(FATAL_ERROR "could not find ${TOOL}")
-	endif()
-endforeach()

@@ -24,11 +24,9 @@ include(qurt_reqs)
 
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
-	${PX4_SOURCE_DIR}/platforms/nuttx/Nuttx/nuttx/include
 )
 include_directories(${HEXAGON_SDK_INCLUDES})
 
-set(CONFIG_SHMEM "0")
 add_definitions(-DORB_COMMUNICATOR)
 add_definitions(-DRELEASE_BUILD)
 

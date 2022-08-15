@@ -25,14 +25,12 @@ px4_posix_generate_alias(
 	PREFIX ${PX4_SHELL_COMMAND_PREFIX}
 )
 
-message(STATUS "BEFORE PX4 BOARD IF STATEMENT")
 if ("${PX4_BOARD}" MATCHES "modalai_voxl2")
 	include("${PX4_BOARD_DIR}/cmake/voxl2_posix.cmake")
 
 	LINUX_APP(
 		APP_NAME px4
-		IDL_NAME px4muorb
-		APPS_DEST "/home/linaro"
+		APPS_DEST "/data/px4"
 		SOURCES
 			src/px4/common/main.cpp
 			apps.cpp

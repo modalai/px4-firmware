@@ -39,10 +39,6 @@
 # Environment variables:
 #	HEXAGON_TOOLS_ROOT
 #	HEXAGON_SDK_ROOT
-#
-# CMake Variables:
-#	QC_SOC_TARGET
-
 
 set(TOOLS_ERROR_MSG
 		"HEXAGON_Tools must be installed and the environment variable HEXAGON_TOOLS_ROOT must be set"
@@ -54,30 +50,20 @@ else()
 	set(HEXAGON_TOOLS_ROOT $ENV{HEXAGON_TOOLS_ROOT})
 endif()
 
-if ("$ENV{HEXAGON_SDK_ROOT}" STREQUAL "")
-	message(FATAL_ERROR "HEXAGON_SDK_ROOT not set")
-endif()
-
-set(SDKINC incs)
-set(SDKLIB libs)
-set(SDKRPCMEMINC /inc)
-
-set(HEXAGON_SDK_ROOT $ENV{HEXAGON_SDK_ROOT})
-
 set(HEXAGON_SDK_INCLUDES
-	${HEXAGON_SDK_ROOT}/${SDKINC}
-	${HEXAGON_SDK_ROOT}/${SDKINC}/stddef
+	${HEXAGON_SDK_ROOT}/incs
+	${HEXAGON_SDK_ROOT}/incs/stddef
 	)
 
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
-		)
+)
 
 set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
 set(HEXAGON_ARCH_FLAGS
 	-march=hexagon
 	-mcpu=hexagon${V_ARCH}
-	)
+)
 
 macro (list2string out in)
 	set(list ${ARGV})
