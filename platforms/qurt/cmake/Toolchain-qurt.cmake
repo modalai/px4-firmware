@@ -40,14 +40,6 @@ else()
 	set(HEXAGON_TOOLS_ROOT $ENV{HEXAGON_TOOLS_ROOT})
 endif()
 
-macro (list2string out in)
-	set(list ${ARGV})
-	list(REMOVE_ITEM list ${out})
-	foreach(item ${list})
-		set(${out} "${${out}} ${item}")
-	endforeach()
-endmacro(list2string)
-
 set(V_ARCH "v66")
 set(CROSSDEV "hexagon-")
 
