@@ -42,13 +42,13 @@ set(HEXAGON_SDK_INCLUDES
 
 set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
-)
+	)
 
 set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
 set(HEXAGON_ARCH_FLAGS
 	-march=hexagon
 	-mcpu=hexagon${V_ARCH}
-)
+	)
 
 macro (list2string out in)
 	set(list ${ARGV})
@@ -138,12 +138,6 @@ list2string(CXXFLAGS
 	${ARCHCXXFLAGS}
 	${ARCHCPUFLAGS}
 	${HEXAGON_INCLUDE_DIRS}
-	)
-
-# Flags we pass to the assembler
-list2string(AFLAGS
-	${CFLAGS}
-	-D__ASSEMBLY__
 	)
 
 # Set cmake flags

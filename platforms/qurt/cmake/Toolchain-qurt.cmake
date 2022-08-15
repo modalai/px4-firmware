@@ -46,6 +46,7 @@ set(CMAKE_RANLIB  ${HEXAGON_BIN}/${CROSSDEV}ranlib)
 set(CMAKE_OBJDUMP ${HEXAGON_BIN}/${CROSSDEV}objdump)
 set(CMAKE_OBJCOPY ${HEXAGON_BIN}/${CROSSDEV}objcopy)
 set(HEXAGON_LINK  ${HEXAGON_BIN}/${CROSSDEV}link)
+
 set(HEXAGON_ARCH_FLAGS
 	-march=hexagon
 	-mcpu=hexagonv66)
