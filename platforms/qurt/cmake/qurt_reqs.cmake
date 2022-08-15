@@ -34,21 +34,6 @@
 # Overview:
 # Hexagon SDK paths need to be set based on env variables
 #
-# PREREQUISITES:
-#
-# Environment variables:
-#	HEXAGON_TOOLS_ROOT
-#	HEXAGON_SDK_ROOT
-
-set(TOOLS_ERROR_MSG
-		"HEXAGON_Tools must be installed and the environment variable HEXAGON_TOOLS_ROOT must be set"
-		"(e.g. export HEXAGON_TOOLS_ROOT=$ENV{HOME}/Qualcomm/Hexagon_SDK/4.1.0.4/tools)")
-
-if ("$ENV{HEXAGON_TOOLS_ROOT}" STREQUAL "")
-	message(FATAL_ERROR ${TOOLS_ERROR_MSG})
-else()
-	set(HEXAGON_TOOLS_ROOT $ENV{HEXAGON_TOOLS_ROOT})
-endif()
 
 set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/incs

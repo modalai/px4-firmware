@@ -31,15 +31,6 @@
 
 include(CMakeForceCompiler)
 
-set(TOOLS_ERROR_MSG
-	"HexagonTools must be installed and the environment variable HEXAGON_TOOLS_ROOT must be set")
-
-if ("$ENV{HEXAGON_TOOLS_ROOT}" STREQUAL "")
-	message(FATAL_ERROR ${TOOLS_ERROR_MSG})
-else()
-	set(HEXAGON_TOOLS_ROOT $ENV{HEXAGON_TOOLS_ROOT})
-endif()
-
 set(V_ARCH "v66")
 set(CROSSDEV "hexagon-")
 
