@@ -44,7 +44,6 @@ set(V_ARCH "v66")
 set(CROSSDEV "hexagon-")
 
 set(HEXAGON_BIN	${HEXAGON_TOOLS_ROOT}/bin)
-set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
 
 set(CMAKE_C_COMPILER	${HEXAGON_BIN}/${CROSSDEV}clang)
 set(CMAKE_CXX_COMPILER  ${HEXAGON_BIN}/${CROSSDEV}clang++)
