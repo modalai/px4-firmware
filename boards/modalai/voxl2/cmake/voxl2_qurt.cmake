@@ -34,9 +34,6 @@ list(APPEND CMAKE_MODULE_PATH
 include(Toolchain-qurt)
 include(qurt_reqs)
 
-set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
-	${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
-)
 include_directories(${HEXAGON_SDK_INCLUDES})
 
 add_definitions(-DORB_COMMUNICATOR)

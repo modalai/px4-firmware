@@ -38,10 +38,9 @@
 set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/incs
 	${HEXAGON_SDK_ROOT}/incs/stddef
-	)
-
-set(HEXAGON_SDK_INCLUDES ${HEXAGON_SDK_INCLUDES}
 	${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/qurt
+	# ${HEXAGON_SDK_ROOT}/rtos/qurt/computev66/include/posix
+	${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
 	)
 
 set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
