@@ -31,10 +31,6 @@
 #
 ############################################################################
 
-# Overview:
-# Hexagon SDK paths need to be set based on env variables
-#
-
 set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/incs
 	${HEXAGON_SDK_ROOT}/incs/stddef

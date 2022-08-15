@@ -7,11 +7,11 @@
 # This cmake config builds for QURT which is the operating system running on
 # the DSP side of VOXL 2
 #
-# PREREQUISITES:
-#
-# Environment variables:
+# Required environment variables:
 #	HEXAGON_TOOLS_ROOT
 #	HEXAGON_SDK_ROOT
+#
+############################################################################
 
 if ("$ENV{HEXAGON_SDK_ROOT}" STREQUAL "")
 	message(FATAL_ERROR "Enviroment variable HEXAGON_SDK_ROOT must be set")

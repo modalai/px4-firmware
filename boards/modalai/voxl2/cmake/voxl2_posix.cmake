@@ -30,15 +30,19 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-
+#
 # Overview:
 # Voxl2 PX4 is built in 2 parts, the part that runs on the
 # application (apps) processor, and the library that is loaded on the DSP.
+#
+############################################################################
 
 include(px4_git)
+
 list(APPEND CMAKE_MODULE_PATH
 	"${PX4_SOURCE_DIR}/platforms/posix/cmake"
 )
+
 set(DISABLE_PARAMS_MODULE_SCOPING TRUE)
 
 add_definitions(-DORB_COMMUNICATOR)
@@ -71,7 +75,6 @@ function (LINUX_APP)
 		${CMAKE_CURRENT_BINARY_DIR}
 		)
 
-	# Build lib that is run on the DSP
 	add_executable(${LINUX_APP_APP_NAME}
 		${LINUX_APP_SOURCES}
 		)

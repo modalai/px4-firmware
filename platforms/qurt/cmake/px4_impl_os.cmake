@@ -1,6 +1,6 @@
 ############################################################################
 #
-# Copyright (c) 2015 PX4 Development Team. All rights reserved.
+# Copyright (c) 2022 ModalAI, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -37,10 +37,7 @@
 #
 # 	OS Specific Functions
 #
-#		* px4_qurt_add_firmware
 #		* px4_qurt_generate_builtin_commands
-#		* px4_qurt_add_export
-#		* px4_qurt_generate_romfs
 #
 # 	Required OS Inteface Functions
 #
