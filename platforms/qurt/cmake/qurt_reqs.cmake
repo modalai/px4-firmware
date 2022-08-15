@@ -44,6 +44,7 @@ set(HEXAGON_SDK_INCLUDES
 	)
 
 set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
+
 set(HEXAGON_ARCH_FLAGS
 	-march=hexagon
 	-mcpu=hexagon${V_ARCH}
@@ -180,14 +181,13 @@ include (CMakeParseArguments)
 # Process DSP files
 function (QURT_LIB)
 	set(options)
-	set(oneValueArgs LIB_NAME IDL_NAME)
+	set(oneValueArgs LIB_NAME)
 	set(multiValueArgs SOURCES LINK_LIBS INCS FLAGS)
 	cmake_parse_arguments(QURT_LIB "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
 	include_directories(
 		${CMAKE_CURRENT_BINARY_DIR}
 		)
-	message("QURT_LIB_INCS = ${QURT_LIB_INCS}")
 
 	if ("${QURT_LIB_SOURCES}" STREQUAL "")
 		message(FATAL_ERROR "QURT_LIB called without SOURCES")
@@ -204,8 +204,6 @@ function (QURT_LIB)
 		if (NOT "${QURT_LIB_INCS}" STREQUAL "")
 			target_include_directories(${QURT_LIB_LIB_NAME} PUBLIC ${QURT_LIB_INCS})
 		endif()
-
-		message("QURT_LIB_LINK_LIBS = ${QURT_LIB_LINK_LIBS}")
 
 		target_link_libraries(${QURT_LIB_LIB_NAME}
 			${QURT_LIB_LINK_LIBS}
