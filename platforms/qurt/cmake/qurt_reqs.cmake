@@ -99,6 +99,7 @@ set(ARCHCPUFLAGS
 
 add_definitions(
 	-D __QURT
+	-D _PROVIDE_POSIX_TIME_DECLS
 	-D _PID_T
 	-D _UID_T
 	-D _TIMER_T
