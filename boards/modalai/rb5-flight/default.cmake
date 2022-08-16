@@ -102,7 +102,7 @@ px4_add_board(
 		#bl_update
 		#config
 		#dumpfile
-		esc_calib
+		#esc_calib
 		#hardfault_log
 		led_control
 		mixer
@@ -112,7 +112,7 @@ px4_add_board(
 		#nshterm
 		param
 		perf
-		pwm
+		#pwm
 		reboot
 		sd_bench
 		shutdown

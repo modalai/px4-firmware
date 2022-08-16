@@ -49,6 +49,8 @@
 
 #include "qshell.h"
 
+#define QSHELL_RESPONSE_WAIT_TIME_US (20 * 1000000) // 20 sec, for temporary ESC calibration
+
 // Static variables
 px4::AppState QShell::appState;
 uint32_t QShell::_current_sequence{0};
@@ -113,7 +115,7 @@ int QShell::_wait_for_retval()
 	qshell_retval_s retval;
     memset(&retval, 0, sizeof(qshell_retval_s));
 
-	while (hrt_elapsed_time(&time_started_us) < 10000000) {
+	while (hrt_elapsed_time(&time_started_us) < QSHELL_RESPONSE_WAIT_TIME_US) {
 		if (_qshell_retval_sub.update(&retval)) {
 			if (retval.return_sequence != _current_sequence) {
 				PX4_WARN("Ignoring return value with wrong sequence");

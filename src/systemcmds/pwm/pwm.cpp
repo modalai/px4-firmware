@@ -52,7 +52,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifndef __PX4_QURT
 #include <poll.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
@@ -132,6 +134,7 @@ $ pwm test -c 13 -p 1200
 	PRINT_MODULE_USAGE_COMMAND_DESCR("min", "Set Minimum PWM value");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("max", "Set Maximum PWM value");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("test", "Set Output to a specific value until 'q' or 'c' or 'ctrl-c' pressed");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("cal_backdoor", "calibration backdoor, sets max throttle then min throttle for 10 seconds");
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("steps", "Run 5 steps from 0 to 100%");
 
@@ -174,6 +177,9 @@ pwm_main(int argc, char *argv[])
 	unsigned long channels;
 	unsigned single_ch = 0;
 	int pwm_value = 0;
+#ifdef __PX4_QURT
+	int qurt_loop = 0;
+#endif
 
 	if (argc < 2) {
 		usage(nullptr);
@@ -614,6 +620,7 @@ pwm_main(int argc, char *argv[])
 
 	} else if (!strcmp(command, "test")) {
 
+#ifndef __PX4_QURT
 		if (set_mask == 0) {
 			usage("no channels set");
 			return 1;
@@ -644,8 +651,7 @@ pwm_main(int argc, char *argv[])
 		struct pollfd fds;
 		fds.fd = 0; /* stdin */
 		fds.events = POLLIN;
-
-		if (::ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
+		if (::ioctl(fd, PWM_SERVO_SET_MODE, (void *)PWM_SERVO_ENTER_TEST_MODE) < 0) {
 				PX4_ERR("Failed to Enter pwm test mode");
 				goto err_out_no_test;
 		}
@@ -667,7 +673,6 @@ pwm_main(int argc, char *argv[])
 			/* abort on user request */
 			char c;
 			ret = poll(&fds, 1, 0);
-
 			if (ret > 0) {
 
 				ret = read(0, &c, 1);
@@ -705,7 +710,7 @@ pwm_main(int argc, char *argv[])
 		}
 		rv = 0;
 err_out:
-			if (::ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
+			if (::ioctl(fd, PWM_SERVO_SET_MODE, (void *)PWM_SERVO_EXIT_TEST_MODE) < 0) {
 					rv = 1;
 					PX4_ERR("Failed to Exit pwm test mode");
 			}
@@ -713,6 +718,155 @@ err_out:
 err_out_no_test:
 		return rv;
 
+#else // __PX4_QURT
+
+		if (set_mask == 0) {
+			PX4_ERR("no channels set");
+			return 1;
+		}
+
+		if (pwm_value == 0) {
+			PX4_ERR("no PWM provided");
+			return 1;
+		}
+
+		/* perform PWM output */
+
+		if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
+				PX4_ERR("Failed to Enter pwm test mode");
+				goto err_out_no_test;
+		}
+
+		qurt_loop = (1000 * 1); // 1 second
+		while (1) {
+			for (unsigned i = 0; i < servo_count; i++) {
+				if (set_mask & 1 << i) {
+					ret = px4_ioctl(fd, PWM_SERVO_SET(i), pwm_value);
+
+					if (ret != OK) {
+						PX4_ERR("PWM_SERVO_SET(%d)", i);
+						goto err_out;
+					}
+				}
+			}
+
+			/* Delay longer than the max Oneshot duration */
+
+			px4_usleep(1000);
+
+			if(qurt_loop-- <= 0){
+				break;
+			}
+
+#ifdef __PX4_NUTTX
+			/* Trigger all timer's channels in Oneshot mode to fire
+			 * the oneshots with updated values.
+			 */
+
+			up_pwm_update();
+#endif
+		}
+
+
+		rv = 0;
+err_out:
+		//if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
+		//		rv = 1;
+		//		PX4_ERR("Failed to Exit pwm test mode");
+		//}
+
+err_out_no_test:
+		return rv;
+#endif
+	} else if (!strcmp(command, "cal_backdoor")) {
+
+	if (set_mask == 0) {
+			PX4_ERR("no channels set");
+			return 1;
+		}
+
+		if (pwm_value == 0) {
+			PX4_ERR("no PWM provided");
+			return 1;
+		}
+
+		/* perform PWM output */
+
+		if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
+				PX4_ERR("Failed to Enter pwm test mode");
+				goto err_out_no_test_2;
+		}
+
+		qurt_loop = (100 * 20); // 20 seconds
+		while (1) {
+			for (unsigned i = 0; i < servo_count; i++) {
+				if (set_mask & 1 << i) {
+					ret = px4_ioctl(fd, PWM_SERVO_SET(i), 2000);
+
+					if (ret != OK) {
+						PX4_ERR("PWM_SERVO_SET(%d)", i);
+						goto err_out_2;
+					}
+				}
+			}
+
+			/* Delay longer than the max Oneshot duration */
+
+			px4_usleep(1000);
+
+			if(qurt_loop-- <= 0){
+				break;
+			}
+
+#ifdef __PX4_NUTTX
+			/* Trigger all timer's channels in Oneshot mode to fire
+			 * the oneshots with updated values.
+			 */
+
+			up_pwm_update();
+#endif
+		}
+
+		qurt_loop = (100 * 10); // 10 seconds
+		while (1) {
+			for (unsigned i = 0; i < servo_count; i++) {
+				if (set_mask & 1 << i) {
+					ret = px4_ioctl(fd, PWM_SERVO_SET(i), 1050);
+
+					if (ret != OK) {
+						PX4_ERR("PWM_SERVO_SET(%d)", i);
+						goto err_out_2;
+					}
+				}
+			}
+
+			/* Delay longer than the max Oneshot duration */
+
+			px4_usleep(1000);
+
+			if(qurt_loop-- <= 0){
+				break;
+			}
+
+#ifdef __PX4_NUTTX
+			/* Trigger all timer's channels in Oneshot mode to fire
+			 * the oneshots with updated values.
+			 */
+
+			up_pwm_update();
+#endif
+		}
+
+
+		rv = 0;
+err_out_2:
+		//if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
+		//		rv = 1;
+		//		PX4_ERR("Failed to Exit pwm test mode");
+		//}
+
+err_out_no_test_2:
+		return rv;
 
 	} else if (!strcmp(command, "steps")) {
 
@@ -737,14 +891,15 @@ err_out_no_test:
 		/* perform PWM output */
 
 		/* Open console directly to grab CTRL-C signal */
+#ifndef __PX4_QURT
 		struct pollfd fds;
 		fds.fd = 0; /* stdin */
 		fds.events = POLLIN;
-
+#endif
 		PX4_WARN("Running 5 steps. WARNING! Motors will be live in 5 seconds\nPress any key to abort now.");
 		px4_sleep(5);
 
-		if (::ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
+		if (::ioctl(fd, PWM_SERVO_SET_MODE, (void *)PWM_SERVO_ENTER_TEST_MODE) < 0) {
 				PX4_ERR("Failed to Enter pwm test mode");
 				goto err_out_no_test;
 		}
@@ -792,8 +947,11 @@ err_out_no_test:
 
 				/* abort on user request */
 				char c;
+#ifndef __PX4_QURT
 				ret = poll(&fds, 1, 0);
-
+#else
+				ret = 1;
+#endif
 				if (ret > 0) {
 
 					ret = read(0, &c, 1);
@@ -927,10 +1085,18 @@ err_out_no_test:
 				printf("channel %u: %u us", i + 1, spos);
 
 				if (info_alt_rate_mask & (1 << i)) {
+#ifndef __PX4_QURT
 					printf(" (alternative rate: %d Hz", info_alt_rate);
+#else
+					printf(" (alternative rate: %lu Hz", info_alt_rate);
+#endif
 
 				} else {
+#ifndef __PX4_QURT
 					printf(" (default rate: %d Hz", info_default_rate);
+#else
+					printf(" (alternative rate: %lu Hz", info_alt_rate);
+#endif
 				}
 
 

@@ -130,6 +130,11 @@ static int _px4io_constrain(int x, int y, int z) {
 	else if (x > z) return z;
 	return x;
 }
+static float _px4io_constrain_floats(float x, float y, float z) {
+	if (x < y) return y;
+	else if (x > z) return z;
+	return x;
+}
 #define CONSTRAIN(x, y, z) _px4io_constrain(x, y, z)
 #else
 #define CONSTRAIN(x, y, z) math::constrain(x, y, z)
@@ -1462,12 +1467,17 @@ PX4IO::io_set_control_state(unsigned group)
 
 	unsigned num_controls = sizeof(controls.control) / sizeof(controls.control[0]);
 
-	uint16_t regs[] = {(uint16_t) num_controls};
+	uint16_t regs[sizeof(controls.control) / sizeof(controls.control[0])] = {};
 
 	for (unsigned i = 0; (i < _max_controls) && (i < num_controls); i++) {
+		
 		/* ensure FLOAT_TO_REG does not produce an integer overflow */
+		#ifdef __PX4_QURT
+		const float ctrl = _px4io_constrain_floats(controls.control[i], -1.0f, 1.0f);
+		#else
 		const float ctrl = CONSTRAIN(controls.control[i], -1.0f, 1.0f);
-
+		#endif
+		
 		if (!isfinite(ctrl)) {
 			regs[i] = INT16_MAX;
 
@@ -1609,7 +1619,7 @@ PX4IO::io_set_arming_state()
 		} else {
 			clear |= PX4IO_P_SETUP_ARMING_FMU_PREARMED;
 		}
-
+		
 		if ((armed.lockdown || armed.manual_lockdown) && !_lockdown_override) {
 			set |= PX4IO_P_SETUP_ARMING_LOCKDOWN;
 			_lockdown_override = true;
