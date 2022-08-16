@@ -33,6 +33,7 @@
 
 #include <string.h>
 #include "uORBAppsProtobufChannel.hpp"
+#include "uORB/uORBManager.hpp"
 
 extern "C" { __EXPORT int muorb_main(int argc, char *argv[]); }
 
@@ -62,6 +63,7 @@ muorb_main(int argc, char *argv[])
 
 			if (channel) {
 				if (channel->Initialize(enable_debug)) {
+					uORB::Manager::get_instance()->set_uorb_communicator(channel);
 					return OK;
 				}
 			}

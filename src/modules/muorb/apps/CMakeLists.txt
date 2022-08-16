@@ -30,12 +30,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-
 px4_add_module(
 	MODULE modules__muorb__apps
 	MAIN muorb
 	COMPILE_FLAGS
 		-Wno-cast-align # TODO: fix and enable
+	INCLUDES
+		${HEXAGON_SDK_INCLUDES}
+		${PX4_BINARY_DIR}/platforms/posix
 	SRCS
 		uORBAppsProtobufChannel.cpp
 		muorb_main.cpp
