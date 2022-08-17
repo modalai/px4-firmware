@@ -1,5 +1,4 @@
 /* definitions of builtin command list - automatically generated, do not edit */
-
 #include <px4_platform_common/time.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/log.h>
@@ -62,8 +61,8 @@ int list_files_main(int argc, char *argv[])
 int sleep_main(int argc, char *argv[])
 {
         if (argc != 2) {
-        	PX4_WARN( "Usage: sleep <seconds>" );
-       		return 1;
+           PX4_WARN( "Usage: sleep <seconds>" );
+           return 1;
         }
 
         unsigned long usecs = 1000000UL * atol(argv[1]);
