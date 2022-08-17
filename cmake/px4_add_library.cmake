@@ -44,6 +44,8 @@ function(px4_add_library target)
 	target_compile_definitions(${target} PRIVATE MODULE_NAME="${target}")
 
 	# all PX4 libraries have access to parameters and uORB
+	# TODO: Exclusion of qurt is temporary until these modules
+	#       build cleanly.
 	if(NOT ${PLATFORM} MATCHES "qurt")
 		add_dependencies(${target} uorb_headers parameters)
 	endif()
