@@ -425,11 +425,7 @@ add_library(kernel_parameters_interface INTERFACE)
 include(px4_add_library)
 add_subdirectory(src/lib EXCLUDE_FROM_ALL)
 
-if(NOT PLATFORM STREQUAL "qurt")
-	add_subdirectory(platforms/${PX4_PLATFORM}/src/px4)
-else()
-	set(config_module_list modules/muorb/slpi)
-endif()
+add_subdirectory(platforms/${PX4_PLATFORM}/src/px4)
 add_subdirectory(platforms EXCLUDE_FROM_ALL)
 
 if(EXISTS "${PX4_BOARD_DIR}/CMakeLists.txt")
