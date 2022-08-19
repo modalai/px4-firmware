@@ -59,8 +59,8 @@ static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 static px4_task_t _task_handle2 = -1;
-int _uart_fd = -1;
-bool debug = false;
+static int _uart_fd = -1;
+static bool debug = false;
 std::string port = "7";
 uint32_t baudrate = 115200;
 
@@ -102,32 +102,26 @@ void task_main2(int argc, char *argv[])
 {
     int mavlink_tx_msg_fd = orb_subscribe(ORB_ID(mavlink_tx_msg));
 	(void) orb_set_queue_size(mavlink_tx_msg_fd, 255);
+
 	struct mavlink_msg_s incoming_msg;
     bool updated = false;
-	mavlink_message_t msg;
-	mavlink_status_t status{};
-	uint32_t copy_counter = 0;
+
+	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
+	bool got_first_mavlink_tx_msg = false;
 
 	while ( ! _task_should_exit) {
+		uint64_t timestamp = hrt_absolute_time();
+
 		// Process any incoming mavlink messages for transmission
 		int nwrite = 0;
 		updated = false;
-		copy_counter = 0;
 
         (void) orb_check(mavlink_tx_msg_fd, &updated);
-		if (! updated) px4_usleep(1000);
+
+		if (updated) got_first_mavlink_tx_msg = true;
+
         while (updated) {
 			orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
-			for (int i = 0; i < incoming_msg.msg_len; i++) {
-				if (mavlink_parse_char(MAVLINK_COMM_0, incoming_msg.msg[i], &msg, &status)) {
-					// if (msg.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
-					// 	mavlink_param_value_t value;
-					// 	mavlink_msg_param_value_decode(&msg, &value);
-					// 	PX4_INFO("%u Received PARAM_VALUE for index %u at %lu", copy_counter++, value.param_index, hrt_absolute_time());
-					// }
-					break;
-				}
-			}
 
 			nwrite = qurt_uart_write(_uart_fd, (char*) &incoming_msg.msg[0], incoming_msg.msg_len);
 			if (nwrite != incoming_msg.msg_len) {
@@ -136,6 +130,31 @@ void task_main2(int argc, char *argv[])
 
         	(void) orb_check(mavlink_tx_msg_fd, &updated);
 		}
+
+		// Until we start getting mavlink messages to send from the system
+		// we need to provide heartbeat messages to the receiver. Otherwise it
+		// won't send us anything!
+		if ( ! got_first_mavlink_tx_msg) {
+			if ((timestamp - last_heartbeat_timestamp) > 1000000) {
+				mavlink_heartbeat_t hb = {};
+				mavlink_message_t hb_message = {};
+				hb.autopilot = 12;
+				mavlink_msg_heartbeat_encode(1, 1, &hb_message, &hb);
+
+				uint8_t  hb_newBuf[MAVLINK_MAX_PACKET_LEN];
+				uint16_t hb_newBufLen = 0;
+				hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
+
+				nwrite = qurt_uart_write(_uart_fd, (char*) &hb_newBuf[0], hb_newBufLen);
+				if (nwrite != hb_newBufLen) {
+					PX4_ERR("Heartbeat write failed. Expected %d, got %d", hb_newBufLen, nwrite);
+				}
+
+				last_heartbeat_timestamp = timestamp;
+			}
+		}
+
+		if (! updated) px4_usleep(1000);
 	}
 }
 
@@ -187,12 +206,11 @@ void task_main(int argc, char *argv[])
 	mavlink_status_t status{};
 
 	while ( ! _task_should_exit) {
-
 		// Check for incoming messages from the TBS Crossfire receiver
 		int nread = qurt_uart_read(_uart_fd, (char*) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
 		if (nread) {
-			// if (debug) PX4_INFO("Read %d bytes", nread);
-			if (debug) PX4_INFO("%u %u", rx_buf[0], rx_buf[1]);
+			if (debug) PX4_INFO("TBS Crossfire read %d bytes", nread);
+
 			//Take buffer and convert it into mavlink msg
 			for (int i = 0; i <= nread; i++){
 				if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &status)) {
