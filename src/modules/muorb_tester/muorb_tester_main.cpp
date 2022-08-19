@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * Copyright (C) 2015 Mark Charlebois. All rights reserved.
+ *   Copyright (c) 2012-2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,70 +30,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#include "uORBProtobufChannel.hpp"
 
-extern "C" void HAP_debug(const char *msg, int level, const char *filename, int line);
+#include <string.h>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/ping.h>
 
-extern "C" void qurt_free(void *ptr);
+uORB::Publication<ping_s> _ping_tester_pub{ORB_ID(ping)};
+ping_s        _ping_s{};
 
-__attribute__((visibility("default"))) void free(void *ptr)
+extern "C" { __EXPORT int muorb_tester_main(int argc, char *argv[]); }
+
+static void usage()
 {
-	qurt_free(ptr);
-	// ptr = 0;
+	PX4_INFO("Usage: muorb_tester 'start', 'stop', 'status'");
 }
 
-__attribute__((visibility("default"))) void *malloc(size_t size)
+int
+muorb_tester_main(int argc, char *argv[])
 {
-	return (void *) 0;
-}
+	if (argc < 2) {
+		return -EINVAL;
+		usage();
+	}
 
-__attribute__((visibility("default"))) void *calloc(size_t nmemb, size_t size)
-{
-	return (void *) 0;
-}
+	// TODO: Add an optional  start parameter to control debug messages
+	if (!strcmp(argv[1], "start")) {
+		while (true) {
+			_ping_tester_pub.publish(_ping_s);
+			usleep(1000000);
+		}
 
-__attribute__((visibility("default"))) void *realloc(void *ptr, size_t size)
-{
-	return (void *) 0;
-}
+	} else if (!strcmp(argv[1], "stop")) {
+		return OK;
 
-__attribute__((visibility("default"))) int nanosleep(const struct timespec *req, struct timespec *rem)
-{
-	return -1;
-}
+	} else if (!strcmp(argv[1], "status")) {
+		PX4_INFO("muorb tester initialized");
+		usage();
+		return OK;
+	}
 
-int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
-{
-	HAP_debug("Hello, world!", 1, "test", 0);
-
-	return 0;
-}
-
-int px4muorb_topic_advertised(const char *topic_name)
-{
-	HAP_debug(topic_name, 1, "px4muorb_topic_advertised", 0);
-
-	return 0;
-}
-
-int px4muorb_add_subscriber(const char *topic_name)
-{
-	HAP_debug(topic_name, 1, "px4muorb_add_subscriber", 0);
-
-	return 0;
-}
-
-int px4muorb_remove_subscriber(const char *topic_name)
-{
-	HAP_debug(topic_name, 1, "px4muorb_remove_subscriber", 0);
-
-	return 0;
-}
-
-int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
-			     int data_len_in_bytes)
-{
-	HAP_debug(topic_name, 1, "px4muorb_send_topic_data", 0);
-
-	return 0;
+	return -EINVAL;
 }
