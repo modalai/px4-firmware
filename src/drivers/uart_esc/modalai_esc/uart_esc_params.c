@@ -138,30 +138,66 @@ PARAM_DEFINE_INT32(UART_ESC_RPM_MAX, 15000);
 PARAM_DEFINE_INT32(UART_ESC_MODE, 0);
 
 /**
- * UART ESC Mode Deadzone 1.
+ * UART ESC Turtle Mode Crash Flip Motor Percent
  *
- * Must be greater than Deadzone 2.
- * Absolute value of stick position needed to activate a motor.
- *
- * @group UART ESC Mode Deadzone 1
- * @min 0.01
- * @max 0.99
+ * @group UART ESC
+ * @min 1
+ * @max 100
  * @decimal 10
- * @increment 0.01
+ * @increment 1
  */
-PARAM_DEFINE_FLOAT(UART_ESC_DEAD1, 0.30f);
+PARAM_DEFINE_INT32(UART_ESC_T_PERC, 90);
 
 /**
- * UART ESC Mode Deadzone 2.
+ * UART ESC Turtle Mode Crash Flip Motor Deadband
  *
- * Must be less than Deadzone 1.
- * Absolute value of stick position considered no longer on the X or Y axis,
- * thus targetting a specific motor (single).
- *
- * @group UART ESC Mode Deadzone 2
- * @min 0.01
- * @max 0.99
+ * @group UART ESC
+ * @min 0
+ * @max 100
  * @decimal 10
- * @increment 0.01
+ * @increment 1
  */
-PARAM_DEFINE_FLOAT(UART_ESC_DEAD2, 0.02f);
+PARAM_DEFINE_INT32(UART_ESC_T_DEAD, 20);
+
+/**
+ * UART ESC Turtle Mode Crash Flip Motor STICK_MINF
+ *
+ * @group UART ESC
+ * @min 0.0
+ * @max 100.0
+ * @decimal 10
+ * @increment 1.0
+ */
+PARAM_DEFINE_FLOAT(UART_ESC_T_MINF, 0.15);
+
+/**
+ * UART ESC Turtle Mode Crash Flip Motor expo
+ *
+ * @group UART ESC
+ * @min 0
+ * @max 100
+ * @decimal 10
+ * @increment 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_T_EXPO, 35);
+
+/**
+ * UART ESC Turtle Mode Yaw Reversal
+ *
+ * @group UART ESC
+ * @min 0
+ * @max 1
+ * @decimal 10
+ * @increment 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_T_YAWR, 0);
+/**
+ * UART ESC Turtle Mode Cosphi
+ *
+ * @group UART ESC
+ * @min 0.000
+ * @max 1.000
+ * @decimal 10
+ * @increment 0.001
+ */
+PARAM_DEFINE_FLOAT(UART_ESC_COSPHI, 0.990);
