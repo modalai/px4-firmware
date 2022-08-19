@@ -129,11 +129,6 @@ private:
 	static constexpr float    MODALAI_ESC_MODE_DISABLED_SETPOINT = -0.1f;
 	static constexpr float    MODALAI_ESC_MODE_THRESHOLD = 0.0f;
 
-	static constexpr float    MODALAI_ESC_MODE_DEAD_ZONE_MIN = 0.0f;
-	static constexpr float    MODALAI_ESC_MODE_DEAD_ZONE_MAX = 1.0f;
-	static constexpr float    MODALAI_ESC_MODE_DEAD_ZONE_1 = 0.30f;
-	static constexpr float    MODALAI_ESC_MODE_DEAD_ZONE_2 = 0.02f;
-
 	static constexpr uint32_t MODALAI_ESC_MODE = 0;
 	static constexpr uint32_t MODALAI_ESC_MODE_TURTLE_AUX1 = 1;
 	static constexpr uint32_t MODALAI_ESC_MODE_TURTLE_AUX2 = 2;
@@ -148,8 +143,11 @@ private:
 	typedef struct {
 		int32_t		config{MODALAI_ESC_UART_CONFIG};
 		int32_t		mode{MODALAI_ESC_MODE};
-		float		dead_zone_1{MODALAI_ESC_MODE_DEAD_ZONE_1};
-		float		dead_zone_2{MODALAI_ESC_MODE_DEAD_ZONE_2};
+		int32_t		turtle_motor_expo{35};
+		int32_t		turtle_motor_deadband{20};
+		int32_t		turtle_motor_percent{90};
+		float		turtle_stick_minf{0.15f};
+		float		turtle_cosphi{0.99f};
 		int32_t		baud_rate{MODALAI_ESC_DEFAULT_BAUD};
 		int32_t		rpm_min{MODALAI_ESC_DEFAULT_RPM_MIN};
 		int32_t		rpm_max{MODALAI_ESC_DEFAULT_RPM_MAX};
@@ -211,6 +209,7 @@ private:
 	int			load_params(uart_esc_params_t *params, ch_assign_t *map);
 
 	bool			_turtle_mode_en{false};
+	int32_t			_rpm_turtle_min{0};
 	int32_t			_rpm_fullscale{0};
 	manual_control_setpoint_s _manual_control_setpoint{};
 
@@ -238,4 +237,5 @@ private:
 	int 			parseResponse(uint8_t *buf, uint8_t len, bool print_feedback);
 	int			flushUartRx();
 	int			checkForEscTimeout();
+	void			mixTurtleMode(uint16_t outputs[]);
 };

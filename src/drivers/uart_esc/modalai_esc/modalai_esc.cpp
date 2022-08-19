@@ -146,8 +146,11 @@ int ModalaiEsc::load_params(uart_esc_params_t *params, ch_assign_t *map)
 
 	param_get(param_find("UART_ESC_CONFIG"),  &params->config);
 	param_get(param_find("UART_ESC_MODE"),    &params->mode);
-	param_get(param_find("UART_ESC_DEAD1"),   &params->dead_zone_1);
-	param_get(param_find("UART_ESC_DEAD2"),   &params->dead_zone_2);
+	param_get(param_find("UART_ESC_T_PERC"),  &params->turtle_motor_percent);
+	param_get(param_find("UART_ESC_T_DEAD"),  &params->turtle_motor_deadband);
+	param_get(param_find("UART_ESC_T_EXPO"),  &params->turtle_motor_expo);
+	param_get(param_find("UART_ESC_T_MINF"),  &params->turtle_stick_minf);
+	param_get(param_find("UART_ESC_COSPHI"),  &params->turtle_cosphi);
 	param_get(param_find("UART_ESC_BAUD"),    &params->baud_rate);
 	param_get(param_find("UART_ESC_MOTOR1"),  &params->motor_map[0]);
 	param_get(param_find("UART_ESC_MOTOR2"),  &params->motor_map[1]);
@@ -162,32 +165,29 @@ int ModalaiEsc::load_params(uart_esc_params_t *params, ch_assign_t *map)
 		ret = PX4_ERROR;
 	}
 
-	//                      Example, PX4 Motor 1
-	//                      X = don't activate
-	//        [setpoint.x]
-	//                 [1.0]
-	//             '   |
-	//             '   |
-	//             '   |
-	//             '   |          (ACTIVATE)
-	//             '   |
-	// DEADZONE_1  + - + -  -  - +
-	//              X X|X X X X X'
-	// DEADZONE_2 - X X+X X X X X+
-	//              X X|X X X X X'
-	//       [0.0]-+---+---+-----+---------------- [1.0] [setpoint.y]
-	//            / X X|X X X X X'  (ACTIVATE)
-	//           /  X X|X X X X X'
-	//          /    [0.0] +  -   -    -     -   -
-	//  -(DEADZONE_2)       \ DEADZONE_2
-	//
-
-	if ((params->dead_zone_1 < MODALAI_ESC_MODE_DEAD_ZONE_MIN) || (params->dead_zone_2 < MODALAI_ESC_MODE_DEAD_ZONE_MIN) ||
-	    (params->dead_zone_1 >= MODALAI_ESC_MODE_DEAD_ZONE_MAX) || (params->dead_zone_2 >= MODALAI_ESC_MODE_DEAD_ZONE_MAX) ||
-	    (params->dead_zone_2 >= params->dead_zone_1)) {
-		PX4_ERR("Invalid parameter UART_ESC_DEAD1 or UART_ESC_DEAD2.  Please verify parameters.");
-		params->dead_zone_1 = MODALAI_ESC_MODE_DEAD_ZONE_1;
-		params->dead_zone_2 = MODALAI_ESC_MODE_DEAD_ZONE_2;
+	if(params->turtle_motor_percent < 0 || params->turtle_motor_percent > 100){
+		PX4_ERR("Invalid parameter UART_ESC_T_PERC.  Please verify parameters.");
+		params->turtle_motor_percent = 0;
+		ret = PX4_ERROR;
+	}
+	if(params->turtle_motor_deadband < 0 || params->turtle_motor_deadband > 100){
+		PX4_ERR("Invalid parameter UART_ESC_T_DEAD.  Please verify parameters.");
+		params->turtle_motor_deadband = 0;
+		ret = PX4_ERROR;
+	}
+	if(params->turtle_motor_expo < 0 || params->turtle_motor_expo > 100){
+		PX4_ERR("Invalid parameter UART_ESC_T_EXPO.  Please verify parameters.");
+		params->turtle_motor_expo = 0;
+		ret = PX4_ERROR;
+	}
+	if(params->turtle_stick_minf < 0.0f || params->turtle_stick_minf > 100.0f){
+		PX4_ERR("Invalid parameter UART_ESC_T_MINF.  Please verify parameters.");
+		params->turtle_stick_minf = 0.0f;
+		ret = PX4_ERROR;
+	}
+	if(params->turtle_cosphi < 0.0f || params->turtle_cosphi > 100.0f){
+		PX4_ERR("Invalid parameter UART_ESC_COSPHI.  Please verify parameters.");
+		params->turtle_cosphi = 0.0f;
 		ret = PX4_ERROR;
 	}
 
@@ -929,6 +929,171 @@ void ModalaiEsc::updateLeds(vehicle_control_mode_s mode, led_control_s control)
 	}
 }
 
+void ModalaiEsc::mixTurtleMode(uint16_t outputs[MAX_ACTUATORS])
+{
+	/*
+	 * The following logic is intended to replicate Betaflight's Flip Over After Crash to
+	 * provide operators a similar experience.  See:
+	 *    https://github.com/betaflight/betaflight/blob/4.3.1/src/main/flight/mixer.c#L271
+	 */
+
+	bool use_pitch = true;
+	bool use_roll  = true;
+	bool use_yaw   = true;
+	bool isolate   = false;
+
+	const float flipPowerFactor = 1.0f - ((float)_parameters.turtle_motor_expo / 100.0f);
+
+	const float stickDeflectionPitchAbs = fabsf(_manual_control_setpoint.x);
+	const float stickDeflectionRollAbs  = fabsf(_manual_control_setpoint.y);
+	const float stickDeflectionYawAbs   = fabsf(_manual_control_setpoint.r);
+
+	const float stickDeflectionPitchExpo = flipPowerFactor * stickDeflectionPitchAbs + (float)pow(stickDeflectionPitchAbs,3.0) * (1 - flipPowerFactor);
+	const float stickDeflectionRollExpo  = flipPowerFactor * stickDeflectionRollAbs + (float)pow(stickDeflectionRollAbs,3.0) * (1 - flipPowerFactor);
+	const float stickDeflectionYawExpo  = flipPowerFactor * stickDeflectionYawAbs + (float)pow(stickDeflectionYawAbs,3.0) * (1 - flipPowerFactor);
+
+	float signPitch = _manual_control_setpoint.x < 0 ? 1 : -1;
+	float signRoll  = _manual_control_setpoint.y < 0 ? 1 : -1;
+	float signYaw   = _manual_control_setpoint.r < 0 ? 1 : -1;
+
+	float stickDeflectionLength     = sqrtf(pow(stickDeflectionPitchAbs,2.0) + pow(stickDeflectionRollAbs,2.0));
+	float stickDeflectionExpoLength = sqrtf(pow(stickDeflectionPitchExpo, 2.0) + pow(stickDeflectionRollExpo, 2.0));
+
+	// If yaw is the dominant, disable pitch and roll
+	if (stickDeflectionYawAbs > math::max(stickDeflectionPitchAbs, stickDeflectionRollAbs)) {
+		stickDeflectionLength = stickDeflectionYawAbs;
+		stickDeflectionExpoLength = stickDeflectionYawExpo;
+		signRoll = 0;
+		signPitch = 0;
+		use_pitch = false;
+		use_roll = false;
+	}
+	// If pitch/roll dominant, disable yaw
+	else {
+		signYaw = 0;
+		use_yaw = false;
+	}
+
+	const float cosPhi = (stickDeflectionLength > 0) ? (stickDeflectionPitchAbs + stickDeflectionRollAbs) / (sqrtf(2.0f) * stickDeflectionLength) : 0;
+
+	// TODO: this is hardcoded in betaflight...
+	const float cosThreshold = sqrtf(3.0f)/2.0f; // cos(PI/6.0f)
+
+	// This cosPhi values is 1.0 when sticks are in the far corners, which means we are trying to select a single motor
+	if (cosPhi > _parameters.turtle_cosphi){
+		isolate = true;
+		use_pitch = false;
+		use_roll = false;
+	}
+	// When cosPhi is less than cosThreshold, the user is in a narrow slot on the pitch or roll axis
+	else if (cosPhi < cosThreshold) {
+		// Enforce either roll or pitch exclusively, if not on diagonal
+		if (stickDeflectionRollAbs > stickDeflectionPitchAbs) {
+			signPitch = 0;
+			use_pitch = false;
+		} else if(stickDeflectionRollAbs < stickDeflectionPitchAbs) {
+			signRoll = 0;
+			use_roll = false;
+		}
+	}
+
+	const float crashFlipStickMinExpo = flipPowerFactor *  _parameters.turtle_stick_minf + (float)pow(_parameters.turtle_stick_minf, 3.0) * (1 - flipPowerFactor);
+	const float flipStickRange = 1.0f - crashFlipStickMinExpo;
+	const float flipPower = math::max(0.0f, stickDeflectionExpoLength - crashFlipStickMinExpo) / flipStickRange;
+
+	/* At this point, we are switching on what PX4 motor we want to talk to */
+	for (unsigned i = 0; i < 4; i++) {
+		outputs[i] = 0;
+
+		float motorOutputNormalised = math::min(1.0f, flipPower);
+		float motorOutput = _rpm_turtle_min + motorOutputNormalised * _parameters.rpm_max * ((float)_parameters.turtle_motor_percent / 100.f);
+
+		// Add a little bit to the motorOutputMin so props aren't spinning when sticks are centered
+		float deadBandRpm = ((float)_parameters.turtle_motor_deadband/100.0f) * _rpm_fullscale;
+		motorOutput = (motorOutput < _rpm_turtle_min + deadBandRpm) ? 0.0f : (motorOutput -  deadBandRpm);
+
+		// using the output map here for clarity as PX4 motors are 1-4
+		switch(_output_map[i].number){
+			/* PX4 motor 1 - front right */
+			case 1:
+				if(isolate && signPitch < 0 && signRoll < 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_roll && use_pitch && signPitch < 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_pitch && use_roll && signRoll < 0){
+					outputs[i] = motorOutput;
+				}
+				else if(use_yaw && signYaw > 0){
+					outputs[i] = motorOutput;
+				}
+				break;
+
+			/* PX4 motor 2 - rear left */
+			case 2:
+				if(isolate && signPitch > 0 && signRoll > 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_roll && use_pitch && signPitch > 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_pitch && use_roll && signRoll > 0){
+					outputs[i] = motorOutput;
+				}
+				else if(use_yaw && signYaw > 0){
+					outputs[i] = motorOutput;
+				}
+				break;
+
+			/* PX4 motor 3 - front left */
+			case 3:
+				if(isolate && signPitch < 0 && signRoll > 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_roll && use_pitch && signPitch < 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_pitch && use_roll && signRoll > 0){
+					outputs[i] = motorOutput;
+				}
+				else if(use_yaw && signYaw < 0){
+					outputs[i] = motorOutput;
+				}
+				break;
+
+			/* PX4 motor 4 - rear right */
+			case 4:
+				if(isolate && signPitch > 0 && signRoll < 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_roll && use_pitch && signPitch > 0){
+					outputs[i] = motorOutput;
+				}
+				else if(!use_pitch && use_roll && signRoll < 0){
+					outputs[i] = motorOutput;
+				}
+				else if(use_yaw && signYaw < 0){
+					outputs[i] = motorOutput;
+				}
+				break;
+		}
+	}
+/*
+	static int filter = 0;
+	if(filter++ > 32){
+		printf("map: %.2f %.2f %.2f %.2f - exp: %.2f %.2f %.2f - deflect: %.2f %.2f - sign: %.2f %.2f %.2f - outputs: %.2f %.2f %.2f %.2f\n",
+			(double)_output_map[0].number,(double)_output_map[1].number,(double)_output_map[2].number,(double)_output_map[3].number,
+			(double)stickDeflectionPitchExpo, (double)stickDeflectionRollExpo,(double)stickDeflectionYawExpo,
+			(double)stickDeflectionLength, (double)stickDeflectionExpoLength,
+			(double)signPitch, (double)signRoll, (double)signYaw,
+			(double)outputs[0], (double)outputs[1],(double)outputs[2],(double)outputs[3]);
+		filter = 0;
+	}
+*/
+
+}
+
 /* OutputModuleInterface */
 bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			       unsigned num_outputs, unsigned num_control_groups_updated)
@@ -939,142 +1104,28 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 
 	uint8_t motor_idx;
 
+	// don't use mixed values... recompute now.
+	if(_turtle_mode_en){
+		mixTurtleMode(outputs);
+	}
+
 	for (int i = 0; i < MODALAI_ESC_OUTPUT_CHANNELS; i++) {
 		if (!_outputs_on || stop_motors) {
 			_esc_chans[i].rate_req = 0;
 
 		} else {
-			motor_idx = _output_map[i].number;
+			if(!_turtle_mode_en){
 
-			if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
-				/* user defined mapping is 1-4, array is 0-3 */
-				motor_idx--;
-				if(!_turtle_mode_en){
+				motor_idx = _output_map[i].number;
+
+				if (motor_idx > 0 && motor_idx <= MODALAI_ESC_OUTPUT_CHANNELS) {
+					/* user defined mapping is 1-4, array is 0-3 */
+					motor_idx--;
 					_esc_chans[i].rate_req = outputs[motor_idx] * _output_map[i].direction;
-				} else {
-					/* we may have rolled back into a dead zone by now, clear out */
-					_esc_chans[i].rate_req = 0;
-
-					float setpoint = 0.0f;
-					bool use_setpoint = false;
-
-					/* At this point, we are switching on what PX4 motor we want to talk to */
-					switch(_output_map[i].number)
-					{
-						/*
-						 * An ASCII graphic of this dead zone logic is above in load_params
-						 */
-
-						/* PX4 motor 1 - front right */
-						case 1:
-							/* Pitch and roll */
-							if(_manual_control_setpoint.x > _parameters.dead_zone_1) {
-								if(_manual_control_setpoint.y > -(_parameters.dead_zone_2)) {
-									setpoint = _manual_control_setpoint.x;
-									use_setpoint = true;
-									//PX4_ERR("motor1");
-								}
-							}
-							else if(_manual_control_setpoint.y > _parameters.dead_zone_1) {
-								if(_manual_control_setpoint.x > -(_parameters.dead_zone_2)) {
-									setpoint = _manual_control_setpoint.y;
-									use_setpoint = true;
-									//PX4_ERR("motor1");
-								}
-							}
-
-							/* Yaw */
-							if(_manual_control_setpoint.r < -(_parameters.dead_zone_1)){
-								setpoint = fabs(_manual_control_setpoint.r);
-								use_setpoint = true;
-								//PX4_ERR("motor1");
-							}
-							break;
-						/* PX4 motor 3 - front left */
-						case 3:
-							/* Pitch and roll */
-							if(_manual_control_setpoint.x > _parameters.dead_zone_1) {
-								if(_manual_control_setpoint.y < _parameters.dead_zone_2) {
-									setpoint = _manual_control_setpoint.x;
-									use_setpoint = true;
-									//PX4_ERR("motor3");
-								}
-							}
-							else if(_manual_control_setpoint.y < -(_parameters.dead_zone_1)) {
-								if(_manual_control_setpoint.x > -(_parameters.dead_zone_2)) {
-									setpoint = fabs(_manual_control_setpoint.y);
-									use_setpoint = true;
-									//PX4_ERR("motor3");
-								}
-							}
-
-							/* Yaw */
-							if(_manual_control_setpoint.r > _parameters.dead_zone_1){
-								setpoint = _manual_control_setpoint.r;
-								use_setpoint = true;
-								//PX4_ERR("motor3");
-							}
-							break;
-						/* PX4 motor 2 - rear left */
-						case 2:
-							/* Pitch and roll */
-							if(_manual_control_setpoint.x < -(_parameters.dead_zone_1)) {
-								if(_manual_control_setpoint.y < _parameters.dead_zone_2) {
-									setpoint = fabs(_manual_control_setpoint.x);
-									use_setpoint = true;
-									//PX4_ERR("motor2");
-								}
-							}
-							else if(_manual_control_setpoint.y < -(_parameters.dead_zone_1)) {
-								if(_manual_control_setpoint.x < _parameters.dead_zone_2){
-									setpoint = fabs(_manual_control_setpoint.y);
-									use_setpoint = true;
-									//PX4_ERR("motor2");
-								}
-							}
-
-							/* Yaw */
-							if(_manual_control_setpoint.r < -(_parameters.dead_zone_1)){
-								setpoint = fabs(_manual_control_setpoint.r);
-								use_setpoint = true;
-								//PX4_ERR("motor2");
-							}
-							break;
-						/* PX4 motor 4- rear right */
-						case 4:
-							/* Pitch and roll */
-							if(_manual_control_setpoint.x < -_parameters.dead_zone_1) {
-								if(_manual_control_setpoint.y > -_parameters.dead_zone_2) {
-									setpoint = fabs(_manual_control_setpoint.x);
-									use_setpoint = true;
-									//PX4_ERR("motor4");
-								}
-							}
-							if(_manual_control_setpoint.y > _parameters.dead_zone_1) {
-								if(_manual_control_setpoint.x < _parameters.dead_zone_2){
-									setpoint = _manual_control_setpoint.y;
-									use_setpoint = true;
-									//PX4_ERR("motor4");
-								}
-							}
-
-							/* Yaw */
-							if(_manual_control_setpoint.r > _parameters.dead_zone_1){
-								setpoint = _manual_control_setpoint.r;
-								use_setpoint = true;
-								//PX4_ERR("motor4");
-							}
-							break;
-					}
-
-					// set rate
-					float rate = 0.0f;
-					if(use_setpoint){
-						rate = (float)_parameters.rpm_min + ((float)_rpm_fullscale * setpoint);
-						rate = (-1.0f) * rate * (float)_output_map[i].direction;
-					}
-					_esc_chans[i].rate_req = (int16_t)rate;
 				}
+			} else {
+				// mapping updated in mixTurtleMode, no remap needed here, but reverse direction
+				_esc_chans[i].rate_req = outputs[i] * _output_map[i].direction * (-1);
 			}
 		}
 	}
@@ -1166,9 +1217,6 @@ void ModalaiEsc::Run()
 		}
 	}
 
-
-
-
 /*
 	for (int ii=0; ii<9; ii++)
 	{
@@ -1237,10 +1285,8 @@ void ModalaiEsc::Run()
 
 				if (setpoint > MODALAI_ESC_MODE_THRESHOLD) {
 					_turtle_mode_en = true;
-					//PX4_ERR("turtle mode enabled\n");
 				} else {
 					_turtle_mode_en = false;
-					//PX4_ERR("turtle mode disabled\n");
 				}
 			}
 		}
