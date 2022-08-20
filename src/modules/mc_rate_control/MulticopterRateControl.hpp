@@ -126,6 +126,9 @@ private:
 
 	int8_t _landing_gear{landing_gear_s::GEAR_DOWN};
 
+	bool _takeoff_time_set;
+	hrt_abstime _takeoff_time;
+
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,
 		(ParamFloat<px4::params::MC_ROLLRATE_I>) _param_mc_rollrate_i,
@@ -160,7 +163,15 @@ private:
 
 		(ParamBool<px4::params::MC_BAT_SCALE_EN>) _param_mc_bat_scale_en,
 
-		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl
+		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
+
+		(ParamBool<px4::params::MC_INJECT_EN>) _param_mc_inject_en,
+		(ParamInt<px4::params::MC_INJECT_RPY>) _param_mc_inject_rpy,
+		(ParamInt<px4::params::MC_INJECT_CNT>) _param_mc_inject_cnt,
+		(ParamFloat<px4::params::MC_INJECT_START>) _param_mc_inject_start,
+		(ParamFloat<px4::params::MC_INJECT_INC>) _param_mc_inject_inc,
+		(ParamFloat<px4::params::MC_INJECT_AMP>) _param_mc_inject_amp
+
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */
