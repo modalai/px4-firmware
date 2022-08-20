@@ -51,6 +51,8 @@ MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	_vehicle_status.vehicle_type = vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
 
 	parameters_updated();
+
+	_takeoff_time_set = false;
 }
 
 MulticopterRateControl::~MulticopterRateControl()
@@ -298,6 +300,61 @@ MulticopterRateControl::Run()
 					}
 				}
 			}
+
+			// START add in sine injection for system id here
+			if(_param_mc_inject_en.get())
+			{
+				if (!_takeoff_time_set && actuators.control[actuator_controls_s::INDEX_THROTTLE] > 0.2f)
+				{
+					_takeoff_time_set = true;
+					_takeoff_time = hrt_absolute_time();
+					//printf("Setting takeoff time now");
+				}
+				else if (_takeoff_time_set)
+				{
+					float rel_time_now = (float)(hrt_absolute_time() - _takeoff_time) / 1.e6f;
+
+					float time_start = 5.0f;
+					float sine_time = 5.0f;
+					float rest_time = 3.0f;
+
+					if(rel_time_now > time_start)
+					{
+						float time_since_start = rel_time_now - time_start;
+
+						int freq_idx = floor(time_since_start/(sine_time + rest_time));
+
+						//printf("freq_idx: %d \n", freq_idx);
+
+						if (freq_idx < _param_mc_inject_cnt.get())
+						{
+							float freq_time = time_since_start - (sine_time + rest_time)*freq_idx;
+							float freq_now = _param_mc_inject_start.get() + _param_mc_inject_inc.get()*freq_idx;
+
+							if (freq_time < sine_time)
+							{
+								float injection = _param_mc_inject_amp.get() * sin(freq_now * 6.2831853f * freq_time);
+
+								//printf("injection: %f, %f\n", (double)injection, (double)rel_time_now);
+
+								if (_param_mc_inject_rpy.get() == 0)
+								{
+									actuators.control[actuator_controls_s::INDEX_ROLL] += injection;
+								}
+								else if (_param_mc_inject_rpy.get() == 1)
+								{
+									actuators.control[actuator_controls_s::INDEX_PITCH] += injection;
+								}
+								else if (_param_mc_inject_rpy.get() == 2)
+								{
+									actuators.control[actuator_controls_s::INDEX_YAW] += injection;
+								}
+							}
+						}
+					}
+				}
+			}
+			// END addition of sine injection
 
 			actuators.timestamp = hrt_absolute_time();
 			_actuators_0_pub.publish(actuators);
