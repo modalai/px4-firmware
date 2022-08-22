@@ -82,10 +82,14 @@ endif()
 if(CONFIG_BOARD_IO)
 	set(board_with_io_arg --board-with-io)
 endif()
-if(${PX4_PLATFORM} STREQUAL "nuttx")
-	set(timer_config_arg --timer-config ${PX4_BOARD_DIR}/src/timer_config.cpp)
-	set(module_config_arg --config-files ${module_config_files}) # Todo: Figure out if --config-files is needed for posix
+
+# TODO: Why do these only need to be filtered out on posix?
+if (${PX4_PLATFORM} STREQUAL "posix")
+	list(FILTER module_config_files EXCLUDE REGEX ".*/pwm_out/")
+	list(FILTER module_config_files EXCLUDE REGEX ".*/pwm_out_sim/")
+	list(FILTER module_config_files EXCLUDE REGEX ".*/linux_pwm_out/")
 endif()
+
 add_custom_command(OUTPUT ${generated_serial_params_file} ${generated_module_params_file}
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${generated_params_dir}
 	COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/serial/generate_config.py
@@ -95,9 +99,11 @@ add_custom_command(OUTPUT ${generated_serial_params_file} ${generated_module_par
 		#--verbose
 	COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/module_config/generate_params.py
 		--params-file ${generated_module_params_file}
-		${added_arguments} ${board_with_io_arg} ${timer_config_arg} ${module_config_arg}
+		${added_arguments} ${board_with_io_arg}
+		--timer-config ${PX4_BOARD_DIR}/src/timer_config.cpp
+		--config-files ${module_config_files}
 		--board ${PX4_BOARD}
-		--verbose
+		#--verbose
 	DEPENDS
 		${module_config_files}
 		${jinja_templates}
@@ -105,11 +111,6 @@ add_custom_command(OUTPUT ${generated_serial_params_file} ${generated_module_par
 		${PX4_SOURCE_DIR}/Tools/module_config/generate_params.py
 	COMMENT "Generating serial_params.c"
 )
-
-#add_custom_command(OUTPUT ${generated_serial_params_file} ${generated_module_params_file} APPEND
-#COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/module_config/generate_params.py
-#	--timer-config ${PX4_BOARD_DIR}/src/timer_config.cpp
-#)
 
 set(parameters_xml ${PX4_BINARY_DIR}/parameters.xml)
 set(parameters_json ${PX4_BINARY_DIR}/parameters.json)
