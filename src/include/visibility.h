@@ -41,9 +41,6 @@
 
 #pragma once
 
-typedef int             pid_t;
-typedef unsigned int    uid_t;
-
 #ifdef __EXPORT
 #  undef __EXPORT
 #endif
@@ -61,6 +58,10 @@ typedef unsigned int    uid_t;
 #  define __BEGIN_DECLS
 #  define __END_DECLS
 #endif
+
+
+
+
 
 /* exit() is used on NuttX to exit a task. However on Posix, it will exit the
  * whole application, so we prevent its use there. There are cases where it
@@ -91,7 +92,8 @@ typedef unsigned int    uid_t;
 #include <pthread.h>
 // We can't include this for NuttX otherwise we get conflicts for read/write
 // symbols in cannode.
-#endif // !defined(__PX4_NUTTX)
+// We can't include this for Qurt because it uses it's own thread primitives
+#endif // !defined(__PX4_NUTTX) && !defined(__PX4_QURT)
 #define system_pthread_cond_timedwait pthread_cond_timedwait
 /* We can't poison pthread_cond_timedwait because it seems to be used in the
  * <string> include. */
