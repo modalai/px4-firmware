@@ -212,25 +212,19 @@ if(EXISTS ${BOARD_DEFCONFIG})
     endforeach()
 
     if(PLATFORM)
-	    if("${PX4_BOARD}" MATCHES "modalai_voxl2")
+        # set OS, and append specific platform module path
+        set(PX4_PLATFORM ${PLATFORM} CACHE STRING "PX4 board OS" FORCE)
+        list(APPEND CMAKE_MODULE_PATH ${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/cmake)
+        # platform-specific include path
+        include_directories(${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/src/px4/common/include)
+
+        if("${PX4_BOARD}" MATCHES "modalai_voxl2")
             if(PLATFORM STREQUAL "posix")
                 include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2_posix.cmake)
             else()
                 include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2_qurt.cmake)
-	        endif()
+            endif()
         endif()
-
-	    if(PLATFORM STREQUAL "nuttx")
-            add_definitions(
-                -DCONFIG_BOARDCTL_RESET
-            )
-        endif()
-
-    	# set OS, and append specific platform module path
-        set(PX4_PLATFORM ${PLATFORM} CACHE STRING "PX4 board OS" FORCE)
-	    list(APPEND CMAKE_MODULE_PATH ${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/cmake)
-	    # platform-specific include path
-	    include_directories(${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/src/px4/common/include)
     endif()
 
 	if(ARCHITECTURE)
