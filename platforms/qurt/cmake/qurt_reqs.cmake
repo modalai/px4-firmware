@@ -120,10 +120,14 @@ exec_program(${CMAKE_CXX_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR} ARGS -print-libgc
 exec_program(${CMAKE_CXX_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR} ARGS -print-file-name=libm.a OUTPUT_VARIABLE LIBM)
 set(EXTRA_LIBS ${EXTRA_LIBS} ${LIBM})
 
+# Full optimization and Link Time Optimization (LTO)
+set(QURT_OPTIMIZATION_FLAGS -O3 -flto)
+
 # Flags we pass to the C compiler
 list2string(CFLAGS
 	${ARCHCFLAGS}
 	${ARCHCPUFLAGS}
+	${QURT_OPTIMIZATION_FLAGS}
 	${HEXAGON_INCLUDE_DIRS}
 	)
 
@@ -132,6 +136,7 @@ list2string(CXXFLAGS
     -Wno-inconsistent-missing-override
 	${ARCHCXXFLAGS}
 	${ARCHCPUFLAGS}
+	${QURT_OPTIMIZATION_FLAGS}
 	${HEXAGON_INCLUDE_DIRS}
 	)
 

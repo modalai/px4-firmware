@@ -163,7 +163,6 @@ if(EXISTS ${BOARD_DEFCONFIG})
             # Handle special case module names that need to be converted into file
             # system friendly paths
             if(${module} STREQUAL "muorb_slpi" OR ${module} STREQUAL "muorb_apps")
-                message(STATUS "Got special module name ${module}")
                 string(REPLACE "_" "/" module_path ${module})
                 if(EXISTS ${PX4_SOURCE_DIR}/src/modules/${module_path})
                     list(APPEND config_module_list modules/${module_path})
