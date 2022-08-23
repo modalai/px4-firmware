@@ -215,6 +215,7 @@ if(EXISTS ${BOARD_DEFCONFIG})
         # set OS, and append specific platform module path
         set(PX4_PLATFORM ${PLATFORM} CACHE STRING "PX4 board OS" FORCE)
         list(APPEND CMAKE_MODULE_PATH ${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/cmake)
+
         # platform-specific include path
         include_directories(${PX4_SOURCE_DIR}/platforms/${PX4_PLATFORM}/src/px4/common/include)
 
