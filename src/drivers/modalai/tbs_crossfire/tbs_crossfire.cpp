@@ -45,7 +45,7 @@
 #include <v2.0/standard/mavlink.h>
 #include <px4_log.h>
 
-#define ASYNC_UART_READ_WAIT_US 2000
+#define ASYNC_UART_READ_WAIT_US 500
 #define RC_INPUT_RSSI_MAX	100
 
 #define TX_BUFFER_LEN 20
@@ -61,6 +61,10 @@ static px4_task_t _task_handle = -1;
 static px4_task_t _task_handle2 = -1;
 static int _uart_fd = -1;
 static bool debug = false;
+static bool fake_heartbeat_enable = true;
+static bool filter_local_rc_messages = true;
+static bool dump_received_messages = false;
+static bool dump_transmitted_messages = false;
 std::string port = "7";
 uint32_t baudrate = 115200;
 
@@ -83,7 +87,17 @@ void handle_message_dsp(mavlink_message_t *msg);
 void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
 
 void handle_message_dsp(mavlink_message_t *msg) {
-	if (debug) PX4_INFO("msg ID: %d", msg->msgid);
+	if (debug) {
+		if (filter_local_rc_messages) {
+			if ((msg->msgid != MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE) &&
+			    (msg->msgid != MAVLINK_MSG_ID_RADIO_STATUS)) {
+				PX4_INFO("**^^ MSG ID: %d ^^*****************************************************", msg->msgid);
+			}
+		} else {
+			PX4_INFO("msg ID: %d", msg->msgid);
+		}
+	}
+
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
 		handle_message_rc_channels_override_dsp(msg);
@@ -123,6 +137,20 @@ void task_main2(int argc, char *argv[])
         while (updated) {
 			orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
 
+			if (debug) {
+				PX4_INFO("TBS Crossfire writing %d bytes", incoming_msg.msg_len);
+				if (dump_transmitted_messages) {
+					for (int i = 0; i <= incoming_msg.msg_len; i += 16) {
+						PX4_INFO("  %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+								 incoming_msg.msg[i + 0],  incoming_msg.msg[i + 1],  incoming_msg.msg[i + 2],  incoming_msg.msg[i + 3],
+								 incoming_msg.msg[i + 4],  incoming_msg.msg[i + 5],  incoming_msg.msg[i + 6],  incoming_msg.msg[i + 7],
+								 incoming_msg.msg[i + 8],  incoming_msg.msg[i + 9],  incoming_msg.msg[i + 10], incoming_msg.msg[i + 11],
+								 incoming_msg.msg[i + 12], incoming_msg.msg[i + 13], incoming_msg.msg[i + 14], incoming_msg.msg[i + 15]);
+					}
+				}
+
+			}
+
 			nwrite = qurt_uart_write(_uart_fd, (char*) &incoming_msg.msg[0], incoming_msg.msg_len);
 			if (nwrite != incoming_msg.msg_len) {
 				PX4_ERR("Write failed. Expected %d, got %d", incoming_msg.msg_len, nwrite);
@@ -134,11 +162,12 @@ void task_main2(int argc, char *argv[])
 		// Until we start getting mavlink messages to send from the system
 		// we need to provide heartbeat messages to the receiver. Otherwise it
 		// won't send us anything!
-		if ( ! got_first_mavlink_tx_msg) {
+		if ((fake_heartbeat_enable) && ( ! got_first_mavlink_tx_msg)) {
 			if ((timestamp - last_heartbeat_timestamp) > 1000000) {
 				mavlink_heartbeat_t hb = {};
 				mavlink_message_t hb_message = {};
-				hb.autopilot = 12;
+				hb.type = MAV_TYPE_QUADROTOR;
+				hb.autopilot = MAV_AUTOPILOT_PX4;
 				mavlink_msg_heartbeat_encode(1, 1, &hb_message, &hb);
 
 				uint8_t  hb_newBuf[MAVLINK_MAX_PACKET_LEN];
@@ -148,6 +177,17 @@ void task_main2(int argc, char *argv[])
 				nwrite = qurt_uart_write(_uart_fd, (char*) &hb_newBuf[0], hb_newBufLen);
 				if (nwrite != hb_newBufLen) {
 					PX4_ERR("Heartbeat write failed. Expected %d, got %d", hb_newBufLen, nwrite);
+				} else if (debug) {
+					PX4_INFO("Sending local heartbeat to TBS");
+					if (dump_transmitted_messages) {
+						for (int i = 0; i <= hb_newBufLen; i += 16) {
+							PX4_INFO("  %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+									 hb_newBuf[i + 0],  hb_newBuf[i + 1],  hb_newBuf[i + 2],  hb_newBuf[i + 3],
+									 hb_newBuf[i + 4],  hb_newBuf[i + 5],  hb_newBuf[i + 6],  hb_newBuf[i + 7],
+									 hb_newBuf[i + 8],  hb_newBuf[i + 9],  hb_newBuf[i + 10], hb_newBuf[i + 11],
+									 hb_newBuf[i + 12], hb_newBuf[i + 13], hb_newBuf[i + 14], hb_newBuf[i + 15]);
+						}
+					}
 				}
 
 				last_heartbeat_timestamp = timestamp;
@@ -163,7 +203,7 @@ void task_main(int argc, char *argv[])
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "dp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "rtdlfp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'd':
 			debug = true;
@@ -176,6 +216,22 @@ void task_main(int argc, char *argv[])
 		case 'b':
 			baudrate = atoi(myoptarg);
 			if (debug) PX4_INFO("Setting baudrate to %u", baudrate);
+			break;
+		case 'f':
+			fake_heartbeat_enable = false;
+			if (debug) PX4_INFO("Disabling fake heartbeats");
+			break;
+		case 'l':
+			filter_local_rc_messages = true;
+			if (debug) PX4_INFO("Filtering debug messages from the RC receiver");
+			break;
+		case 'r':
+			dump_received_messages = true;
+			if (debug) PX4_INFO("Enabling hex dump of received messages");
+			break;
+		case 't':
+			dump_transmitted_messages = true;
+			if (debug) PX4_INFO("Enabling hex dump of transmitted messages");
 			break;
 		default:
 			break;
@@ -209,10 +265,21 @@ void task_main(int argc, char *argv[])
 		// Check for incoming messages from the TBS Crossfire receiver
 		int nread = qurt_uart_read(_uart_fd, (char*) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
 		if (nread) {
-			if (debug) PX4_INFO("TBS Crossfire read %d bytes", nread);
+			if (debug) {
+				PX4_INFO("TBS Crossfire read %d bytes", nread);
+				if (dump_received_messages) {
+					for (int i = 0; i <= nread; i += 16) {
+						PX4_INFO("  %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
+								 rx_buf[i + 0],  rx_buf[i + 1],  rx_buf[i + 2],  rx_buf[i + 3],
+								 rx_buf[i + 4],  rx_buf[i + 5],  rx_buf[i + 6],  rx_buf[i + 7],
+								 rx_buf[i + 8],  rx_buf[i + 9],  rx_buf[i + 10], rx_buf[i + 11],
+								 rx_buf[i + 12], rx_buf[i + 13], rx_buf[i + 14], rx_buf[i + 15]);
+					}
+				}
+			}
 
 			//Take buffer and convert it into mavlink msg
-			for (int i = 0; i <= nread; i++){
+			for (int i = 0; i < nread; i++){
 				if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &status)) {
 					handle_message_dsp(&msg);
 				}
@@ -227,7 +294,7 @@ void handle_message_rc_channels_override_dsp(mavlink_message_t *msg) {
 	mavlink_rc_channels_override_t man;
 	mavlink_msg_rc_channels_override_decode(msg, &man);
 
-	if (debug) PX4_INFO("RC channels override msg received");
+	// if (debug) PX4_INFO("RC channels override msg received");
 
 	// Check target
 	if (man.target_system != 0) {
@@ -374,7 +441,14 @@ int status()
 void
 usage()
 {
-	PX4_INFO("Usage: tbs_crossfire {start|info|stop}");
+	PX4_INFO("Usage: tbs_crossfire {start|info|stop} [options]");
+	PX4_INFO("Options: -d             enable debug messages");
+	PX4_INFO("         -p <number>    uart port number");
+	PX4_INFO("         -b <number>    uart baudrate");
+	PX4_INFO("         -f             disable fake hearbeats");
+	PX4_INFO("         -l             filter out local rc received debug messages");
+	PX4_INFO("         -r             enable received messages hex dump");
+	PX4_INFO("         -t             enable transmitted messages hex dump");
 }
 
 }

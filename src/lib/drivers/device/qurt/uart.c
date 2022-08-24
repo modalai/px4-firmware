@@ -3,7 +3,7 @@
 #include <px4_platform_common/time.h>
 #include "uart.h"
 
-#define UART_READ_POLL_INTERVAL_US 1000
+#define UART_READ_POLL_INTERVAL_US 500
 
 // Static variables
 static bool _callbacks_configured = false;
@@ -89,10 +89,11 @@ int qurt_uart_read(int fd, char *buf, size_t len, uint32_t timeout_us)
         // PX4_INFO("UART interval counter = %d", interval_counter);
         int read_len = 0;
         do {
-            px4_usleep(UART_READ_POLL_INTERVAL_US);
             read_len = _read_uart(fd, buf, len);
+            if (read_len > 0) break;
             interval_counter--;
-        } while ((read_len <= 0) && interval_counter);
+            px4_usleep(UART_READ_POLL_INTERVAL_US);
+        } while (interval_counter);
         // if (read_len <= 0) PX4_INFO("Warning, UART read timed out");
         // else PX4_INFO("UART read %d bytes, counter = %d", read_len, interval_counter);
         return read_len;
