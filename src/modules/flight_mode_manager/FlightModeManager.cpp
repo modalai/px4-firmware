@@ -308,6 +308,9 @@ void FlightModeManager::start_flight_task()
 			error = switchTask(FlightTaskIndex::ManualPosition);
 			break;
 
+		case 1:
+			error = switchTask(FlightTaskIndex::ManualAltitudeCommandVel);
+			break;
 		case 3:
 			error = switchTask(FlightTaskIndex::ManualPositionSmoothVel);
 			break;
