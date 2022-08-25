@@ -55,11 +55,8 @@ muorb_tester_main(int argc, char *argv[])
 
 	// TODO: Add an optional  start parameter to control debug messages
 	if (!strcmp(argv[1], "start")) {
-		while (true) {
-			_ping_tester_pub.publish(_ping_s);
-			usleep(1000000);
-		}
-
+		_ping_tester_pub.publish(_ping_s);
+		return OK;
 	} else if (!strcmp(argv[1], "stop")) {
 		return OK;
 

@@ -31,6 +31,10 @@
  *
  ****************************************************************************/
 #include "uORBProtobufChannel.hpp"
+#include <string.h>
+#include <stdio.h>
+#include <qurt.h>
+#include <qurt_thread.h>
 
 extern "C" void HAP_debug(const char *msg, int level, const char *filename, int line);
 
@@ -62,6 +66,10 @@ __attribute__((visibility("default"))) int nanosleep(const struct timespec *req,
 	return -1;
 }
 
+fc_func_ptrs muorb_func_ptrs;
+
+
+
 int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 {
 	HAP_debug("Hello, world!", 1, "test", 0);
@@ -73,7 +81,22 @@ int px4muorb_topic_advertised(const char *topic_name)
 {
 	HAP_debug(topic_name, 1, "px4muorb_topic_advertised", 0);
 
+	qurt_thread_t tid;
+	qurt_thread_attr_t attr;
+	qurt_thread_attr_init (&attr);
+	(void) qurt_thread_create(&tid, &attr, &send_helper, 0);
 	return 0;
+}
+
+static void send_helper(void *){
+	char hello_world_message[] = "Hello, World!";
+	send_message("slpi_debug", strlen(hello_world_message) + 1, (uint8_t *) hello_world_message);
+	qurt_thread_exit(0);
+}
+
+int16_t send_message(const char *messageName, int32_t length, uint8_t *data){
+	int16_t rc = muorb_func_ptrs.topic_data_func_ptr(messageName, data, length);
+	return rc;
 }
 
 int px4muorb_add_subscriber(const char *topic_name)
@@ -94,6 +117,5 @@ int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 			     int data_len_in_bytes)
 {
 	HAP_debug(topic_name, 1, "px4muorb_send_topic_data", 0);
-
 	return 0;
 }
