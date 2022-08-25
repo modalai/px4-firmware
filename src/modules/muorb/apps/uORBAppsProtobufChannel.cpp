@@ -182,6 +182,10 @@ int16_t uORB::AppsProtobufChannel::send_message(const char *messageName, int len
         if (has_subscribers) {
             // PX4_DEBUG("Sending data for topic %s", messageName);
             if (_Debug && enable_debug) PX4_INFO("Sending data for topic %s", messageName);
+            // if ((strcmp(messageName, "mavlink_tx_msg") == 0) && (data[17] == 22)) {
+            //     PX4_INFO("apps mavlink_tx_msg param_value: %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %lu",
+            //              data[20], data[21], data[22], data[23], data[24], data[25], data[26], data[27], data[28], data[29], hrt_absolute_time());
+            // }
             pthread_mutex_lock(&_tx_mutex);
             int16_t rc = fc_sensor_send_data(messageName, data, length);
             pthread_mutex_unlock(&_tx_mutex);

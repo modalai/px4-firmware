@@ -323,7 +323,8 @@ MavlinkParametersManager::send()
 
 	} else {
 		// speed up parameter loading via UDP or USB: try to send 20 at once
-		max_num_to_send = 20;
+		// max_num_to_send = 20;
+		max_num_to_send = 2;
 	}
 
 	int i = 0;

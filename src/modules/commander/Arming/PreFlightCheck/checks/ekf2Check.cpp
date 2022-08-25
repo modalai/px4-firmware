@@ -76,7 +76,7 @@ bool PreFlightCheck::ekf2Check(orb_advert_t *mavlink_log_pub, vehicle_status_s &
 	const estimator_status_s &status = status_sub.get();
 
 	if (status.timestamp == 0) {
-        PX4_INFO("Preflight fail EKF couldn't get status");
+        // PX4_INFO("Preflight fail EKF couldn't get status");
 		success = false;
 		goto out;
 	}

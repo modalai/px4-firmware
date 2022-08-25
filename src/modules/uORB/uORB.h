@@ -231,6 +231,8 @@ extern int	orb_set_interval(int handle, unsigned interval) __EXPORT;
  */
 extern int	orb_get_interval(int handle, unsigned *interval) __EXPORT;
 
+extern int	orb_set_queue_size(int handle, unsigned int queue_size) __EXPORT;
+
 __END_DECLS
 
 /* Diverse uORB header defines */ //XXX: move to better location

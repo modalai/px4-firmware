@@ -285,6 +285,11 @@ int uORB::Manager::orb_get_interval(int handle, unsigned *interval)
 	return ret;
 }
 
+int uORB::Manager::orb_set_queue_size(int handle, unsigned int queue_size)
+{
+	return px4_ioctl(handle, ORBIOCSETQUEUESIZE, (unsigned long) queue_size);
+}
+
 int uORB::Manager::node_open(const struct orb_metadata *meta, bool advertiser, int *instance)
 {
 	char path[orb_maxpath];

@@ -1,0 +1,38 @@
+
+
+Work items for mavlink dsp bridge
+---------------------------------
+
+1. Notes
+    - We configure mavlink for UDP but it then goes over serial. Mavlink needs to understand that.
+
+2. Mavlink tuning
+    - max_num_to_send in MavlinkParametersManager::send()
+        - This makes a huge difference. Doesn't like sending more than 1 at a time!
+    - timeout in MavlinkReceiver::Run()
+    - "-r" option in mavlink start
+        - This is _datarate in mavlink_main.cpp
+            - Used to calculate _main_loop_delay
+            - Used to calculate bandwith_mult
+
+3. Mavlink logging at QGC
+    - Temporary logs are stored in /tmp/FlightData....mavlink
+    - Enable saving of logs in QGC application settings for "Telemetry logs from vehicle"
+    - Logs are stored in ~/Documents/QGroundControl/Telemetry/*.tlog
+    - Analyze with mavlogdump.py
+
+4. Parameter sending
+    - There are 580+ "used" parameters! Why so many??? (It's only the "used" parameters)
+        - PARAM_VALUE message is 25 bytes (200 bits). x 600 is 120kbit.
+    - If the parameter send rate is too high, many parameters get lost
+    - If the parameter rate is too low, QGC times out before entire list is received
+
+5. Test
+    - SW throttling at Mavlink
+    - Verify no UART errors reported by OS in flight_controller_sensor instance
+    - Is FTDI read latency too high for QGC connection? (See HITL issues)
+
+6. Issues
+    - Fix that whole git_mavlink_v2 custom target cmake thing on fresh build
+    - Update px4-alias.sh and create symlink for mavlink_bridge
+    - QGC does not handle LINK_NODE_STATUS mavlink message

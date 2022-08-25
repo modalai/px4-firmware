@@ -3002,6 +3002,7 @@ MavlinkReceiver::Run()
 
 	// poll timeout in ms. Also defines the max update frequency of the mission & param manager, etc.
 	const int timeout = 10;
+	// const int timeout = 15;
 
 #if defined(__PX4_POSIX) && !defined(__PX4_QURT)
 	/* 1500 is the Wifi MTU, so we make sure to fit a full packet */

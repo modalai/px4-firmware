@@ -121,3 +121,8 @@ int orb_get_interval(int handle, unsigned *interval)
 {
 	return uORB::Manager::get_instance()->orb_get_interval(handle, interval);
 }
+
+int orb_set_queue_size(int handle, unsigned int queue_size)
+{
+	return uORB::Manager::get_instance()->orb_set_queue_size(handle, queue_size);
+}

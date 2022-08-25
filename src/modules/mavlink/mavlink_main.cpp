@@ -1843,10 +1843,10 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("SYS_STATUS", 0.1f);
 		configure_stream_local("VFR_HUD", 1.0f);
 
-#if !defined(CONSTRAINED_FLASH)
-		configure_stream_local("LINK_NODE_STATUS", 1.0f);
-		if (ret) PX4_ERR("LINK_NODE_STATUS");
-#endif // !CONSTRAINED_FLASH
+// #if !defined(CONSTRAINED_FLASH)
+// 		configure_stream_local("LINK_NODE_STATUS", 1.0f);
+// 		if (ret) PX4_ERR("LINK_NODE_STATUS");
+// #endif // !CONSTRAINED_FLASH
 
 		break;
 
