@@ -13,7 +13,7 @@ DAEMON=" "
 G="HOLYBRO"
 R="SPEKTRUM"
 
-while getopts "dmr" flag
+while getopts "dmri" flag
 do
     case "${flag}" in
         # Use -d to put PX4 into daemon mode
@@ -22,6 +22,8 @@ do
         m) G="MATEK";;
         # Use -r to specify TBS Crossfire RC receiver
         r) R="CRSF";;
+        # Use -i to specify IMU rotation of ROTATION_YAW_180
+        i) I="ROTATE_IMU_YAW_180";;
     esac
 done
 
@@ -31,4 +33,4 @@ if [ ! -f /data/px4/param/parameters ]; then
    /bin/sync
 fi
 
-GPS=$G RC=$R px4 $DAEMON -s /etc/modalai/voxl-px4.config
+GPS=$G RC=$R IMU=$I px4 $DAEMON -s /etc/modalai/voxl-px4.config
