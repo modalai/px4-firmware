@@ -13,7 +13,7 @@ DAEMON=" "
 G="HOLYBRO"
 R="SPEKTRUM"
 
-while getopts "dmri" flag
+while getopts "dmrio" flag
 do
     case "${flag}" in
         # Use -d to put PX4 into daemon mode
@@ -24,6 +24,8 @@ do
         r) R="CRSF";;
         # Use -i to specify IMU rotation of ROTATION_YAW_180
         i) I="ROTATE_IMU_YAW_180";;
+        # Use -o to start OSD module on the apps processor
+        o) O="OSD";;
     esac
 done
 
@@ -33,4 +35,4 @@ if [ ! -f /data/px4/param/parameters ]; then
    /bin/sync
 fi
 
-GPS=$G RC=$R IMU=$I px4 $DAEMON -s /etc/modalai/voxl-px4.config
+GPS=$G RC=$R IMU=$I OSD=$O px4 $DAEMON -s /etc/modalai/voxl-px4.config
