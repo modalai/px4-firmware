@@ -1888,8 +1888,12 @@ Mavlink::task_main(int argc, char *argv[])
 	int temp_int_arg;
 #endif
 
-	while ((ch = px4_getopt(argc, argv, "b:r:d:n:u:o:m:t:c:fswxzZ", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "ab:r:d:n:u:o:m:t:c:fswxzZ", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
+		case 'a':
+			PX4_INFO("Enabling TBS Crossfire mode in mavlink");
+			_tbs_crossfire = true;
+			break;
 		case 'b':
 			if (px4_get_parameter_value(myoptarg, _baudrate) != 0) {
 				PX4_ERR("baudrate parsing failed");

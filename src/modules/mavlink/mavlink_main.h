@@ -497,6 +497,8 @@ public:
 
 	bool ftp_enabled() const { return _ftp_on; }
 
+	bool tbs_crossfire_enabled() const { return _tbs_crossfire; }
+
 	bool hash_check_enabled() const { return _param_mav_hash_chk_en.get(); }
 	bool forward_heartbeats_enabled() const { return _param_mav_hb_forw_en.get(); }
 	bool odometry_loopback_enabled() const { return _param_mav_odom_lp.get(); }
@@ -641,6 +643,8 @@ private:
 	radio_status_s		_rstatus {};
 	telemetry_status_s	_tstatus {};
 	bool                    _tstatus_updated{false};
+
+	bool				_tbs_crossfire{false};
 
 	ping_statistics_s	_ping_stats {};
 

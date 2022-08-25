@@ -322,9 +322,14 @@ MavlinkParametersManager::send()
 		max_num_to_send = 3;
 
 	} else {
-		// speed up parameter loading via UDP or USB: try to send 20 at once
-		// max_num_to_send = 20;
-		max_num_to_send = 2;
+		if (_mavlink->tbs_crossfire_enabled()) {
+			// This is a special case. It is partially UDP but ends up going
+			// over much slower wireless UART link
+			max_num_to_send = 2;
+		} else {
+			// speed up parameter loading via UDP or USB: try to send 20 at once
+			max_num_to_send = 20;
+		}
 	}
 
 	int i = 0;
