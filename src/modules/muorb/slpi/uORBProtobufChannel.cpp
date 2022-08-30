@@ -36,6 +36,12 @@
 #include <qurt.h>
 #include <qurt_thread.h>
 
+#define PX4_TASK_STACK_SIZE 8192
+#define PX4_TASK_MAX_NAME_LENGTH 32
+#define PX4_TASK_MAX_ARGC 32
+#define PX4_TASK_MAX_ARGV_LENGTH 32
+#define PX4_MAX_TASKS 24
+
 extern "C" void HAP_debug(const char *msg, int level, const char *filename, int line);
 
 extern "C" void qurt_free(void *ptr);
@@ -67,12 +73,35 @@ __attribute__((visibility("default"))) int nanosleep(const struct timespec *req,
 }
 
 fc_func_ptrs muorb_func_ptrs;
+char name[PX4_TASK_MAX_NAME_LENGTH + 4] = "send_back_thread";
+char stack[PX4_TASK_STACK_SIZE];
+int priority = 0;
+bool assigned_bool = false;
 
-
+qurt_thread_t tid;
+qurt_thread_attr_t attr;
 
 int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 {
-	HAP_debug("Hello, world!", 1, "test", 0);
+
+	if (func_ptrs == NULL) {
+            	return -1;
+        } else {
+		if(!assigned_bool){
+			HAP_debug("func_ptrs assigned!", 1, "test", 0);
+			muorb_func_ptrs = *func_ptrs;
+			assigned_bool = true;
+		}
+
+		if ((muorb_func_ptrs.advertise_func_ptr == NULL) ||
+			(muorb_func_ptrs.subscribe_func_ptr == NULL) ||
+			(muorb_func_ptrs.unsubscribe_func_ptr == NULL) ||
+			(muorb_func_ptrs.topic_data_func_ptr == NULL) ||
+			(muorb_func_ptrs.register_interrupt_callback == NULL)) {
+			return -1;
+			HAP_debug("muorb equals null pointers", 1, "test", 0);
+		}
+	}
 
 	return 0;
 }
@@ -80,18 +109,21 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 int px4muorb_topic_advertised(const char *topic_name)
 {
 	HAP_debug(topic_name, 1, "px4muorb_topic_advertised", 0);
-
-	qurt_thread_t tid;
-	qurt_thread_attr_t attr;
 	qurt_thread_attr_init (&attr);
+	qurt_thread_attr_set_name(&attr, name);
+	qurt_thread_attr_set_stack_addr(&attr, stack);
+	qurt_thread_attr_set_stack_size(&attr, PX4_TASK_STACK_SIZE);
+	qurt_thread_attr_set_priority(&attr, 0);
 	(void) qurt_thread_create(&tid, &attr, &send_helper, 0);
+	HAP_debug("Thread being created", 1, "qurt_thread_info", 0);
 	return 0;
 }
 
 static void send_helper(void *){
 	char hello_world_message[] = "Hello, World!";
+	HAP_debug("Send Helper called", 1, "qurt_thread_info", 0);
 	send_message("slpi_debug", strlen(hello_world_message) + 1, (uint8_t *) hello_world_message);
-	qurt_thread_exit(0);
+	//qurt_thread_exit(0);
 }
 
 int16_t send_message(const char *messageName, int32_t length, uint8_t *data){

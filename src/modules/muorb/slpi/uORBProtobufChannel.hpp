@@ -37,8 +37,7 @@
 #include <stdio.h>
 
 //#include <unistd.h>
-static void send_helper(void *);
-int16_t send_message(const char *messageName, int32_t length, uint8_t *data);
+
 // TODO: This has to be defined in the slpi_proc build and in the PX4 build.
 // Make it accessible from one file to both builds.
 typedef struct {
@@ -64,6 +63,9 @@ typedef struct {
 	int (*read_uart_func_t)(int,  void *, size_t);
 	int (*register_interrupt_callback)(int (*)(int, void *, void *), void *arg);
 } fc_func_ptrs;
+
+static void send_helper(void *);
+int16_t send_message(const char *messageName, int32_t length, uint8_t *data);
 
 extern "C" {
 
