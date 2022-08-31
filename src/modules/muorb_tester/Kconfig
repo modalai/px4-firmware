@@ -1,0 +1,5 @@
+menuconfig MODULES_MUORB_TESTER
+	bool "muorb_tester"
+	default n
+	---help---
+		Enable support for muorb tester
