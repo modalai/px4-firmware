@@ -64,6 +64,9 @@ typedef struct {
 	int (*register_interrupt_callback)(int (*)(int, void *, void *), void *arg);
 } fc_func_ptrs;
 
+static void send_helper(void *);
+int16_t send_message(const char *messageName, int32_t length, uint8_t *data);
+
 extern "C" {
 
 	int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us) __EXPORT;
