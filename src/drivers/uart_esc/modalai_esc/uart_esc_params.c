@@ -120,3 +120,84 @@ PARAM_DEFINE_INT32(UART_ESC_RPM_MIN, 5500);
  * @unit RPM
  */
 PARAM_DEFINE_INT32(UART_ESC_RPM_MAX, 15000);
+
+/**
+ * UART ESC Mode
+ *
+ * Selects what type of mode is enabled, if any
+ *
+ * @reboot_required true
+ *
+ * @group UART ESC
+ * @value 0 - None
+ * @value 1 - Turtle Mode enabled via AUX1
+ * @value 2 - Turtle Mode enabled via AUX2
+ * @min 0
+ * @max 2
+ */
+PARAM_DEFINE_INT32(UART_ESC_MODE, 0);
+
+/**
+ * UART ESC Turtle Mode Crash Flip Motor Percent
+ *
+ * @group UART ESC
+ * @min 1
+ * @max 100
+ * @decimal 10
+ * @increment 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_T_PERC, 90);
+
+/**
+ * UART ESC Turtle Mode Crash Flip Motor Deadband
+ *
+ * @group UART ESC
+ * @min 0
+ * @max 100
+ * @decimal 10
+ * @increment 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_T_DEAD, 20);
+
+/**
+ * UART ESC Turtle Mode Crash Flip Motor STICK_MINF
+ *
+ * @group UART ESC
+ * @min 0.0
+ * @max 100.0
+ * @decimal 10
+ * @increment 1.0
+ */
+PARAM_DEFINE_FLOAT(UART_ESC_T_MINF, 0.15);
+
+/**
+ * UART ESC Turtle Mode Crash Flip Motor expo
+ *
+ * @group UART ESC
+ * @min 0
+ * @max 100
+ * @decimal 10
+ * @increment 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_T_EXPO, 35);
+
+/**
+ * UART ESC Turtle Mode Yaw Reversal
+ *
+ * @group UART ESC
+ * @min 0
+ * @max 1
+ * @decimal 10
+ * @increment 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_T_YAWR, 0);
+/**
+ * UART ESC Turtle Mode Cosphi
+ *
+ * @group UART ESC
+ * @min 0.000
+ * @max 1.000
+ * @decimal 10
+ * @increment 0.001
+ */
+PARAM_DEFINE_FLOAT(UART_ESC_T_COSP, 0.990);

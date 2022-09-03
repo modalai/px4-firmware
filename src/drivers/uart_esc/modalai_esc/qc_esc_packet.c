@@ -44,6 +44,11 @@ int32_t qc_esc_create_version_request_packet(uint8_t id, uint8_t *out, uint16_t 
 	return qc_esc_create_packet(ESC_PACKET_TYPE_VERSION_REQUEST, &id, 1, out, out_size);
 }
 
+int32_t qc_esc_create_extended_version_request_packet(uint8_t id, uint8_t *out, uint16_t out_size)
+{
+	return qc_esc_create_packet(ESC_PACKET_TYPE_VERSION_EXT_REQUEST, &id, 1, out, out_size);
+}
+
 int32_t qc_esc_create_reset_packet(uint8_t id, uint8_t *out, uint16_t out_size)
 {
 	char payload[]  = "RESET0";
@@ -183,6 +188,14 @@ int16_t   qc_esc_packet_process_char(uint8_t c, EscPacket *packet)
 		packet->len_received = 0;
 	}
 
+	//reset the packet and start parsing from beginning if length byte == header
+	//this can only happen if the packet is de-synced and last char of checksum
+	//ends up being equal to the header, in that case we can end up in endless loop
+	//unable to re-sync with the packet
+	if (packet->len_received == 1 && c == ESC_PACKET_HEADER) {
+		packet->len_received = 0;
+	}
+
 	switch (packet->len_received) {
 	case 0:  //header
 		packet->bp = packet->buffer;           //reset the pointer for storing data
@@ -190,7 +203,7 @@ int16_t   qc_esc_packet_process_char(uint8_t c, EscPacket *packet)
 
 		if (c != ESC_PACKET_HEADER) {          //check the packet header
 			packet->len_received = 0;
-			ret = -1;
+			ret = ESC_ERROR_BAD_HEADER;
 			break;
 		}
 
@@ -205,7 +218,7 @@ int16_t   qc_esc_packet_process_char(uint8_t c, EscPacket *packet)
 
 		if (packet->len_expected >= (sizeof(packet->buffer) - 1)) {
 			packet->len_received = 0;
-			ret = -1;
+			ret = ESC_ERROR_BAD_LENGTH;
 			break;
 		}
 
