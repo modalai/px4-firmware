@@ -139,7 +139,7 @@ void ICM42688P::RunImpl()
 		_reset_timestamp = now;
 		_failure_count = 0;
 		_state = STATE::WAIT_FOR_RESET;
-		ScheduleDelayed(1_ms); // wait 1 ms for soft reset to be effective
+		ScheduleDelayed(2_ms); // to be safe wait 2 ms for soft reset to be effective
 		break;
 
 	case STATE::WAIT_FOR_RESET:
@@ -147,10 +147,8 @@ void ICM42688P::RunImpl()
 		    && (RegisterRead(Register::BANK_0::DEVICE_CONFIG) == 0x00)
 		    && (RegisterRead(Register::BANK_0::INT_STATUS) & INT_STATUS_BIT::RESET_DONE_INT)) {
 
-			// Wakeup accel and gyro and schedule remaining configuration
-			RegisterWrite(Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE);
 			_state = STATE::CONFIGURE;
-			ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+			ScheduleDelayed(10_ms); // imu does not start up without a delay here, TODO check why
 
 		} else {
 			// RESET not complete
@@ -169,6 +167,12 @@ void ICM42688P::RunImpl()
 
 	case STATE::CONFIGURE:
 		if (Configure()) {
+
+			// Wakeup accel and gyro after configuring registers
+			ScheduleDelayed(1_ms); // add a delay here to be safe
+			RegisterWrite(Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE);
+			ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::FIFO_READ;
 
