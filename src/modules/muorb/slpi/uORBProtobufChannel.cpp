@@ -37,8 +37,6 @@
 #include <qurt.h>
 #include <qurt_thread.h>
 
-// TODO: Move this out of here once we have px4-log functionality
-extern "C" void HAP_debug(const char *msg, int level, const char *filename, int line);
 
 // Definition of test to run when in muorb test mode
 static MUORBTestType test_to_run;
@@ -53,7 +51,6 @@ static void test_runner(void *test)
 	};
 
 	HAP_debug("test_runner called", 1, muorb_test_topic_name, 0);
-
 	switch (*((MUORBTestType *) test)) {
 	case ADVERTISE_TEST_TYPE:
 		(void) muorb_func_ptrs.advertise_func_ptr(muorb_test_topic_name);
@@ -82,7 +79,6 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 	// These function pointers will only be non-null on the first call
 	// so they must be saved off here
 	if (func_ptrs != nullptr) { muorb_func_ptrs = *func_ptrs; }
-
 	HAP_debug("px4muorb_orb_initialize called", 1, "init", 0);
 
 	return 0;

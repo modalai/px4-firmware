@@ -35,6 +35,10 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <px4_platform_common/log.h>
+#include <string>
+#include <map>
+#include <set>
 
 //#include <unistd.h>
 
