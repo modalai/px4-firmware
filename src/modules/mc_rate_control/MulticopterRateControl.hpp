@@ -35,6 +35,7 @@
 
 #include <RateControl.hpp>
 
+#include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
 #include <lib/matrix/matrix/math.hpp>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/defines.h>
@@ -59,6 +60,7 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+
 
 using namespace time_literals;
 
@@ -131,6 +133,10 @@ private:
 	bool _takeoff_time_set;
 	hrt_abstime _takeoff_time;
 
+	AlphaFilter<float> _act_control_roll_filter;
+	AlphaFilter<float> _act_control_pitch_filter;
+	AlphaFilter<float> _act_control_yaw_filter;
+
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,
 		(ParamFloat<px4::params::MC_ROLLRATE_I>) _param_mc_rollrate_i,
@@ -174,7 +180,10 @@ private:
 		(ParamInt<px4::params::MC_INJECT_CNT>) _param_mc_inject_cnt,
 		(ParamFloat<px4::params::MC_INJECT_START>) _param_mc_inject_start,
 		(ParamFloat<px4::params::MC_INJECT_INC>) _param_mc_inject_inc,
-		(ParamFloat<px4::params::MC_INJECT_AMP>) _param_mc_inject_amp
+		(ParamFloat<px4::params::MC_INJECT_AMP>) _param_mc_inject_amp,
+		(ParamFloat<px4::params::MC_ROLL_CUTOFF>) _param_mc_roll_cutoff,
+		(ParamFloat<px4::params::MC_PITCH_CUTOFF>) _param_mc_pitch_cutoff,
+		(ParamFloat<px4::params::MC_YAW_CUTOFF>) _param_mc_yaw_cutoff
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */

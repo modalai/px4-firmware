@@ -443,3 +443,39 @@ PARAM_DEFINE_FLOAT(MC_INJECT_INC, 1.0f);
  * @group Multicopter Rate Control
  */
 PARAM_DEFINE_FLOAT(MC_INJECT_AMP, 0.05f);
+
+/**
+ * First order low pass filter cutoff frequency for roll rate control
+ *
+ * 0 disables the filter
+ *
+ * @min 0
+ * @unit Hz
+ * @decimal 3
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_ROLL_CUTOFF, 0.f);
+
+/**
+ * First order low pass filter cutoff frequency for pitch rate control
+ *
+ * 0 disables the filter
+ *
+ * @min 0
+ * @unit Hz
+ * @decimal 3
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_PITCH_CUTOFF, 0.f);
+
+/**
+ * First order low pass filter cutoff frequency for yaw rate control
+ *
+ * 0 disables the filter
+ *
+ * @min 0
+ * @unit Hz
+ * @decimal 3
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_YAW_CUTOFF, 0.f);
