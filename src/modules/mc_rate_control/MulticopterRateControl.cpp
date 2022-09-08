@@ -221,6 +221,7 @@ MulticopterRateControl::Run()
 			// run rate controller
 			const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
 
+
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};
 			_rate_control.getRateControlStatus(rate_ctrl_status);
@@ -252,6 +253,36 @@ MulticopterRateControl::Run()
 					}
 				}
 			}
+
+			// low pass filter the roll, pitch, and yaw actuator controls just before publishing
+			if(_param_mc_roll_cutoff.get() > 0.01f) {
+				_act_control_roll_filter.setParameters(dt, 1.f/(_param_mc_roll_cutoff.get() * M_TWOPI_F));
+
+				actuators.control[actuator_controls_s::INDEX_ROLL] = _act_control_roll_filter.update(actuators.control[actuator_controls_s::INDEX_ROLL]);
+			}
+			else {
+				_act_control_roll_filter.reset(actuators.control[actuator_controls_s::INDEX_ROLL]);
+			}
+
+			if(_param_mc_pitch_cutoff.get() > 0.01f) {
+				_act_control_pitch_filter.setParameters(dt, 1.f/(_param_mc_pitch_cutoff.get() * M_TWOPI_F));
+
+				actuators.control[actuator_controls_s::INDEX_PITCH] = _act_control_pitch_filter.update(actuators.control[actuator_controls_s::INDEX_PITCH]);
+			}
+			else {
+				_act_control_pitch_filter.reset(actuators.control[actuator_controls_s::INDEX_PITCH]);
+			}
+
+			if(_param_mc_yaw_cutoff.get() > 0.01f) {
+				_act_control_yaw_filter.setParameters(dt, 1.f/(_param_mc_yaw_cutoff.get() * M_TWOPI_F));
+
+				actuators.control[actuator_controls_s::INDEX_YAW] = _act_control_yaw_filter.update(actuators.control[actuator_controls_s::INDEX_YAW]);
+			}
+			else {
+				_act_control_yaw_filter.reset(actuators.control[actuator_controls_s::INDEX_YAW]);
+			}
+			// End low pass filtering of actuator controls
+
 
 			actuators.timestamp = hrt_absolute_time();
 			_actuators_0_pub.publish(actuators);
