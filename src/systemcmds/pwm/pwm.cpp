@@ -780,90 +780,68 @@ err_out_no_test:
 #endif
 	} else if (!strcmp(command, "cal_backdoor")) {
 
-	if (set_mask == 0) {
-			PX4_ERR("no channels set");
-			return 1;
-		}
-
-		if (pwm_value == 0) {
-			PX4_ERR("no PWM provided");
-			return 1;
-		}
-
-		/* perform PWM output */
+	
+		/* perform PWM calibration wihtout user intervention */
 
 		if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
 				PX4_ERR("Failed to Enter pwm test mode");
 				goto err_out_no_test_2;
 		}
 
-		qurt_loop = (100 * 20); // 20 seconds
-		while (1) {
+		/* 320 ~ 10s*/
+		qurt_loop = (320);
+		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
-				if (set_mask & 1 << i) {
-					ret = px4_ioctl(fd, PWM_SERVO_SET(i), 2000);
 
-					if (ret != OK) {
-						PX4_ERR("PWM_SERVO_SET(%d)", i);
-						goto err_out_2;
-					}
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), 0);
+				if (ret != OK) {
+					goto err_out_2;
 				}
 			}
-
-			/* Delay longer than the max Oneshot duration */
-
 			px4_usleep(1000);
-
 			if(qurt_loop-- <= 0){
 				break;
 			}
-
-#ifdef __PX4_NUTTX
-			/* Trigger all timer's channels in Oneshot mode to fire
-			 * the oneshots with updated values.
-			 */
-
-			up_pwm_update();
-#endif
 		}
 
-		qurt_loop = (100 * 10); // 10 seconds
-		while (1) {
+		/* 100 ~3.0 seconds */
+		qurt_loop = (100);
+		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
-				if (set_mask & 1 << i) {
-					ret = px4_ioctl(fd, PWM_SERVO_SET(i), 1050);
 
-					if (ret != OK) {
-						PX4_ERR("PWM_SERVO_SET(%d)", i);
-						goto err_out_2;
-					}
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), 2000);
+				if (ret != OK) {
+					goto err_out_2;
 				}
 			}
-
-			/* Delay longer than the max Oneshot duration */
-
 			px4_usleep(1000);
-
 			if(qurt_loop-- <= 0){
 				break;
 			}
-
-#ifdef __PX4_NUTTX
-			/* Trigger all timer's channels in Oneshot mode to fire
-			 * the oneshots with updated values.
-			 */
-
-			up_pwm_update();
-#endif
 		}
 
+		/* 120 ~3.7s */
+		qurt_loop = (120);
+		while(1){
+			for (unsigned i = 0; i < servo_count; i++) {
+
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), 1050);
+				if (ret != OK) {
+					goto err_out_2;
+				}
+			}
+			px4_usleep(1000);
+			if(qurt_loop-- <= 0){
+				break;
+			}
+		}
 
 		rv = 0;
 err_out_2:
-		//if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
-		//		rv = 1;
-		//		PX4_ERR("Failed to Exit pwm test mode");
-		//}
+		if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
+				rv = 1;
+				PX4_ERR("Failed to Exit pwm test mode");
+		}
 
 err_out_no_test_2:
 		return rv;
