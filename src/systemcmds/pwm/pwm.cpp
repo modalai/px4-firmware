@@ -780,6 +780,24 @@ err_out_no_test:
 #endif
 	} else if (!strcmp(command, "cal_backdoor")) {
 
+		/* 
+		 * The following command:
+		 * - sets PWM outputs to 0 for ~10s
+		 * - sets PWM outputs to PWM_MAX for ~3s
+		 * - sets PWM outputs to PWM_MIN for ~4s
+		 */
+
+		struct pwm_output_values pwm_values_max {};
+		pwm_values_max.channel_count = servo_count;
+		struct pwm_output_values pwm_values_min {};
+		pwm_values_min.channel_count = servo_count;
+
+		if(px4_ioctl(fd, PWM_SERVO_GET_MAX_PWM, (long unsigned int)&pwm_values_max)){
+			goto err_out_no_test_2;
+		}
+		if(px4_ioctl(fd, PWM_SERVO_GET_MIN_PWM, (long unsigned int)&pwm_values_min)){
+			goto err_out_no_test_2;
+		}
 	
 		/* perform PWM calibration wihtout user intervention */
 
@@ -788,8 +806,8 @@ err_out_no_test:
 				goto err_out_no_test_2;
 		}
 
-		/* 320 ~ 10s*/
-		qurt_loop = (320);
+		/* this magic number in this loop gets us about ~ 10s*/
+		qurt_loop = 320;
 		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
 
@@ -804,12 +822,12 @@ err_out_no_test:
 			}
 		}
 
-		/* 100 ~3.0 seconds */
-		qurt_loop = (100);
+		/* this magic number in this loop gets us about ~3.0 seconds */
+		qurt_loop = 100;
 		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
 
-				ret = px4_ioctl(fd, PWM_SERVO_SET(i), 2000);
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), pwm_values_max.values[i]);
 				if (ret != OK) {
 					goto err_out_2;
 				}
@@ -820,12 +838,12 @@ err_out_no_test:
 			}
 		}
 
-		/* 120 ~3.7s */
-		qurt_loop = (120);
+		/* this magic number in this loop gets us about ~4.0s */
+		qurt_loop = 140;
 		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
 
-				ret = px4_ioctl(fd, PWM_SERVO_SET(i), 1050);
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), pwm_values_min.values[i]);
 				if (ret != OK) {
 					goto err_out_2;
 				}
