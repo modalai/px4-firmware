@@ -1497,6 +1497,13 @@ uint32_t param_hash_check()
 		}
 
 		const char *name = param_name(param);
+
+		// Skip these parameters because they change every flight and will
+		// cause the hash to be different every time QGC connects.
+		if ((strncmp(name, "COM_FLIGHT_UUID", 15) == 0) ||
+		    (strncmp(name, "LND_FLIGHT_T_HI", 15) == 0) ||
+		    (strncmp(name, "LND_FLIGHT_T_LO", 15) == 0)) continue;
+
 		const void *val = param_get_value_ptr(param);
 		param_hash = crc32part((const uint8_t *)name, strlen(name), param_hash);
 		param_hash = crc32part((const uint8_t *)val, param_size(param), param_hash);
