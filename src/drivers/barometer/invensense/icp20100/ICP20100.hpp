@@ -64,12 +64,9 @@ private:
 
 	bool Measure();
 
-	int8_t cal_crc(uint8_t seed, uint8_t data);
-	int read_measure_results(uint8_t *buf, uint8_t len);
-	int read_response(Cmd cmd, uint8_t *buf, uint8_t len);
+	bool init_fir();
+
 	int read_register(Register reg, uint8_t *buf);
-	int send_command(Cmd cmd);
-	int send_command(Cmd cmd, uint8_t *data, uint8_t len);
 	int write_register(Register reg, uint8_t data);
 	int init_boot_sequence_rev_a();
 
@@ -95,23 +92,18 @@ private:
 	enum class STATE2 : uint8_t {
 		INIT,
 		INIT_REV_A,
-		READY,
+		RESET,
+		// WAIT_FOR_RESET,
 		MEASURE,
+		READ,
 		ERROR
 	} _state2{STATE2::INIT};
 
-	enum class STATE : uint8_t {
-		RESET,
-		WAIT_FOR_RESET,
-		READ_OTP,
-		MEASURE,
-		READ
-	} _state{STATE::RESET};
-
 	enum class MODE : uint8_t {
-		FAST,
-		NORMAL,
-		ACCURATE,
-		VERY_ACCURATE
-	} _mode{MODE::VERY_ACCURATE};
+		MODE0,
+		MODE1,
+		MODE2,
+		MODE3,
+		MODE4
+	} _mode{MODE::MODE3};
 };
