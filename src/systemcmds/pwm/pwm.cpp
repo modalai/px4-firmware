@@ -780,90 +780,86 @@ err_out_no_test:
 #endif
 	} else if (!strcmp(command, "cal_backdoor")) {
 
-	if (set_mask == 0) {
-			PX4_ERR("no channels set");
-			return 1;
-		}
+		/* 
+		 * The following command:
+		 * - sets PWM outputs to 0 for ~10s
+		 * - sets PWM outputs to PWM_MAX for ~3s
+		 * - sets PWM outputs to PWM_MIN for ~4s
+		 */
 
-		if (pwm_value == 0) {
-			PX4_ERR("no PWM provided");
-			return 1;
-		}
+		struct pwm_output_values pwm_values_max {};
+		pwm_values_max.channel_count = servo_count;
+		struct pwm_output_values pwm_values_min {};
+		pwm_values_min.channel_count = servo_count;
 
-		/* perform PWM output */
+		if(px4_ioctl(fd, PWM_SERVO_GET_MAX_PWM, (long unsigned int)&pwm_values_max)){
+			goto err_out_no_test_2;
+		}
+		if(px4_ioctl(fd, PWM_SERVO_GET_MIN_PWM, (long unsigned int)&pwm_values_min)){
+			goto err_out_no_test_2;
+		}
+	
+		/* perform PWM calibration wihtout user intervention */
 
 		if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_ENTER_TEST_MODE) < 0) {
 				PX4_ERR("Failed to Enter pwm test mode");
 				goto err_out_no_test_2;
 		}
 
-		qurt_loop = (100 * 20); // 20 seconds
-		while (1) {
+		/* this magic number in this loop gets us about ~ 10s*/
+		qurt_loop = 320;
+		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
-				if (set_mask & 1 << i) {
-					ret = px4_ioctl(fd, PWM_SERVO_SET(i), 2000);
 
-					if (ret != OK) {
-						PX4_ERR("PWM_SERVO_SET(%d)", i);
-						goto err_out_2;
-					}
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), 0);
+				if (ret != OK) {
+					goto err_out_2;
 				}
 			}
-
-			/* Delay longer than the max Oneshot duration */
-
 			px4_usleep(1000);
-
 			if(qurt_loop-- <= 0){
 				break;
 			}
-
-#ifdef __PX4_NUTTX
-			/* Trigger all timer's channels in Oneshot mode to fire
-			 * the oneshots with updated values.
-			 */
-
-			up_pwm_update();
-#endif
 		}
 
-		qurt_loop = (100 * 10); // 10 seconds
-		while (1) {
+		/* this magic number in this loop gets us about ~3.0 seconds */
+		qurt_loop = 100;
+		while(1){
 			for (unsigned i = 0; i < servo_count; i++) {
-				if (set_mask & 1 << i) {
-					ret = px4_ioctl(fd, PWM_SERVO_SET(i), 1050);
 
-					if (ret != OK) {
-						PX4_ERR("PWM_SERVO_SET(%d)", i);
-						goto err_out_2;
-					}
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), pwm_values_max.values[i]);
+				if (ret != OK) {
+					goto err_out_2;
 				}
 			}
-
-			/* Delay longer than the max Oneshot duration */
-
 			px4_usleep(1000);
-
 			if(qurt_loop-- <= 0){
 				break;
 			}
-
-#ifdef __PX4_NUTTX
-			/* Trigger all timer's channels in Oneshot mode to fire
-			 * the oneshots with updated values.
-			 */
-
-			up_pwm_update();
-#endif
 		}
 
+		/* this magic number in this loop gets us about ~4.0s */
+		qurt_loop = 140;
+		while(1){
+			for (unsigned i = 0; i < servo_count; i++) {
+
+				ret = px4_ioctl(fd, PWM_SERVO_SET(i), pwm_values_min.values[i]);
+				if (ret != OK) {
+					goto err_out_2;
+				}
+			}
+			px4_usleep(1000);
+			if(qurt_loop-- <= 0){
+				break;
+			}
+		}
 
 		rv = 0;
 err_out_2:
-		//if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
-		//		rv = 1;
-		//		PX4_ERR("Failed to Exit pwm test mode");
-		//}
+		if (px4_ioctl(fd, PWM_SERVO_SET_MODE, PWM_SERVO_EXIT_TEST_MODE) < 0) {
+				rv = 1;
+				PX4_ERR("Failed to Exit pwm test mode");
+		}
 
 err_out_no_test_2:
 		return rv;
