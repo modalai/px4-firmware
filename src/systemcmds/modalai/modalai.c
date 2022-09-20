@@ -31,10 +31,10 @@ int modalai_main(int argc, char *argv[])
 	if (hw_rev == 0 && hw_ver == 3) {	// (should be hw_rev == 1 && hw_ver == 3) eventually...
 		hw_type = eM0087;
 
-	} else if (hw_rev == 0 && hw_ver == 3){
+	} else if (hw_rev == 0 && hw_ver == 3) {
 		hw_type = eM0079;
-	}
-	else {
+
+	} else {
 		return -1;
 
 	}

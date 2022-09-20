@@ -33,3 +33,4 @@
 
 add_subdirectory(icp10100)
 add_subdirectory(icp10111)
+add_subdirectory(icp20100)
