@@ -77,10 +77,8 @@ private:
 	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad transfer")};
 
 	hrt_abstime _reset_timestamp{0};
-	int _failure_count{0};
 
 	unsigned _measure_interval{0};
-	int16_t _scal[4];
 
 	enum class REV_A_INIT_STATE : uint8_t {
 		NONE,
@@ -93,7 +91,6 @@ private:
 		INIT,
 		INIT_REV_A,
 		RESET,
-		// WAIT_FOR_RESET,
 		MEASURE,
 		READ,
 		ERROR
@@ -105,5 +102,5 @@ private:
 		MODE2,
 		MODE3,
 		MODE4
-	} _mode{MODE::MODE3};
+	} _mode{MODE::MODE0};
 };

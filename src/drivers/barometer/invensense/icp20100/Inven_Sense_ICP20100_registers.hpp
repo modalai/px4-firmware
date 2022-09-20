@@ -53,11 +53,11 @@ static constexpr uint8_t Bit5 = (1 << 5);
 static constexpr uint8_t Bit6 = (1 << 6);
 static constexpr uint8_t Bit7 = (1 << 7);
 
-static constexpr uint8_t GAIN_BIT_MASK     = Bit2 | Bit1 | Bit0;								// Bit mask for Gain [2:0]
-static constexpr uint8_t RDATA_BIT_MASK    = Bit6 | Bit5 | Bit4;								// Bit mask for RData [6:4]
-static constexpr uint8_t OFFSET_BIT_MASK   = Bit5 | Bit4 | Bit3 | Bit2 | Bit1 | Bit0;					// Bit mask for Offset [5:0]
-static constexpr uint8_t HFOSC_BIT_MASK	   = Bit6 | Bit5 | Bit4 | Bit3 | Bit2 | Bit1 | Bit0;				// Bit mask for High Freq Oscillator [6:0]
-static constexpr uint8_t MEASURE_BIT_MASK  = Bit3 | Bit2 | Bit1 | Bit0;							// Bit mask for Pressure/Temperature data from PRESS_DATA_2/TEMP_DATA_2 register
+static constexpr uint8_t GAIN_BIT_MASK     = Bit2 | Bit1 | Bit0;				// Bit mask for Gain [2:0]
+static constexpr uint8_t RDATA_BIT_MASK    = Bit6 | Bit5 | Bit4;				// Bit mask for RData [6:4]
+static constexpr uint8_t OFFSET_BIT_MASK   = Bit5 | Bit4 | Bit3 | Bit2 | Bit1 | Bit0;		// Bit mask for Offset [5:0]
+static constexpr uint8_t HFOSC_BIT_MASK	   = Bit6 | Bit5 | Bit4 | Bit3 | Bit2 | Bit1 | Bit0;	// Bit mask for HFSOC [6:0]
+static constexpr uint8_t MEASURE_BIT_MASK  = Bit3 | Bit2 | Bit1 | Bit0;				// Bit mask for Press/Temp data
 
 static constexpr uint32_t I2C_SPEED = 100 * 1000; // 100 kHz I2C serial interface
 static constexpr uint8_t  I2C_ADDRESS_DEFAULT = 0x63;
@@ -71,7 +71,6 @@ static constexpr uint8_t  ICP_20100_HW_REVB_VERSION = 0xB2;
 // From: DS-000416-ICP-20100-v1.4.pdf
 //
 enum class Register : uint8_t {
-	DUMMY              = 0x00,
 	TRIM1_MSB          = 0x05,
 	TRIM2_LSB          = 0x06,
 	TRIM2_MSB          = 0x07,
@@ -104,7 +103,6 @@ enum class Register : uint8_t {
 	DEVICE_STATUS      = 0xCD,
 	I3C_INFO           = 0xCE,
 	VERSION            = 0xD3,
-	INIT	           = 0xEE,
 	PRESS_DATA_0       = 0xFA,
 	PRESS_DATA_1       = 0xFB,
 	PRESS_DATA_2       = 0xFC,
@@ -114,96 +112,112 @@ enum class Register : uint8_t {
 };
 
 enum DEVICE_STATUS_BIT : uint8_t {
-	// Set highwater mark to 14 samples for FIR intialization
+	// Make sure MODE_SELECT is accessible
 	SYNC = Bit0
 };
 
 enum FIFO_CONFIG_BIT : uint8_t {
-	// Set highwater mark to 14 samples for FIR intialization
-	HW_MARK = Bit3 | Bit2 | Bit1
+	// Set highwater mark to 14 samples for FIR initialization
+	HW_MARK = Bit7 | Bit6 | Bit5,
+	// Reset configs
+	CONFIG_RESET = 0
 };
 
 enum FIFO_FILL_BIT : uint8_t {
 	// Flush FIFO
 	FLUSH = Bit7,
 	// Check if FIFO full
-	FULL = Bit5 | Bit4
+	FULL = Bit5 | Bit4,
+	// Check FIFO level
+	FILL = Bit4 | Bit3 | Bit3 | Bit2 | Bit1 | Bit0
 };
 
 enum INTERRUPT_MASK_BIT : uint8_t {
 	// Unmask the watermark high interrupt
-	INTERRUPT_MASK = Bit2
+	INTERRUPT_MASK = Bit2,
+	// Reset interrupt mask
+	INT_MASK_RESET = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit3 | Bit2 | Bit1 | Bit0
+};
+
+enum INTERRUPT_STATUS_BIT : uint8_t {
+	// Reset interrupt mask
+	INT_STATUS_RESET = 0
+};
+
+enum OTP_BIT : uint8_t {
+	// OTP_MRA_LSB
+	OTP_MRA_LSB = Bit2,
+	// OTP_MRA_MSB
+	OTP_MRA_MSB = Bit2,
+	// OTP_MRB_LSB
+	OTP_MRB_LSB = Bit5 | Bit0,
+	// OTP_MRB_MSB
+	OTP_MRB_MSB = Bit5,
+	// OTP_MR_LSB
+	OTP_MR_LSB  = Bit4,
+	// OTP_MR_MSB
+	OTP_MR_MSB = Bit7
 };
 
 enum OTP_STATUS2_BIT : uint8_t {
-	BOOT_UP_STATUS = Bit0, // Boot up config status.
-};
-
-enum MODE_SELECT_BIT : uint8_t {
-	// 7:5
-	MEAS_CONFIG = Bit7 | Bit6 | Bit5,
-
-	// 4 - Initiate Triggered Operation (also called Forced Measurement Mode)
-	FORCED_MEAS_TRIGGER_STANDBY = 0,
-	FORCED_MEAS_TRIGGER = Bit4,
-
-	// 3
-	MEAS_MODE = Bit6 | Bit5 | Bit3,
-
-	// 2
-	POWER_MODE_NORMAL = 0,
-	POWER_MODE_ACTIVE = Bit2,
-
-	// 1:0
-	FIFO_READOUT_MODE = Bit1 | Bit0,
-
-	// Example for Mode0: duty cylce mode (MEAS_MODE=Bit3), pressure first read out, Normal power mode (POWER_MODE=0)
-	MODE0 = Bit3,			// [7:5] 000
-	MODE1 = Bit5 | Bit3,		// [7:5] 001
-	MODE2 = Bit6 | Bit3,		// [7:5] 010
-	MODE3 = Bit6 | Bit5 | Bit3,	// [7:5] 011
-	MODE4 = Bit7 | Bit3		// [7:5] 100
+	// Boot up config status.
+	BOOT_UP_STATUS = Bit0
 };
 
 enum MASTER_LOCK_BIT : uint8_t {
+	// Lock or unlock main registers
 	LOCK = 0x00,
 	UNLOCK = 0x1F
 };
 
+enum MODE_SELECT_BIT : uint8_t {
+	// Bring chip into active power mode
+	POWER_MODE_ACTIVE = Bit2,
+
+	// Stop measurement
+	STOP = 0,
+
+	/* Example for Mode0:
+	* Mode0 measure config (000), Standby mode (Bit4 = 0), Duty cycle mode (Bit3 = 1),
+	* Normal power mode (Bit2 = 0), Pressure first read out (Bit1 & Bit0 = 0)
+	*/
+	MODE0 = Bit3,			// [7:5] 000 01000
+	MODE1 = Bit5 | Bit3,		// [7:5] 001 01000
+	MODE2 = Bit6 | Bit3,		// [7:5] 010 01000
+	MODE3 = Bit6 | Bit5 | Bit3,	// [7:5] 011 01000
+	MODE4 = Bit7 | Bit3		// [7:5] 100 01000
+};
+
 enum OTP_ADDRESS_BIT : uint8_t {
-	// 7:0
-	OFFSET = Bit7 | Bit6 | Bit5 | Bit4 | Bit3,			// OTP address [7:0] to read from or to write to
-	GAIN   = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit0,	// OTP address [7:0] to read from or to write to
-	HFOSC  = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit1	// OTP address [7:0] to read from or to write to
+	// OTP address [7:0] to read from or to write to
+	OFFSET = Bit7 | Bit6 | Bit5 | Bit4 | Bit3,
+	GAIN   = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit0,
+	HFOSC  = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit1
 };
 
 enum OTP_COMMAND_BIT : uint8_t {
-	// 6:4
-	COMMAND_BIT_MASK = Bit6 | Bit5 | Bit4,	// OTP access command
-	COMMAND = Bit4,		// OTP access command
-	// 3:0
-	ADDRESS = Bit3 | Bit2 | Bit1 | Bit0	// OTP address [3:0] to read from or to write to
-
+	// 6:4, OTP access command
+	COMMAND_BIT_MASK = Bit6 | Bit5 | Bit4,
+	COMMAND = Bit4,
+	// OTP address [3:0] to read from or to write to
+	ADDRESS = Bit3 | Bit2 | Bit1 | Bit0
 };
 
 enum OTP_CONFIG1_BIT : uint8_t {
-	// 1
-	OTP_WR = Bit1, // Connect OTP VCC to VCORE. This is needed for OTP write. VCORE should be 3V3 in this case
-	// 0
-	OTP_EN = Bit0, // Enable the OTP
-	//OTP Bit Mask
-	OTP_BIT_MASK = OTP_WR | OTP_EN	// For setting both bits to 0
+	// Connect OTP VCC to VCORE and enable the OTP. This is needed for OTP write. VCORE should be 3V3 in this case
+	OTP_BIT_MASK = Bit1 | Bit0
 };
 
 enum OTP_DBG2_BIT : uint8_t {
-	// 7
-	RESET = Bit7
+	// Reset value of the OTP port RESET
+	DBG2_RESET = Bit7
 };
 
 enum OTP_STATUS_BIT : uint8_t {
-	// 0
-	BUSY = 0,		// OTP controller BUSY flag
-	NOT_BUSY = Bit0
+	// OTP controller BUSY flag
+	BUSY = Bit0,
+	// OTP controller NOT BUSY flag
+	NOT_BUSY = 0
 };
 
 
