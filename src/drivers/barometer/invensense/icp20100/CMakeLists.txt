@@ -32,14 +32,14 @@
 ############################################################################
 
 px4_add_module(
-	MODULE drivers__barometer__invensense__icp10111
-	MAIN icp10111
+	MODULE drivers__barometer__invensense__icp20100
+	MAIN icp20100
 	COMPILE_FLAGS
 	SRCS
-		Inven_Sense_ICP10111_registers.hpp
-		ICP10111.cpp
-		ICP10111.hpp
-		icp10111_main.cpp
+		Inven_Sense_ICP20100_registers.hpp
+		ICP20100.cpp
+		ICP20100.hpp
+		icp20100_main.cpp
 	DEPENDS
 		px4_work_queue
 	)
