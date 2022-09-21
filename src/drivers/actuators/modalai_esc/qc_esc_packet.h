@@ -93,20 +93,19 @@ typedef struct {
 	uint16_t crc;
 }  __attribute__((__packed__)) QC_ESC_VERSION_INFO;
 
-typedef struct
-{
-  uint8_t  header;
-  uint8_t  length;
-  uint8_t  type;
-  uint8_t  id;
-  uint16_t sw_version;
-  uint16_t hw_version;
-  uint8_t  unique_id[12];
-  char     firmware_git_version[12];
-  char     bootloader_git_version[12];
-  uint16_t bootloader_version;
-  uint16_t crc;
-}  __attribute__ ((__packed__)) QC_ESC_EXTENDED_VERSION_INFO;
+typedef struct {
+	uint8_t  header;
+	uint8_t  length;
+	uint8_t  type;
+	uint8_t  id;
+	uint16_t sw_version;
+	uint16_t hw_version;
+	uint8_t  unique_id[12];
+	char     firmware_git_version[12];
+	char     bootloader_git_version[12];
+	uint16_t bootloader_version;
+	uint16_t crc;
+}  __attribute__((__packed__)) QC_ESC_EXTENDED_VERSION_INFO;
 
 // Definition of the feedback response packet from ESC
 typedef struct {
@@ -135,9 +134,9 @@ typedef struct {
 	uint8_t  cmd_counter;  // Number of commands received by the ESC
 	uint8_t  power;        // Applied power [0..100]
 
-  uint16_t voltage;      // Voltage measured by the ESC in mV
+	uint16_t voltage;      // Voltage measured by the ESC in mV
 	int16_t  current;      // Current measured by the ESC in 8mA resolution
-  int16_t  temperature;  // Temperature measured by the ESC in 0.01 degC resolution
+	int16_t  temperature;  // Temperature measured by the ESC in 0.01 degC resolution
 
 	uint16_t crc;
 }  __attribute__((__packed__)) QC_ESC_FB_RESPONSE_V2;

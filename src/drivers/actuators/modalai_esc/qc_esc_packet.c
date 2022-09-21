@@ -189,13 +189,12 @@ int16_t   qc_esc_packet_process_char(uint8_t c, EscPacket *packet)
 	}
 
 	//reset the packet and start parsing from beginning if length byte == header
-  //this can only happen if the packet is de-synced and last char of checksum
-  //ends up being equal to the header, in that case we can end up in endless loop
-  //unable to re-sync with the packet
-  if (packet->len_received == 1 && c == ESC_PACKET_HEADER)
-  {
-    packet->len_received = 0;
-  }
+	//this can only happen if the packet is de-synced and last char of checksum
+	//ends up being equal to the header, in that case we can end up in endless loop
+	//unable to re-sync with the packet
+	if (packet->len_received == 1 && c == ESC_PACKET_HEADER) {
+		packet->len_received = 0;
+	}
 
 	switch (packet->len_received) {
 	case 0:  //header

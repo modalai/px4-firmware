@@ -32,13 +32,19 @@
 ############################################################################
 
 px4_add_module(
-	MODULE drivers__uart_esc__modalai_esc
+	MODULE drivers__actuators__modalai_esc
 	MAIN modalai_esc
 	SRCS
 		crc16.c
-		qc_esc_packet.c
+		crc16.h
+
 		modalai_esc_serial.cpp
+		modalai_esc_serial.hpp
 		modalai_esc.cpp
+		modalai_esc.hpp
+		qc_esc_packet_types.h
+		qc_esc_packet.c
+		qc_esc_packet.h
 	DEPENDS
 		px4_work_queue
 	)
