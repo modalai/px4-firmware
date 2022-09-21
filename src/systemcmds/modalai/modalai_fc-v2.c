@@ -360,6 +360,9 @@ int modalai_buzz_test_v2(eHW_TYPE hw_type)
 			PX4_ERR("FAIL: M0087_J12_PIN_2_OUT M0087_J12_PIN_3_IN");
 		}
 
+		//
+		//
+		//
 		PX4_INFO(">> Testing J14");
 		stm32_configgpio(M0087_J14_PIN_2_OUT);
 		stm32_configgpio(M0087_J14_PIN_3_OUT);
@@ -420,9 +423,10 @@ int modalai_hw_detect_v2(eHW_TYPE hw_type)
 		PX4_INFO("V230 - M0079");
 		result = 0;
 
-	} else if (hw_type == eM0087 ) {
+	} else if (hw_type == eM0087) {
 		PX4_INFO("V230 - M0087");
 		result = 0;
+
 	} else {
 		PX4_ERR("Unknown hardware");
 	}
