@@ -1,6 +1,5 @@
 /****************************************************************************
- *
- *   Copyright (C) 2020 PX4 Development Team. All rights reserved.
+ * Copyright (c) 2017 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,10 +11,12 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
+ * 3. Neither the name The Linux Foundation nor the names of its contributors may be
  *    used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY
+ * THIS LICENSE.
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -28,26 +29,37 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ * In addition Supplemental Terms apply.  See the SUPPLEMENTAL file.
  *
  ****************************************************************************/
 
-#include <px4_arch/spi_hw_description.h>
-#include <drivers/drv_sensor.h>
-#include <nuttx/spi/spi.h>
+/*
+ * This file contains function prototypes for crc16 computations using polynomial 0x8005
+ */
 
-constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(SPI::Bus::SPI1, {
-		initSPIDevice(DRV_IMU_DEVTYPE_ICM42688P, SPI::CS{GPIO::PortI, GPIO::Pin9}, SPI::DRDY{GPIO::PortF, GPIO::Pin2}),
-	}),
-	initSPIBus(SPI::Bus::SPI2, {
-		initSPIDevice(DRV_IMU_DEVTYPE_ICM42688P, SPI::CS{GPIO::PortH, GPIO::Pin5}, SPI::DRDY{GPIO::PortA, GPIO::Pin10}),
-	}),
-	initSPIBus(SPI::Bus::SPI5, {
-		initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortG, GPIO::Pin7})
-	}),
-	initSPIBusExternal(SPI::Bus::SPI6, {
-		initSPIConfigExternal(SPI::CS{GPIO::PortI, GPIO::Pin10}),
-	}),
-};
+#ifndef CRC16_H_
+#define CRC16_H_
 
-static constexpr bool unused = validateSPIConfig(px4_spi_buses);
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#include <stdint.h>
+
+// Returns the seed of crc output, which should be used when computing crc16 of a byte sequence
+uint16_t crc16_init(void);
+
+// Process one byte by providing crc16 from previous step and new byte to consume.
+// Output is the new crc16 value
+uint16_t crc16_byte(uint16_t prev_crc, const uint8_t new_byte);
+
+// Process an array of bytes by providing crc16 from previous step (or seed), array of bytes and its length
+// Output is the new crc16 value
+uint16_t crc16(uint16_t prev_crc, uint8_t const *input_buffer, uint16_t input_length);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif //CRC16_H_

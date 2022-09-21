@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,23 +31,31 @@
  *
  ****************************************************************************/
 
-#include <px4_arch/spi_hw_description.h>
-#include <drivers/drv_sensor.h>
-#include <nuttx/spi/spi.h>
+#pragma once
 
-constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(SPI::Bus::SPI1, {
-		initSPIDevice(DRV_IMU_DEVTYPE_ICM42688P, SPI::CS{GPIO::PortI, GPIO::Pin9}, SPI::DRDY{GPIO::PortF, GPIO::Pin2}),
-	}),
-	initSPIBus(SPI::Bus::SPI2, {
-		initSPIDevice(DRV_IMU_DEVTYPE_ICM42688P, SPI::CS{GPIO::PortH, GPIO::Pin5}, SPI::DRDY{GPIO::PortA, GPIO::Pin10}),
-	}),
-	initSPIBus(SPI::Bus::SPI5, {
-		initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortG, GPIO::Pin7})
-	}),
-	initSPIBusExternal(SPI::Bus::SPI6, {
-		initSPIConfigExternal(SPI::CS{GPIO::PortI, GPIO::Pin10}),
-	}),
+#include <px4_log.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <termios.h>
+
+
+class ModalaiEscSerial
+{
+public:
+	ModalaiEscSerial();
+	virtual ~ModalaiEscSerial();
+
+	int		uart_open(const char *dev, speed_t speed);
+	int		uart_set_baud(speed_t speed);
+	int		uart_close();
+	int		uart_write(FAR void *buf, size_t len);
+	int		uart_read(FAR void *buf, size_t len);
+	bool		is_open() { return _uart_fd >= 0; };
+	int   uart_get_baud() {return _speed; }
+
+private:
+	int			_uart_fd = -1;
+	struct termios		_orig_cfg;
+	struct termios		_cfg;
+	int   _speed = -1;
 };
-
-static constexpr bool unused = validateSPIConfig(px4_spi_buses);
