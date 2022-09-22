@@ -91,8 +91,8 @@ typedef enum {
 //   M0087- J1
 //             PF6   PIN2 - in
 //             PE8   PIN3 - out
-//	       	   PF8   PIN4 - out
-//	       	   PE10  PIN5 - in
+//	       PF8   PIN4 - out
+//	       PE10  PIN5 - in
 //
 #define M0087_J1_PIN_2_IN             	_MK_GPIO_INPUT(GPIO_PORTF|GPIO_PIN6)
 #define M0087_J1_PIN_3_OUT              _MK_GPIO_OUTPUT(GPIO_PORTE|GPIO_PIN8)
