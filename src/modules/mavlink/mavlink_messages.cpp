@@ -143,6 +143,8 @@ using matrix::wrap_2pi;
 #include "streams/STORAGE_INFORMATION.hpp"
 #include "streams/TRAJECTORY_REPRESENTATION_WAYPOINTS.hpp"
 #include "streams/WIND_COV.hpp"
+#include "streams/OPEN_DRONE_ID_BASIC_ID.hpp"
+#include "streams/OPEN_DRONE_ID_LOCATION.hpp"
 
 #if !defined(CONSTRAINED_FLASH)
 # include "streams/DEBUG.hpp"
@@ -3184,8 +3186,14 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamStorageInformation>(),
 #endif // STORAGE_INFORMATION_HPP
 #if defined(RAW_RPM_HPP)
-	create_stream_list_item<MavlinkStreamRawRpm>()
+	create_stream_list_item<MavlinkStreamRawRpm>(),
 #endif // RAW_RPM_HPP
+#if defined(OPEN_DRONE_ID_BASIC_ID_HPP)
+	create_stream_list_item<MavlinkStreamOpenDroneIdBasicId>(),
+#endif // OPEN_DRONE_ID_BASIC_ID_HPP
+#if defined(OPEN_DRONE_ID_LOCATION)
+	create_stream_list_item<MavlinkStreamOpenDroneIdLocation>()
+#endif // OPEN_DRONE_ID_LOCATION
 };
 #endif
 

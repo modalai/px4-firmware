@@ -283,6 +283,10 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
         PX4_INFO("Failed CPU resource check preflight check");
     }
 
+    if (prearm) {
+        failed = failed || !openDroneIDCheck(mavlink_log_pub, report_failures, status_flags);
+    }
+
 	/* Report status */
 	return !failed;
 }

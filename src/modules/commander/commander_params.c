@@ -968,3 +968,20 @@ PARAM_DEFINE_FLOAT(COM_LKDOWN_TKO, 3.0f);
 * @value 1 Enabled
 */
 PARAM_DEFINE_INT32(COM_ARM_ARSP_EN, 1);
+
+/**
+ * Enable pre-arm check on OpenDroneID.
+ *
+ * If this parameter is set, the pre-arm mechanism will check for the OpenDroneID system and prevent arming if it is not present.
+ *
+ * @group Commander
+ * @boolean
+ */
+PARAM_DEFINE_INT32(COM_PREARM_ODID, 0);
+
+/*
+ * Allow arming without onboard logger being enabled and in ready state
+ *
+ * The default allows the vehicle to arm without the onboard logger reporting as ready via it's heartbeat
+ */
+PARAM_DEFINE_INT32(COM_ARM_WO_OBLOG, 0);
