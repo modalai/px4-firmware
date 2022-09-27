@@ -54,6 +54,7 @@ px4_add_board(
 	DRIVERS
         barometer/icp10100
 		qshell/qurt
+        magnetometer/akm/ak09916
         magnetometer/isentek/ist8310
         magnetometer/qmc5883l
         uart_esc/modalai_esc

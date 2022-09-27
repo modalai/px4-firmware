@@ -13,7 +13,7 @@ DAEMON=" "
 G="HOLYBRO"
 R="SPEKTRUM"
 
-while getopts "dmrio" flag
+while getopts "dmrioh" flag
 do
     case "${flag}" in
         # Use -d to put PX4 into daemon mode
@@ -26,6 +26,8 @@ do
         i) I="ROTATE_IMU_YAW_180";;
         # Use -o to start OSD module on the apps processor
         o) O="OSD";;
+        # Use -h to start Here3 GPS / Mag module
+        h) G="HERE3";;
     esac
 done
 
