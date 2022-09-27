@@ -62,6 +62,7 @@ px4_add_board(
 		px4io
         power_monitor/voxlpm
         imu/invensense/icm42688p
+		lights/rgbled
 		lights/rgbled_ncp5623c
 		pwm_out_sim
 		spektrum_rc
