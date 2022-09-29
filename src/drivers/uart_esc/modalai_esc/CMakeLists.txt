@@ -36,9 +36,14 @@ px4_add_module(
 	MAIN modalai_esc
 	SRCS
 		crc16.c
+		crc16.h
+		qc_esc_packet_types.h
 		qc_esc_packet.c
+		qc_esc_packet.h
 		modalai_esc_serial.cpp
+		modalai_esc_serial.hpp
 		modalai_esc.cpp
+		modalai_esc.hpp
 	DEPENDS
 		px4_work_queue
         mixer_module
