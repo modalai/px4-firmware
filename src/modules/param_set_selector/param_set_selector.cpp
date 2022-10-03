@@ -129,37 +129,58 @@ void ParamSetSelector::parameter_update_poll()
 
 void ParamSetSelector::switchSet(const ParameterSet& set)
 {
+	// initialize set of parameters we support - defaults to ALT_SLOW
+	float mpc_man_tilt_max {20.0};
+	float mpc_z_vel_max_dn {1.5};
+	float mpc_z_vel_max_up {1.5};
+	int mc_airmode {0};
+
 	// switch to the new parameter set
 	switch (set)
 	{
 		case ParameterSet::DISABLED:
-			break;
+			return;
 		case ParameterSet::ACRO_FAST:
 		{
-			const uint tilt = 60;
-			param_set(param_find("MPC_MAN_TILT_MAX"), &tilt);
+			// hardcoded params for ACRO_FAST
+			mpc_man_tilt_max = 60.0;
+			mpc_z_vel_max_dn = 10.0;
+			mpc_z_vel_max_up = 5.0;
+			mc_airmode = 1;
+			PX4_INFO("Updating to ACRO_FAST params.");
 			break;
 		}
 		case ParameterSet::ALT_FAST:
 		{
-			const uint tilt = 40;
-			param_set(param_find("MPC_MAN_TILT_MAX"), &tilt);
+			// hardcoded params for ALT_FAST
+			mpc_man_tilt_max = 60.0;
+			mpc_z_vel_max_dn = 10.0;
+			mpc_z_vel_max_up = 5.0;
+			mc_airmode = 0;
+			PX4_INFO("Updating to ALT_FAST params.");
 			break;
 		}
 		case ParameterSet::ALT_SLOW:
 		{
-			const uint tilt = 20;
-			param_set(param_find("MPC_MAN_TILT_MAX"), &tilt);
+			// hardcoded params for ALT_SLOW
+			mpc_man_tilt_max = 20.0;
+			mpc_z_vel_max_dn = 1.5;
+			mpc_z_vel_max_up = 1.5;
+			mc_airmode = 0;
+			PX4_INFO("Updating to ALT_SLOW params.");
 			break;
 		}
 		case ParameterSet::RESERVED4:
-			break;
 		case ParameterSet::RESERVED5:
-			break;
 		default:
-			// should be unreachable...
-			break;
+			return;
 	}
+
+	// if we got this far, set each param
+	param_set(param_find("MPC_MAN_TILT_MAX"), &mpc_man_tilt_max);
+	param_set(param_find("MPC_Z_VEL_MAX_DN"), &mpc_z_vel_max_dn);
+	param_set(param_find("MPC_Z_VEL_MAX_UP"), &mpc_z_vel_max_up);
+	param_set(param_find("MC_AIRMODE"), &mc_airmode);
 }
 
 void ParamSetSelector::Run()
