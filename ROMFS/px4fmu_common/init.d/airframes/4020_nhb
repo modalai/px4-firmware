@@ -38,10 +38,11 @@ param set-default MC_ROLLRATE_D 0.0013
 param set-default MC_ROLLRATE_I 0.5685
 param set-default MC_ROLLRATE_MAX 1600
 param set-default MC_ROLLRATE_P 0.0908
-param set-default MC_YAW_P 4
-param set-default MC_YAWRATE_I 0.4875
+param set-default MC_YAW_P 1.5
+param set-default MC_YAW_CUTOFF 25.02
+param set-default MC_YAWRATE_I 8.1473
 param set-default MC_YAWRATE_MAX 1300.0000
-param set-default MC_YAWRATE_P 0.1875
+param set-default MC_YAWRATE_P 0.1780
 
 # RC controller feel params
 param set-default MC_ACRO_EXPO 0.3000
@@ -60,7 +61,7 @@ param set-default COM_FLTMODE6 6
 # Flight Performance restriction params
 param set-default MPC_MANTHR_MIN 0.0400
 param set-default MPC_MAN_TILT_MAX 20.0000
-param set-default MPC_MAN_Y_MAX 500.0000
+param set-default MPC_MAN_Y_MAX 150.0
 param set-default MPC_THR_MAX 0.8000
 param set-default MPC_THR_MIN 0.0400
 param set-default MPC_Z_VEL_MAX_DN 1.3411
