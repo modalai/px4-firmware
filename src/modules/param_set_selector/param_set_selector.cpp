@@ -175,6 +175,9 @@ void ParamSetSelector::Run()
 	/* check parameters for updates */
 	parameter_update_poll();
 
+	// schedule next iteration
+	ScheduleDelayed(100_ms);
+
 	// end perf counter
 	perf_end(_loop_perf);
 }
@@ -204,7 +207,7 @@ int ParamSetSelector::task_spawn(int argc, char *argv[])
 
 bool ParamSetSelector::init()
 {
-	parameter_update_poll();
+	ScheduleNow();
 	return true;
 }
 

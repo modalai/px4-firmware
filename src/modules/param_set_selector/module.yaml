@@ -7,6 +7,15 @@ parameters:
     - group: Selector
       definitions:
 
+        SELECTOR_ENABLED:
+            description:
+                short: Enable dynaic parameter set selection.
+                long: |
+                    If set to TRUE / 1 this will autostart the module.
+            type: boolean
+            reboot_required: true
+            default: 0
+
         PARAM_SET:
             description:
                 short: Selected Parameter Set
