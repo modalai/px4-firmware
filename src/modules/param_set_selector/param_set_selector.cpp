@@ -37,17 +37,14 @@
  * @author Daniel M. Sahu <>
  */
 
-#include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
-#include <px4_platform_common/getopt.h>
-#include <px4_platform_common/posix.h>
-#include <px4_platform_common/tasks.h>
-#include <px4_platform_common/time.h>
-#include <px4_platform_common/log.h>
-#include <lib/parameters/param.h>
-#include <uORB/topics/parameter_update.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+#include <lib/parameters/param.h>
+#include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionInterval.hpp>
+#include <uORB/topics/parameter_update.h>
 
 using namespace time_literals;
 
