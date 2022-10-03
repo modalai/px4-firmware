@@ -114,6 +114,7 @@ param set-default MPC_THR_HOVER 0.2000
 param set-default MAN_ARM_GESTURE 0
 param set-default NAV_RCL_ACT 6
 param set-default THR_MDL_FAC 0.8000
+param set-default SELECTOR_ENABLED 1
 
 # consider setting to default or disabling
 param set-default COM_PREARM_MODE 1
