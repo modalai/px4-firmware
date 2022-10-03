@@ -1,0 +1,23 @@
+module_name: param_set_selector
+
+parameters:
+    - group: Selector
+      definitions:
+
+        PARAM_SET:
+            description:
+                short: Selected Parameter Set
+                long: |
+                    This selects and sets the desired collection (set) of parameters.
+
+                    Note: this operation only triggers on parameter change, so changes
+                        can be overridden by other modules and/or user dynamic parameter
+                        reconfiguration.
+            type: enum
+            values:
+                0: DISABLED
+                1: ACRO_FAST
+                2: ALT_FAST
+                3: ALT_SLOW
+            reboot_required: false
+            default: 0
