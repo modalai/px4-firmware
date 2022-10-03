@@ -63,10 +63,28 @@ public:
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
+	/** perform all initialization processes */
 	bool init();
 
 private:
+	/**< hardcoded parameter sets */
+	enum class ParameterSet {
+		DISABLED = 0,
+                ACRO_FAST = 1,
+                ALT_FAST = 2,
+                ALT_SLOW = 3,
+                RESERVED4 = 4,
+                RESERVED5 = 5
+	};
+
+	/** Core loop method. */
 	void Run() override;
+
+	/** Check for changes in parameters. */
+	void parameter_update_poll();
+
+	/** switch to the given set. */
+	void switchSet(const ParameterSet& set);
 
 	/**< notification of parameter updates */
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
@@ -74,10 +92,10 @@ private:
 	/**< loop performance counter */
 	perf_counter_t	_loop_perf;
 
-	/**
-	 * Check for changes in parameters.
-	 */
-	void parameter_update_poll(bool forced = false);
+	/**< define *our* parameters */
+	DEFINE_PARAMETERS(
+		(ParamInt<px4::params::PARAM_SET>) _param_param_set
+	)
 };
 
 ParamSetSelector::ParamSetSelector() :
@@ -85,7 +103,7 @@ ParamSetSelector::ParamSetSelector() :
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME))
 {
-	updateParams();
+	parameter_update_poll();
 }
 
 ParamSetSelector::~ParamSetSelector()
@@ -93,16 +111,54 @@ ParamSetSelector::~ParamSetSelector()
 	ScheduleClear();
 }
 
-void ParamSetSelector::parameter_update_poll(bool forced)
+void ParamSetSelector::parameter_update_poll()
 {
 	// check for parameter updates
-	if (_parameter_update_sub.updated() || forced) {
+	if (_parameter_update_sub.updated()) {
 		// clear update
 		parameter_update_s pupdate;
 		_parameter_update_sub.copy(&pupdate);
 
 		// update parameters from storage
 		updateParams();
+
+		// update parameter set
+		switchSet(static_cast<ParameterSet>(_param_param_set.get()));
+	}
+}
+
+void ParamSetSelector::switchSet(const ParameterSet& set)
+{
+	// switch to the new parameter set
+	switch (set)
+	{
+		case ParameterSet::DISABLED:
+			break;
+		case ParameterSet::ACRO_FAST:
+		{
+			const uint tilt = 60;
+			param_set(param_find("MPC_MAN_TILT_MAX"), &tilt);
+			break;
+		}
+		case ParameterSet::ALT_FAST:
+		{
+			const uint tilt = 40;
+			param_set(param_find("MPC_MAN_TILT_MAX"), &tilt);
+			break;
+		}
+		case ParameterSet::ALT_SLOW:
+		{
+			const uint tilt = 20;
+			param_set(param_find("MPC_MAN_TILT_MAX"), &tilt);
+			break;
+		}
+		case ParameterSet::RESERVED4:
+			break;
+		case ParameterSet::RESERVED5:
+			break;
+		default:
+			// should be unreachable...
+			break;
 	}
 }
 
@@ -148,6 +204,7 @@ int ParamSetSelector::task_spawn(int argc, char *argv[])
 
 bool ParamSetSelector::init()
 {
+	parameter_update_poll();
 	return true;
 }
 

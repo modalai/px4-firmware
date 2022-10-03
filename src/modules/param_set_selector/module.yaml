@@ -1,5 +1,8 @@
 module_name: param_set_selector
 
+# hardcoded maximum allowed number of parameter sets
+__max_param_sets: &max_param_sets 5
+
 parameters:
     - group: Selector
       definitions:
@@ -19,5 +22,7 @@ parameters:
                 1: ACRO_FAST
                 2: ALT_FAST
                 3: ALT_SLOW
+                4: RESERVED4
+                5: RESERVED5
             reboot_required: false
             default: 0
