@@ -13,7 +13,7 @@
 # hardware specific params
 param set-default BAT1_CAPACITY 1300.0000
 param set-default BAT1_N_CELLS 6
-param set-default BAT1_R_INTERNAL 0.0300
+param set-default BAT1_R_INTERNAL 0.0020
 param set-default BAT_N_CELLS 6
 
 # arming / disarming params
@@ -55,8 +55,9 @@ param set-default MC_ACRO_Y_MAX 900.0000
 
 # RC controller mapping params
 param set-default COM_FLTMODE1 1
-param set-default COM_FLTMODE4 8
+param set-default COM_FLTMODE4 1
 param set-default COM_FLTMODE6 6
+param set-default COM_RCL_ACT_T 0.5000
 
 # Flight Performance restriction params
 param set-default MPC_MANTHR_MIN 0.0400
@@ -64,24 +65,30 @@ param set-default MPC_MAN_TILT_MAX 20.0000
 param set-default MPC_MAN_Y_MAX 150.0
 param set-default MPC_THR_MAX 0.8000
 param set-default MPC_THR_MIN 0.0400
-param set-default MPC_Z_VEL_MAX_DN 1.3411
-param set-default MPC_Z_VEL_MAX_UP 1.3411
-param set-default MPC_Z_VEL_P_ACC 9.5000
-param set-default MPC_Z_V_AUTO_UP 1.3411
+param set-default MPC_JERK_MAX 15.0000
+param set-default MPC_XY_VEL_I_ACC 0.1000
+param set-default MPC_XY_VEL_P_ACC 3.0000
+param set-default MPC_Z_VEL_D_ACC 0.2000
+param set-default MPC_Z_VEL_I_ACC 1.2000
+param set-default MPC_Z_VEL_MAX_DN 1.5000
+param set-default MPC_Z_VEL_MAX_UP 1.5000
+param set-default MPC_Z_VEL_P_ACC 5.7000
+param set-default MPC_Z_V_AUTO_UP 1.3000
 
 # ESC driver params
 param set-default UART_ESC_CONFIG 1
 param set-default UART_ESC_MODE 1
-param set-default UART_ESC_MOTOR1 2
-param set-default UART_ESC_MOTOR2 4
+param set-default UART_ESC_MOTOR1 -2
+param set-default UART_ESC_MOTOR2 -4
 param set-default UART_ESC_MOTOR3 -1
 param set-default UART_ESC_MOTOR4 -3
 param set-default UART_ESC_RPM_MAX 24000
 param set-default UART_ESC_RPM_MIN 3000
+param set-default UART_ESC_BAUD 2000000
 param set-default UAVCAN_ENABLE 0
 
 # EKF params
-param set-default EKF2_AID_MASK 33
+param set-default EKF2_AID_MASK 32
 param set-default EKF2_ARSP_THR 0.1000
 param set-default EKF2_BCOEF_X 102.0000
 param set-default EKF2_BCOEF_Y 102.0000
@@ -92,6 +99,12 @@ param set-default EKF2_MAG_TYPE 4
 param set-default EKF2_MCOEF 0.3200
 param set-default EKF2_OF_DELAY 5.0000
 param set-default EKF2_RNG_AID 0
+param set-default EKF2_IMU_POS_Y -0.0155
+param set-default EKF2_IMU_POS_Z 0.0040
+param set-default EKF2_REQ_EPH 6.0000
+param set-default EKF2_REQ_EPV 10.0000
+param set-default EKF2_REQ_PDOP 3.5000
+param set-default EKF2_REQ_SACC 1.0000
 
 # noise filtering params
 param set-default IMU_DGYRO_CUTOFF 60.0000
@@ -101,6 +114,7 @@ param set-default IMU_GYRO_DNF_EN 2
 param set-default IMU_GYRO_FFT_LEN 1024
 param set-default IMU_GYRO_FFT_MAX 192.0000
 param set-default IMU_GYRO_FFT_MIN 32.0000
+param set-default IMU_GYRO_RATEMAX 800
 
 # miscellaneous important params
 param set-default COM_OF_LOSS_T 0.5000
@@ -113,8 +127,12 @@ param set-default MPC_POS_MODE 1
 param set-default MPC_THR_HOVER 0.2000
 param set-default MAN_ARM_GESTURE 0
 param set-default NAV_RCL_ACT 6
-param set-default THR_MDL_FAC 0.8000
+param set-default THR_MDL_FAC 0.8069
 param set-default SELECTOR_ENABLED 1
+param set-default MAV_1_MODE 0
+param set-default PARAM_SET 3
+param set-default PARAM_SET_CHANL 6
+param set-default SER_TEL2_BAUD 115200
 
 # consider setting to default or disabling
 param set-default COM_PREARM_MODE 1
@@ -122,9 +140,12 @@ param set-default MPC_LAND_ALT1 5.0000
 param set-default MPC_LAND_ALT2 2.0000
 param set-default COM_ARM_MAG_ANG 30
 
-# uninvestigated params
+# follow up for further questioning
+param set-default CAL_MAG0_ROT 10
+param set-default HTE_HT_NOISE 0.0005
+param set-default HTE_THR_RANGE 0.4000
+param set-default NAV_ACC_RAD 10.0000
 param set-default PWM_AUX_OUT 1234
 param set-default PWM_MAIN_MIN 1075
 param set-default PWM_MAIN_OUT 1234
 param set-default PWM_MAIN_RATE 0
-param set-default SENS_MAG_RATE 50.0000
