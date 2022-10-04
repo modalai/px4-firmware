@@ -146,14 +146,24 @@ void ParamSetSelector::set_from_rc_input()
 	// get latest RC input value
 	input_rc_s input_rc;
 	_input_rc_sub.copy(&input_rc);
-	uint16_t val = input_rc.values[idx];
+	uint16_t pwm = input_rc.values[idx];
 
-	// map to values within our acceptable range
-	// @TODO
-	PX4_ERR("Got val: %i", val);
+	// map PWM values (~1000-2000) to our acceptable range ([3,2,1])
+	// @TODO make this configurable somehow? users could choose
+	float normalized = (static_cast<float>(pwm) - 1000.0f) / 1000.0f;
+	int requested = std::round(2.0f * (1.0f - math::constrain(normalized, 0.0f, 1.0f)) + 1.0f);
+
+	// if this matches our current value do nothing
+	if (static_cast<ParameterSet>(requested) == _current_set)
+		return;
+
+	// update local variables and perform parameter set switch
+	PX4_DEBUG("Switching from Parameter Set #%i to #%i", static_cast<int>(_current_set), requested);
+	_current_set = static_cast<ParameterSet>(requested);
+	switchSet(_current_set);
 
 	// also set the corresponding param to prevent confusing disconnects
-	// @TODO
+	param_set(param_find("PARAM_SET"), &requested);
 }
 
 void ParamSetSelector::set_from_params()
@@ -186,7 +196,7 @@ void ParamSetSelector::switchSet(const ParameterSet& set)
 			mpc_man_tilt_max = 60.0;
 			mpc_z_vel_max_dn = 10.0;
 			mpc_z_vel_max_up = 5.0;
-			mc_airmode = 1;
+			mc_airmode = 2;
 			PX4_INFO("Updating to ACRO_FAST params.");
 			break;
 		}
