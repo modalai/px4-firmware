@@ -1010,7 +1010,7 @@ void ModalaiEsc::mixTurtleMode(uint16_t outputs[MAX_ACTUATORS])
 
 		// Add a little bit to the motorOutputMin so props aren't spinning when sticks are centered
 		float deadBandRpm = ((float)_parameters.turtle_motor_deadband/100.0f) * _rpm_fullscale;
-		motorOutput = (motorOutput < _rpm_turtle_min + deadBandRpm) ? 0.0f : (motorOutput -  deadBandRpm);
+		motorOutput = (motorOutput < _rpm_turtle_min + deadBandRpm) ? 0.0f : (motorOutput -  _parameters.turtle_motor_deadband);
 
 		// using the output map here for clarity as PX4 motors are 1-4
 		switch(_output_map[i].number){
