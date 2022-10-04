@@ -35,3 +35,37 @@ parameters:
                 5: RESERVED5
             reboot_required: false
             default: 0
+
+        PARAM_SET_CHANL:
+            description:
+                short: RC Channel used to set the PARAM_SET parameter.
+                long: |
+                    If enabled, this param will be used to set the PARAM_SET parameter.
+
+                    This enables mapping an RC switch to a set of parameter changes. The
+                    existing method for doing this (RC_MAP_PARAM*) only supports dials
+                    and knobs, i.e. physical switches which map smoothly to a continuous
+                    floating point distribution.
+            type: enum
+            values:
+                0: UNASSIGNED
+                1: CHANNEL1
+                2: CHANNEL2
+                3: CHANNEL3
+                4: CHANNEL4
+                5: CHANNEL5
+                6: CHANNEL6
+                7: CHANNEL7
+                8: CHANNEL8
+                9: CHANNEL9
+                10: CHANNEL10
+                11: CHANNEL11
+                12: CHANNEL12
+                13: CHANNEL13
+                14: CHANNEL14
+                15: CHANNEL15
+                16: CHANNEL16
+                17: CHANNEL17
+                18: CHANNEL18
+            reboot_required: true
+            default: 0

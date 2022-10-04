@@ -45,6 +45,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/input_rc.h>
 
 using namespace time_literals;
 
@@ -80,8 +81,11 @@ private:
 	/** Core loop method. */
 	void Run() override;
 
-	/** Check for changes in parameters. */
-	void parameter_update_poll();
+	/** Check if we should update from rc input. */
+	void set_from_rc_input();
+
+	/** Check if we should update from params. */
+	void set_from_params();
 
 	/** switch to the given set. */
 	void switchSet(const ParameterSet& set);
@@ -89,12 +93,22 @@ private:
 	/**< notification of parameter updates */
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
+	/**< subscription to RC Inputs */
+	uORB::Subscription _input_rc_sub{ORB_ID(input_rc)};
+
 	/**< loop performance counter */
 	perf_counter_t	_loop_perf;
 
+	/**< RC channel index (-1 means unused) */
+	int _rc_channel_index {-1};
+
+	/**< Currently selected parameter set */
+	ParameterSet _current_set {ParameterSet::DISABLED};
+
 	/**< define *our* parameters */
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::PARAM_SET>) _param_param_set
+		(ParamInt<px4::params::PARAM_SET>) _param_param_set,
+		(ParamInt<px4::params::PARAM_SET_CHANL>) _param_param_set_rc_channel
 	)
 };
 
@@ -103,7 +117,11 @@ ParamSetSelector::ParamSetSelector() :
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME))
 {
-	parameter_update_poll();
+	// get initial params
+	updateParams();
+
+	// get the channel to listen on for RC inputs
+	_rc_channel_index = static_cast<int>(_param_param_set_rc_channel.get()) - 1;
 }
 
 ParamSetSelector::~ParamSetSelector()
@@ -111,19 +129,41 @@ ParamSetSelector::~ParamSetSelector()
 	ScheduleClear();
 }
 
-void ParamSetSelector::parameter_update_poll()
+void ParamSetSelector::set_from_rc_input()
 {
-	// check for parameter updates
-	if (_parameter_update_sub.updated()) {
-		// clear update
-		parameter_update_s pupdate;
-		_parameter_update_sub.copy(&pupdate);
+	// exit early if we aren't updated
+	if (!_input_rc_sub.updated())
+		return;
 
-		// update parameters from storage
-		updateParams();
+	// get channel value
+	const uint8_t idx = static_cast<uint8_t>(_rc_channel_index);
+	if (_rc_channel_index >= input_rc_s::RC_INPUT_MAX_CHANNELS) {
+		// if we get here something really bad happened. like this should be an assert
+		PX4_ERR("Invalid channel index requested: %i", idx);
+		return;
+	}
 
-		// update parameter set
-		switchSet(static_cast<ParameterSet>(_param_param_set.get()));
+	// get latest RC input value
+	input_rc_s input_rc;
+	_input_rc_sub.copy(&input_rc);
+	uint16_t val = input_rc.values[idx];
+
+	// map to values within our acceptable range
+	// @TODO
+	PX4_ERR("Got val: %i", val);
+
+	// also set the corresponding param to prevent confusing disconnects
+	// @TODO
+}
+
+void ParamSetSelector::set_from_params()
+{
+	// update parameter set, if modified
+	ParameterSet requested = static_cast<ParameterSet>(_param_param_set.get());
+	if (requested != _current_set)
+	{
+		_current_set = requested;
+		switchSet(requested);
 	}
 }
 
@@ -193,8 +233,21 @@ void ParamSetSelector::Run()
 	// begin perf counter
 	perf_begin(_loop_perf);
 
-	/* check parameters for updates */
-	parameter_update_poll();
+	// check for parameter updates
+	if (_parameter_update_sub.updated()) {
+		// clear update
+		parameter_update_s pupdate;
+		_parameter_update_sub.copy(&pupdate);
+
+		// update parameters from storage
+		updateParams();
+	}
+
+	// try to update from an RC input
+	if (_rc_channel_index >= 0)
+		set_from_rc_input();
+	else
+		set_from_params();
 
 	// schedule next iteration
 	ScheduleDelayed(100_ms);
