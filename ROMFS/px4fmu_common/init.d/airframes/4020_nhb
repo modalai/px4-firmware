@@ -97,7 +97,6 @@ param set-default EKF2_GPS_CHECK 0
 param set-default EKF2_MAG_CHECK 0
 param set-default EKF2_MAG_TYPE 4
 param set-default EKF2_MCOEF 0.3200
-param set-default EKF2_OF_DELAY 5.0000
 param set-default EKF2_RNG_AID 0
 param set-default EKF2_IMU_POS_Y -0.0155
 param set-default EKF2_IMU_POS_Z 0.0040
