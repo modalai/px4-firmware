@@ -1,7 +1,6 @@
-
 /****************************************************************************
  *
- *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
+ *   Copyright (c) 2019 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,27 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
-/**
- * @file px4_config.h
-   Configuration flags used in code.
- */
-
 #pragma once
 
-#if defined(__PX4_NUTTX)
+#include <px4_platform/micro_hal.h>
 
-#include <nuttx/config.h>
-#include <nuttx/arch.h>
-#include "micro_hal.h"
-#include <board_config.h>
-
-#elif defined (__PX4_POSIX) && !defined(__PX4_QURT)
-
-#include "micro_hal.h"
-#include <board_config.h>
-
-#endif
-
-/* PX4 board kconfig symbols */
-#include <px4_boardconfig.h>

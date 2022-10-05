@@ -1,7 +1,5 @@
-
 /****************************************************************************
- *
- *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
+ * Copyright (c) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,26 +30,38 @@
  *
  ****************************************************************************/
 
+#pragma once
 /**
- * @file px4_config.h
-   Configuration flags used in code.
+ * @file
+ * The declarations in this file are released to DSPAL users and are used to
+ * make file I/O call's with a device path.
  */
 
-#pragma once
+#include "sys/ioccom.h"
+#include <sys/cdefs.h>
 
-#if defined(__PX4_NUTTX)
+__BEGIN_DECLS
 
-#include <nuttx/config.h>
-#include <nuttx/arch.h>
-#include "micro_hal.h"
-#include <board_config.h>
+/**
+ * Sends an IOCTL for a previous open bus/port device or file.
+ *
+ * @param fd
+ * File descriptor returned from the open function.
+ * @param request
+ * The numeric value of the IOCTL defined for the particular bus/port openened.
+ * In the case of files, see fcntl.h\n
+ * In the case of devices, see the following header files for a list of
+ * IOCTL options defined for certain type of bus/port device
+ * - dev_fs_lib_serial.h
+ * - dev_fs_lib_spi.h
+ * - dev_fs_lib_gpio.h
+ * - dev_fs_lib_i2c.h \n
+ * @param argp
+ * Parameter buffer defined for the particular IOCTL.
+ * @return
+ * - SUCCESS: The IOCTL was successfully processed.
+ * TODO: List error codes for all bus/port types.
+ */
+int ioctl(int fd, int request, void *argp);
 
-#elif defined (__PX4_POSIX) && !defined(__PX4_QURT)
-
-#include "micro_hal.h"
-#include <board_config.h>
-
-#endif
-
-/* PX4 board kconfig symbols */
-#include <px4_boardconfig.h>
+__END_DECLS
