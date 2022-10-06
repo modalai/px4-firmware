@@ -199,3 +199,18 @@ PARAM_DEFINE_INT32(UART_ESC_T_YAWR, 0);
  * @increment 0.001
  */
 PARAM_DEFINE_FLOAT(UART_ESC_T_COSP, 0.990);
+
+/**
+ * UART ESC verbose logging
+ *
+ * Enables/disables verbose logging
+ *
+ * @reboot_required true
+ *
+ * @group UART ESC
+ * @value 0 - Disabled
+ * @value 1 - Enabled
+ * @min 0
+ * @max 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_VLOG, 0);

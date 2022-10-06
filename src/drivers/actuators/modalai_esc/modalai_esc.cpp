@@ -155,6 +155,7 @@ int ModalaiEsc::load_params(uart_esc_params_t *params, ch_assign_t *map)
 	param_get(param_find("UART_ESC_MOTOR4"),  &params->motor_map[3]);
 	param_get(param_find("UART_ESC_RPM_MIN"), &params->rpm_min);
 	param_get(param_find("UART_ESC_RPM_MAX"), &params->rpm_max);
+	param_get(param_find("UART_ESC_VLOG"),    &params->verbose_logging);
 
 	if (params->rpm_min >= params->rpm_max) {
 		PX4_ERR("Invalid parameter UART_ESC_RPM_MIN.  Please verify parameters.");
@@ -1199,8 +1200,7 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 	//check_for_esc_timeout();
 
 	// publish the actual command that we sent and the feedback received
-	/*
-	if (MODALAI_PUBLISH_ESC_STATUS) {
+	if (_parameters.verbose_logging) {
 		actuator_outputs_s actuator_outputs{};
 		actuator_outputs.noutputs = num_outputs;
 
@@ -1213,7 +1213,6 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 		_outputs_debug_pub.publish(actuator_outputs);
 		_esc_status_pub.publish(_esc_status);
 	}
-	*/
 
 	perf_count(_output_update_perf);
 
@@ -1510,6 +1509,7 @@ int ModalaiEsc::print_status()
 	PX4_INFO("Params: UART_ESC_MOTOR4: %li", _parameters.motor_map[3]);
 	PX4_INFO("Params: UART_ESC_RPM_MIN: %li", _parameters.rpm_min);
 	PX4_INFO("Params: UART_ESC_RPM_MAX: %li", _parameters.rpm_max);
+	PX4_INFO("Params: UART_ESC_VLOG: %li", _parameters.verbose_logging);
 
 	PX4_INFO("");
 
