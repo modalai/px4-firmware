@@ -104,7 +104,32 @@ int ModalaiEscSerial::uart_open(const char *dev, speed_t speed)
 	}
 #endif
 
+	_speed =  speed;
+
 	return 0;
+}
+
+int ModalaiEscSerial::uart_set_baud(speed_t speed)
+{
+	// TODO: see src/drivers/gps/gps.cpp::setBaudrate
+#ifndef __PX4_QURT
+	if (_uart_fd < 0) {
+		return -1;
+	}
+
+	if (cfsetispeed(&_cfg, speed) < 0) {
+		return -1;
+	}
+
+	if (tcsetattr(_uart_fd, TCSANOW, &_cfg) < 0) {
+		return -1;
+	}
+
+	_speed = speed;
+
+	return 0;
+#endif
+	return -1;
 }
 
 int ModalaiEscSerial::uart_close()

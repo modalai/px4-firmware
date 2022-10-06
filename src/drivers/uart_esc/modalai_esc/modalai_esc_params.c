@@ -107,7 +107,6 @@ PARAM_DEFINE_INT32(UART_ESC_MOTOR4, 1);
  * Minimum RPM for ESC
  *
  * @group UART ESC
- * @unit RPM
  */
 PARAM_DEFINE_INT32(UART_ESC_RPM_MIN, 5500);
 
@@ -117,7 +116,6 @@ PARAM_DEFINE_INT32(UART_ESC_RPM_MIN, 5500);
  * Maximum RPM for ESC
  *
  * @group UART ESC
- * @unit RPM
  */
 PARAM_DEFINE_INT32(UART_ESC_RPM_MAX, 15000);
 
@@ -132,6 +130,7 @@ PARAM_DEFINE_INT32(UART_ESC_RPM_MAX, 15000);
  * @value 0 - None
  * @value 1 - Turtle Mode enabled via AUX1
  * @value 2 - Turtle Mode enabled via AUX2
+ * @value 3 - UART Passthrough Mode
  * @min 0
  * @max 2
  */
@@ -201,3 +200,18 @@ PARAM_DEFINE_INT32(UART_ESC_T_YAWR, 0);
  * @increment 0.001
  */
 PARAM_DEFINE_FLOAT(UART_ESC_T_COSP, 0.990);
+
+/**
+ * UART ESC verbose logging
+ *
+ * Enables/disables verbose logging
+ *
+ * @reboot_required true
+ *
+ * @group UART ESC
+ * @value 0 - Disabled
+ * @value 1 - Enabled
+ * @min 0
+ * @max 1
+ */
+PARAM_DEFINE_INT32(UART_ESC_VLOG, 0);
