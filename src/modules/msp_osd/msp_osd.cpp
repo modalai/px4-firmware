@@ -81,6 +81,7 @@ const uint16_t osd_rssi_value_pos = 2176;
 const uint16_t osd_home_dir_pos = 2093;
 const uint16_t osd_craft_name_pos = 2543;
 const uint16_t osd_disarmed_pos = 2125;
+const uint16_t osd_crosshairs_pos = 2319;
 
 // Right
 const uint16_t osd_main_batt_voltage_pos = 2073;
@@ -144,13 +145,13 @@ void MspOsd::SendConfig()
 	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
 	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
 	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_crosshairs_pos = enabled(SymbolIndex::CROSSHAIRS) ? osd_crosshairs_pos : LOCATION_HIDDEN;
 
 	// possibly available, but not currently used
 	msp_osd_config.osd_flymode_pos = 			LOCATION_HIDDEN;
 	msp_osd_config.osd_esc_tmp_pos = 			LOCATION_HIDDEN;
 	msp_osd_config.osd_pitch_angle_pos = 			LOCATION_HIDDEN;
 	msp_osd_config.osd_roll_angle_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_crosshairs_pos = 			LOCATION_HIDDEN;
 	msp_osd_config.osd_avg_cell_voltage_pos = 		LOCATION_HIDDEN;
 	msp_osd_config.osd_horizon_sidebars_pos = 		LOCATION_HIDDEN;
 	msp_osd_config.osd_power_pos = 				LOCATION_HIDDEN;
