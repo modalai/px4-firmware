@@ -30,15 +30,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
-#if 0 // enable non-verbose debugging
-#define CRSF_DEBUG PX4_WARN
+#define MODULE_NAME "csrf"
+#if 1 // enable non-verbose debugging
+#define CRSF_DEBUG PX4_INFO
 #else
 #define CRSF_DEBUG(...)
 #endif
 
-#if 0 // verbose debugging. Careful when enabling: it leads to too much output, causing dropped bytes
-#define CRSF_VERBOSE PX4_WARN
+#if 1 // verbose debugging. Careful when enabling: it leads to too much output, causing dropped bytes
+#define CRSF_VERBOSE PX4_INFO
 #else
 #define CRSF_VERBOSE(...)
 #endif

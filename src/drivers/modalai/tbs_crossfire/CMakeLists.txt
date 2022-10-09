@@ -44,7 +44,9 @@ px4_add_module(
 		${PX4_SOURCE_DIR}/mavlink/include/mavlink
 	SRCS
 		tbs_crossfire.cpp
+		${PX4_SOURCE_DIR}/src/drivers/rc_input/crsf_telemetry.cpp
 	DEPENDS
+		rc
 		px4_work_queue
 		git_mavlink_v2
 	)
