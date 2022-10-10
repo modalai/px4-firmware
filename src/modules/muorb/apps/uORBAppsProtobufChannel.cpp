@@ -73,8 +73,10 @@ void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
 		}
 
 		if (test_passed) { test_flag = true; }
-	} else if (_RxHandler){
-		_RxHandler->process_received_message(topic, length_in_bytes, const_cast<uint8_t*>(data));
+
+	} else if (_RxHandler) {
+		_RxHandler->process_received_message(topic, length_in_bytes, const_cast<uint8_t *>(data));
+
 	} else {
 		PX4_INFO("Got received data callback for topic %s", topic);
 	}
@@ -86,8 +88,10 @@ void uORB::AppsProtobufChannel::AdvertiseCallback(const char *topic)
 
 	if (IS_MUORB_TEST(topic)) {
 		test_flag = true;
+
 	} else if (_RxHandler) {
-        	_RxHandler->process_remote_topic(topic, true);
+		_RxHandler->process_remote_topic(topic, true);
+
 	} else {
 		PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
 	}
@@ -103,8 +107,10 @@ void uORB::AppsProtobufChannel::SubscribeCallback(const char *topic)
 
 	if (IS_MUORB_TEST(topic)) {
 		test_flag = true;
+
 	} else if (_RxHandler) {
-        	_RxHandler->process_add_subscription(topic, true);
+		_RxHandler->process_add_subscription(topic, true);
+
 	} else {
 		PX4_WARN("uORB pointer is null in %s", __FUNCTION__);
 	}
@@ -115,13 +121,17 @@ void uORB::AppsProtobufChannel::UnsubscribeCallback(const char *topic)
 	PX4_INFO("Got remove subscription callback for topic %s", topic);
 
 	pthread_mutex_lock(&_rx_mutex);
-	if (_SlpiSubscriberCache[topic]) _SlpiSubscriberCache[topic]--;
+
+	if (_SlpiSubscriberCache[topic]) { _SlpiSubscriberCache[topic]--; }
+
 	pthread_mutex_unlock(&_rx_mutex);
 
 	if (IS_MUORB_TEST(topic)) {
 		test_flag = true;
+
 	} else if (_RxHandler) {
-        	_RxHandler->process_remove_subscription(topic);
+		_RxHandler->process_remove_subscription(topic);
+
 	} else {
 		PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
 	}
@@ -216,18 +226,21 @@ int16_t uORB::AppsProtobufChannel::topic_advertised(const char *messageName)
 		pthread_mutex_unlock(&_tx_mutex);
 		return rc;
 	}
+
 	return -1;
 }
 
 int16_t uORB::AppsProtobufChannel::add_subscription(const char *messageName, int msgRateInHz)
 {
 	(void)(msgRateInHz);
+
 	if (_Initialized) {
 		pthread_mutex_lock(&_tx_mutex);
 		int16_t rc = fc_sensor_subscribe(messageName);
 		pthread_mutex_unlock(&_tx_mutex);
 		return rc;
 	}
+
 	return -1;
 }
 
@@ -239,6 +252,7 @@ int16_t uORB::AppsProtobufChannel::remove_subscription(const char *messageName)
 		pthread_mutex_unlock(&_tx_mutex);
 		return rc;
 	}
+
 	return -1;
 }
 
@@ -261,10 +275,12 @@ int16_t uORB::AppsProtobufChannel::send_message(const char *messageName, int len
 			int16_t rc = fc_sensor_send_data(messageName, data, length);
 			pthread_mutex_unlock(&_tx_mutex);
 			return rc;
+
 		} else {
 			PX4_INFO("No subscribers (yet) in %s for topic %s", __FUNCTION__, messageName);
 			return 0;
 		}
 	}
+
 	return -1;
 }

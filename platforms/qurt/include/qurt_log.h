@@ -58,7 +58,7 @@ static __inline void qurt_log(int level, const char *file, int line,
 	vsnprintf(buf, sizeof(buf), format, args);
 	va_end(args);
 	HAP_debug(buf, level, file, line);
-    qurt_log_to_apps(level, buf);
+	qurt_log_to_apps(level, buf);
 }
 #endif
 

@@ -65,7 +65,7 @@ muorb_main(int argc, char *argv[])
 	} else if (!strcmp(argv[1], "test")) {
 		uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
 
-		if (channel && channel->Initialize(enable_debug) && channel->Test()){
+		if (channel && channel->Initialize(enable_debug) && channel->Test()) {
 			return OK;
 		}
 
@@ -73,6 +73,7 @@ muorb_main(int argc, char *argv[])
 		if (uORB::AppsProtobufChannel::isInstance() == false) {
 			PX4_WARN("muorb not running");
 		}
+
 		return OK;
 
 	} else if (!strcmp(argv[1], "status")) {
