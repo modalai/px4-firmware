@@ -33,6 +33,7 @@
 
 #include <string.h>
 #include "uORBAppsProtobufChannel.hpp"
+#include "uORB/uORBManager.hpp"
 
 extern "C" { __EXPORT int muorb_main(int argc, char *argv[]); }
 
@@ -56,18 +57,22 @@ muorb_main(int argc, char *argv[])
 		// Register the protobuf channel with UORB.
 		uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
 
-		if (channel && channel->Initialize(enable_debug)) { return OK; }
+		if (channel && channel->Initialize(enable_debug)) {
+			uORB::Manager::get_instance()->set_uorb_communicator(channel);
+			return OK;
+		}
 
 	} else if (!strcmp(argv[1], "test")) {
 		uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
 
-		if (channel && channel->Initialize(enable_debug) && channel->Test()) { return OK; }
+		if (channel && channel->Initialize(enable_debug) && channel->Test()){
+			return OK;
+		}
 
 	} else if (!strcmp(argv[1], "stop")) {
 		if (uORB::AppsProtobufChannel::isInstance() == false) {
 			PX4_WARN("muorb not running");
 		}
-
 		return OK;
 
 	} else if (!strcmp(argv[1], "status")) {

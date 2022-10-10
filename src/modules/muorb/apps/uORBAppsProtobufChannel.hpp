@@ -38,13 +38,18 @@
 #include <string>
 #include "MUORBTest.hpp"
 #include <px4_platform_common/log.h>
+#include "uORB/uORBCommunicator.hpp"
+#include <map>
+#include "drivers/drv_hrt.h"
+#include <pthread.h>
+#include <cstdio>
 
 namespace uORB
 {
 class AppsProtobufChannel;
 }
 
-class uORB::AppsProtobufChannel
+class uORB::AppsProtobufChannel : public uORBCommunicator::IChannel
 {
 public:
 	/**
@@ -68,11 +73,24 @@ public:
 	}
 
 	bool Initialize(bool enable_debug);
+	int16_t topic_advertised(const char *messageName);
+	int16_t add_subscription(const char *messageName, int msgRateInHz);
+	int16_t remove_subscription(const char *messageName);
+	int16_t register_handler(uORBCommunicator::IChannelRxHandler *handler);
+	int16_t send_message(const char *messageName, int length, uint8_t *data);
 
 	bool Test();
 
 private: // data members
 	static uORB::AppsProtobufChannel           *_InstancePtr;
+	static uORBCommunicator::IChannelRxHandler *_RxHandler;
+	static std::map<std::string, int>           _SlpiSubscriberCache;
+	static pthread_mutex_t                      _tx_mutex;
+	static pthread_mutex_t                      _rx_mutex;
+	static bool                                 _Debug;
+
+	bool                                        _Initialized;
+	uint32_t                                    _MessageCounter;
 
 private://class members.
 	/// constructor.

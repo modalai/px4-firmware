@@ -36,10 +36,15 @@
 
 #include "fc_sensor.h"
 
-bool uORB::AppsProtobufChannel::test_flag = false;
-
 // Initialize the static members
 uORB::AppsProtobufChannel *uORB::AppsProtobufChannel::_InstancePtr = nullptr;
+uORBCommunicator::IChannelRxHandler *uORB::AppsProtobufChannel::_RxHandler = nullptr;
+std::map<std::string, int> uORB::AppsProtobufChannel::_SlpiSubscriberCache;
+pthread_mutex_t uORB::AppsProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t uORB::AppsProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
+bool uORB::AppsProtobufChannel::_Debug = true;
+
+bool uORB::AppsProtobufChannel::test_flag = false;
 
 void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
 		const uint8_t *data,
@@ -68,7 +73,8 @@ void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
 		}
 
 		if (test_passed) { test_flag = true; }
-
+	} else if (_RxHandler){
+		_RxHandler->process_received_message(topic, length_in_bytes, const_cast<uint8_t*>(data));
 	} else {
 		PX4_INFO("Got received data callback for topic %s", topic);
 	}
@@ -78,21 +84,47 @@ void uORB::AppsProtobufChannel::AdvertiseCallback(const char *topic)
 {
 	PX4_INFO("Got advertisement callback for topic %s", topic);
 
-	if (IS_MUORB_TEST(topic)) { test_flag = true; }
+	if (IS_MUORB_TEST(topic)) {
+		test_flag = true;
+	} else if (_RxHandler) {
+        	_RxHandler->process_remote_topic(topic, true);
+	} else {
+		PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
+	}
 }
 
 void uORB::AppsProtobufChannel::SubscribeCallback(const char *topic)
 {
 	PX4_INFO("Got subscription callback for topic %s", topic);
 
-	if (IS_MUORB_TEST(topic)) { test_flag = true; }
+	pthread_mutex_lock(&_rx_mutex);
+	_SlpiSubscriberCache[topic]++;
+	pthread_mutex_unlock(&_rx_mutex);
+
+	if (IS_MUORB_TEST(topic)) {
+		test_flag = true;
+	} else if (_RxHandler) {
+        	_RxHandler->process_add_subscription(topic, true);
+	} else {
+		PX4_WARN("uORB pointer is null in %s", __FUNCTION__);
+	}
 }
 
 void uORB::AppsProtobufChannel::UnsubscribeCallback(const char *topic)
 {
 	PX4_INFO("Got remove subscription callback for topic %s", topic);
 
-	if (IS_MUORB_TEST(topic)) { test_flag = true; }
+	pthread_mutex_lock(&_rx_mutex);
+	if (_SlpiSubscriberCache[topic]) _SlpiSubscriberCache[topic]--;
+	pthread_mutex_unlock(&_rx_mutex);
+
+	if (IS_MUORB_TEST(topic)) {
+		test_flag = true;
+	} else if (_RxHandler) {
+        	_RxHandler->process_remove_subscription(topic);
+	} else {
+		PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
+	}
 }
 
 bool uORB::AppsProtobufChannel::Test(MUORBTestType test_type)
@@ -173,4 +205,66 @@ bool uORB::AppsProtobufChannel::Initialize(bool enable_debug)
 	}
 
 	return true;
+}
+
+int16_t uORB::AppsProtobufChannel::topic_advertised(const char *messageName)
+{
+	if (_Initialized) {
+		PX4_INFO("Advertising topic %s to remote side", messageName);
+		pthread_mutex_lock(&_tx_mutex);
+		int16_t rc = fc_sensor_advertise(messageName);
+		pthread_mutex_unlock(&_tx_mutex);
+		return rc;
+	}
+	return -1;
+}
+
+int16_t uORB::AppsProtobufChannel::add_subscription(const char *messageName, int msgRateInHz)
+{
+	(void)(msgRateInHz);
+	if (_Initialized) {
+		pthread_mutex_lock(&_tx_mutex);
+		int16_t rc = fc_sensor_subscribe(messageName);
+		pthread_mutex_unlock(&_tx_mutex);
+		return rc;
+	}
+	return -1;
+}
+
+int16_t uORB::AppsProtobufChannel::remove_subscription(const char *messageName)
+{
+	if (_Initialized) {
+		pthread_mutex_lock(&_tx_mutex);
+		int16_t rc = fc_sensor_unsubscribe(messageName);
+		pthread_mutex_unlock(&_tx_mutex);
+		return rc;
+	}
+	return -1;
+}
+
+int16_t uORB::AppsProtobufChannel::register_handler(uORBCommunicator::IChannelRxHandler *handler)
+{
+	_RxHandler = handler;
+	return 0;
+}
+
+int16_t uORB::AppsProtobufChannel::send_message(const char *messageName, int length, uint8_t *data)
+{
+	if (_Initialized) {
+		pthread_mutex_lock(&_rx_mutex);
+		int has_subscribers = _SlpiSubscriberCache[messageName];
+		pthread_mutex_unlock(&_rx_mutex);
+
+		if (has_subscribers) {
+			PX4_INFO("Sending data for topic %s", messageName);
+			pthread_mutex_lock(&_tx_mutex);
+			int16_t rc = fc_sensor_send_data(messageName, data, length);
+			pthread_mutex_unlock(&_tx_mutex);
+			return rc;
+		} else {
+			PX4_INFO("No subscribers (yet) in %s for topic %s", __FUNCTION__, messageName);
+			return 0;
+		}
+	}
+	return -1;
 }
