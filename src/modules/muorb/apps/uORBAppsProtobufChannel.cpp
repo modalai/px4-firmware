@@ -152,19 +152,19 @@ bool uORB::AppsProtobufChannel::Test(MUORBTestType test_type)
 
 	switch (test_type) {
 	case ADVERTISE_TEST_TYPE:
-		rc = fc_sensor_advertise(muorb_test_topic_name);
+		rc = _InstancePtr->topic_advertised(muorb_test_topic_name);
 		break;
 
 	case SUBSCRIBE_TEST_TYPE:
-		rc = fc_sensor_subscribe(muorb_test_topic_name);
+		rc = _InstancePtr->add_subscription(muorb_test_topic_name, 0);
 		break;
 
 	case TOPIC_TEST_TYPE:
-		rc = fc_sensor_send_data(muorb_test_topic_name, test_data, MUORB_TEST_DATA_LEN);
+		rc = _InstancePtr->send_message(muorb_test_topic_name, MUORB_TEST_DATA_LEN, test_data);
 		break;
 
 	case UNSUBSCRIBE_TEST_TYPE:
-		rc = fc_sensor_unsubscribe(muorb_test_topic_name);
+		rc = _InstancePtr->remove_subscription(muorb_test_topic_name);
 		break;
 
 	default:

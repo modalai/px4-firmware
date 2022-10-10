@@ -34,9 +34,6 @@
 #include "uORBManager.hpp"
 #include "MUORBTest.hpp"
 
-// TODO: Move this out of here once we have px4-log functionality
-//extern "C" void HAP_debug(const char *msg, int level, const char *filename, int line);
-
 // static initialization.
 uORB::ProtobufChannel uORB::ProtobufChannel::_Instance;
 uORBCommunicator::IChannelRxHandler *uORB::ProtobufChannel::_RxHandler;
@@ -128,19 +125,20 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 
 static void *test_runner(void *test)
 {
-	HAP_debug("test_runner called", 1, muorb_test_topic_name, 0);
+	PX4_INFO("Test runner called");
+	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
 
 	switch (*((MUORBTestType *) test)) {
 	case ADVERTISE_TEST_TYPE:
-		(void) muorb_func_ptrs.advertise_func_ptr(muorb_test_topic_name);
+		(void) channel->topic_advertised(muorb_test_topic_name);
 		break;
 
 	case SUBSCRIBE_TEST_TYPE:
-		(void) muorb_func_ptrs.subscribe_func_ptr(muorb_test_topic_name);
+		(void) channel->add_subscription(muorb_test_topic_name, 0);
 		break;
 
 	case UNSUBSCRIBE_TEST_TYPE:
-		(void) muorb_func_ptrs.unsubscribe_func_ptr(muorb_test_topic_name);
+		(void) channel->remove_subscription(muorb_test_topic_name);
 		break;
 
 	case TOPIC_TEST_TYPE: {
@@ -148,7 +146,7 @@ static void *test_runner(void *test)
 
 			for (uint8_t i = 0; i < MUORB_TEST_DATA_LEN; i++) { data[i] = i; }
 
-			(void) muorb_func_ptrs.topic_data_func_ptr(muorb_test_topic_name, data, MUORB_TEST_DATA_LEN);
+			(void) channel->send_message(muorb_test_topic_name, MUORB_TEST_DATA_LEN, data);
 		}
 
 	default:
@@ -174,6 +172,11 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 	const char *argv[3] = { "dspal", "start" };
 	int argc = 2;
 	argv[argc] = NULL;
+
+	if (dspal_main(argc, (char **) argv)) {
+		PX4_ERR("dspal_main failed in %s", __FUNCTION__);
+		return -1;
+	}
 
 	if (func_ptrs != nullptr) {
 		muorb_func_ptrs = *func_ptrs;
