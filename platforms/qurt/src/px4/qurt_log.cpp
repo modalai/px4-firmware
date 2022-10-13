@@ -1,7 +1,6 @@
-
 /****************************************************************************
  *
- *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
+ *   Copyright (c) 2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,27 +30,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+#include <px4_platform_common/log.h>
+#include <uORB/uORBManager.hpp>
 
-/**
- * @file px4_config.h
-   Configuration flags used in code.
- */
+// This function will send a debug or error message up to the apps proc
+// so that it can be displayed and logged. Otherwise the messages are only
+// available with the mini-dm tool that requires adb (i.e. USB cable attached)
+extern "C" void qurt_log_to_apps(int level, const char *message)
+{
+	uORBCommunicator::IChannel *ch = uORB::Manager::get_instance()->get_uorb_communicator();
 
-#pragma once
+	if (ch != nullptr) {
+		if (level >= _PX4_LOG_LEVEL_ERROR) { ch->send_message("slpi_error", strlen(message) + 1, (uint8_t *) message); }
 
-#if defined(__PX4_NUTTX)
-
-#include <nuttx/config.h>
-#include <nuttx/arch.h>
-#include "micro_hal.h"
-#include <board_config.h>
-
-#elif defined (__PX4_POSIX) && !defined(__PX4_QURT)
-
-#include "micro_hal.h"
-#include <board_config.h>
-
-#endif
-
-/* PX4 board kconfig symbols */
-#include <px4_boardconfig.h>
+		else { ch->send_message("slpi_debug", strlen(message) + 1, (uint8_t *) message); }
+	}
+}

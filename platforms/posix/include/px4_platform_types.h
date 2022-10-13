@@ -1,3 +1,3 @@
 #ifdef __PX4_QURT
-#include <dspal_types.h>
+#include <sys/types.h>
 #endif

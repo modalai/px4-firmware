@@ -147,6 +147,11 @@ typedef struct {
 
 typedef int (*px4_main_t)(int argc, char *argv[]);
 
+#ifdef __PX4_QURT
+typedef void *(*px4_qurt_task_func_t)(void *arg);
+#endif
+
+
 __BEGIN_DECLS
 
 /** Starts a task and performs any specific accounting, scheduler setup, etc. */

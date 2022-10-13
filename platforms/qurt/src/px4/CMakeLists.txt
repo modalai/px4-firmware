@@ -32,3 +32,14 @@
 ############################################################################
 
 # Placeholder
+set(QURT_LAYER_SRCS
+        drv_hrt.cpp
+	tasks.cpp
+	qurt_log.cpp
+	)
+
+add_library(px4_layer
+        ${QURT_LAYER_SRCS}
+)
+target_link_libraries(px4_layer PRIVATE work_queue)
+add_dependencies(px4_layer uorb_msgs)

@@ -1,7 +1,6 @@
-
 /****************************************************************************
  *
- *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
+ * Copyright (C) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,26 +31,34 @@
  *
  ****************************************************************************/
 
-/**
- * @file px4_config.h
-   Configuration flags used in code.
- */
+#include <px4_platform_common/log.h>
+#include <semaphore.h>
+#include <px4_platform_common/workqueue.h>
 
 #pragma once
 
-#if defined(__PX4_NUTTX)
+__BEGIN_DECLS
 
-#include <nuttx/config.h>
-#include <nuttx/arch.h>
-#include "micro_hal.h"
-#include <board_config.h>
+extern sem_t _hrt_work_lock;
+extern struct wqueue_s g_hrt_work;
 
-#elif defined (__PX4_POSIX) && !defined(__PX4_QURT)
+void hrt_work_queue_init(void);
+int hrt_work_queue(struct work_s *work, worker_t worker, void *arg, uint32_t usdelay);
+void hrt_work_cancel(struct work_s *work);
 
-#include "micro_hal.h"
-#include <board_config.h>
+static inline void hrt_work_lock(void);
+static inline void hrt_work_unlock(void);
 
-#endif
+static inline void hrt_work_lock()
+{
+	//PX4_INFO("hrt_work_lock");
+	sem_wait(&_hrt_work_lock);
+}
 
-/* PX4 board kconfig symbols */
-#include <px4_boardconfig.h>
+static inline void hrt_work_unlock()
+{
+	//PX4_INFO("hrt_work_unlock");
+	sem_post(&_hrt_work_lock);
+}
+
+__END_DECLS
