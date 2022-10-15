@@ -46,6 +46,8 @@
 #include <px4_log.h>
 #include <lib/rc/crsf.h>
 
+#include "crsf_telemetry.h"
+
 #define ASYNC_UART_READ_WAIT_US 500
 #define RC_INPUT_RSSI_MAX	100
 
@@ -59,9 +61,10 @@ namespace tbs_crossfire
 static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
-//static px4_task_t _task_handle2 = -1;
+static px4_task_t _mav_task_handle = -1;
 static int _uart_fd = -1;
 static bool debug = false;
+static bool mav_en = true;
 static bool crsf_en = false;
 static bool fake_heartbeat_enable = true;
 static bool filter_local_rc_messages = true;
@@ -114,13 +117,13 @@ void handle_message_dsp(mavlink_message_t *msg) {
 	}
 }
 
-void task_main2(int argc, char *argv[])
+void mavlink_out_task(int argc, char *argv[])
 {
-    int mavlink_tx_msg_fd = orb_subscribe(ORB_ID(mavlink_tx_msg));
+	int mavlink_tx_msg_fd = orb_subscribe(ORB_ID(mavlink_tx_msg));
 	(void) orb_set_queue_size(mavlink_tx_msg_fd, 255);
 
 	struct mavlink_msg_s incoming_msg;
-    bool updated = false;
+	bool updated = false;
 
 	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
 	bool got_first_mavlink_tx_msg = false;
@@ -132,11 +135,11 @@ void task_main2(int argc, char *argv[])
 		int nwrite = 0;
 		updated = false;
 
-        (void) orb_check(mavlink_tx_msg_fd, &updated);
+		(void) orb_check(mavlink_tx_msg_fd, &updated);
 
 		if (updated) got_first_mavlink_tx_msg = true;
 
-        while (updated) {
+		while (updated) {
 			orb_copy(ORB_ID(mavlink_tx_msg), mavlink_tx_msg_fd, &incoming_msg);
 
 			if (debug) {
@@ -158,7 +161,7 @@ void task_main2(int argc, char *argv[])
 				PX4_ERR("Write failed. Expected %d, got %d", incoming_msg.msg_len, nwrite);
 			}
 
-        	(void) orb_check(mavlink_tx_msg_fd, &updated);
+			(void) orb_check(mavlink_tx_msg_fd, &updated);
 		}
 
 		// Until we start getting mavlink messages to send from the system
@@ -205,13 +208,19 @@ void task_main(int argc, char *argv[])
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "rtdclfp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "rtdmclfp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'd':
 			debug = true;
 			PX4_INFO("Setting debug flag on");
 			break;
+		case 'm':
+			mav_en = true;
+			crsf_en = false;
+			PX4_INFO("Using MAVLink mode");
+			break;
 		case 'c':
+			mav_en = false;
 			crsf_en = true;
 			PX4_INFO("Using CRSF mode");
 			break;
@@ -249,19 +258,20 @@ void task_main(int argc, char *argv[])
 		return;
 	}
 
-	/*
-	_task_handle2 = px4_task_spawn_cmd("tbs_crossfire_2",
-					  SCHED_DEFAULT,
-					  SCHED_PRIORITY_DEFAULT,
-					  2000,
-					  (px4_main_t)&task_main2,
-					  (char *const *)argv);
+	if (mav_en){
+		_mav_task_handle = px4_task_spawn_cmd("tbs_crossfire_mav",
+					SCHED_DEFAULT,
+					SCHED_PRIORITY_DEFAULT,
+					2000,
+					(px4_main_t)&mavlink_out_task,
+					(char *const *)argv);
 
-	if (_task_handle2 < 0) {
-		PX4_ERR("task 2 start failed");
-		return;
+		if (_mav_task_handle < 0) {
+			PX4_ERR("_mav_task_handle task start failed");
+			return;
+		}
 	}
-	*/
+
 
 	_is_running = true;
 
@@ -270,6 +280,7 @@ void task_main(int argc, char *argv[])
 	mavlink_status_t status{};
 	uint16_t raw_rc_values[input_rc_s::RC_INPUT_MAX_CHANNELS] {};
 	uint16_t _raw_rc_count{};
+	CRSFTelemetry *_crsf_telemetry{nullptr};
 
 	while ( ! _task_should_exit) {
 		// Check for incoming messages from the TBS Crossfire receiver
@@ -294,6 +305,51 @@ void task_main(int argc, char *argv[])
 				if(rc_updated){
 					PX4_INFO("TBS Crossfire (CRSF mode): rc_upddated");
 					PX4_INFO("  %i - %i - %i - %i", raw_rc_values[0], raw_rc_values[1], raw_rc_values[2], raw_rc_values[3]);
+
+					// fill uORB message
+					input_rc_s rc{};
+
+					// metadata
+					rc.timestamp = hrt_absolute_time();
+					rc.timestamp_last_signal = rc.timestamp;
+					rc.rssi = RC_INPUT_RSSI_MAX;
+					rc.rc_failsafe = false;
+					rc.rc_lost = false;
+					rc.rc_lost_frame_count = 0;
+					rc.rc_total_frame_count = 1;
+					rc.rc_ppm_frame_length = 0;
+					rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_CRSF;
+
+					for (int i = 0; i < _raw_rc_count; i++){
+						rc.values[i] = raw_rc_values[i];
+					}
+
+					// check how many channels are valid
+					for (int i = 17; i >= 0; i--) {
+						const bool ignore_max = rc.values[i] == UINT16_MAX; // ignore any channel with value UINT16_MAX
+						const bool ignore_zero = (i > 7) && (rc.values[i] == 0); // ignore channel 8-18 if value is 0
+
+						if (ignore_max || ignore_zero) {
+							// set all ignored values to zero
+							rc.values[i] = 0;
+						} else {
+							// first channel to not ignore -> set count considering zero-based index
+							rc.channel_count = i + 1;
+							break;
+						}
+					}
+
+					// publish uORB message
+					_rc_pub.publish(rc);
+
+					if (!_crsf_telemetry) {
+						_crsf_telemetry = new CRSFTelemetry(_uart_fd);
+					}
+
+					if (_crsf_telemetry) {
+						_crsf_telemetry->update(cycle_timestamp);
+					}
+
 				}
 
 			}

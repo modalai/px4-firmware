@@ -44,6 +44,7 @@
 #endif
 
 #include <drivers/drv_hrt.h>
+#include <drivers/device/qurt/uart.h>
 #include <termios.h>
 #include <string.h>
 #include <unistd.h>
@@ -460,7 +461,12 @@ bool crsf_send_telemetry_battery(int uart_fd, uint16_t voltage, uint16_t current
 	write_uint24_t(buf, offset, fuel);
 	write_uint8_t(buf, offset, remaining);
 	write_frame_crc(buf, offset, sizeof(buf));
+#ifndef __PX4_QURT
 	return write(uart_fd, buf, offset) == offset;
+#else
+	return qurt_uart_write(uart_fd, (const char*) buf, offset) == offset;
+#endif
+
 }
 
 bool crsf_send_telemetry_gps(int uart_fd, int32_t latitude, int32_t longitude, uint16_t groundspeed,
@@ -476,7 +482,11 @@ bool crsf_send_telemetry_gps(int uart_fd, int32_t latitude, int32_t longitude, u
 	write_uint16_t(buf, offset, altitude);
 	write_uint8_t(buf, offset, num_satellites);
 	write_frame_crc(buf, offset, sizeof(buf));
+#ifndef __PX4_QURT
 	return write(uart_fd, buf, offset) == offset;
+#else
+	return qurt_uart_write(uart_fd, (const char*) buf, offset) == offset;
+#endif
 }
 
 bool crsf_send_telemetry_attitude(int uart_fd, int16_t pitch, int16_t roll, int16_t yaw)
@@ -488,7 +498,11 @@ bool crsf_send_telemetry_attitude(int uart_fd, int16_t pitch, int16_t roll, int1
 	write_uint16_t(buf, offset, roll);
 	write_uint16_t(buf, offset, yaw);
 	write_frame_crc(buf, offset, sizeof(buf));
+#ifndef __PX4_QURT
 	return write(uart_fd, buf, offset) == offset;
+#else
+	return qurt_uart_write(uart_fd, (const char*) buf, offset) == offset;
+#endif
 }
 
 bool crsf_send_telemetry_flight_mode(int uart_fd, const char *flight_mode)
@@ -507,5 +521,9 @@ bool crsf_send_telemetry_flight_mode(int uart_fd, const char *flight_mode)
 	offset += length;
 	buf[offset - 1] = 0; // ensure null-terminated string
 	write_frame_crc(buf, offset, length + 4);
+#ifndef __PX4_QURT
 	return write(uart_fd, buf, offset) == offset;
+#else
+	return qurt_uart_write(uart_fd, (const char*) buf, offset) == offset;
+#endif
 }

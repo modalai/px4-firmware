@@ -42,6 +42,7 @@ px4_add_module(
 		-Wno-address-of-packed-member # TODO: fix in c_library_v2
 	INCLUDES
 		${PX4_SOURCE_DIR}/mavlink/include/mavlink
+		${PX4_SOURCE_DIR}/src/drivers/rc_input
 	SRCS
 		tbs_crossfire.cpp
 		${PX4_SOURCE_DIR}/src/drivers/rc_input/crsf_telemetry.cpp
