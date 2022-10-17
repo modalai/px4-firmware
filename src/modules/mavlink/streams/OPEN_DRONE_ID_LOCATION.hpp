@@ -58,87 +58,209 @@ public:
 private:
 	explicit MavlinkStreamOpenDroneIdLocation(Mavlink *mavlink) : MavlinkStream(mavlink) {}
 
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _home_position_sub{ORB_ID(home_position)};
+	uORB::Subscription _vehicle_air_data_sub{ORB_ID(vehicle_air_data)};
+	uORB::Subscription _vehicle_gps_position_sub{ORB_ID(vehicle_gps_position)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
-
-	uORB::Subscription _vehicle_global_position_sub{ORB_ID(vehicle_global_position)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
-
-	bool _airborne = false;
-	bool _in_failsafe = false;
-	mavlink_open_drone_id_location_t _message;
+	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
 	bool send() override
 	{
+		mavlink_open_drone_id_location_t msg{};
+		msg.target_component = 0; // 0 for broadcast
+		msg.target_system = 0; // 0 for broadcast
+		// msg.id_or_mac // Only used for drone ID data received from other UAs.
+
+		// initialize all fields to unknown
+		msg.status = MAV_ODID_STATUS_UNDECLARED;
+		msg.direction = 36100; // If unknown: 36100 centi-degrees
+		msg.speed_horizontal = 25500; // If unknown: 25500 cm/s
+		msg.speed_vertical = 6300; // If unknown: 6300 cm/s
+		msg.latitude = 0; // If unknown: 0
+		msg.longitude = 0; // If unknown: 0
+		msg.altitude_geodetic = -1000; // If unknown: -1000 m
+		msg.altitude_geodetic = -1000; // If unknown: -1000 m
+		msg.height = -1000; // If unknown: -1000 m
+		msg.horizontal_accuracy = MAV_ODID_HOR_ACC_UNKNOWN;
+		msg.vertical_accuracy = MAV_ODID_VER_ACC_UNKNOWN;
+		msg.barometer_accuracy = MAV_ODID_VER_ACC_UNKNOWN;
+		msg.speed_accuracy = MAV_ODID_SPEED_ACC_UNKNOWN;
+		msg.timestamp = 0xFFFF; // If unknown: 0xFFFF
+		msg.timestamp_accuracy = MAV_ODID_TIME_ACC_UNKNOWN;
+
 		bool updated = false;
 
-		if (_vehicle_status_sub.updated()) {
+		// status: MAV_ODID_STATUS_GROUND/MAV_ODID_STATUS_AIRBORNE
+		if (_vehicle_land_detected_sub.advertised()) {
+			vehicle_land_detected_s vehicle_land_detected{};
+
+			if (_vehicle_land_detected_sub.copy(&vehicle_land_detected)
+			    && (hrt_elapsed_time(&vehicle_land_detected.timestamp) < 10_s)) {
+				if (vehicle_land_detected.landed) {
+					msg.status = MAV_ODID_STATUS_GROUND;
+
+				} else {
+					msg.status = MAV_ODID_STATUS_AIRBORNE;
+				}
+
+				updated = true;
+			}
+		}
+
+		// status: MAV_ODID_STATUS_EMERGENCY
+		if (_vehicle_status_sub.advertised()) {
 			vehicle_status_s vehicle_status{};
-			_vehicle_status_sub.copy(&vehicle_status);
-			_in_failsafe = vehicle_status.failsafe;
+
+			if (_vehicle_status_sub.copy(&vehicle_status) && hrt_elapsed_time(&vehicle_status.timestamp) < 10_s) {
+				if (vehicle_status.failsafe && (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED)) {
+					msg.status = MAV_ODID_STATUS_EMERGENCY;
+					updated = true;
+				}
+			}
 		}
 
-		if (_vehicle_land_detected_sub.updated()) {
-			vehicle_land_detected_s vehicle_land_detected;
-			_vehicle_land_detected_sub.copy(&vehicle_land_detected);
-			_airborne = !vehicle_land_detected.landed;
+		if (_vehicle_gps_position_sub.advertised()) {
+			sensor_gps_s vehicle_gps_position{};
+
+			if (_vehicle_gps_position_sub.copy(&vehicle_gps_position)
+			    && (hrt_elapsed_time(&vehicle_gps_position.timestamp) < 10_s)) {
+
+				if (vehicle_gps_position.vel_ned_valid) {
+					const matrix::Vector3f vel_ned{vehicle_gps_position.vel_n_m_s, vehicle_gps_position.vel_e_m_s, vehicle_gps_position.vel_d_m_s};
+
+					// direction: calculate GPS course over ground angle
+					const float course = atan2f(vel_ned(1), vel_ned(0));
+					const int course_deg = roundf(math::degrees(matrix::wrap_2pi(course)));
+					msg.direction = math::constrain(100 * course_deg, 0, 35999); // 0 - 35999 centi-degrees
+
+					// speed_horizontal: If speed is larger than 25425 cm/s, use 25425 cm/s.
+					const int speed_horizontal_cm_s = matrix::Vector2f(vel_ned).length() * 100.f;
+					msg.speed_horizontal = math::constrain(speed_horizontal_cm_s, 0, 25425);
+
+					// speed_vertical: Up is positive, If speed is larger than 6200 cm/s, use 6200 cm/s. If lower than -6200 cm/s, use -6200 cm/s.
+					const int speed_vertical_cm_s = roundf(-vel_ned(2) * 100.f);
+					msg.speed_vertical = math::constrain(speed_vertical_cm_s, -6200, 6200);
+
+					// speed_accuracy
+					if (vehicle_gps_position.s_variance_m_s < 0.3f) {
+						msg.speed_accuracy = MAV_ODID_SPEED_ACC_0_3_METERS_PER_SECOND;
+
+					} else if (vehicle_gps_position.s_variance_m_s < 1.f) {
+						msg.speed_accuracy = MAV_ODID_SPEED_ACC_1_METERS_PER_SECOND;
+
+					} else if (vehicle_gps_position.s_variance_m_s < 3.f) {
+						msg.speed_accuracy = MAV_ODID_SPEED_ACC_3_METERS_PER_SECOND;
+
+					} else if (vehicle_gps_position.s_variance_m_s < 10.f) {
+						msg.speed_accuracy = MAV_ODID_SPEED_ACC_10_METERS_PER_SECOND;
+
+					} else {
+						msg.speed_accuracy = MAV_ODID_SPEED_ACC_UNKNOWN;
+					}
+
+					updated = true;
+				}
+
+				if (vehicle_gps_position.fix_type >= 2) {
+					msg.latitude = vehicle_gps_position.lat;
+					msg.longitude = vehicle_gps_position.lon;
+
+					// altitude_geodetic
+					if (vehicle_gps_position.fix_type >= 3) {
+						msg.altitude_geodetic = vehicle_gps_position.alt * 1e-3f;
+					}
+
+					// horizontal_accuracy
+					if (vehicle_gps_position.eph < 1.f) {
+						msg.horizontal_accuracy = MAV_ODID_HOR_ACC_1_METER;
+
+					} else if (vehicle_gps_position.eph < 3.f) {
+						msg.horizontal_accuracy = MAV_ODID_HOR_ACC_3_METER;
+
+					} else if (vehicle_gps_position.eph < 10.f) {
+						msg.horizontal_accuracy = MAV_ODID_HOR_ACC_10_METER;
+
+					} else if (vehicle_gps_position.eph < 30.f) {
+						msg.horizontal_accuracy = MAV_ODID_HOR_ACC_30_METER;
+
+					} else {
+						msg.horizontal_accuracy = MAV_ODID_HOR_ACC_UNKNOWN;
+					}
+
+					// vertical_accuracy
+					if (vehicle_gps_position.epv < 1.f) {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_1_METER;
+
+					} else if (vehicle_gps_position.epv < 3.f) {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_3_METER;
+
+					} else if (vehicle_gps_position.epv < 10.f) {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_10_METER;
+
+					} else if (vehicle_gps_position.epv < 25.f) {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_25_METER;
+
+					} else if (vehicle_gps_position.epv < 45.f) {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_45_METER;
+
+					} else if (vehicle_gps_position.epv < 150.f) {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_150_METER;
+
+					} else {
+						msg.vertical_accuracy = MAV_ODID_VER_ACC_UNKNOWN;
+					}
+
+					updated = true;
+				}
+
+				if (vehicle_gps_position.time_utc_usec != 0) {
+					// timestamp: UTC then convert for this field using ((float) (time_week_ms % (60*60*1000))) / 1000
+					uint64_t utc_time_msec = vehicle_gps_position.time_utc_usec / 1000;
+					msg.timestamp = ((float)(utc_time_msec % (60 * 60 * 1000))) / 1000;
+
+					if (hrt_elapsed_time(&vehicle_gps_position.timestamp) < 1_s) {
+						msg.timestamp_accuracy = MAV_ODID_TIME_ACC_1_0_SECOND; // TODO
+					}
+
+					updated = true;
+				}
+			}
 		}
 
-		_message.target_component = 0;
-		_message.target_system = 0;
-		_message.height_reference = MAV_ODID_HEIGHT_REF_OVER_TAKEOFF;
-		_message.horizontal_accuracy = MAV_ODID_HOR_ACC_UNKNOWN;
-		_message.vertical_accuracy = MAV_ODID_VER_ACC_UNKNOWN;
-		_message.barometer_accuracy = MAV_ODID_VER_ACC_UNKNOWN;
-		_message.speed_accuracy = MAV_ODID_SPEED_ACC_UNKNOWN;
+		// altitude_barometric: The altitude calculated from the barometric pressue
+		if (_vehicle_air_data_sub.advertised()) {
+			vehicle_air_data_s vehicle_air_data{};
 
-		_message.status = MAV_ODID_STATUS_GROUND;
-
-		if (_airborne) {
-			_message.status = MAV_ODID_STATUS_AIRBORNE;
+			if (_vehicle_air_data_sub.copy(&vehicle_air_data) && (hrt_elapsed_time(&vehicle_air_data.timestamp) < 10_s)) {
+				msg.altitude_barometric = vehicle_air_data.baro_alt_meter;
+				msg.barometer_accuracy = MAV_ODID_VER_ACC_150_METER; // TODO
+				updated = true;
+			}
 		}
 
-		if (_in_failsafe) {
-			_message.status = MAV_ODID_STATUS_EMERGENCY;
+		// height: The current height of the unmanned aircraft above the take-off location or the ground as indicated by height_reference
+		if (_home_position_sub.advertised() && _vehicle_local_position_sub.updated()) {
+			home_position_s home_position{};
+			vehicle_local_position_s vehicle_local_position{};
+
+			if (_home_position_sub.copy(&home_position)
+			    && _vehicle_local_position_sub.copy(&vehicle_local_position)
+			    && (hrt_elapsed_time(&vehicle_local_position.timestamp) < 1_s)
+			   ) {
+
+				if (home_position.valid_alt && vehicle_local_position.z_valid && vehicle_local_position.z_global) {
+					float altitude = (-vehicle_local_position.z + vehicle_local_position.ref_alt);
+
+					msg.height = altitude - home_position.alt;
+					msg.height_reference = MAV_ODID_HEIGHT_REF_OVER_TAKEOFF;
+					updated = true;
+				}
+			}
 		}
-
-		if (_vehicle_global_position_sub.updated()) {
-			vehicle_global_position_s vgp;
-			_vehicle_global_position_sub.copy(&vgp);
-			_message.latitude = static_cast<int32_t>(vgp.lat * 1e7);
-			_message.longitude = static_cast<int32_t>(vgp.lon * 1e7);
-			_message.altitude_barometric = vgp.alt;
-			_message.altitude_geodetic = vgp.alt_ellipsoid;
-			updated = true;
-		}
-
-
-		if (_vehicle_local_position_sub.updated()) {
-			vehicle_local_position_s vlp;
-			_vehicle_local_position_sub.copy(&vlp);
-			float speed_xy = sqrtf(vlp.vx * vlp.vx + vlp.vy * vlp.vy);
-			float direction_deg = (atan2f(vlp.vy, vlp.vx) + M_PI_F) * 180.f / M_PI_F;
-			_message.speed_horizontal = vlp.v_xy_valid ?
-						    static_cast<uint16_t>(math::min(25425.f, speed_xy * 100.f)) : 25500;
-			_message.speed_vertical = vlp.v_z_valid ?
-						  static_cast<int16_t>(math::min(6200.f, math::max(-6200.f, -vlp.vz * 100.f))) : 6300;
-			_message.direction = vlp.v_xy_valid ? static_cast<uint16_t>(direction_deg * 100.f) : 36100;
-			_message.height = vlp.z_valid ? -vlp.z : -1000;
-			updated = true;
-		}
-
-		struct timespec ts = {};
-
-		px4_clock_gettime(CLOCK_REALTIME, &ts);
-
-		long utc_time_msec = ts.tv_sec * 1000 + (ts.tv_nsec / 1e6);
-
-		_message.timestamp = static_cast<float>(utc_time_msec % 3600000L) / 1000.f;
-
-		_message.timestamp_accuracy = MAV_ODID_TIME_ACC_UNKNOWN;
 
 		if (updated) {
-			mavlink_msg_open_drone_id_location_send_struct(_mavlink->get_channel(), &_message);
+			mavlink_msg_open_drone_id_location_send_struct(_mavlink->get_channel(), &msg);
 			return true;
 		}
 
