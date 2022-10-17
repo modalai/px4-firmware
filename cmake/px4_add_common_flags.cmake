@@ -144,10 +144,15 @@ function(px4_add_common_flags)
 	list(APPEND c_flags
 		-fno-common
 
-		#-Wbad-function-cast
+		-Wbad-function-cast
 		-Wnested-externs
 		-Wstrict-prototypes
 	)
+
+	if(${PX4_PLATFORM} MATCHES "qurt")
+		list(REMOVE_ITEM c_flags -Wbad-function-cast)
+	endif()
+
 	foreach(flag ${c_flags})
 		add_compile_options($<$<COMPILE_LANGUAGE:C>:${flag}>)
 	endforeach()
