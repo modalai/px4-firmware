@@ -83,6 +83,9 @@ uORB::PublicationMulti<input_rc_s> _rc_pub{ORB_ID(input_rc)};
 
 perf_counter_t	_perf_rx_rate = nullptr;
 
+static uint8_t _rc_lq;
+static uint8_t _rc_rssi_dbm;
+
 int open_port(const char *dev, speed_t speed);
 int close_port();
 
@@ -322,6 +325,7 @@ void task_main(int argc, char *argv[])
 	mavlink_status_t status{};
 	uint16_t raw_rc_values[input_rc_s::RC_INPUT_MAX_CHANNELS] {};
 	uint16_t _raw_rc_count{};
+
 	CRSFTelemetry *_crsf_telemetry{nullptr};
 
 	if (crsf_en) {
@@ -338,7 +342,7 @@ void task_main(int argc, char *argv[])
 				uint64_t cycle_timestamp = hrt_absolute_time();
 
 				bool rc_updated = crsf_parse(cycle_timestamp, &rx_buf[0], nread, &raw_rc_values[0], &_raw_rc_count,
-							     input_rc_s::RC_INPUT_MAX_CHANNELS);
+							     input_rc_s::RC_INPUT_MAX_CHANNELS, &_rc_lq, &_rc_rssi_dbm);
 
 				if (rc_updated) {
 					// capture perf numbers
@@ -561,6 +565,10 @@ int stop()
 int status()
 {
 	PX4_INFO("running: %s", _is_running ? "yes" : "no");
+	PX4_INFO("");
+	PX4_INFO(" RSSI: %i", _rc_rssi_dbm);
+	PX4_INFO(" LQ:   %i", _rc_lq);
+	PX4_INFO("");
 	perf_print_counter(_perf_rx_rate);
 	return 0;
 }
