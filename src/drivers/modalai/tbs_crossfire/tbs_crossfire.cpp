@@ -45,6 +45,7 @@
 #include <v2.0/standard/mavlink.h>
 #include <px4_log.h>
 #include <lib/rc/crsf.h>
+#include <lib/perf/perf_counter.h>
 
 #include "crsf_telemetry.h"
 
@@ -60,9 +61,12 @@ namespace tbs_crossfire
 
 static bool _is_running = false;
 volatile bool _task_should_exit = false;
+
 static px4_task_t _task_handle = -1;
 static px4_task_t _mav_task_handle = -1;
+
 static int _uart_fd = -1;
+
 static bool debug = false;
 static bool mav_en = true;
 static bool crsf_en = false;
@@ -70,11 +74,14 @@ static bool fake_heartbeat_enable = true;
 static bool filter_local_rc_messages = true;
 static bool dump_received_messages = false;
 static bool dump_transmitted_messages = false;
+
 std::string port = "7";
 uint32_t baudrate = 115200;
 
 uORB::Publication<mavlink_msg_s> _mav_rx_pub{ORB_ID(mavlink_rx_msg)};
 uORB::PublicationMulti<input_rc_s> _rc_pub{ORB_ID(input_rc)};
+
+perf_counter_t	_perf_rx_rate = nullptr;
 
 int openPort(const char *dev, speed_t speed);
 int closePort();
@@ -274,6 +281,7 @@ void task_main(int argc, char *argv[])
 
 
 	_is_running = true;
+	_perf_rx_rate = perf_alloc(PC_INTERVAL, "tbs_crossfire: rx interval");
 
 	uint8_t rx_buf[1024];
 	mavlink_message_t msg;
@@ -282,29 +290,24 @@ void task_main(int argc, char *argv[])
 	uint16_t _raw_rc_count{};
 	CRSFTelemetry *_crsf_telemetry{nullptr};
 
+	if (crsf_en){
+		_crsf_telemetry = new CRSFTelemetry(_uart_fd);
+	}
+
 	while ( ! _task_should_exit) {
 		// Check for incoming messages from the TBS Crossfire receiver
 		int nread = qurt_uart_read(_uart_fd, (char*) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
 		if (nread) {
 			if(crsf_en) {
-				if (debug) {
-					PX4_INFO("TBS Crossfire (CRSF mode): read %d bytes", nread);
-					for (int i = 0; i <= nread; i += 16) {
-							PX4_INFO("  %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x %.2x",
-									rx_buf[i + 0],  rx_buf[i + 1],  rx_buf[i + 2],  rx_buf[i + 3],
-									rx_buf[i + 4],  rx_buf[i + 5],  rx_buf[i + 6],  rx_buf[i + 7],
-									rx_buf[i + 8],  rx_buf[i + 9],  rx_buf[i + 10], rx_buf[i + 11],
-									rx_buf[i + 12], rx_buf[i + 13], rx_buf[i + 14], rx_buf[i + 15]);
-						}
-				}
+
 				uint64_t cycle_timestamp = hrt_absolute_time();
 
 				bool rc_updated = crsf_parse(cycle_timestamp, &rx_buf[0], nread, &raw_rc_values[0], &_raw_rc_count,
 								input_rc_s::RC_INPUT_MAX_CHANNELS);
 
 				if(rc_updated){
-					//PX4_INFO("TBS Crossfire (CRSF mode): rc_upddated");
-					//PX4_INFO("  %i - %i - %i - %i", raw_rc_values[0], raw_rc_values[1], raw_rc_values[2], raw_rc_values[3]);
+					// capture perf numbers
+					perf_count(_perf_rx_rate);
 
 					// fill uORB message
 					input_rc_s rc{};
@@ -342,16 +345,10 @@ void task_main(int argc, char *argv[])
 					// publish uORB message
 					_rc_pub.publish(rc);
 
-					if (!_crsf_telemetry) {
-						_crsf_telemetry = new CRSFTelemetry(_uart_fd);
-					}
-
 					if (_crsf_telemetry) {
 						_crsf_telemetry->update(cycle_timestamp);
 					}
-
 				}
-
 			}
 			else {
 				if (debug) {
@@ -524,7 +521,7 @@ int stop()
 int status()
 {
 	PX4_INFO("running: %s", _is_running ? "yes" : "no");
-
+	perf_print_counter(_perf_rx_rate);
 	return 0;
 }
 
