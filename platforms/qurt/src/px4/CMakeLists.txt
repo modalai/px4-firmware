@@ -32,3 +32,11 @@
 ############################################################################
 
 # Placeholder
+# Placeholder
+set(QURT_LAYER_SRCS
+        drv_hrt.cpp
+        )
+
+add_library(px4_layer
+        ${QURT_LAYER_SRCS}
+)

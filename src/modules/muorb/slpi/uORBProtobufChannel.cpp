@@ -82,6 +82,8 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 {
 	// These function pointers will only be non-null on the first call
 	// so they must be saved off here
+        hrt_set_absolute_time_offset(clock_offset_us);
+
 	if (func_ptrs != nullptr) { muorb_func_ptrs = *func_ptrs; }
 
 	HAP_debug("px4muorb_orb_initialize called", 1, "init", 0);
