@@ -11,7 +11,7 @@ fi
 
 DAEMON=" "
 G="HOLYBRO"
-R="CRSF_RAW"
+R="SPEKTRUM"
 
 while getopts "dmrioh" flag
 do
