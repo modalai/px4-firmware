@@ -217,12 +217,12 @@ void task_main(int argc, char *argv[])
 		case 'm':
 			mav_en = true;
 			crsf_en = false;
-			PX4_INFO("Using MAVLink mode");
+			if (debug) PX4_INFO("Using MAVLink mode");
 			break;
 		case 'c':
 			mav_en = false;
 			crsf_en = true;
-			PX4_INFO("Using CRSF mode");
+			if (debug) PX4_INFO("Using CRSF mode");
 			break;
 		case 'p':
 			port = myoptarg;
@@ -303,8 +303,8 @@ void task_main(int argc, char *argv[])
 								input_rc_s::RC_INPUT_MAX_CHANNELS);
 
 				if(rc_updated){
-					PX4_INFO("TBS Crossfire (CRSF mode): rc_upddated");
-					PX4_INFO("  %i - %i - %i - %i", raw_rc_values[0], raw_rc_values[1], raw_rc_values[2], raw_rc_values[3]);
+					//PX4_INFO("TBS Crossfire (CRSF mode): rc_upddated");
+					//PX4_INFO("  %i - %i - %i - %i", raw_rc_values[0], raw_rc_values[1], raw_rc_values[2], raw_rc_values[3]);
 
 					// fill uORB message
 					input_rc_s rc{};
