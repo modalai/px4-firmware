@@ -67,8 +67,14 @@ private:
 	bool init_fir();
 
 	int read_register(Register reg, uint8_t *buf);
+
+	int burst_read_register(BurstRead *buf, uint8_t size);
+
 	int write_register(Register reg, uint8_t data);
+
 	int init_boot_sequence_rev_a();
+
+	void check_status(Register reg);
 
 	uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pub{ORB_ID(sensor_baro)};
 
@@ -80,21 +86,21 @@ private:
 
 	unsigned _measure_interval{0};
 
+	uint8_t  MEASURE_MODE{MODE_SELECT_BIT::MODE0};
+
 	enum class REV_A_INIT_STATE : uint8_t {
 		NONE,
-		UNLOCK,
 		SUCCESS,
 		ERROR
 	} _rev_a_init_state{REV_A_INIT_STATE::NONE};
 
-	enum class STATE2 : uint8_t {
+	enum class STATE : uint8_t {
 		INIT,
 		INIT_REV_A,
-		RESET,
-		MEASURE,
+		CONFIG_MEASUREMENT,
 		READ,
 		ERROR
-	} _state2{STATE2::INIT};
+	} _state{STATE::INIT};
 
 	enum class MODE : uint8_t {
 		MODE0,
