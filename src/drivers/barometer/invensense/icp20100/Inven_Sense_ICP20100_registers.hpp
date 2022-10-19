@@ -178,14 +178,14 @@ enum MODE_SELECT_BIT : uint8_t {
 	STOP = 0,
 
 	/* Example for Mode0:
-	* Mode0 measure config (000), Standby mode (Bit4 = 0), Duty cycle mode (Bit3 = 1),
+	* Mode0 measure config (Bit7:Bit5 = 000), Standby mode (Bit4 = 0), Duty cycle mode (Bit3 = 1),
 	* Normal power mode (Bit2 = 0), Pressure first read out (Bit1 & Bit0 = 0)
 	*/
-	MODE0 = Bit3,			// [7:5] 000 01000
-	MODE1 = Bit5 | Bit3,		// [7:5] 001 01000
-	MODE2 = Bit6 | Bit3,		// [7:5] 010 01000
-	MODE3 = Bit6 | Bit5 | Bit3,	// [7:5] 011 01000
-	MODE4 = Bit7 | Bit3		// [7:5] 100 01000
+	MODE0 = Bit3,			// 000 01000
+	MODE1 = Bit5 | Bit3,		// 001 01000
+	MODE2 = Bit6 | Bit3,		// 010 01000
+	MODE3 = Bit6 | Bit5 | Bit3,	// 011 01000
+	MODE4 = Bit7 | Bit3		// 100 01000
 };
 
 enum OTP_ADDRESS_BIT : uint8_t {
@@ -220,5 +220,14 @@ enum OTP_STATUS_BIT : uint8_t {
 	NOT_BUSY = 0
 };
 
+// Struct for burst read as datasheet suggested
+struct BurstRead {
+	uint8_t	PRESS_DATA_0{0};
+	uint8_t	PRESS_DATA_1{0};
+	uint8_t	PRESS_DATA_2{0};
+	uint8_t	TEMP_DATA_0{0};
+	uint8_t	TEMP_DATA_1{0};
+	uint8_t	TEMP_DATA_2{0};
+};
 
 } // namespace Inven_Sense_ICP20100
