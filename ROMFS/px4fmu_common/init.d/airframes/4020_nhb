@@ -62,6 +62,7 @@ param set-default COM_RCL_ACT_T 0.5000
 # Flight Performance restriction params
 param set-default MPC_MANTHR_MIN 0.0400
 param set-default MPC_MAN_TILT_MAX 20.0000
+param set-default MPC_TILTMAX_AIR 20.0000
 param set-default MPC_MAN_Y_MAX 150.0
 param set-default MPC_THR_MAX 0.8000
 param set-default MPC_THR_MIN 0.0400
@@ -104,6 +105,7 @@ param set-default EKF2_REQ_EPH 6.0000
 param set-default EKF2_REQ_EPV 10.0000
 param set-default EKF2_REQ_PDOP 3.5000
 param set-default EKF2_REQ_SACC 1.0000
+param set-default EKF2_NOAID_NOISE 1000.0
 
 # noise filtering params
 param set-default IMU_DGYRO_CUTOFF 60.0000
