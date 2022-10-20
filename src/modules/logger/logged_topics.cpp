@@ -208,7 +208,7 @@ void LoggedTopics::add_default_topics()
 		add_topic("vehicle_local_position_groundtruth", 20);
 	}
 
-#ifdef CONFIG_ARCH_BOARD_PX4_SITL
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL) || defined(CONFIG_ARCH_BOARD_MODALAI_SITL)
 	add_topic("actuator_controls_virtual_fw");
 	add_topic("actuator_controls_virtual_mc");
 	add_topic("fw_virtual_attitude_setpoint");
@@ -238,7 +238,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_local_position");
 	add_topic("wind");
 	add_topic("yaw_estimator_status");
-#endif /* CONFIG_ARCH_BOARD_PX4_SITL */
+#endif /* CONFIG_ARCH_BOARD_PX4_SITL || CONFIG_ARCH_BOARD_MODALAI_SITL */
 }
 
 void LoggedTopics::add_high_rate_topics()
