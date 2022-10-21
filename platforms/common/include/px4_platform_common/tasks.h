@@ -75,6 +75,7 @@ typedef int px4_task_t;
 
 #elif defined(__PX4_QURT)
 
+typedef void *(*px4_qurt_task_func_t)(void *arg);
 #define SCHED_PRIORITY_MAX 255
 #define SCHED_PRIORITY_MIN 0
 #define SCHED_PRIORITY_DEFAULT 20

@@ -238,7 +238,7 @@ void	hrt_init()
 	int sem_ret = px4_sem_init(&_hrt_lock, 0, 1);
 
 	if (sem_ret) {
-		PX4_ERR("SEM INIT FAIL: %s", strerror(errno));
+		PX4_ERR("SEM INIT FAIL ERROR");
 	}
 
 	memset(&_hrt_work, 0, sizeof(_hrt_work));

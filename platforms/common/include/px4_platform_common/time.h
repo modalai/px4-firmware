@@ -27,6 +27,16 @@ __END_DECLS
 
 #else
 
+#ifdef __PX4_QURT
+typedef unsigned long useconds_t;
+
+/**
+ * @brief
+ * Please refer to the POSIX standard for details.
+ */
+int usleep(useconds_t usec);
+#endif
+
 #define px4_clock_settime system_clock_settime
 #define px4_usleep system_usleep
 #define px4_sleep system_sleep

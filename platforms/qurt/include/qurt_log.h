@@ -42,7 +42,7 @@ __BEGIN_DECLS
 
 __EXPORT extern uint64_t hrt_absolute_time(void);
 
-extern void qurt_log_to_apps(int level, const char *message);
+//extern void qurt_log_to_apps(int level, const char *message);
 
 // declaration to make the compiler happy.  This symbol is part of the adsp static image.
 void HAP_debug(const char *msg, int level, const char *filename, int line);
@@ -58,7 +58,7 @@ static __inline void qurt_log(int level, const char *file, int line,
 	vsnprintf(buf, sizeof(buf), format, args);
 	va_end(args);
 	HAP_debug(buf, level, file, line);
-	qurt_log_to_apps(level, buf);
+	//qurt_log_to_apps(level, buf);
 }
 #endif
 
