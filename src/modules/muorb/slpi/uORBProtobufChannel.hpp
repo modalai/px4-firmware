@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <px4_platform_common/log.h>
 
 // TODO: This has to be defined in the slpi_proc build and in the PX4 build.
 // Make it accessible from one file to both builds.

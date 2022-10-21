@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2016 PX4 Development Team. All rights reserved.
+ * Copyright (C) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,25 +30,36 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 #pragma once
 
-/*
- * This file is a shim to bridge to the many SoC architecture supported by PX4
- */
-// include arch-specific header
-#if defined(__PX4_NUTTX)
+#include <sys/cdefs.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdint.h>
 
-#include <nuttx/config.h>
-#include <nuttx/arch.h>
-#include "micro_hal.h"
-#include <board_config.h>
+__BEGIN_DECLS
 
-#elif defined (__PX4_POSIX)
+__EXPORT extern uint64_t hrt_absolute_time(void);
 
-#include "micro_hal.h"
-#include <board_config.h>
+//extern void qurt_log_to_apps(int level, const char *message);
 
+// declaration to make the compiler happy.  This symbol is part of the adsp static image.
+void HAP_debug(const char *msg, int level, const char *filename, int line);
+
+#ifndef qurt_log_defined
+#define qurt_log_defined
+static __inline void qurt_log(int level, const char *file, int line,
+			      const char *format, ...)
+{
+	char buf[256];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buf, sizeof(buf), format, args);
+	va_end(args);
+	HAP_debug(buf, level, file, line);
+	//qurt_log_to_apps(level, buf);
+}
 #endif
 
-/* PX4 board kconfig symbols */
-#include <px4_boardconfig.h>
+__END_DECLS
