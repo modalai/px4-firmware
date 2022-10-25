@@ -192,7 +192,8 @@ void McAutotuneAttitudeControl::Run()
 		// To compute the attitude gain, use the following empirical rule:
 		// "An error of 60 degrees should produce the maximum control output"
 		// or K_att * K_rate * rad(60) = 1
-		_attitude_p = math::constrain(1.f / (math::radians(60.f) * _kid(0)), 2.f, 6.5f);
+		// MODALAI: don't compute attitude P gain, it only ever selects 6.5 anyway
+		// _attitude_p = math::constrain(1.f / (math::radians(60.f) * _kid(0)), 2.f, 6.5f);
 
 		const Vector<float, 5> &coeff_var = _sys_id.getVariances();
 
@@ -212,7 +213,7 @@ void McAutotuneAttitudeControl::Run()
 		status.kc = _kid(0);
 		status.ki = _kid(1);
 		status.kd = _kid(2);
-		status.att_p = _attitude_p;
+		// status.att_p = _attitude_p;
 		rate_sp.copyTo(status.rate_sp);
 		status.state = static_cast<int>(_state);
 		_autotune_attitude_control_status_pub.publish(status);
@@ -539,7 +540,7 @@ void McAutotuneAttitudeControl::copyGains(int index)
 		_rate_k(index) = _kid(0);
 		_rate_i(index) = _kid(1);
 		_rate_d(index) = _kid(2);
-		_att_p(index) = _attitude_p;
+		//_att_p(index) = _attitude_p;
 	}
 }
 
@@ -554,13 +555,13 @@ bool McAutotuneAttitudeControl::areGainsGood() const
 		    || ((i == 2) && (_param_mc_at_axes.get() & Axes::yaw))) {
 			are_positive &= _rate_k(i) > 0.f
 						 && _rate_i(i) > 0.f
-						 && _rate_d(i) >= 0.f
-						 && _att_p(i) > 0.f;
+						 && _rate_d(i) >= 0.f;
+						// && _att_p(i) > 0.f;
 
 			are_small_enough &= _rate_k(i) < 0.5f
 							 && _rate_i(i) < 10.f
-							 && _rate_d(i) < 0.1f
-							 && _att_p(i) < 12.f;
+							 && _rate_d(i) < 0.1f;
+							// && _att_p(i) < 12.f;
 			}
 		}
 
@@ -569,18 +570,19 @@ bool McAutotuneAttitudeControl::areGainsGood() const
 
 void McAutotuneAttitudeControl::saveGainsToParams()
 {
+	// MODALAI don't set attitude rate P
 	// save as parallel form
 	if (_param_mc_at_axes.get() & Axes::roll) {
 		_param_mc_rollrate_p.set(_rate_k(0));
 		_param_mc_rollrate_k.set(1.f);
 		_param_mc_rollrate_i.set(_rate_k(0) * _rate_i(0));
 		_param_mc_rollrate_d.set(_rate_k(0) * _rate_d(0));
-		_param_mc_roll_p.set(_att_p(0));
+		// _param_mc_roll_p.set(_att_p(0));
 		_param_mc_rollrate_p.commit_no_notification();
 		_param_mc_rollrate_k.commit_no_notification();
 		_param_mc_rollrate_i.commit_no_notification();
 		_param_mc_rollrate_d.commit_no_notification();
-		_param_mc_roll_p.commit_no_notification();
+		// _param_mc_roll_p.commit_no_notification();
 	}
 
 	if (_param_mc_at_axes.get() & Axes::pitch) {
@@ -588,12 +590,12 @@ void McAutotuneAttitudeControl::saveGainsToParams()
 		_param_mc_pitchrate_k.set(1.f);
 		_param_mc_pitchrate_i.set(_rate_k(1) * _rate_i(1));
 		_param_mc_pitchrate_d.set(_rate_k(1) * _rate_d(1));
-		_param_mc_pitch_p.set(_att_p(1));
+		// _param_mc_pitch_p.set(_att_p(1));
 		_param_mc_pitchrate_p.commit_no_notification();
 		_param_mc_pitchrate_k.commit_no_notification();
 		_param_mc_pitchrate_i.commit_no_notification();
 		_param_mc_pitchrate_d.commit_no_notification();
-		_param_mc_pitch_p.commit_no_notification();
+		// _param_mc_pitch_p.commit_no_notification();
 	}
 
 	if (_param_mc_at_axes.get() & Axes::yaw) {
@@ -601,12 +603,12 @@ void McAutotuneAttitudeControl::saveGainsToParams()
 		_param_mc_yawrate_k.set(1.f);
 		_param_mc_yawrate_i.set(_rate_k(2) * _rate_i(2));
 		_param_mc_yawrate_d.set(_rate_k(2) * _rate_d(2));
-		_param_mc_yaw_p.set(_att_p(2));
+		// _param_mc_yaw_p.set(_att_p(2));
 		_param_mc_yawrate_p.commit_no_notification();
 		_param_mc_yawrate_k.commit_no_notification();
 		_param_mc_yawrate_i.commit_no_notification();
 		_param_mc_yawrate_d.commit_no_notification();
-		_param_mc_yaw_p.commit();
+		// _param_mc_yaw_p.commit();
 	}
 }
 
