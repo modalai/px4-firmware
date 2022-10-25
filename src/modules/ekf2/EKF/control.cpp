@@ -378,7 +378,7 @@ void Ekf::controlExternalVisionFusion()
 		_hpos_pred_prev = _state.pos.xy();
 
 	} else if ((_control_status.flags.ev_pos || _control_status.flags.ev_vel ||  _control_status.flags.ev_yaw)
-		   && isTimedOut(_time_last_ext_vision, (uint64_t)_params.reset_timeout_max)) {
+		   && isTimedOut(_time_last_ext_vision, (uint64_t)_params.ev_timeout_max)) {
 
 		// Turn off EV fusion mode if no data has been received
 		stopEvFusion();
