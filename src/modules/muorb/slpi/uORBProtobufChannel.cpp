@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <string.h>
 #include <drivers/drv_hrt.h>
+#include <qurt.h>
 
 fc_func_ptrs muorb_func_ptrs;
 
@@ -48,6 +49,19 @@ pthread_mutex_t uORB::ProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // TODO: Create a way to set this a run time
 bool uORB::ProtobufChannel::_debug = false;
+
+// qurt_thread_t test_tid;
+// qurt_thread_attr_t test_attr;
+// char test_stack[8096];
+//
+// static void test_func(void *ptr)
+// {
+// 	while (true) {
+// 		sleep(1);
+// 	}
+//
+//     qurt_thread_exit(QURT_EOK);
+// }
 
 //==============================================================================
 //==============================================================================
@@ -108,6 +122,19 @@ int16_t uORB::ProtobufChannel::register_handler(uORBCommunicator::IChannelRxHand
 //==============================================================================
 //==============================================================================
 
+void uORB::ProtobufChannel::AddRemoteSubscriber(const std::string &messageName)
+{
+    pthread_mutex_lock(&_rx_mutex);
+    _AppsSubscriberCache[messageName]++;
+    pthread_mutex_unlock(&_rx_mutex);
+
+	PX4_INFO("Added remote subscriber for topic %s", messageName.c_str());
+}
+
+static uint32_t sensor_accel_count = 0;
+static uint32_t sensor_accel_msg_count = 0;
+static uint8_t  sensor_accel_buffer[480];
+
 int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t length, uint8_t *data)
 {
     // This function can be called from the PX4 log function so we have to make
@@ -126,9 +153,27 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 
         if ((has_subscribers) || (is_not_slpi_log == false)) {
             if ((_debug) && (is_not_slpi_log)) PX4_INFO("Sending message for topic %s", messageName);
-            pthread_mutex_lock(&_tx_mutex);
-            int16_t rc = muorb_func_ptrs.topic_data_func_ptr(messageName, data, length);
-            pthread_mutex_unlock(&_tx_mutex);
+            int16_t rc = 0;
+			if (strcmp(messageName, "sensor_accel") == 0) {
+				memcpy(&sensor_accel_buffer[sensor_accel_count * 48], data, 48);
+				sensor_accel_count++;
+				if (sensor_accel_count == 10) {
+		            pthread_mutex_lock(&_tx_mutex);
+		            rc = muorb_func_ptrs.topic_data_func_ptr(messageName, sensor_accel_buffer, 48 * sensor_accel_count);
+		            pthread_mutex_unlock(&_tx_mutex);
+					sensor_accel_msg_count++;
+					if (sensor_accel_msg_count == 1000 / sensor_accel_count) {
+						PX4_INFO("Sending sensor_accel at %llu", hrt_absolute_time());
+						sensor_accel_msg_count = 0;
+					}
+					sensor_accel_count = 0;
+				}
+			} else {
+	            pthread_mutex_lock(&_tx_mutex);
+	            rc = muorb_func_ptrs.topic_data_func_ptr(messageName, data, length);
+	            pthread_mutex_unlock(&_tx_mutex);
+			}
+
             return rc;
         }
 
@@ -213,6 +258,12 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 
         // Initialize the interrupt callback registration
         register_interrupt_callback_initalizer(muorb_func_ptrs.register_interrupt_callback);
+
+	    // qurt_thread_attr_init(&test_attr);
+	    // qurt_thread_attr_set_stack_addr(&test_attr, test_stack);
+	    // qurt_thread_attr_set_stack_size(&test_attr, 8096);
+	    // qurt_thread_attr_set_priority(&test_attr, 40);
+	    // (void) qurt_thread_create(&test_tid, &test_attr, test_func, NULL);
 
         px4muorb_orb_initialized = true;
     }

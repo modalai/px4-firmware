@@ -134,12 +134,7 @@ public:
 		return _RxHandler;
 	}
 
-	void AddRemoteSubscriber(const std::string &messageName)
-	{
-        pthread_mutex_lock(&_rx_mutex);
-        _AppsSubscriberCache[messageName]++;
-        pthread_mutex_unlock(&_rx_mutex);
-	}
+	void AddRemoteSubscriber(const std::string &messageName);
 
 	void RemoveRemoteSubscriber(const std::string &messageName)
 	{

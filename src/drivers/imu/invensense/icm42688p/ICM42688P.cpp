@@ -624,7 +624,8 @@ void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA
 
         // Publish samples for flight control at 500Hz
         if (!hitl_mode){
-		if (_imu_server_samples % 2) {
+		// if (_imu_server_samples % 2) {
+		{
 			_px4_accel->update(timestamp_sample, accel_x, accel_y, accel_z);
 			_px4_gyro->update(timestamp_sample, gyro_x, gyro_y, gyro_z);
 		}

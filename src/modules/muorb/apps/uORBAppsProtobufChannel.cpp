@@ -62,9 +62,18 @@ void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
     } else if (strcmp(topic, "slpi_error") == 0) {
         PX4_ERR("SLPI: %s", (const char *) data);
     } else if (_RxHandler) {
-        _RxHandler->process_received_message(topic,
-                                             length_in_bytes,
-                                             const_cast<uint8_t*>(data));
+        if (strcmp(topic, "sensor_accel") == 0) {
+            for (uint8_t i = 0; i < 10; i++) {
+                uint8_t* accel_data = (uint8_t*) &data[i*48];
+                _RxHandler->process_received_message(topic,
+                                                     48,
+                                                     const_cast<uint8_t*>(accel_data));
+            }
+        } else {
+            _RxHandler->process_received_message(topic,
+                                                 length_in_bytes,
+                                                 const_cast<uint8_t*>(data));
+        }
     } else {
         PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
     }
