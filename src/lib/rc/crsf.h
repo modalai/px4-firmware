@@ -52,6 +52,10 @@ __BEGIN_DECLS
 #define CRSF_FRAME_SIZE_MAX 30 // the actual maximum length is 64, but we're only interested in RC channels and want to minimize buffer size
 #define CRSF_PAYLOAD_SIZE_MAX (CRSF_FRAME_SIZE_MAX-4)
 
+enum CRSF_FRAME_TYPE {
+	CRSF_FRAME_RC_CHANNELS = (1 << 0),
+	CRSF_FRAME_LINK_STATISTICS = (1 << 1)
+};
 
 struct crsf_frame_header_t {
 	uint8_t device_address;             ///< @see crsf_address_t
@@ -81,10 +85,12 @@ __EXPORT int	crsf_config(int uart_fd);
  * @param values output channel values, each in range [1000, 2000]
  * @param num_values set to the number of parsed channels in values
  * @param max_channels maximum length of values
+ * @param lq  Link Quality Indicator, this value indicates how much of the conversation is being understood and ultimately all that matters
+ * @param rssi_dbm Received Signal Strength Indicator, this value indicates how loud
  * @return true if channels successfully decoded
  */
-__EXPORT bool	crsf_parse(const uint64_t now, const uint8_t *frame, unsigned len, uint16_t *values,
-			   uint16_t *num_values, uint16_t max_channels);
+__EXPORT uint32_t	crsf_parse(const uint64_t now, const uint8_t *frame, unsigned len, uint16_t *values,
+				   uint16_t *num_values, uint16_t max_channels, uint8_t *lq, uint8_t *rssi_dbm);
 
 
 /**

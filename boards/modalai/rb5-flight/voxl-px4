@@ -20,8 +20,10 @@ do
         d) DAEMON="-d";;
         # Use -m to specify Mateksys M8Q-5883 GPS unit
         m) G="MATEK";;
-        # Use -r to specify TBS Crossfire RC receiver
-        r) R="CRSF";;
+        # Use -r to specify TBS Crossfire RC receiver, MAVLINK
+        r) R="CRSF_MAV";;
+        # Use -r to specify TBS Crossfire RC receiver, raw
+        c) R="CRSF_RAW";;
         # Use -i to specify IMU rotation of ROTATION_YAW_180
         i) I="ROTATE_IMU_YAW_180";;
         # Use -o to start OSD module on the apps processor
