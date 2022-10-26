@@ -1065,3 +1065,13 @@ PARAM_DEFINE_INT32(COM_ARM_SDCARD, 1);
  * @unit m/s
  */
 PARAM_DEFINE_FLOAT(COM_WIND_WARN, -1.f);
+
+/**
+ * Enable pre-arm check on OpenDroneID.
+ *
+ * If this parameter is set, the pre-arm mechanism will check for the OpenDroneID system and prevent arming if it is not present.
+ *
+ * @group Commander
+ * @boolean
+ */
+PARAM_DEFINE_INT32(COM_PREARM_ODID, 0);
