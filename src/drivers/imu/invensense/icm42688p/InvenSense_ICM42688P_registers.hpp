@@ -106,12 +106,15 @@ enum class BANK_0 : uint8_t {
 
 enum class BANK_1 : uint8_t {
 	GYRO_CONFIG_STATIC2 = 0x0B,
-
+	GYRO_CONFIG_STATIC3 = 0x0C,
+	GYRO_CONFIG_STATIC4 = 0x0D,
+	GYRO_CONFIG_STATIC5 = 0x0E,
 	INTF_CONFIG5        = 0x7B,
 };
-
 enum class BANK_2 : uint8_t {
 	ACCEL_CONFIG_STATIC2 = 0x03,
+	ACCEL_CONFIG_STATIC3 = 0x04,
+	ACCEL_CONFIG_STATIC4 = 0x05,
 };
 
 };
@@ -254,9 +257,9 @@ enum INT_SOURCE0_BIT : uint8_t {
 // REG_BANK_SEL
 enum REG_BANK_SEL_BIT : uint8_t {
 	USER_BANK_0 = 0,           // 0: Select USER BANK 0.
-	USER_BANK_1 = Bit4,        // 1: Select USER BANK 1.
-	USER_BANK_2 = Bit5,        // 2: Select USER BANK 2.
-	USER_BANK_3 = Bit5 | Bit4, // 3: Select USER BANK 3.
+	USER_BANK_1 = Bit0,        // 1: Select USER BANK 1.
+	USER_BANK_2 = Bit1,        // 2: Select USER BANK 2.
+	USER_BANK_3 = Bit1 | Bit0, // 3: Select USER BANK 3.
 };
 
 
@@ -268,13 +271,119 @@ enum GYRO_CONFIG_STATIC2_BIT : uint8_t {
 	GYRO_NF_DIS  = Bit0,
 };
 
+// GYRO_CONFIG_STATIC3
+enum GYRO_CONFIG_STATIC3_BIT : uint8_t {
+
+	// 585 Hz
+	GYRO_AAF_DELT_SET = Bit3 | Bit2 | Bit0, //13
+	GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit1,
+
+	// 213 Hz
+	// GYRO_AAF_DELT_SET = Bit2 | Bit0, //5
+	// GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit3 | Bit1,
+
+	// 126 Hz
+	//GYRO_AAF_DELT_SET = Bit1 | Bit0, //3
+	//GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit3 | Bit2,
+
+	// 42 Hz
+	// GYRO_AAF_DELT_SET = Bit0, //1
+	// GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit3 | Bit2 | Bit1,
+
+};
+
+// GYRO_CONFIG_STATIC4
+enum GYRO_CONFIG_STATIC4_BIT : uint8_t {
+
+	// 585 Hz
+	GYRO_AAF_DELTSQR_LOW_SET = Bit7 | Bit5 | Bit3 | Bit1, //170
+	GYRO_AAF_DELTSQR_LOW_CLEAR = Bit6 | Bit4 | Bit2 | Bit0,
+
+	// 213 Hz
+	// GYRO_AAF_DELTSQR_LOW_SET = Bit4 | Bit3 | Bit0, //25
+	// GYRO_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit2 | Bit1,
+
+	// 126 Hz
+	//GYRO_AAF_DELTSQR_LOW_SET = Bit3 | Bit0, //9
+	//GYRO_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit2 | Bit1,
+
+	// 42 Hz
+	// GYRO_AAF_DELTSQR_LOW_SET = Bit0, //1
+	// GYRO_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit2 | Bit1,
+};
+
+// GYRO_CONFIG_STATIC5
+enum GYRO_CONFIG_STATIC5_BIT : uint8_t {
+
+	// 585 Hz
+	GYRO_AAF_DELTSQR_HIGH_SET = 0,
+	GYRO_AAF_DELTSQR_HIGH_CLEAR = Bit3 | Bit2 | Bit1 | Bit0,
+	GYRO_AAF_BITSHIFT_SET = Bit7, // 8 << 4
+	GYRO_AAF_BITSHIFT_CLEAR = Bit6 | Bit5 | Bit4,
+
+	// 213 Hz
+	// GYRO_AAF_DELTSQR_HIGH_SET = 0,
+	// GYRO_AAF_DELTSQR_HIGH_CLEAR = Bit3 | Bit2 | Bit1 | Bit0,
+	// GYRO_AAF_BITSHIFT_SET = Bit7 | Bit5, //10
+	// GYRO_AAF_BITSHIFT_CLEAR = Bit6 | Bit4,
+
+	// 126 Hz
+	// GYRO_AAF_BITSHIFT_SET = Bit7 | Bit6, //12
+	// GYRO_AAF_BITSHIFT_CLEAR = Bit5 | Bit4,
+
+	// 42 Hz
+	// GYRO_AAF_BITSHIFT_SET = Bit7 | Bit6 | Bit5 | Bit4, //15
+	// GYRO_AAF_BITSHIFT_CLEAR = 0,
+
+
+};
+
 
 //---------------- BANK2 Register bits
 
 // ACCEL_CONFIG_STATIC2
 enum ACCEL_CONFIG_STATIC2_BIT : uint8_t {
-	ACCEL_AAF_DIS = Bit0,
+	ACCEL_AAF_DIS  = Bit0,
+	ACCEL_AAF_DELT = Bit3 | Bit1,
+
+	// 213 Hz
+	ACCEL_AAF_DELT_SET = Bit3 | Bit1, //5
+	ACCEL_AAF_DELT_CLEAR = Bit6 | Bit5 | Bit4 | Bit2,
+
+	// 42 Hz
+	// ACCEL_AAF_DELT_SET = Bit1, //1
+	// ACCEL_AAF_DELT_CLEAR = Bit6 | Bit5 | Bit4 | Bit3 | Bit2,
 };
+
+// ACCEL_CONFIG_STATIC3
+enum ACCEL_CONFIG_STATIC3_BIT : uint8_t {
+	ACCEL_AAF_DELTSQR_LOW = Bit4 | Bit3 | Bit0,
+	// 213 Hz
+	ACCEL_AAF_DELTSQR_LOW_SET = Bit4 | Bit3 | Bit0, //25
+	ACCEL_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit2 | Bit1,
+
+	// 42 Hz
+	// ACCEL_AAF_DELTSQR_LOW_SET = Bit0, //1
+	// ACCEL_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit2 | Bit1,
+
+};
+
+// ACCEL_CONFIG_STATIC4
+enum ACCEL_CONFIG_STATIC4_BIT : uint8_t {
+	ACCEL_AAF_BITSHIFT     = Bit7 | Bit5,
+	ACCEL_AAF_DELTSQR_HIGH = 0,
+	// 213 Hz
+	ACCEL_AAF_BITSHIFT_SET = Bit7 | Bit5, //10
+	ACCEL_AAF_BITSHIFT_CLEAR = Bit6 | Bit4,
+
+	// 42 Hz
+	// ACCEL_AAF_BITSHIFT_SET = Bit7 | Bit6 | Bit5 | Bit4, //15
+	// ACCEL_AAF_BITSHIFT_CLEAR = 0,
+
+	ACCEL_AAF_DELTSQR_HIGH_SET = 0,
+	ACCEL_AAF_DELTSQR_HIGH_CLEAR = Bit3 | Bit2 | Bit1 | Bit0,
+};
+
 
 namespace FIFO
 {
