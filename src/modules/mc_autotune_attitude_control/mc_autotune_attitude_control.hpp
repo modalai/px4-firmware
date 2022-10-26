@@ -84,6 +84,12 @@ public:
 	int print_status() override;
 
 private:
+	enum Axes : int32_t {
+		roll = (1 << 0),
+		pitch = (1 << 1),
+		yaw = (1 << 2)
+	};
+
 	void Run() override;
 
 	void reset();
@@ -181,6 +187,7 @@ private:
 		(ParamFloat<px4::params::MC_AT_SYSID_AMP>) _param_mc_at_sysid_amp,
 		(ParamInt<px4::params::MC_AT_APPLY>) _param_mc_at_apply,
 		(ParamFloat<px4::params::MC_AT_RISE_TIME>) _param_mc_at_rise_time,
+		(ParamInt<px4::params::MC_AT_AXES>) _param_mc_at_axes,
 
 		(ParamFloat<px4::params::IMU_GYRO_CUTOFF>) _param_imu_gyro_cutoff,
 
