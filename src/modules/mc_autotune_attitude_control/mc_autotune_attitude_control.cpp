@@ -304,10 +304,9 @@ void McAutotuneAttitudeControl::updateStateMachine(hrt_abstime now)
 		if (!(_param_mc_at_axes.get() & Axes::roll)) {
 			// Should not tune this axis, skip
 			_state = state::roll_pause;
-			_state_start_time = now;
+			_state_start_time = now - 3_s;
 		}
-
-		if (areAllSmallerThan(_sys_id.getVariances(), converged_thr)
+		else if (areAllSmallerThan(_sys_id.getVariances(), converged_thr)
 		    && ((now - _state_start_time) > 5_s)) {
 			copyGains(0);
 
@@ -337,10 +336,9 @@ void McAutotuneAttitudeControl::updateStateMachine(hrt_abstime now)
 		if (!(_param_mc_at_axes.get() & Axes::pitch)) {
 			// Should not tune this axis, skip
 			_state = state::pitch_pause;
-			_state_start_time = now;
+			_state_start_time = now - 3_s;
 		}
-
-		if (areAllSmallerThan(_sys_id.getVariances(), converged_thr)
+		else if (areAllSmallerThan(_sys_id.getVariances(), converged_thr)
 		    && ((now - _state_start_time) > 5_s)) {
 			copyGains(1);
 			_state = state::pitch_pause;
@@ -368,10 +366,9 @@ void McAutotuneAttitudeControl::updateStateMachine(hrt_abstime now)
 		if (!(_param_mc_at_axes.get() & Axes::yaw)) {
 			// Should not tune this axis, skip
 			_state = state::yaw_pause;
-			_state_start_time = now;
+			_state_start_time = now - 3_s;
 		}
-
-		if (areAllSmallerThan(_sys_id.getVariances(), converged_thr)
+		else if (areAllSmallerThan(_sys_id.getVariances(), converged_thr)
 		    && ((now - _state_start_time) > 5_s)) {
 			copyGains(2);
 			_state = state::yaw_pause;
