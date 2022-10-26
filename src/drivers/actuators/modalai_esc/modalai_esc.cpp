@@ -1211,8 +1211,9 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 		actuator_outputs.timestamp = hrt_absolute_time();
 
 		_outputs_debug_pub.publish(actuator_outputs);
-		_esc_status_pub.publish(_esc_status);
 	}
+
+	_esc_status_pub.publish(_esc_status);
 
 	perf_count(_output_update_perf);
 
