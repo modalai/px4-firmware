@@ -39,6 +39,7 @@
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/vehicle_gps_position.h>
 #include <uORB/topics/vehicle_status.h>
 
 class MavlinkStreamOpenDroneIdLocation : public MavlinkStream

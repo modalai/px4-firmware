@@ -227,6 +227,7 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 	failed = failed || !modeCheck(mavlink_log_pub, report_failures, status);
 	failed = failed || !cpuResourceCheck(mavlink_log_pub, report_failures);
 	failed = failed || !parachuteCheck(mavlink_log_pub, report_failures, status_flags);
+	failed = failed || !openDroneIDCheck(mavlink_log_pub, report_failures, status_flags);
 
 	/* Report status */
 	return !failed;
