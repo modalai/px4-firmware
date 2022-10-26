@@ -104,13 +104,6 @@ static px4_task_t px4_task_spawn_internal(const char *name, int priority, px4_ma
 	char *p = (char *)argv;
 
 	PX4_INFO("Creating pthread %s\n", name);
-
-	if ((main_entry != nullptr)) {
-		PX4_ERR("Can only have one type of entry function");
-		return -1;
-	}
-
-
 	if (task_mutex_initialized == false) {
 		task_mutex_initialized = true;
 		pthread_mutex_init(&task_mutex, nullptr);
@@ -185,8 +178,8 @@ static px4_task_t px4_task_spawn_internal(const char *name, int priority, px4_ma
         param.sched_priority = priority;
 
 	pthread_attr_init(&taskmap[task_index].attr);
-	pthread_attr_setthreadname(&taskmap[task_index].attr, taskmap[task_index].name);
-	pthread_attr_setstackaddr(&taskmap[task_index].attr, taskmap[task_index].stack);
+	//pthread_attr_setthreadname(&taskmap[task_index].attr, taskmap[task_index].name);
+	//pthread_attr_setstackaddr(&taskmap[task_index].attr, taskmap[task_index].stack);
 	pthread_attr_setstacksize(&taskmap[task_index].attr, PX4_TASK_STACK_SIZE);
 	pthread_attr_setschedparam(&taskmap[task_index].attr, &param);
 
@@ -352,7 +345,7 @@ const char *px4_get_taskname()
 
         pthread_mutex_unlock(&task_mutex);
 
-        return prog_name;pthread_mutex_lock
+        return prog_name;
 
 }
 
