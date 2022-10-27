@@ -3728,8 +3728,8 @@ void Commander::data_link_check()
 				bool healthy = telemetry.open_drone_id_system_healthy;
 
 				_datalink_last_heartbeat_open_drone_id_system = telemetry.timestamp;
-				_status.open_drone_id_system_present = true;
-				_status.open_drone_id_system_healthy = healthy;
+				_status_flags.open_drone_id_system_present = true;
+				_status_flags.open_drone_id_system_healthy = healthy;
 			}
 
 			if (telemetry.heartbeat_component_obstacle_avoidance) {
@@ -3788,8 +3788,9 @@ void Commander::data_link_check()
 	    && !_open_drone_id_system_lost) {
 		mavlink_log_critical(&_mavlink_log_pub, "OpenDroneID system lost");
 		events::send(events::ID("commander_open_drone_id_lost"), events::Log::Critical, "OpenDroneID system lost");
-		_status.open_drone_id_system_present = false;
-		_status.open_drone_id_system_healthy = false;
+
+		_status_flags.open_drone_id_system_present = false;
+		_status_flags.open_drone_id_system_healthy = false;
 		_open_drone_id_system_lost = true;
 		_status_changed = true;
 	}
