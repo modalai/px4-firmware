@@ -64,7 +64,7 @@ private:
 
 	bool Measure();
 
-	bool init_fir();
+	void init_fir();
 
 	int read_register(Register reg, uint8_t *buf);
 
