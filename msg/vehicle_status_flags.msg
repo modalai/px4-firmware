@@ -48,3 +48,6 @@ bool avoidance_system_valid                       # Status of the obstacle avoid
 
 bool parachute_system_present
 bool parachute_system_healthy
+
+bool open_drone_id_system_present
+bool open_drone_id_system_healthy
