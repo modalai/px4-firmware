@@ -1391,3 +1391,15 @@ PARAM_DEFINE_INT32(EKF2_SYNT_MAG_Z, 0);
  * @decimal 1
  */
 PARAM_DEFINE_FLOAT(EKF2_GSF_TAS, 15.0f);
+
+/**
+ * EKF External Vision Timeout
+ *
+ * Timeout period in miliseconds from when External Vision data stops to when EKF2 considers it gone.
+ *
+ * @group EKF2
+ * @min 50
+ * @max 10000
+ * @unit ms
+ */
+PARAM_DEFINE_INT32(EKF2_EV_TO_MS, 300);
