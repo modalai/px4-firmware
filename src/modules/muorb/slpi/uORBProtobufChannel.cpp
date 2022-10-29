@@ -193,13 +193,13 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 
 			pthread_mutex_lock(&_tx_mutex);
 
-			// if (_AggregationBuffer.NewRecordOverflows(messageName, length)) {
-			// 	rc = muorb_func_ptrs.topic_data_func_ptr(AggregationBuffer::AGGREGATION_BUFFER_TOPIC_NAME.c_str(),
-			// 											 _AggregationBuffer.GetBufferPointer(),
-			// 											 _AggregationBuffer.GetBufferLength());
-			// 	sent_due_to_full = true;
-			// 	_AggregationBuffer.MoveToNextBuffer();
-			// }
+			if (_AggregationBuffer.NewRecordOverflows(messageName, length)) {
+				rc = muorb_func_ptrs.topic_data_func_ptr(AggregationBuffer::AGGREGATION_BUFFER_TOPIC_NAME.c_str(),
+														 _AggregationBuffer.GetBufferPointer(),
+														 _AggregationBuffer.GetBufferLength());
+				//sent_due_to_full = true;
+				_AggregationBuffer.MoveToNextBuffer();
+			}
 
 			_AggregationBuffer.AddRecordToBuffer(messageName, length, data);
 
