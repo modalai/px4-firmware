@@ -52,6 +52,9 @@ pthread_mutex_t uORB::AppsProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER
 pthread_mutex_t uORB::AppsProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
 bool uORB::AppsProtobufChannel::_Debug;
 
+static bool print_first_one = true;
+static bool print_first_runt = true;
+
 void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
                                                 const uint8_t *data,
                                                 uint32_t length_in_bytes) {
@@ -62,12 +65,51 @@ void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
     } else if (strcmp(topic, "slpi_error") == 0) {
         PX4_ERR("SLPI: %s", (const char *) data);
     } else if (_RxHandler) {
-        if (strcmp(topic, "sensor_accel") == 0) {
-            for (uint8_t i = 0; i < 10; i++) {
-                uint8_t* accel_data = (uint8_t*) &data[i*48];
-                _RxHandler->process_received_message(topic,
-                                                     48,
-                                                     const_cast<uint8_t*>(accel_data));
+        if (strcmp(topic, "aggregation") == 0) {
+            // PX4_INFO("Parsing aggregate buffer of length %u", length_in_bytes);
+            uint32_t current_index = 0;
+            char name_buffer[80];
+            while (current_index < length_in_bytes) {
+                uint32_t sync_flag = *((uint32_t*) &data[current_index]);
+                if (sync_flag != 0x5A01FF00) {
+                    PX4_ERR("\tExpected sync flag but got 0x%X", sync_flag);
+                    break;
+                }
+                current_index += 4;
+                uint32_t name_length = *((uint32_t*) &data[current_index]);
+                // if (name_length > 79) {
+                //     PX4_ERR("\tName length too long %u", name_length);
+                //     break;
+                // }
+                current_index += 4;
+                uint32_t data_length = *((uint32_t*) &data[current_index]);
+                // if (data_length > (length_in_bytes - current_index)) {
+                //     PX4_ERR("\tData length too long %u", data_length);
+                //     break;
+                // }
+                current_index += 4;
+                memcpy(name_buffer, &data[current_index], name_length);
+                name_buffer[name_length] = 0;
+                current_index += name_length;
+                // PX4_INFO("\tTopic: %s, name length %u, data length: %u", name_buffer, name_length, data_length);
+                _RxHandler->process_received_message(name_buffer,
+                                                     data_length,
+                                                     const_cast<uint8_t*>(&data[current_index]));
+                current_index += data_length;
+            }
+            // for (uint8_t i = 0; i < 10; i++) {
+            //     uint8_t* accel_data = (uint8_t*) &data[i*48];
+            //     _RxHandler->process_received_message(topic,
+            //                                          48,
+            //                                          const_cast<uint8_t*>(accel_data));
+            // }
+            if (print_first_one) {
+                print_first_one = false;
+                PX4_INFO("FIRST: %u %u %u", *((uint32_t*) &data[0]), *((uint32_t*) &data[4]), *((uint32_t*) &data[8]));
+            }
+            if (print_first_runt && (length_in_bytes < 12)) {
+                print_first_runt = false;
+                PX4_INFO("RUNT: %u %u %u", *((uint32_t*) &data[0]), *((uint32_t*) &data[4]), *((uint32_t*) &data[8]));
             }
         } else {
             _RxHandler->process_received_message(topic,

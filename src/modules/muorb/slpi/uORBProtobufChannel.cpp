@@ -47,21 +47,48 @@ std::map<std::string, int> uORB::ProtobufChannel::_AppsSubscriberCache;
 pthread_mutex_t uORB::ProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uORB::ProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+const std::string uORB::ProtobufChannel::AggregationBuffer::AGGREGATION_BUFFER_TOPIC_NAME = "aggregation";
+uORB::ProtobufChannel::AggregationBuffer uORB::ProtobufChannel::_AggregationBuffer;
+
 // TODO: Create a way to set this a run time
 bool uORB::ProtobufChannel::_debug = false;
 
-// qurt_thread_t test_tid;
-// qurt_thread_attr_t test_attr;
-// char test_stack[8096];
-//
-// static void test_func(void *ptr)
-// {
-// 	while (true) {
-// 		sleep(1);
-// 	}
-//
-//     qurt_thread_exit(QURT_EOK);
-// }
+qurt_thread_t test_tid;
+qurt_thread_attr_t test_attr;
+char test_stack[8096];
+
+static void test_func(void *ptr)
+{
+	PX4_INFO("muorb aggregator thread running");
+
+	uORB::ProtobufChannel *muorb = uORB::ProtobufChannel::GetInstance();
+
+	while (true) {
+
+		pthread_mutex_lock(&muorb->_tx_mutex);
+
+		// Check for timeout. Send buffer if timeout happened.
+		uint32_t current_length = muorb->_AggregationBuffer.GetBufferLength();
+
+		if (current_length && muorb->_AggregationBuffer.Timeout()) {
+			uint8_t* current_pointer = muorb->_AggregationBuffer.GetBufferPointer();
+
+			// PX4_INFO("*** Thread timeout: Sending aggregate buffer of length %u at time %llu", current_length, hrt_absolute_time());
+
+			(void) muorb_func_ptrs.topic_data_func_ptr(uORB::ProtobufChannel::AggregationBuffer::AGGREGATION_BUFFER_TOPIC_NAME.c_str(),
+													   current_pointer, current_length);
+			muorb->_AggregationBuffer.MoveToNextBuffer();
+		// } else {
+		// 	PX4_INFO("@@@ Skipping send of %u bytes at %llu, no timeout yet", current_length, hrt_absolute_time());
+		}
+
+		pthread_mutex_unlock(&muorb->_tx_mutex);
+
+		qurt_timer_sleep(5000);
+	}
+
+    qurt_thread_exit(QURT_EOK);
+}
 
 //==============================================================================
 //==============================================================================
@@ -131,9 +158,14 @@ void uORB::ProtobufChannel::AddRemoteSubscriber(const std::string &messageName)
 	PX4_INFO("Added remote subscriber for topic %s", messageName.c_str());
 }
 
-static uint32_t sensor_accel_count = 0;
-static uint32_t sensor_accel_msg_count = 0;
-static uint8_t  sensor_accel_buffer[480];
+// Message format in aggregation buffer
+// 4 byte sync flag
+// 4 byte message name length
+// 4 byte data length
+// Variable length message name
+// Variable length message data
+
+
 
 int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t length, uint8_t *data)
 {
@@ -152,34 +184,51 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
         pthread_mutex_unlock(&_rx_mutex);
 
         if ((has_subscribers) || (is_not_slpi_log == false)) {
-            if ((_debug) && (is_not_slpi_log)) PX4_INFO("Sending message for topic %s", messageName);
-            int16_t rc = 0;
-			if (strcmp(messageName, "sensor_accel") == 0) {
-				memcpy(&sensor_accel_buffer[sensor_accel_count * 48], data, 48);
-				sensor_accel_count++;
-				if (sensor_accel_count == 10) {
-		            pthread_mutex_lock(&_tx_mutex);
-		            rc = muorb_func_ptrs.topic_data_func_ptr(messageName, sensor_accel_buffer, 48 * sensor_accel_count);
-		            pthread_mutex_unlock(&_tx_mutex);
-					sensor_accel_msg_count++;
-					if (sensor_accel_msg_count == 1000 / sensor_accel_count) {
-						PX4_INFO("Sending sensor_accel at %llu", hrt_absolute_time());
-						sensor_accel_msg_count = 0;
-					}
-					sensor_accel_count = 0;
-				}
-			} else {
-	            pthread_mutex_lock(&_tx_mutex);
-	            rc = muorb_func_ptrs.topic_data_func_ptr(messageName, data, length);
-	            pthread_mutex_unlock(&_tx_mutex);
+			// if ((_debug) && (is_not_slpi_log)) PX4_INFO("-- Sending message for topic %s length %d", messageName, length);
+			// PX4_INFO("--- Sending message for topic %s length %d, time %llu", messageName, length, hrt_absolute_time());
+
+			int16_t rc = 0;
+			// bool sent_due_to_full = false;
+			// bool sent_due_to_timeout = false;
+
+			pthread_mutex_lock(&_tx_mutex);
+
+			// if (_AggregationBuffer.NewRecordOverflows(messageName, length)) {
+			// 	rc = muorb_func_ptrs.topic_data_func_ptr(AggregationBuffer::AGGREGATION_BUFFER_TOPIC_NAME.c_str(),
+			// 											 _AggregationBuffer.GetBufferPointer(),
+			// 											 _AggregationBuffer.GetBufferLength());
+			// 	sent_due_to_full = true;
+			// 	_AggregationBuffer.MoveToNextBuffer();
+			// }
+
+			_AggregationBuffer.AddRecordToBuffer(messageName, length, data);
+
+			// Check for timeout. Send buffer if timeout happened. Note, this assumes
+			// that data is coming in fairly frequently.
+			if (_AggregationBuffer.Timeout()) {
+				uint8_t* current_pointer = _AggregationBuffer.GetBufferPointer();
+				uint32_t current_length = _AggregationBuffer.GetBufferLength();
+
+				// PX4_INFO("*** Send timeout: Sending aggregate buffer of length %u at time %llu", current_length, hrt_absolute_time());
+
+				rc = muorb_func_ptrs.topic_data_func_ptr(AggregationBuffer::AGGREGATION_BUFFER_TOPIC_NAME.c_str(),
+														 current_pointer, current_length);
+				// sent_due_to_timeout = true;
+				_AggregationBuffer.MoveToNextBuffer();
 			}
 
-            return rc;
-        }
+			pthread_mutex_unlock(&_tx_mutex);
+
+			// if (sent_due_to_full) PX4_INFO("--- Sending full buffer at %llu", hrt_absolute_time());
+			// if (sent_due_to_timeout) PX4_INFO("--- Sending buffer due to timeout at %llu", hrt_absolute_time());
+
+			return rc;
+		}
 
         // If there are no remote subscribers then we do not need to send the
         // message over. That is still a success.
-        if ((_debug) && (is_not_slpi_log)) PX4_INFO("Skipping message for topic %s", messageName);
+        // if ((_debug) && (is_not_slpi_log)) PX4_INFO("Skipping message for topic %s", messageName);
+        // PX4_INFO("Skipping message for topic %s", messageName);
         return 0;
     }
 
@@ -259,11 +308,11 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
         // Initialize the interrupt callback registration
         register_interrupt_callback_initalizer(muorb_func_ptrs.register_interrupt_callback);
 
-	    // qurt_thread_attr_init(&test_attr);
-	    // qurt_thread_attr_set_stack_addr(&test_attr, test_stack);
-	    // qurt_thread_attr_set_stack_size(&test_attr, 8096);
-	    // qurt_thread_attr_set_priority(&test_attr, 40);
-	    // (void) qurt_thread_create(&test_tid, &test_attr, test_func, NULL);
+	    qurt_thread_attr_init(&test_attr);
+	    qurt_thread_attr_set_stack_addr(&test_attr, test_stack);
+	    qurt_thread_attr_set_stack_size(&test_attr, 8096);
+	    qurt_thread_attr_set_priority(&test_attr, 40);
+	    (void) qurt_thread_create(&test_tid, &test_attr, test_func, NULL);
 
         px4muorb_orb_initialized = true;
     }

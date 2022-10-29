@@ -145,7 +145,61 @@ public:
 
     bool DebugEnabled() { return _debug; }
 
-private: // data members
+// private:
+	// Aggregation buffer implementation
+	class AggregationBuffer {
+	public:
+		static const uint32_t NUM_AGGREGATION_BUFFERS = 2;
+		static const uint32_t AGGREGATION_BUFFER_LENGTH = 2048;
+		static const uint32_t AGGREGATION_BUFFER_HEADER_LENGTH = (3 * 4);
+		static const uint32_t AGGREGATION_BUFFER_SYNC_FLAG = 0x5A01FF00;
+		static const hrt_abstime AGGREGATION_BUFFER_SEND_TIMEOUT = (10 * 1000);
+		static const std::string AGGREGATION_BUFFER_TOPIC_NAME;
+		uint32_t aggregation_buffer_id = 0;
+		uint32_t aggregation_buffer_write_index = 0;
+		uint8_t  aggregation_buffer[NUM_AGGREGATION_BUFFERS][AGGREGATION_BUFFER_LENGTH];
+		hrt_abstime last_aggregation_buffer_send_time = 0;
+
+		uint8_t* GetBufferPointer() { return aggregation_buffer[aggregation_buffer_id]; }
+		uint32_t GetBufferLength() { return aggregation_buffer_write_index; }
+
+		bool NewRecordOverflows(const char *messageName, int32_t length) {
+			uint32_t message_name_length = strlen(messageName);
+			uint32_t new_message_record_total_length = AGGREGATION_BUFFER_HEADER_LENGTH + \
+													   message_name_length + length;
+			return ((aggregation_buffer_write_index + new_message_record_total_length) > AGGREGATION_BUFFER_LENGTH);
+		}
+
+		bool Timeout() {
+			return (hrt_elapsed_time(&last_aggregation_buffer_send_time) >= AGGREGATION_BUFFER_SEND_TIMEOUT);
+		}
+
+		void MoveToNextBuffer() {
+			aggregation_buffer_write_index = 0;
+			aggregation_buffer_id++;
+			aggregation_buffer_id %= NUM_AGGREGATION_BUFFERS;
+			last_aggregation_buffer_send_time = hrt_absolute_time();
+		}
+
+		void AddRecordToBuffer(const char *messageName, int32_t length, uint8_t *data) {
+			uint32_t message_name_length = strlen(messageName);
+			uint32_t aggregation_buffer_sync_flag = AGGREGATION_BUFFER_SYNC_FLAG;
+			memcpy(&aggregation_buffer[aggregation_buffer_id][aggregation_buffer_write_index], (uint8_t*) &aggregation_buffer_sync_flag, 4);
+			aggregation_buffer_write_index += 4;
+			memcpy(&aggregation_buffer[aggregation_buffer_id][aggregation_buffer_write_index], (uint8_t*) &message_name_length, 4);
+			aggregation_buffer_write_index += 4;
+			memcpy(&aggregation_buffer[aggregation_buffer_id][aggregation_buffer_write_index], (uint8_t*) &length, 4);
+			aggregation_buffer_write_index += 4;
+			memcpy(&aggregation_buffer[aggregation_buffer_id][aggregation_buffer_write_index], (uint8_t*) messageName, message_name_length);
+			aggregation_buffer_write_index += message_name_length;
+			memcpy(&aggregation_buffer[aggregation_buffer_id][aggregation_buffer_write_index], data, length);
+			aggregation_buffer_write_index += length;
+			// PX4_INFO("...Aggregation buffer length %u ...", aggregation_buffer_write_index);
+		}
+	};
+	static AggregationBuffer _AggregationBuffer;
+
+// private: // data members
 	static uORB::ProtobufChannel                _Instance;
 	static uORBCommunicator::IChannelRxHandler *_RxHandler;
 	static std::map<std::string, int>           _AppsSubscriberCache;
