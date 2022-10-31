@@ -155,7 +155,7 @@ void uORB::ProtobufChannel::AddRemoteSubscriber(const std::string &messageName)
     _AppsSubscriberCache[messageName]++;
     pthread_mutex_unlock(&_rx_mutex);
 
-	PX4_INFO("Added remote subscriber for topic %s", messageName.c_str());
+	// PX4_INFO("Added remote subscriber for topic %s", messageName.c_str());
 }
 
 // Message format in aggregation buffer
