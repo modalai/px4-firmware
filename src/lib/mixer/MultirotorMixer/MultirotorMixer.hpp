@@ -146,6 +146,7 @@ public:
 	void			set_thrust_factor(float val) override { _thrust_factor = math::constrain(val, 0.0f, 1.0f); }
 
 	void 			set_airmode(Airmode airmode) override { _airmode = airmode; }
+	Airmode			get_airmode() override { return _airmode; }
 
 	unsigned		get_multirotor_count() override { return _rotor_count; }
 
