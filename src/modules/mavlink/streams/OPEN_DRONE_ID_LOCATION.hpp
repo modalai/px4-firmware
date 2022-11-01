@@ -124,7 +124,7 @@ private:
 		}
 
 		if (_vehicle_gps_position_sub.advertised()) {
-			sensor_gps_s vehicle_gps_position{};
+			vehicle_gps_position_s vehicle_gps_position{};
 
 			if (_vehicle_gps_position_sub.copy(&vehicle_gps_position)
 			    && (hrt_elapsed_time(&vehicle_gps_position.timestamp) < 10_s)) {
