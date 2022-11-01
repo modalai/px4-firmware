@@ -99,6 +99,7 @@ ICP20100::init_boot_sequence_rev_a()
 	uint8_t gain          = 0;
 	uint8_t HFosc         = 0;
 	uint8_t Rdata         = 0;
+	uint8_t status        = 0;
 	uint8_t offset 	      = 0;
 	uint8_t bootup_status = 0;
 
@@ -109,11 +110,12 @@ ICP20100::init_boot_sequence_rev_a()
 	// Check the value from register regMap. OTP_STATUS2. BOOT_UP_STATUS
 	//    - If 1, ICP-20100 didn’t go through power cycle after previous boot up sequence. No further
 	//    initialization is required.
-	read_register(Register::OTP_STATUS2, &bootup_status);
+	status |= read_register(Register::OTP_STATUS2, &bootup_status);
 
 	// If 0, boot up config is not done after ICP-20100 power on. Continue to step 5
+	// Running the bootup sequence multiple times without power cycling will cause issues
 	if (bootup_status & OTP_STATUS2_BIT::BOOT_UP_STATUS) {
-		PX4_INFO("Already configured");
+		PX4_INFO("Already configured.");
 		_rev_a_init_state = REV_A_INIT_STATE::SUCCESS;
 		return PX4_OK;
 	}
@@ -126,24 +128,24 @@ ICP20100::init_boot_sequence_rev_a()
 
 	// Wait for MODE_SELECT register to be accessible
 	check_status(Register::DEVICE_STATUS);
-	read_register(Register::MODE_SELECT, &temp);
+	status |= read_register(Register::MODE_SELECT, &temp);
 	temp |= MODE_SELECT_BIT::POWER_MODE_ACTIVE;
-	write_register(Register::MODE_SELECT, temp);
+	status |= write_register(Register::MODE_SELECT, temp);
 	usleep(4000);
 
 	// Section 6.5 Step 6
 	//  Unlock the main registers
 	// - regMap.MASTER_LOCK.LOCK = 0x1f
-	write_register(Register::MASTER_LOCK, MASTER_LOCK_BIT::UNLOCK);
+	status |= write_register(Register::MASTER_LOCK, MASTER_LOCK_BIT::UNLOCK);
 
 	// Section 6.5 Step 7
 	//  Enable the OTP and the write switch
 	// - regMap.OTP_CONFIG1.OTP_ENABLE = 1
 	// - regMap.OTP_CONFIG1.OTP_WRITE_SWITCH = 1
 	// - wait 10μs
-	read_register(Register::OTP_CONFIG1, &temp);
+	status |= read_register(Register::OTP_CONFIG1, &temp);
 	temp |= OTP_CONFIG1_BIT::OTP_BIT_MASK;
-	write_register(Register::OTP_CONFIG1, temp);
+	status |= write_register(Register::OTP_CONFIG1, temp);
 
 	usleep(10);
 
@@ -153,13 +155,13 @@ ICP20100::init_boot_sequence_rev_a()
 	// - wait 10us
 	// - regMap.OTP_DBG2.RESET = 0
 	// - wait 10us
-	read_register(Register::OTP_DBG2, &temp);
+	status |= read_register(Register::OTP_DBG2, &temp);
 	temp |= OTP_DBG2_BIT::DBG2_RESET;
-	write_register(Register::OTP_DBG2, temp);
+	status |= write_register(Register::OTP_DBG2, temp);
 	usleep(10);
 
 	temp &= ~OTP_DBG2_BIT::DBG2_RESET;
-	write_register(Register::OTP_DBG2, temp);
+	status |= write_register(Register::OTP_DBG2, temp);
 	usleep(10);
 
 	// Section 6.5 Step 9
@@ -170,27 +172,27 @@ ICP20100::init_boot_sequence_rev_a()
 	// - regMap.OTP_MRB_MSB = 0x20
 	// - regMap.OTP_MR_LSB  = 0x10
 	// - regMap.OTP_MR_MSB  = 0x80
-	write_register(Register::OTP_MRA_LSB, OTP_BIT::OTP_MRA_LSB);
-	write_register(Register::OTP_MRA_MSB, OTP_BIT::OTP_MRA_MSB);
-	write_register(Register::OTP_MRB_LSB, OTP_BIT::OTP_MRB_LSB);
-	write_register(Register::OTP_MRB_MSB, OTP_BIT::OTP_MRB_MSB);
-	write_register(Register::OTP_MR_LSB, OTP_BIT::OTP_MR_LSB);
-	write_register(Register::OTP_MR_MSB, OTP_BIT::OTP_MR_MSB);
+	status |= write_register(Register::OTP_MRA_LSB, OTP_BIT::OTP_MRA_LSB);
+	status |= write_register(Register::OTP_MRA_MSB, OTP_BIT::OTP_MRA_MSB);
+	status |= write_register(Register::OTP_MRB_LSB, OTP_BIT::OTP_MRB_LSB);
+	status |= write_register(Register::OTP_MRB_MSB, OTP_BIT::OTP_MRB_MSB);
+	status |= write_register(Register::OTP_MR_LSB, OTP_BIT::OTP_MR_LSB);
+	status |= write_register(Register::OTP_MR_MSB, OTP_BIT::OTP_MR_MSB);
 
 	// Section 6.5 Step 10
 	// Write the address content and read command
 	// - regMap.OTP_ADDRESS.ADDRESS = 8’hF8		//for offset
 	// - regMap.OTP_COMMAND.ADDRESS = 4’h0
 	// - regMap.OTP_COMMAND.COMMAND = 1		//read action
-	write_register(Register::OTP_ADDRESS, OTP_ADDRESS_BIT::OFFSET);
+	status |= write_register(Register::OTP_ADDRESS, OTP_ADDRESS_BIT::OFFSET);
 
-	read_register(Register::OTP_COMMAND, &temp);
+	status |= read_register(Register::OTP_COMMAND, &temp);
 	temp &= ~OTP_COMMAND_BIT::ADDRESS;
-	write_register(Register::OTP_COMMAND, temp);
+	status |= write_register(Register::OTP_COMMAND, temp);
 
 	temp &= ~OTP_COMMAND_BIT::COMMAND_BIT_MASK;
 	temp |= OTP_COMMAND_BIT::COMMAND;
-	write_register(Register::OTP_COMMAND, temp);
+	status |= write_register(Register::OTP_COMMAND, temp);
 
 	// Section 6.5 Step 11
 	// Wait for the OTP read to finish
@@ -200,22 +202,22 @@ ICP20100::init_boot_sequence_rev_a()
 	// Section 6.5 Step 12
 	// Read the data from register
 	// - Offset = regMap.OTP_RDATA.VALUE
-	read_register(Register::OTP_RDATA, &offset);
+	status |= read_register(Register::OTP_RDATA, &offset);
 
 	// Section 6.5 Step 13
 	// Write the next address content and read command
 	// - regMap.OTP_ADDRESS.ADDRESS = 8’hF9		//for gain
 	// - regMap.OTP_COMMAND.ADDRESS = 4’h0
 	// - regMap.OTP_COMMAND.COMMAND = 1		//read action
-	write_register(Register::OTP_ADDRESS, OTP_ADDRESS_BIT::GAIN);
+	status |= write_register(Register::OTP_ADDRESS, OTP_ADDRESS_BIT::GAIN);
 
-	read_register(Register::OTP_COMMAND, &temp);
+	status |= read_register(Register::OTP_COMMAND, &temp);
 	temp &= ~OTP_COMMAND_BIT::ADDRESS;
-	write_register(Register::OTP_COMMAND, temp);
+	status |= write_register(Register::OTP_COMMAND, temp);
 
 	temp &= ~OTP_COMMAND_BIT::COMMAND_BIT_MASK;
 	temp |= OTP_COMMAND_BIT::COMMAND;
-	write_register(Register::OTP_COMMAND, temp);
+	status |= write_register(Register::OTP_COMMAND, temp);
 
 	// Section 6.5 Step 14
 	// Wait for the OTP read to finish
@@ -225,22 +227,22 @@ ICP20100::init_boot_sequence_rev_a()
 	// Section 6.5 Step 15
 	// Read the data from register
 	// - Gain = regMap.OTP_RDATA.VALUE
-	read_register(Register::OTP_RDATA, &gain);
+	status |= read_register(Register::OTP_RDATA, &gain);
 
 	// Section 6.5 Step 16
 	// Write the next address content and read command
 	// - regMap.OTP_ADDRESS.ADDRESS = 8’hFA			// for HFosc
 	// - regMap.OTP_COMMAND.ADDRESS = 4’h0
 	// - regMap.OTP_COMMAND.COMMAND = 1			// read action
-	write_register(Register::OTP_ADDRESS, OTP_ADDRESS_BIT::HFOSC);
+	status |= write_register(Register::OTP_ADDRESS, OTP_ADDRESS_BIT::HFOSC);
 
-	read_register(Register::OTP_COMMAND, &temp);
+	status |= read_register(Register::OTP_COMMAND, &temp);
 	temp &= ~OTP_COMMAND_BIT::ADDRESS;
-	write_register(Register::OTP_COMMAND, temp);
+	status |= write_register(Register::OTP_COMMAND, temp);
 
 	temp &= ~OTP_COMMAND_BIT::COMMAND_BIT_MASK;
 	temp |= OTP_COMMAND_BIT::COMMAND;
-	write_register(Register::OTP_COMMAND, temp);
+	status |= write_register(Register::OTP_COMMAND, temp);
 
 	// Section 6.5 Step 17
 	// Wait for the OTP read to finish
@@ -250,102 +252,93 @@ ICP20100::init_boot_sequence_rev_a()
 	// Section 6.5 Step 18
 	// Read the data from register
 	// - HFosc = regMap.OTP_RDATA.VALUE
-	read_register(Register::OTP_RDATA, &HFosc);
+	status |= read_register(Register::OTP_RDATA, &HFosc);
 
 	// Section 6.5 Step 19
 	// Disable OTP and write switch
 	// - regMap.OTP_CONFIG1.OTP_ENABLE = 0;
 	// - regMap.OTP_CONFIG1.OTP_WRITE_SWITCH = 0;
 	// - wait 10μs;
-	read_register(Register::OTP_CONFIG1, &temp);
+	status |= read_register(Register::OTP_CONFIG1, &temp);
 	temp &= ~OTP_CONFIG1_BIT::OTP_BIT_MASK;
-	write_register(Register::OTP_CONFIG1, temp);
+	status |= write_register(Register::OTP_CONFIG1, temp);
 	usleep(10);
 
 	// Section 6.5 Step 20
 	// Write the Offset to the main registers
 	// - regMap.TRIM1_MSB.PEFE_OFFSET_TRIM = Offset[5:0]
 	offset &= OFFSET_BIT_MASK;
-	write_register(Register::TRIM1_MSB, offset);
+	status |= write_register(Register::TRIM1_MSB, offset);
 
 	// Section 6.5 Step 21
 	// Write the Gain to the main registers without touching the parameter BG_PTAT_TRIM
 	// - Rdata = regMap.TRIM2_MSB
 	// - Rdata[6:4] = Gain[2:0]
 	// - regMap.TRIM2_MSB = Rdata
-	read_register(Register::TRIM2_MSB, &Rdata);
+	status |= read_register(Register::TRIM2_MSB, &Rdata);
 	Rdata = (Rdata & ~RDATA_BIT_MASK) | ((gain & GAIN_BIT_MASK) << 4);
-	write_register(Register::TRIM2_MSB, Rdata);
+	status |= write_register(Register::TRIM2_MSB, Rdata);
 
 	// Section 6.5 Step 22
 	// Write the HFosc trim value to the main registers
 	// - regMap.TRIM2_LSB = HFosc
 	HFosc &= HFOSC_BIT_MASK;
-	write_register(Register::TRIM2_LSB, HFosc);
+	status |= write_register(Register::TRIM2_LSB, HFosc);
+
+	// Section 6.5 Step 25
+	// Had to move this up in boot sequence to before main registers are locked
+	// Write bootup config status to 1 to avoid re initialization with out power cycle.
+	// - regMap.OTP_STATUS2.BOOT_UP_STATUS = 1
+	status |= read_register(Register::OTP_STATUS2, &temp);
+	temp |= OTP_STATUS2_BIT::BOOT_UP_STATUS;
+	status |= write_register(Register::OTP_STATUS2, temp);
 
 	// Section 6.5 Step 23
 	// Lock the main registers
 	// - regMap.MASTER_LOCK.LOCK = 0x00
-	write_register(Register::MASTER_LOCK, MASTER_LOCK_BIT::LOCK);
+	status |= write_register(Register::MASTER_LOCK, MASTER_LOCK_BIT::LOCK);
 
 	// Section 6.5 Step 24
 	// Move to standby
 	// - regMap.MODE_SELECT.POWER_MODE = 0
-	read_register(Register::MODE_SELECT, &temp);
+	status |= read_register(Register::MODE_SELECT, &temp);
 	temp &= ~MODE_SELECT_BIT::POWER_MODE_ACTIVE;
-	write_register(Register::MODE_SELECT, temp);
+	status |= write_register(Register::MODE_SELECT, temp);
 
-	// Section 6.5 Step 24
-	// Write bootup config status to 1 to avoid re initialization with out power cycle.
-	// - regMap.OTP_STATUS2.BOOT_UP_STATUS = 1
-	read_register(Register::OTP_STATUS2, &temp);
-	temp |= OTP_STATUS2_BIT::BOOT_UP_STATUS;
-	write_register(Register::OTP_STATUS2, temp);
+	if (status) {
+		_rev_a_init_state = REV_A_INIT_STATE::ERROR;
+		return PX4_ERROR;
 
-	_rev_a_init_state = REV_A_INIT_STATE::SUCCESS;
+	} else {
+		_rev_a_init_state = REV_A_INIT_STATE::SUCCESS;
+		return PX4_OK;
+	}
 
-	return PX4_OK;
 }
 
 int
 ICP20100::probe()
 {
-	uint8_t chip_id = 111;
-	uint8_t strength_check = 111;
-	uint8_t drive_strength = 0x03;
+	uint8_t status = 0;
+	uint8_t chip_id = 0;
+	hrt_abstime now = hrt_absolute_time();
 
-	// Unlock registers so we can write drive strength
-	write_register(Register::MASTER_LOCK, MASTER_LOCK_BIT::UNLOCK);
+	do {
+		read_register(Register::DEVICE_STATUS, &status);
 
-	// Wait a bit for register value to update (100ms)
-	usleep(100000);
-
-	// Set drive strength to 12mA, default on reboot is 2mA
-	read_register(Register::IO_DRIVE_STRENGTH, &strength_check);
-
-	if (strength_check != drive_strength) {
-		write_register(Register::IO_DRIVE_STRENGTH, drive_strength);
-
-		// Wait a bit for register value to update (100ms)
-		usleep(100000);
-	}
+		if (hrt_absolute_time() - now > 10000000) {
+			break;
+		}
+	} while (status != 0x01);
 
 	// Section 6.5 Step 2
 	// Initialize the I2C interface by toggling the clock line a few times. The easiest way
 	// to do that is by inserting a dummy I2C write transaction.
 	for (int i = 0; i < 3; ++i) {
 		read_register(Register::WHO_AM_I, &chip_id);
-		read_register(Register::IO_DRIVE_STRENGTH, &strength_check);
 
 		if (chip_id == Product_ID) {
 			return PX4_OK;
-
-		} else {
-			// Try to write correct drive strength again...
-			write_register(Register::IO_DRIVE_STRENGTH, drive_strength);
-
-			// Wait a bit for register value to update (100ms)
-			usleep(100000);
 		}
 	}
 
@@ -375,20 +368,11 @@ ICP20100::RunImpl()
 			 *
 			 */
 			uint8_t version = 0;
-			uint8_t reboot_check = 0;
 
 			read_register(Register::VERSION, &version);
 
 			if (version == ICP_20100_HW_REVA_VERSION) {
-				// Running the bootup sequence multiple times without power cycling will cause issues
-				read_register(Register::TRIM2_LSB, &reboot_check);
-
-				if (reboot_check != 0x1E) {
-					_state = STATE::CONFIG_MEASUREMENT;
-
-				} else {
-					_state = STATE::INIT_REV_A;
-				}
+				_state = STATE::INIT_REV_A;
 
 			} else if (version == ICP_20100_HW_REVB_VERSION) {
 				PX4_INFO("HW Rev B");
@@ -450,11 +434,10 @@ ICP20100::RunImpl()
 
 			perf_begin(_sample_perf);
 
-			// Read FIFO and wait until it's full
+			// Check FIFO and wait until it's full
 			do {
 				read_register(Register::FIFO_FILL, &fifo_level);
 
-				// Wait for FIFO to fill
 				if (fifo_level == FIFO_FILL_BIT::FULL) {
 					break;
 				}
@@ -462,7 +445,7 @@ ICP20100::RunImpl()
 				usleep(1000);
 			} while (1);
 
-			// Read data from OTP registers
+			// Read temperature/pressure data from OTP registers
 			burst_read_register(&buffer, (uint8_t) sizeof(buffer));
 
 			// Calculate pressure (output in Pa)
@@ -555,7 +538,7 @@ ICP20100::Measure()
 	return true;
 }
 
-bool
+void
 ICP20100::init_fir()
 {
 	uint8_t  int_mask   = 0;
@@ -637,7 +620,6 @@ ICP20100::init_fir()
 		usleep(2);
 	} while (1);
 
-	return true;
 }
 
 int
