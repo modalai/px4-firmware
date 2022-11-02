@@ -158,6 +158,10 @@ void MixingOutput::printStatus() const
 		PX4_INFO("Driver instance: %i", _driver_instance);
 	}
 
+	if (_mixers) {
+		PX4_INFO("airmode: %i", (int)_mixers->get_airmode());
+	}
+
 	PX4_INFO_RAW("Channel Configuration:\n");
 
 	if (_use_dynamic_mixing) {
