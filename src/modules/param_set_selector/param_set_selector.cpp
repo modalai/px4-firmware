@@ -231,11 +231,11 @@ void ParamSetSelector::switchSet(const ParameterSet& set)
 	}
 
 	// if we got this far, set each param
-	param_set_no_notifications(param_find("MPC_TILTMAX_AIR"), &mpc_tiltmax_air);
-	param_set_no_notifications(param_find("MPC_MAN_TILT_MAX"), &mpc_man_tilt_max);
-	param_set_no_notifications(param_find("MPC_Z_VEL_MAX_DN"), &mpc_z_vel_max_dn);
-	param_set_no_notifications(param_find("MPC_Z_VEL_MAX_UP"), &mpc_z_vel_max_up);
-	param_set_no_notifications(param_find("MC_AIRMODE"), &mc_airmode);
+	param_set_no_notification(param_find("MPC_TILTMAX_AIR"), &mpc_tiltmax_air);
+	param_set_no_notification(param_find("MPC_MAN_TILT_MAX"), &mpc_man_tilt_max);
+	param_set_no_notification(param_find("MPC_Z_VEL_MAX_DN"), &mpc_z_vel_max_dn);
+	param_set_no_notification(param_find("MPC_Z_VEL_MAX_UP"), &mpc_z_vel_max_up);
+	param_set_no_notification(param_find("MC_AIRMODE"), &mc_airmode);
 	
 	// batch notify other modules that these have changed
 	param_notify_changes();
