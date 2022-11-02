@@ -160,6 +160,7 @@ public:
 	void handleParameterUpdate()
 	{
 		updateParams();
+		_setDefaultConstraints();
 	}
 
 	/**
