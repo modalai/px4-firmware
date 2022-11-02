@@ -207,7 +207,7 @@ PARAM_DEFINE_FLOAT(MPC_Z_VEL_D_ACC, 0.0f);
  *
  * @unit m/s
  * @min 0.5
- * @max 8.0
+ * @max 10.0
  * @increment 0.1
  * @decimal 1
  * @group Multicopter Position Control
@@ -222,7 +222,7 @@ PARAM_DEFINE_FLOAT(MPC_Z_V_AUTO_UP, 3.f);
  *
  * @unit m/s
  * @min 0.5
- * @max 8.0
+ * @max 11.0
  * @increment 0.1
  * @decimal 1
  * @group Multicopter Position Control
@@ -237,7 +237,7 @@ PARAM_DEFINE_FLOAT(MPC_Z_VEL_MAX_UP, 3.f);
  *
  * @unit m/s
  * @min 0.5
- * @max 4.0
+ * @max 11.0
  * @increment 0.1
  * @decimal 1
  * @group Multicopter Position Control
