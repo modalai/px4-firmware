@@ -145,7 +145,11 @@ void MspOsd::SendConfig()
 	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
 	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
 	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_crosshairs_pos = enabled(SymbolIndex::CROSSHAIRS) ? osd_crosshairs_pos : LOCATION_HIDDEN;
+
+	// the location of our crosshairs can change
+	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
+	if (enabled(SymbolIndex::CROSSHAIRS))
+		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos + 26 * _param_ch_height.get();
 
 	// possibly available, but not currently used
 	msp_osd_config.osd_flymode_pos = 			LOCATION_HIDDEN;

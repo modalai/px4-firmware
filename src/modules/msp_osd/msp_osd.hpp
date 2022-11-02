@@ -183,6 +183,7 @@ private:
 	// parameters
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::OSD_SYMBOLS>) _param_symbols,
+		(ParamInt<px4::params::OSD_CH_HEIGHT>) _param_ch_height,
 		(ParamInt<px4::params::OSD_SCROLL_RATE>) _param_scroll_rate,
 		(ParamInt<px4::params::OSD_DWELL_TIME>) _param_dwell_time,
 		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_log_level
@@ -195,4 +196,3 @@ private:
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 };
-
