@@ -149,7 +149,7 @@ void MspOsd::SendConfig()
 	// the location of our crosshairs can change
 	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
 	if (enabled(SymbolIndex::CROSSHAIRS))
-		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos + 26 * _param_ch_height.get();
+		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos - 32 * _param_ch_height.get();
 
 	// possibly available, but not currently used
 	msp_osd_config.osd_flymode_pos = 			LOCATION_HIDDEN;
