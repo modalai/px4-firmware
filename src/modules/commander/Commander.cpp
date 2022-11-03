@@ -474,7 +474,7 @@ int Commander::print_status()
 	else {
 		int32_t airmode = 0;
 		param_get(param_airmode, &airmode);
-		PX4_INFO("airmode: %li", airmode);
+		PX4_INFO("airmode: %i", static_cast<int>(airmode));
 	}
 
 	perf_print_counter(_loop_perf);
