@@ -162,6 +162,7 @@ public:
 	void				set_thrust_factor(float val);
 
 	void				set_airmode(Mixer::Airmode airmode);
+	Mixer::Airmode			get_airmode();
 
 	unsigned			get_multirotor_count();
 

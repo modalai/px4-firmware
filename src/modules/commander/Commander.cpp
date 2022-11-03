@@ -467,6 +467,16 @@ int Commander::print_status()
 {
 	PX4_INFO("arming: %s", _arm_state_machine.arming_state_names[_status.arming_state]);
 	PX4_INFO("navigation: %s", nav_state_names[_status.nav_state]);
+
+	const param_t param_airmode = param_find("MC_AIRMODE");	
+	if (param_airmode == PARAM_INVALID)
+		PX4_INFO("airmode: invalid");
+	else {
+		int32_t airmode = 0;
+		param_get(param_airmode, &airmode);
+		PX4_INFO("airmode: %li", airmode);
+	}
+
 	perf_print_counter(_loop_perf);
 	perf_print_counter(_preflight_check_perf);
 	return 0;

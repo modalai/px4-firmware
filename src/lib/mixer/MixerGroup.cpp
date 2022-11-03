@@ -135,6 +135,16 @@ MixerGroup::set_airmode(Mixer::Airmode airmode)
 	}
 }
 
+Mixer::Airmode
+MixerGroup::get_airmode()
+{
+	for (auto mixer : _mixers) {
+		// this is a bit dangerous, but they _should_ all have the same value
+		return mixer->get_airmode();
+	}
+	return Mixer::Airmode::disabled;
+}
+
 unsigned
 MixerGroup::get_multirotor_count()
 {

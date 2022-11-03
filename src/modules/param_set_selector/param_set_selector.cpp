@@ -196,7 +196,7 @@ void ParamSetSelector::switchSet(const ParameterSet& set)
 			// hardcoded params for ACRO_FAST
 			mpc_man_tilt_max = 60.0;
 			mpc_tiltmax_air = 60.0;
-			mpc_z_vel_max_dn = 10.0;
+			mpc_z_vel_max_dn = 5.0;
 			mpc_z_vel_max_up = 5.0;
 			mc_airmode = 2;
 			PX4_INFO("Updating to ACRO_FAST params.");
@@ -207,7 +207,7 @@ void ParamSetSelector::switchSet(const ParameterSet& set)
 			// hardcoded params for ALT_FAST
 			mpc_man_tilt_max = 60.0;
 			mpc_tiltmax_air = 60.0;
-			mpc_z_vel_max_dn = 10.0;
+			mpc_z_vel_max_dn = 5.0;
 			mpc_z_vel_max_up = 5.0;
 			mc_airmode = 0;
 			PX4_INFO("Updating to ALT_FAST params.");
@@ -231,11 +231,14 @@ void ParamSetSelector::switchSet(const ParameterSet& set)
 	}
 
 	// if we got this far, set each param
-	param_set(param_find("MPC_TILTMAX_AIR"), &mpc_tiltmax_air);
-	param_set(param_find("MPC_MAN_TILT_MAX"), &mpc_man_tilt_max);
-	param_set(param_find("MPC_Z_VEL_MAX_DN"), &mpc_z_vel_max_dn);
-	param_set(param_find("MPC_Z_VEL_MAX_UP"), &mpc_z_vel_max_up);
-	param_set(param_find("MC_AIRMODE"), &mc_airmode);
+	param_set_no_notification(param_find("MPC_TILTMAX_AIR"), &mpc_tiltmax_air);
+	param_set_no_notification(param_find("MPC_MAN_TILT_MAX"), &mpc_man_tilt_max);
+	param_set_no_notification(param_find("MPC_Z_VEL_MAX_DN"), &mpc_z_vel_max_dn);
+	param_set_no_notification(param_find("MPC_Z_VEL_MAX_UP"), &mpc_z_vel_max_up);
+	param_set_no_notification(param_find("MC_AIRMODE"), &mc_airmode);
+	
+	// batch notify other modules that these have changed
+	param_notify_changes();
 }
 
 void ParamSetSelector::Run()

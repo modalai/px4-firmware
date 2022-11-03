@@ -226,6 +226,8 @@ public:
 	 * @param[in]  airmode   Select airmode type (0 = disabled, 1 = roll/pitch, 2 = roll/pitch/yaw)
 	 */
 	virtual void			set_airmode(Airmode airmode) {};
+	virtual Airmode			get_airmode() { return Airmode::disabled; }
+
 
 	virtual unsigned		get_multirotor_count()  { return 0; }
 
