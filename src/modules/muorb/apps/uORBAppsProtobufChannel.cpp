@@ -63,7 +63,7 @@ void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
     } else if (strcmp(topic, "slpi_error") == 0) {
         PX4_ERR("SLPI: %s", (const char *) data);
     } else if (_RxHandler) {
-        _Aggregator.processTopic(topic, data, length_in_bytes);
+        _Aggregator.ProcessReceivedTopic(topic, data, length_in_bytes);
     } else {
         PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
     }
@@ -165,7 +165,7 @@ int16_t uORB::AppsProtobufChannel::remove_subscription(const char *messageName)
 int16_t uORB::AppsProtobufChannel::register_handler(uORBCommunicator::IChannelRxHandler *handler)
 {
 	_RxHandler = handler;
-    _Aggregator.registerHandler(handler);
+    _Aggregator.RegisterHandler(handler);
 	return 0;
 }
 

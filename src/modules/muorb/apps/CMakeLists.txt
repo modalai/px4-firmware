@@ -41,6 +41,7 @@ px4_add_module(
 		${HEXAGON_SDK_INCLUDES}
 		${PX4_BINARY_DIR}/platforms/posix
 		../aggregator
+		../apps
 	SRCS
 		uORBAppsProtobufChannel.cpp
 		muorb_main.cpp

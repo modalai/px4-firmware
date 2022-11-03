@@ -37,6 +37,7 @@
 #include <string>
 #include <map>
 #include "uORB/uORBCommunicator.hpp"
+#include "mUORBAggregator.hpp"
 #include <semaphore.h>
 #include <set>
 #include <px4_platform_common/sem.h>
@@ -134,6 +135,11 @@ public:
 		return _RxHandler;
 	}
 
+    void RegisterSendHandler(mUORB::Aggregator::sendFuncPtr func)
+	{
+		_Aggregator.RegisterSendHandler(func);
+	}
+
 	void AddRemoteSubscriber(const std::string &messageName)
 	{
         pthread_mutex_lock(&_rx_mutex);
@@ -150,9 +156,17 @@ public:
 
     bool DebugEnabled() { return _debug; }
 
+	void CheckForAggregatorTimeout()
+	{
+		pthread_mutex_lock(&_tx_mutex);
+		_Aggregator.ProcessTransmitTopic(nullptr, nullptr, 0);
+		pthread_mutex_unlock(&_tx_mutex);
+	}
+
 private: // data members
 	static uORB::ProtobufChannel                _Instance;
 	static uORBCommunicator::IChannelRxHandler *_RxHandler;
+	static mUORB::Aggregator					_Aggregator;
 	static std::map<std::string, int>           _AppsSubscriberCache;
     static pthread_mutex_t                      _tx_mutex;
     static pthread_mutex_t                      _rx_mutex;

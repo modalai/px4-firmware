@@ -33,5 +33,9 @@
 
 px4_add_library(modules__muorb__slpi
 	uORBProtobufChannel.cpp
+	../aggregator/mUORBAggregator.cpp
 )
-target_include_directories(modules__muorb__slpi PRIVATE ${PX4_SOURCE_DIR}/src/modules/uORB)
+
+target_include_directories(modules__muorb__slpi PRIVATE
+						   ${PX4_SOURCE_DIR}/src/modules/uORB
+						   ../aggregator)
