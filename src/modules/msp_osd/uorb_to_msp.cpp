@@ -226,7 +226,6 @@ msp_status_BF_t construct_STATUS(const vehicle_status_s& vehicle_status) {
 			break;
 
 		default:
-			status_BF.flight_mode_flags = 0;
 			break;
 		}
 	}
