@@ -35,7 +35,6 @@
 
 #include <string>
 #include <string.h>
-#include <drivers/drv_hrt.h>
 #include "uORB/uORBCommunicator.hpp"
 
 namespace mUORB {
@@ -73,8 +72,6 @@ private:
 	uint32_t bufferId;
 	uint32_t bufferWriteIndex;
 	uint8_t  buffer[numBuffers][bufferSize];
-    hrt_abstime lastBufferSendTime;
-    const hrt_abstime bufferSendTimeout = (10 * 1000);
 
 	uORBCommunicator::IChannelRxHandler *_RxHandler;
 

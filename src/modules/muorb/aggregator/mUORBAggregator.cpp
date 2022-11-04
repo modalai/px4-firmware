@@ -47,7 +47,6 @@ void mUORB::Aggregator::MoveToNextBuffer() {
     bufferWriteIndex = 0;
     bufferId++;
     bufferId %= numBuffers;
-    lastBufferSendTime = hrt_absolute_time();
 }
 
 void mUORB::Aggregator::AddRecordToBuffer(const char *messageName, int32_t length, const uint8_t *data) {
