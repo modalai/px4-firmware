@@ -83,7 +83,7 @@ public:
 
 private: // data members
 	static uORB::AppsProtobufChannel           *_InstancePtr;
-	//static uORBCommunicator::IChannelRxHandler *_RxHandler;
+	static uORBCommunicator::IChannelRxHandler *_RxHandler;
 	static std::map<std::string, int>           _SlpiSubscriberCache;
 	static pthread_mutex_t                      _tx_mutex;
 	static pthread_mutex_t                      _rx_mutex;

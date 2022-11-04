@@ -38,7 +38,6 @@ px4_add_module(
 		-Wno-cast-align # TODO: fix and enable
 	INCLUDES
 		../test
-		${PX4_BINARY_DIR}/platforms/posix
 	SRCS
 		uORBAppsProtobufChannel.cpp
 		muorb_main.cpp
