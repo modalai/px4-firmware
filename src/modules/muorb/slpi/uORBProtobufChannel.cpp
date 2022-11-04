@@ -67,9 +67,9 @@ static void aggregator_thread_func(void *ptr)
 
 	while (true) {
 		// Check for timeout. Send buffer if timeout happened.
-		muorb->CheckForAggregatorTimeout();
+		muorb->SendAggregateData();
 
-		qurt_timer_sleep(5000);
+		qurt_timer_sleep(2000);
 	}
 
     qurt_thread_exit(QURT_EOK);

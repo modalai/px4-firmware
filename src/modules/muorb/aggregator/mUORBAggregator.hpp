@@ -52,10 +52,15 @@ public:
 
     void ProcessReceivedTopic(const char *topic, const uint8_t *data, uint32_t length_in_bytes);
 
+    int16_t SendData();
+
 private:
     static const bool debugFlag;
 
     const std::string topicName = "aggregation";
+
+    // Master flag to enable aggregation
+    const bool aggregationEnabled = true;
 
     const uint32_t syncFlag = 0x5A01FF00;
     const uint32_t syncFlagSize = 4;
@@ -82,8 +87,6 @@ private:
 	void MoveToNextBuffer();
 
 	void AddRecordToBuffer(const char *messageName, int32_t length, const uint8_t *data);
-
-	bool Timeout() { return (hrt_elapsed_time(&lastBufferSendTime) >= bufferSendTimeout); }
 };
 
 }

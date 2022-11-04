@@ -156,10 +156,10 @@ public:
 
     bool DebugEnabled() { return _debug; }
 
-	void CheckForAggregatorTimeout()
+	void SendAggregateData()
 	{
 		pthread_mutex_lock(&_tx_mutex);
-		_Aggregator.ProcessTransmitTopic(nullptr, nullptr, 0);
+		_Aggregator.SendData();
 		pthread_mutex_unlock(&_tx_mutex);
 	}
 

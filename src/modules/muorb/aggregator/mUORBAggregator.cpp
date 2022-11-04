@@ -38,53 +38,58 @@ const bool mUORB::Aggregator::debugFlag = false;
 
 bool mUORB::Aggregator::NewRecordOverflows(const char *messageName, int32_t length) {
     if ( ! messageName) return false;
-	uint32_t messageNameLength = strlen(messageName);
-	uint32_t newMessageRecordTotalLength = headerSize + \
-										   messageNameLength + length;
-	return ((bufferWriteIndex + newMessageRecordTotalLength) > bufferSize);
+    uint32_t messageNameLength = strlen(messageName);
+    uint32_t newMessageRecordTotalLength = headerSize + messageNameLength + length;
+    return ((bufferWriteIndex + newMessageRecordTotalLength) > bufferSize);
 }
 
 void mUORB::Aggregator::MoveToNextBuffer() {
-	bufferWriteIndex = 0;
-	bufferId++;
-	bufferId %= numBuffers;
-	lastBufferSendTime = hrt_absolute_time();
+    bufferWriteIndex = 0;
+    bufferId++;
+    bufferId %= numBuffers;
+    lastBufferSendTime = hrt_absolute_time();
 }
 
 void mUORB::Aggregator::AddRecordToBuffer(const char *messageName, int32_t length, const uint8_t *data) {
-	if ( ! messageName) return;
-	uint32_t messageNameLength = strlen(messageName);
-	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) &syncFlag, syncFlagSize);
-	bufferWriteIndex += syncFlagSize;
-	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) &messageNameLength, topicNameLengthSize);
-	bufferWriteIndex += topicNameLengthSize;
-	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) &length, dataLengthSize);
-	bufferWriteIndex += dataLengthSize;
-	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) messageName, messageNameLength);
-	bufferWriteIndex += messageNameLength;
-	memcpy(&buffer[bufferId][bufferWriteIndex], data, length);
-	bufferWriteIndex += length;
+    if ( ! messageName) return;
+    uint32_t messageNameLength = strlen(messageName);
+    memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) &syncFlag, syncFlagSize);
+    bufferWriteIndex += syncFlagSize;
+    memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) &messageNameLength, topicNameLengthSize);
+    bufferWriteIndex += topicNameLengthSize;
+    memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) &length, dataLengthSize);
+    bufferWriteIndex += dataLengthSize;
+    memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t*) messageName, messageNameLength);
+    bufferWriteIndex += messageNameLength;
+    memcpy(&buffer[bufferId][bufferWriteIndex], data, length);
+    bufferWriteIndex += length;
+}
+
+int16_t mUORB::Aggregator::SendData() {
+    int16_t rc = 0;
+    if (sendFunc) {
+        if (aggregationEnabled) {
+            if (bufferWriteIndex) {
+                rc = sendFunc(topicName.c_str(), buffer[bufferId], bufferWriteIndex);
+                MoveToNextBuffer();
+            }
+        }
+    }
+    return rc;
 }
 
 int16_t mUORB::Aggregator::ProcessTransmitTopic(const char *topic, const uint8_t *data, uint32_t length_in_bytes) {
     int16_t rc = 0;
-
     if (sendFunc) {
-		if (NewRecordOverflows(topic, length_in_bytes)) {
-            rc = sendFunc(topicName.c_str(), buffer[bufferId], bufferWriteIndex);
-			MoveToNextBuffer();
-		}
-
-		AddRecordToBuffer(topic, length_in_bytes, data);
-
-		// Check for timeout. Send buffer if timeout happened and there is data
-        // in the buffer
-		if (Timeout() && bufferWriteIndex) {
-            rc = sendFunc(topicName.c_str(), buffer[bufferId], bufferWriteIndex);
-			MoveToNextBuffer();
-		}
+        if (aggregationEnabled) {
+            if (NewRecordOverflows(topic, length_in_bytes)) {
+                rc = SendData();
+            }
+            AddRecordToBuffer(topic, length_in_bytes, data);
+        } else if (topic) {
+            rc = sendFunc(topic, data, length_in_bytes);
+        }
     }
-
     return rc;
 }
 
