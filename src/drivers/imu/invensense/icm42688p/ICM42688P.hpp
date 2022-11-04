@@ -79,7 +79,7 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor Configuration
-    	static constexpr float IMU_ODR{1000.f}; // 1kHz accel & gyro ODR configured
+	static constexpr float IMU_ODR{8000.f}; // 8kHz accel & gyro ODR configured
 	static constexpr float FIFO_SAMPLE_DT{1e6f / IMU_ODR};
 	static constexpr float GYRO_RATE{1e6f / FIFO_SAMPLE_DT};
 	static constexpr float ACCEL_RATE{1e6f / FIFO_SAMPLE_DT};
@@ -145,7 +145,7 @@ private:
 	bool FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples);
 	void FIFOReset();
 
-    void ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo);
+    void ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo, bool last_sample);
 	void ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	bool ProcessTemperature(const FIFO::DATA fifo[], const uint8_t samples);
@@ -189,8 +189,8 @@ private:
 		{ Register::BANK_0::INT_CONFIG,           INT_CONFIG_BIT::INT1_MODE | INT_CONFIG_BIT::INT1_DRIVE_CIRCUIT, INT_CONFIG_BIT::INT1_POLARITY },
 		{ Register::BANK_0::FIFO_CONFIG,          FIFO_CONFIG_BIT::FIFO_MODE_STOP_ON_FULL, 0 },
 		{ Register::BANK_0::PWR_MGMT0,            PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE, 0 },
-		{ Register::BANK_0::GYRO_CONFIG0,         GYRO_CONFIG0_BIT::GYRO_ODR_1kHz, Bit3 | Bit0 },
-		{ Register::BANK_0::ACCEL_CONFIG0,        ACCEL_CONFIG0_BIT::ACCEL_ODR_1kHz, Bit3 | Bit0 },
+		{ Register::BANK_0::GYRO_CONFIG0,         GYRO_CONFIG0_BIT::GYRO_ODR_8kHz, Bit3 | Bit2 },
+		{ Register::BANK_0::ACCEL_CONFIG0,        ACCEL_CONFIG0_BIT::ACCEL_ODR_8kHz, Bit3 | Bit2 },
 		{ Register::BANK_0::GYRO_CONFIG1,         GYRO_CONFIG1_BIT::TEMP_FILT_BW | GYRO_CONFIG1_BIT::GYRO_UI_FILT_ORD |  GYRO_CONFIG1_BIT::GYRO_DEC2_M2_ORD, Bit5 | Bit2 | Bit0 },
 		{ Register::BANK_0::GYRO_ACCEL_CONFIG0,   GYRO_ACCEL_CONFIG0_BIT::ACCEL_UI_FILT_BW | GYRO_ACCEL_CONFIG0_BIT::GYRO_UI_FILT_BW, Bit7 | Bit5 | Bit4 | Bit3 | Bit1 | Bit0 },
 		{ Register::BANK_0::ACCEL_CONFIG1,        ACCEL_CONFIG1_BIT::ACCEL_UI_FILT_ORD | ACCEL_CONFIG1_BIT::ACCEL_DEC2_M2_ORD, Bit3 | Bit1 },
@@ -224,6 +224,7 @@ private:
 
     // Support for the IMU server
     uint32_t _imu_server_samples{0};
+    uint32_t _imu_server_index{0};
     imu_server_s _imu_server_data;
     uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
 

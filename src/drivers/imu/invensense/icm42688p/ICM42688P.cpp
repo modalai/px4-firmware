@@ -288,7 +288,7 @@ void ICM42688P::RunImpl()
 void ICM42688P::ConfigureSampleRate(int sample_rate)
 {
 	if (sample_rate == 0) {
-		sample_rate = 500; // default to 500 Hz
+		sample_rate = 800; // default to 800 Hz
 	}
 
 	// round down to nearest FIFO sample dt
@@ -533,7 +533,7 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 
             // Put valid sample into queue with appropriate timestamp.
             hrt_abstime reported_timestamp = timestamp_sample - ((uint32_t) j * (uint32_t) FIFO_SAMPLE_DT);
-            ProcessIMU(reported_timestamp, buffer.f[i]);
+            ProcessIMU(reported_timestamp, buffer.f[i], (j == 0));
             // fifo_count_samples--;
             // PX4_INFO("To IMU server: %d %d %llu %llu %u", i, j, timestamp_sample, reported_timestamp, (uint32_t) FIFO_SAMPLE_DT);
 		// } else {
@@ -575,7 +575,7 @@ static constexpr int32_t reassemble_20bit(const uint32_t a, const uint32_t b, co
 	return static_cast<int32_t>(x);
 }
 
-void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo) {
+void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo, bool last_sample) {
 
     // TODO: There is a bunch of copied code in here. Refactor into common functions.
 
@@ -622,13 +622,13 @@ void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA
 		gyro_y  = -gyro_y;
 		gyro_z  = -gyro_z;
 
-        // Publish samples for flight control at 500Hz
+        // Publish samples for flight control at 800Hz
         if (!hitl_mode){
-		if (_imu_server_samples % 2) {
-			_px4_accel->update(timestamp_sample, accel_x, accel_y, accel_z);
-			_px4_gyro->update(timestamp_sample, gyro_x, gyro_y, gyro_z);
+			if (last_sample) {
+				_px4_accel->update(timestamp_sample, accel_x, accel_y, accel_z);
+				_px4_gyro->update(timestamp_sample, gyro_x, gyro_y, gyro_z);
+			}
 		}
-	}
         // Scale everything appropriately
         float accel_scale_factor = (CONSTANTS_ONE_G / 8192.f);
         accel_x *= accel_scale_factor;
@@ -641,46 +641,50 @@ void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA
         gyro_z *= gyro_scale_factor;
 
         if (!hitl_mode){
-		// Store the data in our array
-		_imu_server_data.accel_x[_imu_server_samples] = accel_x;
-		_imu_server_data.accel_y[_imu_server_samples] = accel_y;
-		_imu_server_data.accel_z[_imu_server_samples] = accel_z;
-		_imu_server_data.gyro_x[_imu_server_samples]  = gyro_x;
-		_imu_server_data.gyro_y[_imu_server_samples]  = gyro_y;
-		_imu_server_data.gyro_z[_imu_server_samples]  = gyro_z;
-		_imu_server_data.ts[_imu_server_samples]      = timestamp_sample;
+			_imu_server_samples++;
 
-		_imu_server_samples++;
+			// Store the data in our array
+			if ( ! (_imu_server_samples % 8)) {
+				_imu_server_data.accel_x[_imu_server_index] = accel_x;
+				_imu_server_data.accel_y[_imu_server_index] = accel_y;
+				_imu_server_data.accel_z[_imu_server_index] = accel_z;
+				_imu_server_data.gyro_x[_imu_server_index]  = gyro_x;
+				_imu_server_data.gyro_y[_imu_server_index]  = gyro_y;
+				_imu_server_data.gyro_z[_imu_server_index]  = gyro_z;
+				_imu_server_data.ts[_imu_server_index]      = timestamp_sample;
+				_imu_server_index++;
+			}
 
-		// If array is full, publish the data
-		if (_imu_server_samples == 10) {
-			_imu_server_samples = 0;
-			_imu_server_data.timestamp = hrt_absolute_time();
-			_imu_server_data.temperature = 0; // Not used right now
-			_imu_server_pub.publish(_imu_server_data);
+			// If array is full, publish the data
+			if (_imu_server_samples == 80) {
+				_imu_server_samples = 0;
+				_imu_server_index = 0;
+				_imu_server_data.timestamp = hrt_absolute_time();
+				_imu_server_data.temperature = 0; // Not used right now
+				_imu_server_pub.publish(_imu_server_data);
+			}
 		}
-	}
 
-        _temperature_samples++;
+	    _temperature_samples++;
 
-        if (_temperature_samples == 40) {
-            _temperature_samples = 0;
+	    if (_temperature_samples == 320) {
+	        _temperature_samples = 0;
 
-            // Only update the temperature at 25Hz rate
-    		const int16_t t = combine(fifo.TEMP_DATA1, fifo.TEMP_DATA0);
+	        // Only update the temperature at 25Hz rate
+			const int16_t t = combine(fifo.TEMP_DATA1, fifo.TEMP_DATA0);
 
-    		// Temperature sample invalid if -32768
-    		if (t != -32768) {
-    		    const float TEMP_degC = ((float) t / TEMPERATURE_SENSITIVITY) + TEMPERATURE_OFFSET;
+			// Temperature sample invalid if -32768
+			if (t != -32768) {
+			    const float TEMP_degC = ((float) t / TEMPERATURE_SENSITIVITY) + TEMPERATURE_OFFSET;
 
-        		if (PX4_ISFINITE(TEMP_degC)) {
-				if (!hitl_mode){
-					_px4_accel->set_temperature(TEMP_degC);
-					_px4_gyro->set_temperature(TEMP_degC);
-				}
-                }
-    		}
-        }
+				if (PX4_ISFINITE(TEMP_degC)) {
+					if (!hitl_mode){
+						_px4_accel->set_temperature(TEMP_degC);
+						_px4_gyro->set_temperature(TEMP_degC);
+					}
+	            }
+			}
+	    }
     }
 }
 
