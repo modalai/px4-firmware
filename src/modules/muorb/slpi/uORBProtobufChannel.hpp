@@ -35,6 +35,67 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string>
+#include <map>
+#include <pthread.h>
+
+#include "uORB/uORBCommunicator.hpp"
+
+
+namespace uORB
+{
+class ProtobufChannel;
+}
+
+class uORB::ProtobufChannel : public uORBCommunicator::IChannel
+{
+public:
+	static uORB::ProtobufChannel *GetInstance()
+	{
+		return &(_Instance);
+	}
+
+	int16_t topic_advertised(const char *messageName);
+	int16_t add_subscription(const char *messageName, int32_t msgRateInHz);
+	int16_t remove_subscription(const char *messageName);
+	int16_t register_handler(uORBCommunicator::IChannelRxHandler *handler);
+	int16_t send_message(const char *messageName, int32_t length, uint8_t *data);
+
+	uORBCommunicator::IChannelRxHandler *GetRxHandler()
+	{
+		return _RxHandler;
+	}
+
+	void AddRemoteSubscriber(const std::string &messageName)
+	{
+		pthread_mutex_lock(&_rx_mutex);
+		_AppsSubscriberCache[messageName]++;
+		pthread_mutex_unlock(&_rx_mutex);
+	}
+
+	void RemoveRemoteSubscriber(const std::string &messageName)
+	{
+		pthread_mutex_lock(&_rx_mutex);
+
+		if (_AppsSubscriberCache[messageName]) { _AppsSubscriberCache[messageName]--; }
+
+		pthread_mutex_unlock(&_rx_mutex);
+	}
+
+	bool DebugEnabled() { return _debug; }
+
+private: // data members
+	static uORB::ProtobufChannel                _Instance;
+	static uORBCommunicator::IChannelRxHandler *_RxHandler;
+	static std::map<std::string, int>           _AppsSubscriberCache;
+	static pthread_mutex_t                      _tx_mutex;
+	static pthread_mutex_t                      _rx_mutex;
+	static bool                                 _debug;
+
+private://class members.
+	/// constructor.
+	ProtobufChannel() {};
+};
 
 // TODO: This has to be defined in the slpi_proc build and in the PX4 build.
 // Make it accessible from one file to both builds.

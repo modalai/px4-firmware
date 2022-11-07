@@ -231,6 +231,8 @@ if(EXISTS ${BOARD_DEFCONFIG})
 
         if(PLATFORM STREQUAL "qurt")
             include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2_qurt.cmake)
+        elseif(PLATFORM STREQUAL "posix" AND ${PX4_BOARD} STREQUAL "modalai_voxl2")
+            include(${PX4_SOURCE_DIR}/boards/modalai/voxl2/cmake/voxl2_posix.cmake)
         endif()
     endif()
 
