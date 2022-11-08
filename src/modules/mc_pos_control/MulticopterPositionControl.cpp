@@ -455,15 +455,16 @@ void MulticopterPositionControl::Run()
 
 			// update states
 			if (!PX4_ISFINITE(_setpoint.z)
-			    && PX4_ISFINITE(_setpoint.vz) && (fabsf(_setpoint.vz) > FLT_EPSILON)
+			    && PX4_ISFINITE(_setpoint.vz)
 			    && PX4_ISFINITE(local_pos.z_deriv) && local_pos.z_valid && local_pos.v_z_valid) {
 				// A change in velocity is demanded and the altitude is not controlled.
 				// Set velocity to the derivative of position
 				// because it has less bias but blend it in across the landing speed range
 				//  <  MPC_LAND_SPEED: ramp up using altitude derivative without a step
 				//  >= MPC_LAND_SPEED: use altitude derivative
-				float weighting = fminf(fabsf(_setpoint.vz) / _param_mpc_land_speed.get(), 1.f);
-				states.velocity(2) = local_pos.z_deriv * weighting + local_pos.vz * (1.f - weighting);
+				// float weighting = fminf(fabsf(_setpoint.vz) / _param_mpc_land_speed.get(), 1.f);
+				// states.velocity(2) = local_pos.z_deriv * weighting + local_pos.vz * (1.f - weighting);
+				states.velocity(2) = local_pos.z_deriv;
 			}
 
 			_control.setState(states);
