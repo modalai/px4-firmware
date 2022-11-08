@@ -41,7 +41,6 @@
 
 #include "uORB/uORBCommunicator.hpp"
 
-
 namespace uORB
 {
 class ProtobufChannel;
