@@ -36,14 +36,6 @@
 
 #include "fc_sensor.h"
 
-#include <uORB/Subscription.hpp>
-#include <uORB/Publication.hpp>
-#include <uORB/topics/ping.h>
-#include <uORB/topics/ping.h>
-
-uORB::Subscription _ping_sub{ORB_ID(ping)};
-uORB::Publication<ping_s> _ping_pub{ORB_ID(ping)};
-
 bool uORB::AppsProtobufChannel::test_flag = false;
 
 // Initialize the static members

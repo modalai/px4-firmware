@@ -41,14 +41,6 @@
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/log.h>
 
-#include <uORB/Subscription.hpp>
-#include <uORB/Publication.hpp>
-#include <uORB/topics/ping.h>
-#include <uORB/topics/ping.h>
-
-uORB::Subscription _ping_sub{ORB_ID(ping)};
-uORB::Publication<ping_s> _ping_pub{ORB_ID(ping)};
-
 // Definition of test to run when in muorb test mode
 static MUORBTestType test_to_run;
 
@@ -149,8 +141,6 @@ static void *test_runner(void *)
 {
 	PX4_INFO("test_runner called");
 	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
-	ping_s _ping{};
-	_ping_pub.publish(_ping);
 
 	switch (test_to_run) {
 	case ADVERTISE_TEST_TYPE:
