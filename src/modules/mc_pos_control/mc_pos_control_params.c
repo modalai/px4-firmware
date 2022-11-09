@@ -181,7 +181,7 @@ PARAM_DEFINE_FLOAT(MPC_Z_VEL_P_ACC, 4.0f);
  * Non zero value allows hovering thrust estimation on stabilized or autonomous takeoff.
  *
  * @min 0.2
- * @max 3.0
+ * @max 5.0
  * @decimal 3
  * @group Multicopter Position Control
  */
