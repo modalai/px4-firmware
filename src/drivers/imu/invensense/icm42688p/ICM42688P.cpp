@@ -55,7 +55,7 @@ ICM42688P::ICM42688P(I2CSPIBusOption bus_option, int bus, uint32_t device, enum 
 		_px4_accel = std::make_shared<PX4Accelerometer>(get_device_id(), rotation);
 		_px4_gyro = std::make_shared<PX4Gyroscope>(get_device_id(), rotation);
 		ConfigureSampleRate(_px4_gyro->get_max_rate_hz());
-		_imu_server_pub.advertise();
+		// _imu_server_pub.advertise();
 	} else {
 		ConfigureSampleRate(0);
 	}
@@ -70,9 +70,9 @@ ICM42688P::~ICM42688P()
 	perf_free(_fifo_reset_perf);
 	perf_free(_drdy_missed_perf);
 
-	if (!hitl_mode){
-     		_imu_server_pub.unadvertise();
-	}
+	// if (!hitl_mode){
+    //  		_imu_server_pub.unadvertise();
+	// }
 }
 
 int ICM42688P::init()
@@ -118,14 +118,27 @@ void ICM42688P::print_status()
 
 int ICM42688P::probe()
 {
-	const uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
+	for (int i = 0; i < 3; i++) {
+		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
-	if (whoami != WHOAMI) {
-		DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
-		return PX4_ERROR;
+		if (whoami == WHOAMI) {
+			return PX4_OK;
+
+		} else {
+			DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
+
+			uint8_t reg_bank_sel = RegisterRead(Register::BANK_0::REG_BANK_SEL);
+			int bank = reg_bank_sel >> 4;
+
+			if (bank >= 1 && bank <= 3) {
+				DEVICE_DEBUG("incorrect register bank for WHO_AM_I REG_BANK_SEL:0x%02x, bank:%d", reg_bank_sel, bank);
+				// force bank selection and retry
+				SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0, true);
+			}
+		}
 	}
 
-	return PX4_OK;
+	return PX4_ERROR;
 }
 
 void ICM42688P::RunImpl()
@@ -139,7 +152,7 @@ void ICM42688P::RunImpl()
 		_reset_timestamp = now;
 		_failure_count = 0;
 		_state = STATE::WAIT_FOR_RESET;
-		ScheduleDelayed(1_ms); // wait 1 ms for soft reset to be effective
+		ScheduleDelayed(2_ms); // to be safe wait 2 ms for soft reset to be effective
 		break;
 
 	case STATE::WAIT_FOR_RESET:
@@ -147,10 +160,8 @@ void ICM42688P::RunImpl()
 		    && (RegisterRead(Register::BANK_0::DEVICE_CONFIG) == 0x00)
 		    && (RegisterRead(Register::BANK_0::INT_STATUS) & INT_STATUS_BIT::RESET_DONE_INT)) {
 
-			// Wakeup accel and gyro and schedule remaining configuration
-			RegisterWrite(Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE);
 			_state = STATE::CONFIGURE;
-			ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+			ScheduleDelayed(10_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
 
 		} else {
 			// RESET not complete
@@ -169,6 +180,12 @@ void ICM42688P::RunImpl()
 
 	case STATE::CONFIGURE:
 		if (Configure()) {
+
+			// Wakeup accel and gyro after configuring registers
+			ScheduleDelayed(1_ms); // add a delay here to be safe
+			RegisterWrite(Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE);
+			ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::FIFO_READ;
 
@@ -320,9 +337,9 @@ void ICM42688P::ConfigureFIFOWatermark(uint8_t samples)
 	}
 }
 
-void ICM42688P::SelectRegisterBank(enum REG_BANK_SEL_BIT bank)
+void ICM42688P::SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force)
 {
-	if (bank != _last_register_bank) {
+	if (bank != _last_register_bank || force) {
 		// select BANK_0
 		uint8_t cmd_bank_sel[2] {};
 		cmd_bank_sel[0] = static_cast<uint8_t>(Register::BANK_0::REG_BANK_SEL);
@@ -486,6 +503,10 @@ uint16_t ICM42688P::FIFOReadCount()
 	return combine(fifo_count_buf[1], fifo_count_buf[2]);
 }
 
+static uint32_t debug_decimator = 0;
+static hrt_abstime last_sample_time = 0;
+static bool imu_debug = false;
+
 bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
 	FIFOTransferBuffer buffer{};
@@ -497,52 +518,88 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 		return false;
 	}
 
-	// if (buffer.INT_STATUS & INT_STATUS_BIT::FIFO_FULL_INT) {
-	// 	perf_count(_fifo_overflow_perf);
-	// 	FIFOReset();
-	// 	return false;
-	// }
-    //
-	// const uint16_t fifo_count_bytes = combine(buffer.FIFO_COUNTH, buffer.FIFO_COUNTL);
-    //
-	// if (fifo_count_bytes >= FIFO::SIZE) {
-	// 	perf_count(_fifo_overflow_perf);
-	// 	FIFOReset();
-	// 	return false;
-	// }
-    //
-	// uint8_t fifo_count_samples = samples;
-    //
-	// if (fifo_count_samples == 0) {
-	// 	perf_count(_fifo_empty_perf);
-	// 	return false;
-	// }
-
-	// check FIFO header in every sample
-	// uint8_t valid_samples = 0;
-
-    // int loop_count = math::min(samples, fifo_count_samples);
-	for (int i = 0, j = (samples - 1); i < samples; i++, j--) {
-		// const uint8_t FIFO_HEADER = buffer.f[i].FIFO_Header;
-		// const uint8_t VALID_FIFO_HEADER = FIFO::FIFO_HEADER_BIT::HEADER_ACCEL |
-        //                                   FIFO::FIFO_HEADER_BIT::HEADER_GYRO |
-        //                                   FIFO::FIFO_HEADER_BIT::HEADER_20;
-        //
-		// if ((FIFO_HEADER & 0xF3) == VALID_FIFO_HEADER) {
-		// 	valid_samples++;
-
-            // Put valid sample into queue with appropriate timestamp.
-            hrt_abstime reported_timestamp = timestamp_sample - ((uint32_t) j * (uint32_t) FIFO_SAMPLE_DT);
-            ProcessIMU(reported_timestamp, buffer.f[i], (j == 0));
-            // fifo_count_samples--;
-            // PX4_INFO("To IMU server: %d %d %llu %llu %u", i, j, timestamp_sample, reported_timestamp, (uint32_t) FIFO_SAMPLE_DT);
-		// } else {
-		// 	perf_count(_bad_transfer_perf);
-		// 	break;
-		// }
+	if (buffer.INT_STATUS & INT_STATUS_BIT::FIFO_FULL_INT) {
+		perf_count(_fifo_overflow_perf);
+		FIFOReset();
+		return false;
 	}
 
-	return true;
+	const uint16_t fifo_count_bytes = combine(buffer.FIFO_COUNTH, buffer.FIFO_COUNTL);
+
+	if (fifo_count_bytes >= FIFO::SIZE) {
+		perf_count(_fifo_overflow_perf);
+		FIFOReset();
+		return false;
+	}
+
+	const uint8_t fifo_count_samples = fifo_count_bytes / sizeof(FIFO::DATA);
+
+	if (fifo_count_samples == 0) {
+		perf_count(_fifo_empty_perf);
+		return false;
+	}
+
+	// check FIFO header in every sample
+	uint8_t valid_samples = 0;
+
+	for (int i = 0; i < math::min(samples, fifo_count_samples); i++) {
+		bool valid = true;
+
+		// With FIFO_ACCEL_EN and FIFO_GYRO_EN header should be 8’b_0110_10xx
+		const uint8_t FIFO_HEADER = buffer.f[i].FIFO_Header;
+
+		if (FIFO_HEADER & FIFO::FIFO_HEADER_BIT::HEADER_MSG) {
+			// FIFO sample empty if HEADER_MSG set
+			valid = false;
+
+		} else if (!(FIFO_HEADER & FIFO::FIFO_HEADER_BIT::HEADER_ACCEL)) {
+			// accel bit not set
+			valid = false;
+
+		} else if (!(FIFO_HEADER & FIFO::FIFO_HEADER_BIT::HEADER_GYRO)) {
+			// gyro bit not set
+			valid = false;
+
+		} else if (!(FIFO_HEADER & FIFO::FIFO_HEADER_BIT::HEADER_20)) {
+			// Packet does not contain a new and valid extended 20-bit data
+			valid = false;
+
+		} else if (FIFO_HEADER & FIFO::FIFO_HEADER_BIT::HEADER_ODR_ACCEL) {
+			// accel ODR changed
+			valid = false;
+
+		} else if (FIFO_HEADER & FIFO::FIFO_HEADER_BIT::HEADER_ODR_GYRO) {
+			// gyro ODR changed
+			valid = false;
+		}
+
+		if (valid) {
+			valid_samples++;
+
+		} else {
+			perf_count(_bad_transfer_perf);
+			break;
+		}
+	}
+
+	if (imu_debug) {
+		debug_decimator++;
+		if (debug_decimator == 800) {
+			debug_decimator = 0;
+			PX4_INFO("Initial: %u Next: %u Valid: %u Delta: %llu", samples, fifo_count_samples, valid_samples, timestamp_sample - last_sample_time);
+		}
+		last_sample_time = timestamp_sample;
+	}
+
+	if (valid_samples > 0) {
+		if (ProcessTemperature(buffer.f, valid_samples)) {
+			ProcessGyro(timestamp_sample, buffer.f, valid_samples);
+			ProcessAccel(timestamp_sample, buffer.f, valid_samples);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void ICM42688P::FIFOReset()
@@ -575,118 +632,29 @@ static constexpr int32_t reassemble_20bit(const uint32_t a, const uint32_t b, co
 	return static_cast<int32_t>(x);
 }
 
-void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo, bool last_sample) {
-
-    // TODO: There is a bunch of copied code in here. Refactor into common functions.
-
-    float accel_x = 0.0, accel_y = 0.0, accel_z = 0.0;
-    float gyro_x = 0.0,  gyro_y = 0.0,  gyro_z = 0.0;
-
-	// 20 bit hires mode
-
-	// Sign extension + Accel [19:12] + Accel [11:4] + Accel [3:2] (20 bit extension byte)
-	// Accel data is 18 bit
-	int32_t temp_accel_x = reassemble_20bit(fifo.ACCEL_DATA_X1, fifo.ACCEL_DATA_X0,
-					   fifo.Ext_Accel_X_Gyro_X & 0xF0 >> 4);
-	int32_t temp_accel_y = reassemble_20bit(fifo.ACCEL_DATA_Y1, fifo.ACCEL_DATA_Y0,
-					   fifo.Ext_Accel_Y_Gyro_Y & 0xF0 >> 4);
-	int32_t temp_accel_z = reassemble_20bit(fifo.ACCEL_DATA_Z1, fifo.ACCEL_DATA_Z0,
-					   fifo.Ext_Accel_Z_Gyro_Z & 0xF0 >> 4);
-
-	// Gyro [19:12] + Gyro [11:4] + Gyro [3:0] (bottom 4 bits of 20 bit extension byte)
-	int32_t temp_gyro_x = reassemble_20bit(fifo.GYRO_DATA_X1, fifo.GYRO_DATA_X0,
-                       fifo.Ext_Accel_X_Gyro_X & 0x0F);
-	int32_t temp_gyro_y = reassemble_20bit(fifo.GYRO_DATA_Y1, fifo.GYRO_DATA_Y0,
-                       fifo.Ext_Accel_Y_Gyro_Y & 0x0F);
-	int32_t temp_gyro_z = reassemble_20bit(fifo.GYRO_DATA_Z1, fifo.GYRO_DATA_Z0,
-                       fifo.Ext_Accel_Z_Gyro_Z & 0x0F);
-
-	// accel samples invalid if -524288
-	if (temp_accel_x != -524288 && temp_accel_y != -524288 && temp_accel_z != -524288) {
-
-		// shift accel by 2 (2 least significant bits are always 0)
-		accel_x = (float) temp_accel_x / 4.f;
-		accel_y = (float) temp_accel_y / 4.f;
-		accel_z = (float) temp_accel_z / 4.f;
-
-		// shift gyro by 1 (least significant bit is always 0)
-		gyro_x = (float) temp_gyro_x / 2.f;
-		gyro_y = (float) temp_gyro_y / 2.f;
-		gyro_z = (float) temp_gyro_z / 2.f;
-
-    	// correct frame for publication
-    	// sensor's frame is +x forward, +y left, +z up
-    	// flip y & z to publish right handed with z down (x forward, y right, z down)
-		accel_y = -accel_y;
-		accel_z = -accel_z;
-		gyro_y  = -gyro_y;
-		gyro_z  = -gyro_z;
-
-        // Publish samples for flight control at 800Hz
-        if (!hitl_mode){
-			if (last_sample) {
-				_px4_accel->update(timestamp_sample, accel_x, accel_y, accel_z);
-				_px4_gyro->update(timestamp_sample, gyro_x, gyro_y, gyro_z);
-			}
-		}
-        // Scale everything appropriately
-        float accel_scale_factor = (CONSTANTS_ONE_G / 8192.f);
-        accel_x *= accel_scale_factor;
-        accel_y *= accel_scale_factor;
-        accel_z *= accel_scale_factor;
-
-    	float gyro_scale_factor = math::radians(1.f / 131.f);
-        gyro_x *= gyro_scale_factor;
-        gyro_y *= gyro_scale_factor;
-        gyro_z *= gyro_scale_factor;
-
-        if (!hitl_mode){
-			_imu_server_samples++;
-
-			// Store the data in our array
-			if ( ! (_imu_server_samples % 8)) {
-				_imu_server_data.accel_x[_imu_server_index] = accel_x;
-				_imu_server_data.accel_y[_imu_server_index] = accel_y;
-				_imu_server_data.accel_z[_imu_server_index] = accel_z;
-				_imu_server_data.gyro_x[_imu_server_index]  = gyro_x;
-				_imu_server_data.gyro_y[_imu_server_index]  = gyro_y;
-				_imu_server_data.gyro_z[_imu_server_index]  = gyro_z;
-				_imu_server_data.ts[_imu_server_index]      = timestamp_sample;
-				_imu_server_index++;
-			}
-
-			// If array is full, publish the data
-			if (_imu_server_samples == 80) {
-				_imu_server_samples = 0;
-				_imu_server_index = 0;
-				_imu_server_data.timestamp = hrt_absolute_time();
-				_imu_server_data.temperature = 0; // Not used right now
-				_imu_server_pub.publish(_imu_server_data);
-			}
-		}
-
-	    _temperature_samples++;
-
-	    if (_temperature_samples == 320) {
-	        _temperature_samples = 0;
-
-	        // Only update the temperature at 25Hz rate
-			const int16_t t = combine(fifo.TEMP_DATA1, fifo.TEMP_DATA0);
-
-			// Temperature sample invalid if -32768
-			if (t != -32768) {
-			    const float TEMP_degC = ((float) t / TEMPERATURE_SENSITIVITY) + TEMPERATURE_OFFSET;
-
-				if (PX4_ISFINITE(TEMP_degC)) {
-					if (!hitl_mode){
-						_px4_accel->set_temperature(TEMP_degC);
-						_px4_gyro->set_temperature(TEMP_degC);
-					}
-	            }
-			}
-	    }
-    }
-}
+// 	_imu_server_samples++;
+//
+// 	// Store the data in our array
+// 	if ( ! (_imu_server_samples % 8)) {
+// 		_imu_server_data.accel_x[_imu_server_index] = accel_x;
+// 		_imu_server_data.accel_y[_imu_server_index] = accel_y;
+// 		_imu_server_data.accel_z[_imu_server_index] = accel_z;
+// 		_imu_server_data.gyro_x[_imu_server_index]  = gyro_x;
+// 		_imu_server_data.gyro_y[_imu_server_index]  = gyro_y;
+// 		_imu_server_data.gyro_z[_imu_server_index]  = gyro_z;
+// 		_imu_server_data.ts[_imu_server_index]      = timestamp_sample;
+// 		_imu_server_index++;
+// 	}
+//
+// 	// If array is full, publish the data
+// 	if (_imu_server_samples == 80) {
+// 		_imu_server_samples = 0;
+// 		_imu_server_index = 0;
+// 		_imu_server_data.timestamp = hrt_absolute_time();
+// 		_imu_server_data.temperature = 0; // Not used right now
+// 		_imu_server_pub.publish(_imu_server_data);
+// 	}
+// }
 
 void ICM42688P::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples)
 {
