@@ -151,6 +151,7 @@ EKF2::EKF2(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
 	_param_ekf2_abl_acclim(_params->acc_bias_learn_acc_lim),
 	_param_ekf2_abl_gyrlim(_params->acc_bias_learn_gyr_lim),
 	_param_ekf2_abl_tau(_params->acc_bias_learn_tc),
+	_param_ekf2_aabl_lim(_params->alpha_bias_lim),
 	_param_ekf2_drag_noise(_params->drag_noise),
 	_param_ekf2_bcoef_x(_params->bcoef_x),
 	_param_ekf2_bcoef_y(_params->bcoef_y),
@@ -1143,10 +1144,10 @@ void EKF2::PublishSensorBias(const hrt_abstime &timestamp)
 		bias.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
 
 		// take device ids from sensor_selection_s if not using specific vehicle_imu_s
-		if (_device_id_gyro != 0) {
+		if (_device_id_gyro != 0 && !(_param_ekf2_aid_mask.get() & MASK_INHIBIT_ALPHA_BIAS)) {
 			bias.gyro_device_id = _device_id_gyro;
 			gyro_bias.copyTo(bias.gyro_bias);
-			bias.gyro_bias_limit = math::radians(20.f); // 20 degrees/s see Ekf::constrainStates()
+			bias.gyro_bias_limit = _params->alpha_bias_lim; // 20 degrees/s see Ekf::constrainStates()
 			_ekf.getGyroBiasVariance().copyTo(bias.gyro_bias_variance);
 			bias.gyro_bias_valid = true;  // TODO
 			bias.gyro_bias_stable = _gyro_cal.cal_available;
@@ -1922,6 +1923,11 @@ void EKF2::UpdateAccelCalibration(const hrt_abstime &timestamp)
 
 void EKF2::UpdateGyroCalibration(const hrt_abstime &timestamp)
 {
+	if (_param_ekf2_aid_mask.get() & MASK_INHIBIT_ALPHA_BIAS) {
+		_gyro_cal.cal_available = false;
+		return;
+	}
+
 	static constexpr float max_var_allowed = 1e-3f;
 	static constexpr float max_var_ratio = 1e2f;
 

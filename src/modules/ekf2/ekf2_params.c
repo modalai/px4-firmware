@@ -606,10 +606,12 @@ PARAM_DEFINE_FLOAT(EKF2_TAS_GATE, 3.0f);
  * 5 : Set to true to enable multi-rotor drag specific force fusion
  * 6 : set to true if the EV observations are in a non NED reference frame and need to be rotated before being used
  * 7 : Set to true to enable GPS yaw fusion. Cannot be used if bit position 4 is true.
+ * 8 : Set to true to enable vision velocity fusion.
+ * 9 : Set to true to inhibit Gyro delta angular velocity bias estimation.
  *
  * @group EKF2
  * @min 0
- * @max 511
+ * @max 1023
  * @bit 0 use GPS
  * @bit 1 use optical flow
  * @bit 2 inhibit IMU bias estimation
@@ -619,6 +621,7 @@ PARAM_DEFINE_FLOAT(EKF2_TAS_GATE, 3.0f);
  * @bit 6 rotate external vision
  * @bit 7 GPS yaw fusion
  * @bit 8 vision velocity fusion
+ * @bit 9 inhibit Gyro bias estimation
  * @reboot_required true
  */
 PARAM_DEFINE_INT32(EKF2_AID_MASK, 1);
@@ -1336,6 +1339,19 @@ PARAM_DEFINE_FLOAT(EKF2_ABL_GYRLIM, 3.0f);
  * @decimal 2
  */
 PARAM_DEFINE_FLOAT(EKF2_ABL_TAU, 0.5f);
+
+/**
+ * Gyro bias learning limit.
+ *
+ * The ekf delta angular velocity bias states will be limited to within a range equivalent to +- of this value.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 0.5
+ * @unit rad/s^2
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_AABL_LIM, 0.35f);
 
 /**
  * Required GPS health time on startup

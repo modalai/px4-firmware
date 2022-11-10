@@ -541,42 +541,49 @@ void Ekf::predictCovariance()
 	nextP(7,9) = P(4,9)*dt + P(7,9) + dt*(P(4,6)*dt + P(6,7));
 	nextP(8,9) = P(5,9)*dt + P(8,9) + dt*(P(5,6)*dt + P(6,8));
 	nextP(9,9) = P(6,9)*dt + P(9,9) + dt*(P(6,6)*dt + P(6,9));
-	nextP(0,10) = PS14;
-	nextP(1,10) = PS105;
-	nextP(2,10) = PS133;
-	nextP(3,10) = PS151;
-	nextP(4,10) = P(0,10)*PS174 + P(1,10)*PS173 + P(10,13)*PS43 + P(10,14)*PS172 - P(10,15)*PS171 + P(2,10)*PS175 - P(3,10)*PS176 + P(4,10);
-	nextP(5,10) = -P(0,10)*PS202 - P(1,10)*PS204 - P(10,13)*PS193 + P(10,14)*PS75 + P(10,15)*PS190 + P(2,10)*PS201 + P(3,10)*PS203 + P(5,10);
-	nextP(6,10) = P(0,10)*PS216 + P(1,10)*PS217 + P(10,13)*PS199 - P(10,14)*PS197 + P(10,15)*PS87 - P(2,10)*PS214 + P(3,10)*PS215 + P(6,10);
-	nextP(7,10) = P(4,10)*dt + P(7,10);
-	nextP(8,10) = P(5,10)*dt + P(8,10);
-	nextP(9,10) = P(6,10)*dt + P(9,10);
-	nextP(10,10) = P(10,10);
-	nextP(0,11) = PS17;
-	nextP(1,11) = PS97;
-	nextP(2,11) = PS132;
-	nextP(3,11) = PS155;
-	nextP(4,11) = P(0,11)*PS174 + P(1,11)*PS173 + P(11,13)*PS43 + P(11,14)*PS172 - P(11,15)*PS171 + P(2,11)*PS175 - P(3,11)*PS176 + P(4,11);
-	nextP(5,11) = -P(0,11)*PS202 - P(1,11)*PS204 - P(11,13)*PS193 + P(11,14)*PS75 + P(11,15)*PS190 + P(2,11)*PS201 + P(3,11)*PS203 + P(5,11);
-	nextP(6,11) = P(0,11)*PS216 + P(1,11)*PS217 + P(11,13)*PS199 - P(11,14)*PS197 + P(11,15)*PS87 - P(2,11)*PS214 + P(3,11)*PS215 + P(6,11);
-	nextP(7,11) = P(4,11)*dt + P(7,11);
-	nextP(8,11) = P(5,11)*dt + P(8,11);
-	nextP(9,11) = P(6,11)*dt + P(9,11);
-	nextP(10,11) = P(10,11);
-	nextP(11,11) = P(11,11);
-	nextP(0,12) = PS20;
-	nextP(1,12) = PS107;
-	nextP(2,12) = PS127;
-	nextP(3,12) = PS154;
-	nextP(4,12) = P(0,12)*PS174 + P(1,12)*PS173 + P(12,13)*PS43 + P(12,14)*PS172 - P(12,15)*PS171 + P(2,12)*PS175 - P(3,12)*PS176 + P(4,12);
-	nextP(5,12) = -P(0,12)*PS202 - P(1,12)*PS204 - P(12,13)*PS193 + P(12,14)*PS75 + P(12,15)*PS190 + P(2,12)*PS201 + P(3,12)*PS203 + P(5,12);
-	nextP(6,12) = P(0,12)*PS216 + P(1,12)*PS217 + P(12,13)*PS199 - P(12,14)*PS197 + P(12,15)*PS87 - P(2,12)*PS214 + P(3,12)*PS215 + P(6,12);
-	nextP(7,12) = P(4,12)*dt + P(7,12);
-	nextP(8,12) = P(5,12)*dt + P(8,12);
-	nextP(9,12) = P(6,12)*dt + P(9,12);
-	nextP(10,12) = P(10,12);
-	nextP(11,12) = P(11,12);
-	nextP(12,12) = P(12,12);
+	
+	if (!(_params.fusion_mode & MASK_INHIBIT_ALPHA_BIAS)) {
+		nextP(0,10) = PS14;
+		nextP(1,10) = PS105;
+		nextP(2,10) = PS133;
+		nextP(3,10) = PS151;
+		nextP(4,10) = P(0,10)*PS174 + P(1,10)*PS173 + P(10,13)*PS43 + P(10,14)*PS172 - P(10,15)*PS171 + P(2,10)*PS175 - P(3,10)*PS176 + P(4,10);
+		nextP(5,10) = -P(0,10)*PS202 - P(1,10)*PS204 - P(10,13)*PS193 + P(10,14)*PS75 + P(10,15)*PS190 + P(2,10)*PS201 + P(3,10)*PS203 + P(5,10);
+		nextP(6,10) = P(0,10)*PS216 + P(1,10)*PS217 + P(10,13)*PS199 - P(10,14)*PS197 + P(10,15)*PS87 - P(2,10)*PS214 + P(3,10)*PS215 + P(6,10);
+		nextP(7,10) = P(4,10)*dt + P(7,10);
+		nextP(8,10) = P(5,10)*dt + P(8,10);
+		nextP(9,10) = P(6,10)*dt + P(9,10);
+		nextP(10,10) = P(10,10);
+		nextP(0,11) = PS17;
+		nextP(1,11) = PS97;
+		nextP(2,11) = PS132;
+		nextP(3,11) = PS155;
+		nextP(4,11) = P(0,11)*PS174 + P(1,11)*PS173 + P(11,13)*PS43 + P(11,14)*PS172 - P(11,15)*PS171 + P(2,11)*PS175 - P(3,11)*PS176 + P(4,11);
+		nextP(5,11) = -P(0,11)*PS202 - P(1,11)*PS204 - P(11,13)*PS193 + P(11,14)*PS75 + P(11,15)*PS190 + P(2,11)*PS201 + P(3,11)*PS203 + P(5,11);
+		nextP(6,11) = P(0,11)*PS216 + P(1,11)*PS217 + P(11,13)*PS199 - P(11,14)*PS197 + P(11,15)*PS87 - P(2,11)*PS214 + P(3,11)*PS215 + P(6,11);
+		nextP(7,11) = P(4,11)*dt + P(7,11);
+		nextP(8,11) = P(5,11)*dt + P(8,11);
+		nextP(9,11) = P(6,11)*dt + P(9,11);
+		nextP(10,11) = P(10,11);
+		nextP(11,11) = P(11,11);
+		nextP(0,12) = PS20;
+		nextP(1,12) = PS107;
+		nextP(2,12) = PS127;
+		nextP(3,12) = PS154;
+		nextP(4,12) = P(0,12)*PS174 + P(1,12)*PS173 + P(12,13)*PS43 + P(12,14)*PS172 - P(12,15)*PS171 + P(2,12)*PS175 - P(3,12)*PS176 + P(4,12);
+		nextP(5,12) = -P(0,12)*PS202 - P(1,12)*PS204 - P(12,13)*PS193 + P(12,14)*PS75 + P(12,15)*PS190 + P(2,12)*PS201 + P(3,12)*PS203 + P(5,12);
+		nextP(6,12) = P(0,12)*PS216 + P(1,12)*PS217 + P(12,13)*PS199 - P(12,14)*PS197 + P(12,15)*PS87 - P(2,12)*PS214 + P(3,12)*PS215 + P(6,12);
+		nextP(7,12) = P(4,12)*dt + P(7,12);
+		nextP(8,12) = P(5,12)*dt + P(8,12);
+		nextP(9,12) = P(6,12)*dt + P(9,12);
+		nextP(10,12) = P(10,12);
+		nextP(11,12) = P(11,12);
+		nextP(12,12) = P(12,12);
+	} else {
+		nextP.uncorrelateCovarianceSetVariance<1>(10, 0.0);
+		nextP.uncorrelateCovarianceSetVariance<1>(11, 0.0);
+		nextP.uncorrelateCovarianceSetVariance<1>(12, 0.0);
+	}
 
 	// process noise contribution for delta angle states can be very small compared to
 	// the variances, therefore use algorithm to minimise numerical error
@@ -923,10 +930,17 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 		P(i, i) = math::constrain(P(i, i), 1e-6f, P_lim[2]);
 	}
 
-	for (int i = 10; i <= 12; i++) {
-		// gyro bias states
-		P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[3]);
-	}
+	if (!(_params.fusion_mode & MASK_INHIBIT_ALPHA_BIAS)) {
+		for (int i = 10; i <= 12; i++) {
+			// gyro bias states
+			P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[3]);
+		}
+	} else {
+		for (int i = 10; i <= 12; i++) {
+			// gyro bias states
+			P(i, i) = 0.0;
+		}		
+	} 
 
 	// force symmetry on the quaternion, velocity and position state covariances
 	if (force_symmetry) {

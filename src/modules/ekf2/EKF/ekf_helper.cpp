@@ -543,7 +543,7 @@ void Ekf::constrainStates()
 	_state.vel = matrix::constrain(_state.vel, -1000.0f, 1000.0f);
 	_state.pos = matrix::constrain(_state.pos, -1.e6f, 1.e6f);
 
-	const float delta_ang_bias_limit = math::radians(20.f) * _dt_ekf_avg;
+	const float delta_ang_bias_limit = _params.alpha_bias_lim * _dt_ekf_avg;
 	_state.delta_ang_bias = matrix::constrain(_state.delta_ang_bias, -delta_ang_bias_limit, delta_ang_bias_limit);
 
 	const float delta_vel_bias_limit = _params.acc_bias_lim * _dt_ekf_avg;

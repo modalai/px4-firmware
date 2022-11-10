@@ -767,6 +767,12 @@ private:
 	template <size_t ...Idxs>
 	bool measurementUpdate(Vector24f &K, const SparseVector24f<Idxs...> &H, float innovation)
 	{
+		if (_params.fusion_mode & MASK_INHIBIT_ALPHA_BIAS) {
+			for (unsigned i = 0; i != 3; i++) {
+				K(10 + i) = 0.0f;			
+			}
+		}
+
 		for (unsigned i = 0; i < 3; i++) {
 			if (_accel_bias_inhibit[i]) {
 				K(13 + i) = 0.0f;
