@@ -114,12 +114,12 @@ void Ekf::fuseFakePosition()
 		fake_pos_obs_var(0) = fake_pos_obs_var(1) = sq(0.5f);
 	}
 
-	_gps_pos_innov.xy() = Vector2f(_state.pos) - _last_known_posNE;
+	_fake_pos_innov.xy() = Vector2f(_state.pos) - _last_known_posNE;
 
 	const float fake_pos_innov_gate = 3.f;
 
-	if (fuseHorizontalPosition(_gps_pos_innov, fake_pos_innov_gate, fake_pos_obs_var,
-	                           _gps_pos_innov_var, _gps_pos_test_ratio, true)) {
+	if (fuseHorizontalPosition(_fake_pos_innov, fake_pos_innov_gate, fake_pos_obs_var,
+	                           _fake_pos_innov_var, _gps_pos_test_ratio, true)) {
 		_time_last_fake_pos_fuse = _time_last_imu;
 	}
 }

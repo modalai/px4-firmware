@@ -444,6 +444,9 @@ private:
 	Vector3f _gps_pos_innov{};	///< GPS position innovations (m)
 	Vector3f _gps_pos_innov_var{};	///< GPS position innovation variances (m**2)
 
+	Vector3f _fake_pos_innov{};	///< Fake position innovations (m)
+	Vector3f _fake_pos_innov_var{};	///< Fake position innovation variances (m**2)
+
 	Vector3f _ev_vel_innov{};	///< external vision velocity innovations (m/sec)
 	Vector3f _ev_vel_innov_var{};	///< external vision velocity innovation variances ((m/sec)**2)
 
