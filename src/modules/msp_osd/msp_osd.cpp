@@ -96,8 +96,7 @@ MspOsd::MspOsd(const char *device) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default),
 	_msp(0),
-	_display(/*period*/hrt_abstime(_param_scroll_rate.get() * 1000ULL),
-		 /*dwell*/hrt_abstime(_param_dwell_time.get() * 1000ULL))
+	_display(/*period*/125 * 1000ULL, /*dwell*/500 * 1000ULL)
 {
 	// back up device name for connection later
 	strcpy(_device, device);
