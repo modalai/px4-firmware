@@ -153,7 +153,7 @@ private:
 	const spi_drdy_gpio_t _drdy_gpio;
 
 	std::shared_ptr<PX4Accelerometer> _px4_accel;
-    	std::shared_ptr<PX4Gyroscope> _px4_gyro;
+	std::shared_ptr<PX4Gyroscope> _px4_gyro;
 
 	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad register")};
 	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad transfer")};
