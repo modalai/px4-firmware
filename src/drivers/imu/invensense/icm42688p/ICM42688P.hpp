@@ -145,6 +145,7 @@ private:
 	bool FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples);
 	void FIFOReset();
 
+	void ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo);
 	void ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	bool ProcessTemperature(const FIFO::DATA fifo[], const uint8_t samples);
@@ -221,9 +222,8 @@ private:
     uint32_t _temperature_samples{0};
 
     // Support for the IMU server
-    // uint32_t _imu_server_samples{0};
-    // uint32_t _imu_server_index{0};
-    // imu_server_s _imu_server_data;
-    // uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
+    uint32_t _imu_server_index{0};
+    imu_server_s _imu_server_data;
+    uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
 
 };
