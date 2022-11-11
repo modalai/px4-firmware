@@ -204,30 +204,16 @@ msp_status_BF_t construct_STATUS(const vehicle_status_s& vehicle_status) {
 	if (vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED) {
 		status_BF.flight_mode_flags |= ARM_ACRO_BF;
 
-		switch (vehicle_status.nav_state) {
-		case vehicle_status.NAVIGATION_STATE_MANUAL:
+    if (vehicle_status.nav_state == vehicle_status.NAVIGATION_STATE_MANUAL)
 			status_BF.flight_mode_flags |= 0;
-			break;
-
-		case vehicle_status.NAVIGATION_STATE_ACRO:
+    else if (vehicle_status.nav_state == vehicle_status.NAVIGATION_STATE_ACRO)
 			status_BF.flight_mode_flags |= 0;
-			break;
-
-		case vehicle_status.NAVIGATION_STATE_STAB:
+    else if (vehicle_status.nav_state == vehicle_status.NAVIGATION_STATE_STAB)
 			status_BF.flight_mode_flags |= STAB_BF;
-			break;
-
-		case vehicle_status.NAVIGATION_STATE_AUTO_RTL:
+    else if (vehicle_status.nav_state == vehicle_status.NAVIGATION_STATE_AUTO_RTL)
 			status_BF.flight_mode_flags |= RESC_BF;
-			break;
-
-		case vehicle_status.NAVIGATION_STATE_TERMINATION:
+    else if (vehicle_status.nav_state == vehicle_status.NAVIGATION_STATE_TERMINATION)
 			status_BF.flight_mode_flags |= FS_BF;
-			break;
-
-		default:
-			break;
-		}
 	}
 
 	status_BF.arming_disable_flags_count = 1;
