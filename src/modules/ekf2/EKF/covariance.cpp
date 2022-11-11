@@ -579,17 +579,19 @@ void Ekf::predictCovariance()
 		nextP(10,12) = P(10,12);
 		nextP(11,12) = P(11,12);
 		nextP(12,12) = P(12,12);
-	} else {
-		nextP.uncorrelateCovarianceSetVariance<1>(10, 0.0);
-		nextP.uncorrelateCovarianceSetVariance<1>(11, 0.0);
-		nextP.uncorrelateCovarianceSetVariance<1>(12, 0.0);
-	}
 
-	// process noise contribution for delta angle states can be very small compared to
-	// the variances, therefore use algorithm to minimise numerical error
-	for (unsigned i = 10; i <= 12; i++) {
-		const int index = i - 10;
-		nextP(i, i) = kahanSummation(nextP(i, i), process_noise(i), _delta_angle_bias_var_accum(index));
+		// process noise contribution for delta angle states can be very small compared to
+		// the variances, therefore use algorithm to minimise numerical error
+		for (unsigned i = 10; i <= 12; i++) {
+			const int index = i - 10;
+			nextP(i, i) = kahanSummation(nextP(i, i), process_noise(i), _delta_angle_bias_var_accum(index));
+		}
+	} else {
+		for (unsigned i = 10; i <= 12; i++) {
+			const int index = i - 10;
+			nextP.uncorrelateCovarianceSetVariance<1>(i, 0.0);
+			_delta_angle_bias_var_accum(index) = 0.0;
+		}
 	}
 
 	if (!_accel_bias_inhibit[0]) {
@@ -908,7 +910,7 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 	float P_lim[8] = {};
 	P_lim[0] = 1.0f;		// quaternion max var
 	P_lim[1] = 1e6f;		// velocity max var
-	P_lim[2] = 1e6f;		// positiion max var
+	P_lim[2] = 1e8f;		// positiion max var
 	P_lim[3] = 1.0f;		// gyro bias max var
 	P_lim[4] = 1.0f;		// delta velocity z bias max var
 	P_lim[5] = 1.0f;		// earth mag field max var
