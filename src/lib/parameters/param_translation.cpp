@@ -73,8 +73,9 @@ bool param_modify_on_import(bson_node_t node)
 			strcpy(node->name, "COM_ARM_AUTH_ID");
 			node->i32 = old_param.struct_value.authorizer_system_id;
 
-			PX4_INFO("migrating COM_ARM_AUTH: %" PRId32 " -> COM_ARM_AUTH_ID:%" PRId8 ", COM_ARM_AUTH_MET: %" PRId32
-				 " and COM_ARM_AUTH_TO: %f",
+			//PX4_INFO("migrating COM_ARM_AUTH: %" PRId32 " -> COM_ARM_AUTH_ID:%" PRId8 ", COM_ARM_AUTH_MET: %" PRId32
+				//" and COM_ARM_AUTH_TO: %f",
+			PX4_INFO("migrating COM_ARM_AUTH: %d -> COM_ARM_AUTH_ID:%d, COM_ARM_AUTH_MET: %d and COM_ARM_AUTH_TO: %f",
 				 old_param.param_value,
 				 old_param.struct_value.authorizer_system_id,
 				 method,
@@ -232,7 +233,8 @@ bool param_modify_on_import(bson_node_t node)
 	{
 		if (strcmp("EKF2_RNG_AID", node->name) == 0) {
 			strcpy(node->name, "EKF2_RNG_CTRL");
-			PX4_INFO("param migrating EKF2_RNG_AID (removed) -> EKF2_RNG_CTRL: value=%" PRId32, node->i32);
+			//PX4_INFO("param migrating EKF2_RNG_AID (removed) -> EKF2_RNG_CTRL: value=%" PRId32, node->i32);
+			PX4_INFO("param migrating EKF2_RNG_AID (removed) -> EKF2_RNG_CTRL: value=%.3d", node->i32);
 			return true;
 		}
 
@@ -245,7 +247,8 @@ bool param_modify_on_import(bson_node_t node)
 				param_set_no_notification(param_find("EKF2_RNG_CTRL"), &rng_mode);
 			}
 
-			PX4_INFO("param migrating EKF2_HGT_MODE (removed) -> EKF2_HGT_REF: value=%" PRId32, node->i32);
+			//PX4_INFO("param migrating EKF2_HGT_MODE (removed) -> EKF2_HGT_REF: value=%" PRId32, node->i32);
+			PX4_INFO("param migrating EKF2_HGT_MODE (removed) -> EKF2_HGT_REF: value=%.3d", node->i32);
 			return true;
 		}
 	}

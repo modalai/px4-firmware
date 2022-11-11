@@ -51,6 +51,8 @@
 #include <float.h>
 #include <math.h>
 
+#include <sys/unistd.h>
+
 #include <containers/Bitset.hpp>
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>
@@ -79,7 +81,7 @@ using namespace time_literals;
 
 #if defined(FLASH_BASED_PARAMS)
 #include "flashparams/flashparams.h"
-#else
+#elif !defined(PARAM_CLIENT)
 inline static int flash_param_save(param_filter_func filter) { return -1; }
 inline static int flash_param_load() { return -1; }
 inline static int flash_param_import() { return -1; }
@@ -88,12 +90,25 @@ inline static int flash_param_import() { return -1; }
 static char *param_default_file = nullptr;
 static char *param_backup_file = nullptr;
 
+// uORB topics needed to keep parameter server and client in sync
+#if defined(PARAM_SERVER)
+#include "param_server.h"
+#endif
+
+#if defined(PARAM_CLIENT)
+#include "param_client.h"
+#endif
+
 #include <px4_platform_common/workqueue.h>
 /* autosaving variables */
 static hrt_abstime last_autosave_timestamp = 0;
 static struct work_s autosave_work {};
 static px4::atomic_bool autosave_scheduled{false};
+#if !defined(PARAM_CLIENT)
 static bool autosave_disabled = false;
+#else
+static bool autosave_disabled = true;
+#endif
 
 static px4::AtomicBitset<param_info_count> params_active;  // params found
 static px4::AtomicBitset<param_info_count> params_changed; // params non-default
@@ -113,8 +128,10 @@ UT_array *param_custom_default_values{nullptr};
 const UT_icd param_icd = {sizeof(param_wbuf_s), nullptr, nullptr, nullptr};
 
 /** parameter update topic handle */
+#if !defined(PARAM_CLIENT)
 static orb_advert_t param_topic = nullptr;
 static unsigned int param_instance = 0;
+#endif
 
 // the following implements an RW-lock using 2 semaphores (used as mutexes). It gives
 // priority to readers, meaning a writer could suffer from starvation, but in our use-case
@@ -201,6 +218,15 @@ param_init()
 #if defined(__PX4_NUTTX) && !defined(CONFIG_BUILD_FLAT)
 	px4_register_boardct_ioctl(_PARAMIOCBASE, param_ioctl);
 #endif
+
+#if defined(PARAM_SERVER)
+   	param_server_init();
+#endif
+
+#if defined(PARAM_CLIENT)
+   	param_client_init();
+#endif
+
 }
 
 /**
@@ -232,7 +258,8 @@ param_compare_values(const void *a, const void *b)
  * @return			The structure holding the modified value, or
  *				nullptr if the parameter has not been modified.
  */
-static param_wbuf_s *
+//static param_wbuf_s *
+param_wbuf_s *
 param_find_changed(param_t param)
 {
 	param_assert_locked();
@@ -249,6 +276,7 @@ param_find_changed(param_t param)
 void
 param_notify_changes()
 {
+#if !defined(PARAM_CLIENT)
 	parameter_update_s pup{};
 	pup.instance = param_instance++;
 	pup.get_count = perf_event_count(param_get_perf);
@@ -266,6 +294,7 @@ param_notify_changes()
 	} else {
 		orb_publish(ORB_ID(parameter_update), param_topic, &pup);
 	}
+#endif
 }
 
 static param_t param_find_internal(const char *name, bool notification)
@@ -653,6 +682,7 @@ param_autosave()
 void
 param_control_autosave(bool enable)
 {
+#if !defined(PARAM_CLIENT)
 	param_lock_writer();
 
 	if (!enable && autosave_scheduled.load()) {
@@ -662,10 +692,16 @@ param_control_autosave(bool enable)
 
 	autosave_disabled = !enable;
 	param_unlock_writer();
+#endif
 }
 
+#if defined(PARAM_SERVER) || defined(PARAM_CLIENT)
+static int
+param_set_internal(param_t param, const void *val, bool mark_saved, bool notify_changes, bool remote_update = true)
+#else
 static int
 param_set_internal(param_t param, const void *val, bool mark_saved, bool notify_changes)
+#endif
 {
 	if (!handle_in_range(param)) {
 		PX4_ERR("set invalid param %d", param);
@@ -758,6 +794,18 @@ out:
 	perf_end(param_set_perf);
 	param_unlock_writer();
 
+#if defined(PARAM_SERVER)
+	// If this is the parameter server, make sure that the client is updated
+	// TODO: Handle the possibility that this fails.
+	if (params_changed[param] && remote_update) param_server_set(param, val);
+#endif
+
+#if defined(PARAM_CLIENT)
+	// If this is the parameter client, make sure that the server is updated
+	// TODO: Handle the possibility that this fails.
+	if (params_changed[param] && remote_update) param_client_set(param, val);
+#endif
+
 	/*
 	 * If we set something, now that we have unlocked, go ahead and advertise that
 	 * a thing has been set.
@@ -791,6 +839,14 @@ int param_set_no_notification(param_t param, const void *val)
 	return param_set_internal(param, val, false, false);
 }
 
+#if defined(PARAM_SERVER) || defined(PARAM_CLIENT)
+int
+param_set_no_remote_update(param_t param, const void *val, bool notify)
+{
+	return param_set_internal(param, val, false, notify, false);
+}
+#endif
+
 bool param_used(param_t param)
 {
 	if (handle_in_range(param)) {
@@ -805,6 +861,9 @@ void param_set_used(param_t param)
 	if (handle_in_range(param)) {
 		params_active.set(param, true);
 	}
+#if defined(PARAM_CLIENT)
+   	if ( ! param_used(param)) param_client_set_used(param);
+#endif
 }
 
 int param_set_default_value(param_t param, const void *val)
@@ -916,6 +975,10 @@ int param_set_default_value(param_t param, const void *val)
 
 static int param_reset_internal(param_t param, bool notify = true)
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot reset parameters on client side");
+	return false;
+#else
 	param_wbuf_s *s = nullptr;
 	bool param_found = false;
 
@@ -941,11 +1004,16 @@ static int param_reset_internal(param_t param, bool notify = true)
 
 	param_unlock_writer();
 
+#if defined(PARAM_SERVER)
+  	param_server_reset(param);
+#endif
+
 	if (s != nullptr && notify) {
 		param_notify_changes();
 	}
 
 	return (!param_found);
+#endif
 }
 
 int param_reset(param_t param) { return param_reset_internal(param, true); }
@@ -954,6 +1022,9 @@ int param_reset_no_notification(param_t param) { return param_reset_internal(par
 static void
 param_reset_all_internal(bool auto_save)
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot reset all parameters on client side");
+#else
 	param_lock_writer();
 
 	if (param_values != nullptr) {
@@ -970,8 +1041,11 @@ param_reset_all_internal(bool auto_save)
 	}
 
 	param_unlock_writer();
-
+#if defined(PARAM_SERVER)
+    	param_server_reset_all();
+#endif
 	param_notify_changes();
+#endif
 }
 
 void
@@ -1091,11 +1165,17 @@ const char *param_get_backup_file()
 	return param_backup_file;
 }
 
+#if !defined(PARAM_CLIENT)
 static int param_export_internal(int fd, param_filter_func filter);
 static int param_verify(int fd);
+#endif
 
 int param_save_default()
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot save parameters to a file on client side");
+    	return PX4_ERROR;
+#else
 	PX4_DEBUG("param_save_default");
 	int shutdown_lock_ret = px4_shutdown_lock();
 
@@ -1139,6 +1219,9 @@ int param_save_default()
 				PX4_ERR("parameter export to %s failed (%d) attempt %d", filename, res, attempt);
 				px4_usleep(10000); // wait at least 10 milliseconds before trying again
 			}
+#if defined(PARAM_SERVER)
+    			::syncfs(fd);
+#endif
 		}
 
 	} else {
@@ -1182,6 +1265,7 @@ int param_save_default()
 	}
 
 	return res;
+#endif
 }
 
 /**
@@ -1190,6 +1274,10 @@ int param_save_default()
 int
 param_load_default()
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot load parameters from a file on client side");
+	return PX4_ERROR;
+#else
 	int res = 0;
 	const char *filename = param_get_default_file();
 
@@ -1218,8 +1306,10 @@ param_load_default()
 	}
 
 	return res;
+#endif
 }
 
+#if !defined(PARAM_CLIENT)
 static int param_verify_callback(bson_decoder_t decoder, bson_node_t node)
 {
 	if (node->type == BSON_EOO) {
@@ -1323,10 +1413,15 @@ static int param_verify(int fd)
 
 	return -1;
 }
+#endif
 
 int
 param_export(const char *filename, param_filter_func filter)
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot export parameters on client side");
+	return PX4_ERROR;
+#else
 	PX4_DEBUG("param_export");
 
 	int shutdown_lock_ret = px4_shutdown_lock();
@@ -1362,8 +1457,10 @@ param_export(const char *filename, param_filter_func filter)
 	}
 
 	return result;
+#endif
 }
 
+#if !defined(PARAM_CLIENT)
 // internal parameter export, caller is responsible for locking
 static int param_export_internal(int fd, param_filter_func filter)
 {
@@ -1464,7 +1561,9 @@ out:
 
 	return result;
 }
+#endif
 
+#if !defined(PARAM_CLIENT)
 static int
 param_import_callback(bson_decoder_t decoder, bson_node_t node)
 {
@@ -1520,6 +1619,7 @@ param_import_callback(bson_decoder_t decoder, bson_node_t node)
 	// don't return zero, that means EOF
 	return 1;
 }
+#endif
 
 static int
 param_dump_callback(bson_decoder_t decoder, bson_node_t node)
@@ -1553,6 +1653,7 @@ param_dump_callback(bson_decoder_t decoder, bson_node_t node)
 	return -1;
 }
 
+#if !defined(PARAM_CLIENT)
 static int
 param_import_internal(int fd)
 {
@@ -1608,26 +1709,37 @@ param_import_internal(int fd)
 
 	return -1;
 }
+#endif
 
 int
 param_import(int fd)
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot import parameters on client side");
+	return PX4_ERROR;
+#else
 	if (fd < 0) {
 		return flash_param_import();
 	}
 
 	return param_import_internal(fd);
+#endif
 }
 
 int
 param_load(int fd)
 {
+#if defined(PARAM_CLIENT)
+	PX4_ERR("Cannot load parameters on client side");
+	return PX4_ERROR;
+#else
 	if (fd < 0) {
 		return flash_param_load();
 	}
 
 	param_reset_all_internal(false);
 	return param_import_internal(fd);
+#endif
 }
 
 int
