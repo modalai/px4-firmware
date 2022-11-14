@@ -179,6 +179,10 @@ menu "drivers"
 source "src/drivers/Kconfig"
 endmenu
 
+menu "libraries"
+source "src/lib/Kconfig"
+endmenu
+
 menu "modules"
 source "src/modules/Kconfig"
 endmenu
