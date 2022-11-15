@@ -224,10 +224,12 @@ param_init()
 
 #if defined(PARAM_SERVER)
    	param_server_init();
+	PX4_INFO("PARAM SERVER INIT JUST CALLED");
 #endif
 
 #if defined(PARAM_CLIENT)
    	param_client_init();
+	PX4_INFO("PARAM CLIENT INIT JUST CALLED");
 #endif
 
 }
@@ -800,13 +802,13 @@ out:
 #if defined(PARAM_SERVER)
 	// If this is the parameter server, make sure that the client is updated
 	// TODO: Handle the possibility that this fails.
-	if (params_changed[param] && remote_update) param_server_set(param, val);
+	if (param_changed && remote_update) param_server_set(param, val);
 #endif
 
 #if defined(PARAM_CLIENT)
 	// If this is the parameter client, make sure that the server is updated
 	// TODO: Handle the possibility that this fails.
-	if (params_changed[param] && remote_update) param_client_set(param, val);
+	if (param_changed && remote_update) param_client_set(param, val);
 #endif
 
 	/*
@@ -1812,7 +1814,7 @@ uint32_t param_hash_check()
 		if (!param_used(param) || param_is_volatile(param)) {
 			continue;
 		}
-#ifndef __PX4_QURT
+#if !defined(PARAM_CLIENT)
 		const char *name = param_name(param);
 		const void *val = param_get_value_ptr(param);
 		param_hash = crc32part((const uint8_t *)name, strlen(name), param_hash);

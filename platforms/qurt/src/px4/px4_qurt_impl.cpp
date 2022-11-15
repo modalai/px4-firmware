@@ -37,7 +37,3 @@ __BEGIN_DECLS
 long PX4_TICKS_PER_SEC = 1000L;
 
 __END_DECLS
-
-int fsync(int fd){
-	return -1;
-}
