@@ -45,6 +45,7 @@
 #include <uORB/topics/vehicle_status.h>
 #include <systemlib/mavlink_log.h>
 #include <drivers/drv_hrt.h>
+#include <lib/parameters/param.h>
 
 #include "state_machine_helper.h"
 #include "commander_helper.h"
@@ -129,8 +130,17 @@ transition_result_t arming_state_transition(vehicle_status_s *status, const safe
 		 */
 		bool preflight_check_ret = true;
 
+		/*
+		 * Allow a param to override all pre-flight checks
+		 */
+		int preflt_checks_required = 1;
+		param_get(param_find("COM_ARM_CHK_PREF"), &preflt_checks_required);
+		if(preflt_checks_required) {
+			preflt_checks_required = fRunPreArmChecks;
+		}
+
 		/* only perform the pre-arm check if we have to */
-		if (fRunPreArmChecks && (new_arming_state == vehicle_status_s::ARMING_STATE_ARMED)
+		if (preflt_checks_required && (new_arming_state == vehicle_status_s::ARMING_STATE_ARMED)
 		    && !hil_enabled) {
 
 			preflight_check_ret = PreFlightCheck::preflightCheck(mavlink_log_pub, *status, *status_flags, true, true,
@@ -145,7 +155,7 @@ transition_result_t arming_state_transition(vehicle_status_s *status, const safe
 
 		/* re-run the pre-flight check as long as sensors are failing */
 		if (!status_flags->condition_system_sensors_initialized
-		    && fRunPreArmChecks
+		    && preflt_checks_required
 		    && ((new_arming_state == vehicle_status_s::ARMING_STATE_ARMED)
 			|| (new_arming_state == vehicle_status_s::ARMING_STATE_STANDBY))
 		    && !hil_enabled) {
@@ -173,7 +183,7 @@ transition_result_t arming_state_transition(vehicle_status_s *status, const safe
 
 					bool prearm_check_ret = true;
 
-					if (fRunPreArmChecks && preflight_check_ret) {
+					if (preflt_checks_required && preflight_check_ret) {
 						// only bother running prearm if preflight was successful
 						prearm_check_ret = PreFlightCheck::preArmCheck(mavlink_log_pub, *status_flags, safety, arm_requirements, *status);
 					}
@@ -225,11 +235,11 @@ transition_result_t arming_state_transition(vehicle_status_s *status, const safe
 
 			if (was_armed && !armed->armed) { // disarm transition
 				status->latest_disarming_reason = (uint8_t)calling_reason;
-                PX4_INFO("Disarming reason %d", status->latest_disarming_reason);
+				PX4_INFO("Disarming reason %d", status->latest_disarming_reason);
 
 			} else if (!was_armed && armed->armed) { // arm transition
 				status->latest_arming_reason = (uint8_t)calling_reason;
-                PX4_INFO("Arming reason %d", status->latest_arming_reason);
+ 				PX4_INFO("Arming reason %d", status->latest_arming_reason);
 			}
 
 			if (new_arming_state == vehicle_status_s::ARMING_STATE_ARMED) {

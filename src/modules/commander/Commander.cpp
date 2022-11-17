@@ -2439,34 +2439,38 @@ Commander::run()
 			_status_changed = true;
 
 			if (_armed.armed) {
-				if (_status.failure_detector_status & vehicle_status_s::FAILURE_ARM_ESC) {
-					// 500ms is the PWM spoolup time. Within this timeframe controllers are not affecting actuator_outputs
-					if (hrt_elapsed_time(&_status.armed_time) < 500_ms) {
-						arm_disarm(false, true, arm_disarm_reason_t::FAILURE_DETECTOR);
-						mavlink_log_critical(&_mavlink_log_pub, "ESCs did not respond to arm request");
-						PX4_INFO("ESCs did not respond to arm request");
+				const bool disable_lockdown = _param_disable_lockdown.get();
+
+				if(!disable_lockdown) {
+					if (_status.failure_detector_status & vehicle_status_s::FAILURE_ARM_ESC) {
+						// 500ms is the PWM spoolup time. Within this timeframe controllers are not affecting actuator_outputs
+						if (hrt_elapsed_time(&_status.armed_time) < 500_ms) {
+							arm_disarm(false, true, arm_disarm_reason_t::FAILURE_DETECTOR);
+							mavlink_log_critical(&_mavlink_log_pub, "ESCs did not respond to arm request");
+							PX4_INFO("ESCs did not respond to arm request");
+						}
 					}
-				}
 
-				if (_status.failure_detector_status & (vehicle_status_s::FAILURE_ROLL | vehicle_status_s::FAILURE_PITCH |
-								       vehicle_status_s::FAILURE_ALT | vehicle_status_s::FAILURE_EXT)) {
-					const bool is_second_after_takeoff = hrt_elapsed_time(&_status.takeoff_time) < (1_s * _param_com_lkdown_tko.get());
+					if (_status.failure_detector_status & (vehicle_status_s::FAILURE_ROLL | vehicle_status_s::FAILURE_PITCH |
+									vehicle_status_s::FAILURE_ALT | vehicle_status_s::FAILURE_EXT)) {
+						const bool is_second_after_takeoff = hrt_elapsed_time(&_status.takeoff_time) < (1_s * _param_com_lkdown_tko.get());
 
-					if (is_second_after_takeoff && !_lockdown_triggered) {
-						// This handles the case where something fails during the early takeoff phase
-						_armed.lockdown = true;
-						_lockdown_triggered = true;
-						mavlink_log_emergency(&_mavlink_log_pub, "Critical failure detected: lockdown");
-						PX4_INFO("Critical failure detected: lockdown");
+						if (is_second_after_takeoff && !_lockdown_triggered) {
+							// This handles the case where something fails during the early takeoff phase
+							_armed.lockdown = true;
+							_lockdown_triggered = true;
+							mavlink_log_emergency(&_mavlink_log_pub, "Critical failure detected: lockdown");
+							PX4_INFO("Critical failure detected: lockdown");
 
-					} else if (!_status_flags.circuit_breaker_flight_termination_disabled &&
-						   !_flight_termination_triggered && !_lockdown_triggered) {
+						} else if (!_status_flags.circuit_breaker_flight_termination_disabled &&
+							!_flight_termination_triggered && !_lockdown_triggered) {
 
-						_armed.force_failsafe = true;
-						_flight_termination_triggered = true;
-						mavlink_log_emergency(&_mavlink_log_pub, "Critical failure detected: terminate flight");
-						PX4_INFO("Critical failure detected: terminate flight");
-						set_tune_override(tune_control_s::TUNE_ID_PARACHUTE_RELEASE);
+							_armed.force_failsafe = true;
+							_flight_termination_triggered = true;
+							mavlink_log_emergency(&_mavlink_log_pub, "Critical failure detected: terminate flight");
+							PX4_INFO("Critical failure detected: terminate flight");
+							set_tune_override(tune_control_s::TUNE_ID_PARACHUTE_RELEASE);
+						}
 					}
 				}
 			}
@@ -2514,7 +2518,7 @@ Commander::run()
 		if (_was_armed != _armed.armed) {
 			_status_changed = true;
 
-            PX4_INFO("Armed state changed. Was %d, now %d", _was_armed, _armed.armed);
+			PX4_INFO("Armed state changed. Was %d, now %d", _was_armed, _armed.armed);
 
 			if (_armed.armed) {
 				if (!_land_detector.landed) { // check if takeoff already detected upon arming

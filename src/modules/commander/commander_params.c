@@ -283,6 +283,25 @@ PARAM_DEFINE_FLOAT(COM_DISARM_LAND, 2.0f);
  */
 PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, 10.0f);
 
+/**
+ * Enable pre-flight checks.
+ *
+ * If this parameter is set, the system will perform pre-flight checks.
+ *
+ * @group Commander
+ * @boolean
+ */
+PARAM_DEFINE_INT32(COM_ARM_CHK_PREF, 1);
+
+/**
+ * Disable lockdown from takeoff failure detection
+ *
+ * If this parameter is set, the system will not check for takeoff failures that disarm the system
+ *
+ * @group Commander
+ * @boolean
+ */
+PARAM_DEFINE_INT32(COM_DIS_LKDWON, 0);
 
 /**
  * Allow arming without GPS
