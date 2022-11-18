@@ -399,6 +399,7 @@ private:
 	uint64_t _time_last_gps_yaw_fuse{0};	///< time the last fusion of GPS yaw measurements were performed (uSec)
 	uint64_t _time_last_gps_yaw_data{0};	///< time the last GPS yaw measurement was available (uSec)
 	uint64_t _time_last_healthy_rng_data{0};
+	uint64_t _time_last_fake_pos_cond_failed{0}; ///< time of the last failure of the fake position fusion conditions (uSec)
 	uint8_t _nb_gps_yaw_reset_available{0}; ///< remaining number of resets allowed before switching to another aiding source
 
 	Vector2f _last_known_posNE{};		///< last known local NE position vector (m)

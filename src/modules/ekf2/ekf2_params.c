@@ -1407,3 +1407,40 @@ PARAM_DEFINE_INT32(EKF2_SYNT_MAG_Z, 0);
  * @decimal 1
  */
 PARAM_DEFINE_FLOAT(EKF2_GSF_TAS, 15.0f);
+
+/**
+ * EKF fake position failure condition timeout.
+ *
+ * Conditions based on EKF2_FP_ALIM and EKF2_FP_COSTILT must both be satisified for this amount of time for fake position fusion to be used.
+ *
+ * @group EKF2
+ * @min 0
+ * @unit us
+ */
+PARAM_DEFINE_INT32(EKF2_FP_TOUT, 2000000);
+
+/**
+ * EKF fake position lateral accelerometer maximum.
+ *
+ * EKF fake position filtered body-frame lateral accelerometer maximum.  Set to a very large value (e.g., 100.0) to disable check.
+ *
+ * @group EKF2
+ * @min 0.5
+ * @max 100.0
+ * @unit m/s^2
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_FP_ALIM, 2.0f);
+
+/**
+ * EKF fake position cosine of tilt angle limit.
+ *
+ * EKF fake position cosine of tilt angle limit.  Set to a value less than -1 to disable check.
+ *
+ * @group EKF2
+ * @min -2.0
+ * @max 1.0
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(EKF2_FP_COSTILT, 0.906f);
+

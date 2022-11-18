@@ -389,6 +389,12 @@ struct parameters {
 	const unsigned EKFGSF_reset_delay{1000000};	///< Number of uSec of bad innovations on main filter in immediate post-takeoff phase before yaw is reset to EKF-GSF value
 	const float EKFGSF_yaw_err_max{0.262f}; 	///< Composite yaw 1-sigma uncertainty threshold used to check for convergence (rad)
 	const unsigned EKFGSF_reset_count_limit{3};	///< Maximum number of times the yaw can be reset to the EKF-GSF yaw estimator value
+
+	// Fake Position Fusion Parameters
+	int32_t fp_tout{2000000};
+	float fp_alim{2.0f};
+	float fp_costilt{0.906f};
+
 };
 
 struct stateSample {
