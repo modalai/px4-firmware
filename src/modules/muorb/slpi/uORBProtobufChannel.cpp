@@ -193,10 +193,27 @@ static void *test_runner(void *)
 	return nullptr;
 }
 
+__BEGIN_DECLS
+extern int slpi_main(int argc, char *argv[]);
+__END_DECLS
+
 static void *start_param_client(void *)
 {
 	usleep(10000);
 	param_init();
+
+	usleep(100);
+	// Now continue with the usual dspal startup.
+	const char *argv[3] = { "slpi", "start" };
+	int argc = 2;
+
+	// Make sure that argv has a NULL pointer in the end.
+	argv[argc] = NULL;
+
+	if (slpi_main(argc, (char **) argv)) {
+		PX4_ERR("slpi failed in %s", __FUNCTION__);
+	}
+
 	return nullptr;
 }
 
