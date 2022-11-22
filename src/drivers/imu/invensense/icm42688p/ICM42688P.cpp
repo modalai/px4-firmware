@@ -595,10 +595,10 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 		if (ProcessTemperature(buffer.f, valid_samples)) {
 			ProcessGyro(timestamp_sample, buffer.f, valid_samples);
 			ProcessAccel(timestamp_sample, buffer.f, valid_samples);
+			// Pass only most recent valid sample to IMU server
+			ProcessIMU(timestamp_sample, buffer.f[valid_samples - 1]);
 			return true;
 		}
-		// Pass only most recent valid sample to IMU server
-		ProcessIMU(timestamp_sample, buffer.f[valid_samples - 1]);
 	}
 
 	return false;
