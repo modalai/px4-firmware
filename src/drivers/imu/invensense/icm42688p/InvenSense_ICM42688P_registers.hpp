@@ -109,10 +109,8 @@ enum class BANK_1 : uint8_t {
 	GYRO_CONFIG_STATIC3 = 0x0C,
 	GYRO_CONFIG_STATIC4 = 0x0D,
 	GYRO_CONFIG_STATIC5 = 0x0E,
-
 	INTF_CONFIG5        = 0x7B,
 };
-
 enum class BANK_2 : uint8_t {
 	ACCEL_CONFIG_STATIC2 = 0x03,
 	ACCEL_CONFIG_STATIC3 = 0x04,
@@ -164,51 +162,69 @@ enum PWR_MGMT0_BIT : uint8_t {
 // GYRO_CONFIG0
 enum GYRO_CONFIG0_BIT : uint8_t {
 	// 7:5 GYRO_FS_SEL
-	GYRO_FS_SEL_2000_DPS = 0,            // 0b000 = ±2000dps (default)
+	GYRO_FS_SEL_2000_DPS = 0, // 0b000 = ±2000dps (default)
+	GYRO_FS_SEL_1000_DPS = Bit5,
+	GYRO_FS_SEL_500_DPS  = Bit6,
+	GYRO_FS_SEL_250_DPS  = Bit6 | Bit5,
+	GYRO_FS_SEL_125_DPS  = Bit7,
+
 
 	// 3:0 GYRO_ODR
-	GYRO_ODR_32kHz       = Bit0,         // 0001: 32kHz
-	GYRO_ODR_16kHz       = Bit1,         // 0010: 16kHz
-	GYRO_ODR_8kHz        = Bit1 | Bit0,  // 0011: 8kHz
-	GYRO_ODR_4kHz        = Bit2,         // 0100: 4kHz
-	GYRO_ODR_2kHz        = Bit2 | Bit0,  // 0101: 2kHz
-	GYRO_ODR_1kHz        = Bit2 | Bit1,  // 0110: 1kHz (default)
+	//  0001: 32kHz
+	GYRO_ODR_32KHZ_SET   = Bit0,
+	GYRO_ODR_32KHZ_CLEAR = Bit3 | Bit2 | Bit0,
+	//  0010: 16kHz
+	GYRO_ODR_16KHZ_SET   = Bit1,
+	GYRO_ODR_16KHZ_CLEAR = Bit3 | Bit2 | Bit0,
+	//  0011: 8kHz
+	GYRO_ODR_8KHZ_SET    = Bit1 | Bit0,
+	GYRO_ODR_8KHZ_CLEAR  = Bit3 | Bit2,
+	//  0110: 1kHz (default)
+	GYRO_ODR_1KHZ_SET    = Bit2 | Bit1,
+	GYRO_ODR_1KHZ_CLEAR  = Bit3 | Bit0,
 };
 
 // ACCEL_CONFIG0
 enum ACCEL_CONFIG0_BIT : uint8_t {
 	// 7:5 ACCEL_FS_SEL
-	ACCEL_FS_SEL_16G = 0,           // 000: ±16g (default)
+	ACCEL_FS_SEL_16G = 0, // 000: ±16g (default)
+	ACCEL_FS_SEL_8G  = Bit5,
+	ACCEL_FS_SEL_4G  = Bit6,
+	ACCEL_FS_SEL_2G  = Bit6 | Bit5,
+
 
 	// 3:0 ACCEL_ODR
-	ACCEL_ODR_32kHz  = Bit0,        // 0001: 32kHz
-	ACCEL_ODR_16kHz  = Bit1,        // 0010: 16kHz
-	ACCEL_ODR_8kHz   = Bit1 | Bit0, // 0011: 8kHz
-	ACCEL_ODR_4kHz   = Bit2,        // 0100: 4kHz
-	ACCEL_ODR_2kHz   = Bit2 | Bit0, // 0101: 2kHz
-	ACCEL_ODR_1kHz   = Bit2 | Bit1, // 0110: 1kHz (default)
+	//  0001: 32kHz
+	ACCEL_ODR_32KHZ_SET   = Bit0,
+	ACCEL_ODR_32KHZ_CLEAR = Bit3 | Bit2 | Bit0,
+	//  0010: 16kHz
+	ACCEL_ODR_16KHZ_SET   = Bit1,
+	ACCEL_ODR_16KHZ_CLEAR = Bit3 | Bit2 | Bit0,
+	//  0011: 8kHz
+	ACCEL_ODR_8KHZ_SET    = Bit1 | Bit0,
+	ACCEL_ODR_8KHZ_CLEAR  = Bit3 | Bit2,
+	//  0110: 1kHz (default)
+	ACCEL_ODR_1KHZ_SET    = Bit2 | Bit1,
+	ACCEL_ODR_1KHZ_CLEAR  = Bit3 | Bit0,
 };
 
 // GYRO_CONFIG1
 enum GYRO_CONFIG1_BIT : uint8_t {
-	TEMP_FILT_BW     = Bit7 | Bit6, // 110: DLPF BW = 5Hz; DLPF Latency = 32ms
-	GYRO_UI_FILT_ORD = Bit3,        // 10: 3rd Order
-	GYRO_DEC2_M2_ORD = Bit1,        // 10: 3rd Order
+	GYRO_UI_FILT_ORD = Bit3 | Bit2, // 00: 1st Order
 };
 
 // GYRO_ACCEL_CONFIG0
 enum GYRO_ACCEL_CONFIG0_BIT : uint8_t {
 	// 7:4 ACCEL_UI_FILT_BW
-	ACCEL_UI_FILT_BW = Bit6, // 4: BW=max(400Hz, ODR)/10
+	ACCEL_UI_FILT_BW = Bit7 | Bit6 | Bit5 | Bit4, // 0: BW=ODR/2
 
 	// 3:0 GYRO_UI_FILT_BW
-	GYRO_UI_FILT_BW  = Bit2, // 4: BW=max(400Hz, ODR)/10
+	GYRO_UI_FILT_BW  = Bit3 | Bit2 | Bit1 | Bit0, // 0: BW=ODR/2
 };
 
 // ACCEL_CONFIG1
 enum ACCEL_CONFIG1_BIT : uint8_t {
-	ACCEL_UI_FILT_ORD = Bit4, // 00: 3rd Order
-	ACCEL_DEC2_M2_ORD = Bit2, // 00: 3rd Order
+	ACCEL_UI_FILT_ORD = Bit4 | Bit3, // 00: 1st Order
 };
 
 // FIFO_CONFIG1
@@ -241,9 +257,9 @@ enum INT_SOURCE0_BIT : uint8_t {
 // REG_BANK_SEL
 enum REG_BANK_SEL_BIT : uint8_t {
 	USER_BANK_0 = 0,           // 0: Select USER BANK 0.
-	USER_BANK_1 = Bit4,        // 1: Select USER BANK 1.
-	USER_BANK_2 = Bit5,        // 2: Select USER BANK 2.
-	USER_BANK_3 = Bit5 | Bit4, // 3: Select USER BANK 3.
+	USER_BANK_1 = Bit0,        // 1: Select USER BANK 1.
+	USER_BANK_2 = Bit1,        // 2: Select USER BANK 2.
+	USER_BANK_3 = Bit1 | Bit0, // 3: Select USER BANK 3.
 };
 
 
@@ -257,18 +273,69 @@ enum GYRO_CONFIG_STATIC2_BIT : uint8_t {
 
 // GYRO_CONFIG_STATIC3
 enum GYRO_CONFIG_STATIC3_BIT : uint8_t {
-	GYRO_AAF_DELT = Bit2 | Bit0,
+
+	// 585 Hz
+	GYRO_AAF_DELT_SET = Bit3 | Bit2 | Bit0, //13
+	GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit1,
+
+	// 213 Hz
+	// GYRO_AAF_DELT_SET = Bit2 | Bit0, //5
+	// GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit3 | Bit1,
+
+	// 126 Hz
+	//GYRO_AAF_DELT_SET = Bit1 | Bit0, //3
+	//GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit3 | Bit2,
+
+	// 42 Hz
+	// GYRO_AAF_DELT_SET = Bit0, //1
+	// GYRO_AAF_DELT_CLEAR = Bit5 | Bit4 | Bit3 | Bit2 | Bit1,
+
 };
 
 // GYRO_CONFIG_STATIC4
 enum GYRO_CONFIG_STATIC4_BIT : uint8_t {
-	GYRO_AAF_DELTSQR_LOW = Bit4 | Bit3 | Bit0,
+
+	// 585 Hz
+	GYRO_AAF_DELTSQR_LOW_SET = Bit7 | Bit5 | Bit3 | Bit1, //170
+	GYRO_AAF_DELTSQR_LOW_CLEAR = Bit6 | Bit4 | Bit2 | Bit0,
+
+	// 213 Hz
+	// GYRO_AAF_DELTSQR_LOW_SET = Bit4 | Bit3 | Bit0, //25
+	// GYRO_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit2 | Bit1,
+
+	// 126 Hz
+	//GYRO_AAF_DELTSQR_LOW_SET = Bit3 | Bit0, //9
+	//GYRO_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit2 | Bit1,
+
+	// 42 Hz
+	// GYRO_AAF_DELTSQR_LOW_SET = Bit0, //1
+	// GYRO_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit2 | Bit1,
 };
 
 // GYRO_CONFIG_STATIC5
 enum GYRO_CONFIG_STATIC5_BIT : uint8_t {
-	GYRO_AAF_BITSHIFT     = Bit7 | Bit5,
-	GYRO_AAF_DELTSQR_HIGH = 0,
+
+	// 585 Hz
+	GYRO_AAF_DELTSQR_HIGH_SET = 0,
+	GYRO_AAF_DELTSQR_HIGH_CLEAR = Bit3 | Bit2 | Bit1 | Bit0,
+	GYRO_AAF_BITSHIFT_SET = Bit7, // 8 << 4
+	GYRO_AAF_BITSHIFT_CLEAR = Bit6 | Bit5 | Bit4,
+
+	// 213 Hz
+	// GYRO_AAF_DELTSQR_HIGH_SET = 0,
+	// GYRO_AAF_DELTSQR_HIGH_CLEAR = Bit3 | Bit2 | Bit1 | Bit0,
+	// GYRO_AAF_BITSHIFT_SET = Bit7 | Bit5, //10
+	// GYRO_AAF_BITSHIFT_CLEAR = Bit6 | Bit4,
+
+	// 126 Hz
+	// GYRO_AAF_BITSHIFT_SET = Bit7 | Bit6, //12
+	// GYRO_AAF_BITSHIFT_CLEAR = Bit5 | Bit4,
+
+	// 42 Hz
+	// GYRO_AAF_BITSHIFT_SET = Bit7 | Bit6 | Bit5 | Bit4, //15
+	// GYRO_AAF_BITSHIFT_CLEAR = 0,
+
+
 };
 
 
@@ -277,18 +344,44 @@ enum GYRO_CONFIG_STATIC5_BIT : uint8_t {
 // ACCEL_CONFIG_STATIC2
 enum ACCEL_CONFIG_STATIC2_BIT : uint8_t {
 	ACCEL_AAF_DIS  = Bit0,
-    ACCEL_AAF_DELT = Bit3 | Bit1,
+	ACCEL_AAF_DELT = Bit3 | Bit1,
+
+	// 213 Hz
+	ACCEL_AAF_DELT_SET = Bit3 | Bit1, //5
+	ACCEL_AAF_DELT_CLEAR = Bit6 | Bit5 | Bit4 | Bit2,
+
+	// 42 Hz
+	// ACCEL_AAF_DELT_SET = Bit1, //1
+	// ACCEL_AAF_DELT_CLEAR = Bit6 | Bit5 | Bit4 | Bit3 | Bit2,
 };
 
 // ACCEL_CONFIG_STATIC3
 enum ACCEL_CONFIG_STATIC3_BIT : uint8_t {
 	ACCEL_AAF_DELTSQR_LOW = Bit4 | Bit3 | Bit0,
+	// 213 Hz
+	ACCEL_AAF_DELTSQR_LOW_SET = Bit4 | Bit3 | Bit0, //25
+	ACCEL_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit2 | Bit1,
+
+	// 42 Hz
+	// ACCEL_AAF_DELTSQR_LOW_SET = Bit0, //1
+	// ACCEL_AAF_DELTSQR_LOW_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit2 | Bit1,
+
 };
 
 // ACCEL_CONFIG_STATIC4
 enum ACCEL_CONFIG_STATIC4_BIT : uint8_t {
 	ACCEL_AAF_BITSHIFT     = Bit7 | Bit5,
-    ACCEL_AAF_DELTSQR_HIGH = 0,
+	ACCEL_AAF_DELTSQR_HIGH = 0,
+	// 213 Hz
+	ACCEL_AAF_BITSHIFT_SET = Bit7 | Bit5, //10
+	ACCEL_AAF_BITSHIFT_CLEAR = Bit6 | Bit4,
+
+	// 42 Hz
+	// ACCEL_AAF_BITSHIFT_SET = Bit7 | Bit6 | Bit5 | Bit4, //15
+	// ACCEL_AAF_BITSHIFT_CLEAR = 0,
+
+	ACCEL_AAF_DELTSQR_HIGH_SET = 0,
+	ACCEL_AAF_DELTSQR_HIGH_CLEAR = Bit3 | Bit2 | Bit1 | Bit0,
 };
 
 

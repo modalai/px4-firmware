@@ -79,7 +79,7 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor Configuration
-    	static constexpr float IMU_ODR{1000.f}; // 1kHz accel & gyro ODR configured
+	static constexpr float IMU_ODR{8000.f}; // 8kHz accel & gyro ODR configured
 	static constexpr float FIFO_SAMPLE_DT{1e6f / IMU_ODR};
 	static constexpr float GYRO_RATE{1e6f / FIFO_SAMPLE_DT};
 	static constexpr float ACCEL_RATE{1e6f / FIFO_SAMPLE_DT};
@@ -124,7 +124,7 @@ private:
 	void ConfigureSampleRate(int sample_rate);
 	void ConfigureFIFOWatermark(uint8_t samples);
 
-	void SelectRegisterBank(enum REG_BANK_SEL_BIT bank);
+	void SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force = false);
 	void SelectRegisterBank(Register::BANK_0 reg) { SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0); }
 	void SelectRegisterBank(Register::BANK_1 reg) { SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_1); }
 	void SelectRegisterBank(Register::BANK_2 reg) { SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_2); }
@@ -145,7 +145,7 @@ private:
 	bool FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples);
 	void FIFOReset();
 
-    void ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo);
+	void ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA &fifo);
 	void ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	bool ProcessTemperature(const FIFO::DATA fifo[], const uint8_t samples);
@@ -153,7 +153,7 @@ private:
 	const spi_drdy_gpio_t _drdy_gpio;
 
 	std::shared_ptr<PX4Accelerometer> _px4_accel;
-    	std::shared_ptr<PX4Gyroscope> _px4_gyro;
+	std::shared_ptr<PX4Gyroscope> _px4_gyro;
 
 	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad register")};
 	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad transfer")};
@@ -183,17 +183,16 @@ private:
 	uint32_t _fifo_gyro_samples{static_cast<uint32_t>(_fifo_empty_interval_us / (1000000 / GYRO_RATE))};
 
 	uint8_t _checked_register_bank0{0};
-	static constexpr uint8_t size_register_bank0_cfg{13};
+	static constexpr uint8_t size_register_bank0_cfg{12};
 	register_bank0_config_t _register_bank0_cfg[size_register_bank0_cfg] {
 		// Register                              | Set bits, Clear bits
 		{ Register::BANK_0::INT_CONFIG,           INT_CONFIG_BIT::INT1_MODE | INT_CONFIG_BIT::INT1_DRIVE_CIRCUIT, INT_CONFIG_BIT::INT1_POLARITY },
 		{ Register::BANK_0::FIFO_CONFIG,          FIFO_CONFIG_BIT::FIFO_MODE_STOP_ON_FULL, 0 },
-		{ Register::BANK_0::PWR_MGMT0,            PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE, 0 },
-		{ Register::BANK_0::GYRO_CONFIG0,         GYRO_CONFIG0_BIT::GYRO_ODR_1kHz, Bit3 | Bit0 },
-		{ Register::BANK_0::ACCEL_CONFIG0,        ACCEL_CONFIG0_BIT::ACCEL_ODR_1kHz, Bit3 | Bit0 },
-		{ Register::BANK_0::GYRO_CONFIG1,         GYRO_CONFIG1_BIT::TEMP_FILT_BW | GYRO_CONFIG1_BIT::GYRO_UI_FILT_ORD |  GYRO_CONFIG1_BIT::GYRO_DEC2_M2_ORD, Bit5 | Bit2 | Bit0 },
-		{ Register::BANK_0::GYRO_ACCEL_CONFIG0,   GYRO_ACCEL_CONFIG0_BIT::ACCEL_UI_FILT_BW | GYRO_ACCEL_CONFIG0_BIT::GYRO_UI_FILT_BW, Bit7 | Bit5 | Bit4 | Bit3 | Bit1 | Bit0 },
-		{ Register::BANK_0::ACCEL_CONFIG1,        ACCEL_CONFIG1_BIT::ACCEL_UI_FILT_ORD | ACCEL_CONFIG1_BIT::ACCEL_DEC2_M2_ORD, Bit3 | Bit1 },
+		{ Register::BANK_0::GYRO_CONFIG0,         GYRO_CONFIG0_BIT::GYRO_FS_SEL_2000_DPS | GYRO_CONFIG0_BIT::GYRO_ODR_8KHZ_SET, GYRO_CONFIG0_BIT::GYRO_ODR_8KHZ_CLEAR },
+		{ Register::BANK_0::ACCEL_CONFIG0,        ACCEL_CONFIG0_BIT::ACCEL_FS_SEL_16G | ACCEL_CONFIG0_BIT::ACCEL_ODR_8KHZ_SET, ACCEL_CONFIG0_BIT::ACCEL_ODR_8KHZ_CLEAR },
+		{ Register::BANK_0::GYRO_CONFIG1,         0, GYRO_CONFIG1_BIT::GYRO_UI_FILT_ORD },
+		{ Register::BANK_0::GYRO_ACCEL_CONFIG0,   0, GYRO_ACCEL_CONFIG0_BIT::ACCEL_UI_FILT_BW | GYRO_ACCEL_CONFIG0_BIT::GYRO_UI_FILT_BW },
+		{ Register::BANK_0::ACCEL_CONFIG1,        0, ACCEL_CONFIG1_BIT::ACCEL_UI_FILT_ORD },
 		{ Register::BANK_0::FIFO_CONFIG1,         FIFO_CONFIG1_BIT::FIFO_WM_GT_TH | FIFO_CONFIG1_BIT::FIFO_HIRES_EN | FIFO_CONFIG1_BIT::FIFO_TEMP_EN | FIFO_CONFIG1_BIT::FIFO_GYRO_EN | FIFO_CONFIG1_BIT::FIFO_ACCEL_EN, 0 },
 		{ Register::BANK_0::FIFO_CONFIG2,         0, 0 }, // FIFO_WM[7:0] set at runtime
 		{ Register::BANK_0::FIFO_CONFIG3,         0, 0 }, // FIFO_WM[11:8] set at runtime
@@ -205,25 +204,25 @@ private:
 	static constexpr uint8_t size_register_bank1_cfg{4};
 	register_bank1_config_t _register_bank1_cfg[size_register_bank1_cfg] {
 		// Register                              | Set bits, Clear bits
-		{ Register::BANK_1::GYRO_CONFIG_STATIC2,  GYRO_CONFIG_STATIC2_BIT::GYRO_NF_DIS, GYRO_CONFIG_STATIC2_BIT::GYRO_AAF_DIS },
-		{ Register::BANK_1::GYRO_CONFIG_STATIC3,  GYRO_CONFIG_STATIC3_BIT::GYRO_AAF_DELT, Bit5 | Bit4 | Bit3 | Bit1 },
-		{ Register::BANK_1::GYRO_CONFIG_STATIC4,  GYRO_CONFIG_STATIC4_BIT::GYRO_AAF_DELTSQR_LOW, Bit7 | Bit6 | Bit5 | Bit2 | Bit1 },
-		{ Register::BANK_1::GYRO_CONFIG_STATIC5,  GYRO_CONFIG_STATIC5_BIT::GYRO_AAF_BITSHIFT | GYRO_CONFIG_STATIC5_BIT::GYRO_AAF_DELTSQR_HIGH, Bit6 | Bit4 | Bit3 | Bit2 | Bit1 | Bit0 },
+		{ Register::BANK_1::GYRO_CONFIG_STATIC2,  0, GYRO_CONFIG_STATIC2_BIT::GYRO_NF_DIS | GYRO_CONFIG_STATIC2_BIT::GYRO_AAF_DIS },
+		{ Register::BANK_1::GYRO_CONFIG_STATIC3,  GYRO_CONFIG_STATIC3_BIT::GYRO_AAF_DELT_SET, GYRO_CONFIG_STATIC3_BIT::GYRO_AAF_DELT_CLEAR},
+		{ Register::BANK_1::GYRO_CONFIG_STATIC4,  GYRO_CONFIG_STATIC4_BIT::GYRO_AAF_DELTSQR_LOW_SET, GYRO_CONFIG_STATIC4_BIT::GYRO_AAF_DELTSQR_LOW_CLEAR},
+		{ Register::BANK_1::GYRO_CONFIG_STATIC5,  GYRO_CONFIG_STATIC5_BIT::GYRO_AAF_BITSHIFT_SET | GYRO_CONFIG_STATIC5_BIT::GYRO_AAF_DELTSQR_HIGH_SET, GYRO_CONFIG_STATIC5_BIT::GYRO_AAF_BITSHIFT_CLEAR | GYRO_CONFIG_STATIC5_BIT::GYRO_AAF_DELTSQR_HIGH_CLEAR},
 	};
 
 	uint8_t _checked_register_bank2{0};
 	static constexpr uint8_t size_register_bank2_cfg{3};
 	register_bank2_config_t _register_bank2_cfg[size_register_bank2_cfg] {
 		// Register                              | Set bits, Clear bits
-		{ Register::BANK_2::ACCEL_CONFIG_STATIC2, ACCEL_CONFIG_STATIC2_BIT::ACCEL_AAF_DELT, Bit6 | Bit5 | Bit4 | Bit2 | ACCEL_CONFIG_STATIC2_BIT::ACCEL_AAF_DIS },
-		{ Register::BANK_2::ACCEL_CONFIG_STATIC3, ACCEL_CONFIG_STATIC3_BIT::ACCEL_AAF_DELTSQR_LOW, Bit7 | Bit6 | Bit5 | Bit2 | Bit1 },
-		{ Register::BANK_2::ACCEL_CONFIG_STATIC4, ACCEL_CONFIG_STATIC4_BIT::ACCEL_AAF_BITSHIFT | ACCEL_CONFIG_STATIC4_BIT::ACCEL_AAF_DELTSQR_HIGH, Bit6 | Bit4 | Bit3 | Bit2 | Bit1 | Bit0 },
+		{ Register::BANK_2::ACCEL_CONFIG_STATIC2, ACCEL_CONFIG_STATIC2_BIT::ACCEL_AAF_DELT_SET, ACCEL_CONFIG_STATIC2_BIT::ACCEL_AAF_DELT_CLEAR | ACCEL_CONFIG_STATIC2_BIT::ACCEL_AAF_DIS },
+		{ Register::BANK_2::ACCEL_CONFIG_STATIC3, ACCEL_CONFIG_STATIC3_BIT::ACCEL_AAF_DELTSQR_LOW_SET, ACCEL_CONFIG_STATIC3_BIT::ACCEL_AAF_DELTSQR_LOW_CLEAR },
+		{ Register::BANK_2::ACCEL_CONFIG_STATIC4, ACCEL_CONFIG_STATIC4_BIT::ACCEL_AAF_BITSHIFT_SET | ACCEL_CONFIG_STATIC4_BIT::ACCEL_AAF_DELTSQR_HIGH_SET, ACCEL_CONFIG_STATIC4_BIT::ACCEL_AAF_BITSHIFT_CLEAR | ACCEL_CONFIG_STATIC4_BIT::ACCEL_AAF_DELTSQR_HIGH_CLEAR },
 	};
 
     uint32_t _temperature_samples{0};
 
     // Support for the IMU server
-    uint32_t _imu_server_samples{0};
+    uint32_t _imu_server_index{0};
     imu_server_s _imu_server_data;
     uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
 

@@ -47,6 +47,7 @@ unsigned char *adsp_changed_index = nullptr;
 // Initialize the static members
 uORB::AppsProtobufChannel *uORB::AppsProtobufChannel::_InstancePtr = nullptr;
 uORBCommunicator::IChannelRxHandler *uORB::AppsProtobufChannel::_RxHandler = nullptr;
+mUORB::Aggregator uORB::AppsProtobufChannel::_Aggregator;
 std::map<std::string, int> uORB::AppsProtobufChannel::_SlpiSubscriberCache;
 pthread_mutex_t uORB::AppsProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uORB::AppsProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -62,9 +63,7 @@ void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
     } else if (strcmp(topic, "slpi_error") == 0) {
         PX4_ERR("SLPI: %s", (const char *) data);
     } else if (_RxHandler) {
-        _RxHandler->process_received_message(topic,
-                                             length_in_bytes,
-                                             const_cast<uint8_t*>(data));
+        _Aggregator.ProcessReceivedTopic(topic, data, length_in_bytes);
     } else {
         PX4_ERR("uORB pointer is null in %s", __FUNCTION__);
     }
@@ -166,6 +165,7 @@ int16_t uORB::AppsProtobufChannel::remove_subscription(const char *messageName)
 int16_t uORB::AppsProtobufChannel::register_handler(uORBCommunicator::IChannelRxHandler *handler)
 {
 	_RxHandler = handler;
+    _Aggregator.RegisterHandler(handler);
 	return 0;
 }
 

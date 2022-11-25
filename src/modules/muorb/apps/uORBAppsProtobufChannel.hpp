@@ -38,6 +38,7 @@
 #include <string>
 #include <pthread.h>
 #include "uORB/uORBCommunicator.hpp"
+#include "mUORBAggregator.hpp"
 #include <map>
 #include "drivers/drv_hrt.h"
 
@@ -146,6 +147,7 @@ public:
 private: // data members
 	static uORB::AppsProtobufChannel           *_InstancePtr;
 	static uORBCommunicator::IChannelRxHandler *_RxHandler;
+	static mUORB::Aggregator					_Aggregator;
 	static std::map<std::string, int>           _SlpiSubscriberCache;
     static pthread_mutex_t                      _tx_mutex;
     static pthread_mutex_t                      _rx_mutex;
