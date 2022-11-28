@@ -33,6 +33,8 @@
 
 #include "ICM42688P.hpp"
 
+bool hitl_mode;
+
 using namespace time_literals;
 
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb)
@@ -51,7 +53,15 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME": DRDY missed");
 	}
 
-	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
+	if (!hitl_mode){
+		_px4_accel = std::make_shared<PX4Accelerometer>(get_device_id(), rotation);
+		_px4_gyro = std::make_shared<PX4Gyroscope>(get_device_id(), rotation);
+		ConfigureSampleRate(_px4_gyro->get_max_rate_hz());
+		_imu_server_pub.advertise();
+	} else {
+		ConfigureSampleRate(0);
+	}
+
 }
 
 ICM42688P::~ICM42688P()
@@ -62,6 +72,10 @@ ICM42688P::~ICM42688P()
 	perf_free(_fifo_overflow_perf);
 	perf_free(_fifo_reset_perf);
 	perf_free(_drdy_missed_perf);
+
+	if (!hitl_mode){
+     		_imu_server_pub.unadvertise();
+	}
 }
 
 int ICM42688P::init()
@@ -209,6 +223,7 @@ void ICM42688P::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
+#ifndef __PX4_QURT
 			hrt_abstime timestamp_sample = now;
 			uint8_t samples = 0;
 
@@ -297,6 +312,7 @@ void ICM42688P::RunImpl()
 					Reset();
 				}
 			}
+#endif
 		}
 
 		break;
@@ -385,8 +401,15 @@ bool ICM42688P::Configure()
 
 	// 20-bits data format used
 	//  the only FSR settings that are operational are ±2000dps for gyroscope and ±16g for accelerometer
-	_px4_accel.set_range(16.f * CONSTANTS_ONE_G);
-	_px4_gyro.set_range(math::radians(2000.f));
+	if (!hitl_mode){
+		_px4_accel.set_range(16.f * CONSTANTS_ONE_G);
+		_px4_accel.set_scale(CONSTANTS_ONE_G / 8192.f);
+		_px4_gyro.set_range(math::radians(2000.f));
+		_px4_gyro.set_scale(math::radians(1.f / 131.f));
+	}
+
+	//_px4_accel.set_range(16.f * CONSTANTS_ONE_G);
+	//_px4_gyro.set_range(math::radians(2000.f));
 
 	return success;
 }
@@ -399,8 +422,15 @@ int ICM42688P::DataReadyInterruptCallback(int irq, void *context, void *arg)
 
 void ICM42688P::DataReady()
 {
+#ifndef __PX4_QURT
 	_drdy_timestamp_sample.store(hrt_absolute_time());
 	ScheduleNow();
+#else
+	uint16_t fifo_byte_count = FIFOReadCount();
+	PX4_DEBUG("ICM42688P::DataReady reading %u bytes", fifo_byte_count);
+
+	FIFORead(hrt_absolute_time(), fifo_byte_count / sizeof(FIFO::DATA));
+#endif
 }
 
 bool ICM42688P::DataReadyInterruptConfigure()
