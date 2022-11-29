@@ -47,14 +47,12 @@
 #include <parameters/px4_parameters.hpp>
 #include "tinybson/tinybson.h"
 
-#ifndef CONFIG_PARAM_CLIENT
+#if !defined(CONFIG_PARAM_CLIENT)
 #include <crc32.h>
 #endif
 
 #include <float.h>
 #include <math.h>
-
-//#include <sys/unistd.h>
 
 #include <containers/Bitset.hpp>
 #include <drivers/drv_hrt.h>
@@ -82,7 +80,6 @@ using namespace time_literals;
 #include "parameters_ioctl.h"
 #endif
 
-
 #if defined(FLASH_BASED_PARAMS)
 #include "flashparams/flashparams.h"
 #elif !defined(CONFIG_PARAM_CLIENT)
@@ -91,18 +88,14 @@ inline static int flash_param_load() { return -1; }
 inline static int flash_param_import() { return -1; }
 #endif
 
+static char *param_default_file = nullptr;
+static char *param_backup_file = nullptr;
+
 // uORB topics needed to keep parameter server and client in sync
 #if defined(CONFIG_PARAM_SERVER)
 #include "param_server.h"
-static char *param_default_file = (char *) "/data/px4/param/parameters";
-static char *param_backup_file = (char *) "/data/px4/param/backup_parameters";
 #elif defined(CONFIG_PARAM_CLIENT)
 #include "param_client.h"
-static char *param_default_file = (char *) "./param/parameters";
-static char *param_backup_file = (char *) "./param/backup_parameters";
-#else
-static char *param_default_file = nullptr;
-static char *param_backup_file = nullptr;
 #endif
 
 #include <px4_platform_common/workqueue.h>
@@ -1234,10 +1227,6 @@ int param_save_default()
 				PX4_ERR("parameter export to %s failed (%d) attempt %d", filename, res, attempt);
 				px4_usleep(10000); // wait at least 10 milliseconds before trying again
 			}
-
-#ifndef CONFIG_PARAM_CLIENT
-			::syncfs(fd);
-#endif
 		}
 
 	} else {

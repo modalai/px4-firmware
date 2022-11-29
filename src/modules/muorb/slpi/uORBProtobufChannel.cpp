@@ -197,26 +197,6 @@ __BEGIN_DECLS
 extern int slpi_main(int argc, char *argv[]);
 __END_DECLS
 
-static void *start_param_client(void *)
-{
-	usleep(10000);
-	param_init();
-
-	usleep(100);
-	// Now continue with the usual dspal startup.
-	const char *argv[3] = { "slpi", "start" };
-	int argc = 2;
-
-	// Make sure that argv has a NULL pointer in the end.
-	argv[argc] = NULL;
-
-	if (slpi_main(argc, (char **) argv)) {
-		PX4_ERR("slpi failed in %s", __FUNCTION__);
-	}
-
-	return nullptr;
-}
-
 int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 {
 	hrt_set_absolute_time_offset(clock_offset_us);
@@ -251,12 +231,17 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		uORB::Manager::get_instance()->set_uorb_communicator(
 			uORB::ProtobufChannel::GetInstance());
 
-		(void) px4_task_spawn_cmd("start_param_client",
-					  SCHED_DEFAULT,
-					  SCHED_PRIORITY_MAX - 2,
-					  2000,
-					  (px4_main_t)&start_param_client,
-					  nullptr);
+		param_init();
+
+		const char *argv[3] = { "slpi", "start" };
+        	int argc = 2;
+
+		// Make sure that argv has a NULL pointer in the end.
+		argv[argc] = NULL;
+
+		if (slpi_main(argc, (char **) argv)) {
+			PX4_ERR("slpi failed in %s", __FUNCTION__);
+		}
 
 		px4muorb_orb_initialized = true;
 
