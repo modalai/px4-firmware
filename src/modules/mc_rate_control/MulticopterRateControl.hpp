@@ -142,6 +142,9 @@ private:
 
 	int8_t _landing_gear{landing_gear_s::GEAR_DOWN};
 
+	bool _takeoff_time_set;
+	hrt_abstime _takeoff_time;
+
 	float _energy_integration_time{0.0f};
 	float _control_energy[4] {};
 
@@ -186,7 +189,14 @@ private:
 		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
 		(ParamFloat<px4::params::MC_ROLL_CUTOFF>) _param_mc_roll_cutoff,
 		(ParamFloat<px4::params::MC_PITCH_CUTOFF>) _param_mc_pitch_cutoff,
-		(ParamFloat<px4::params::MC_YAW_CUTOFF>) _param_mc_yaw_cutoff
+		(ParamFloat<px4::params::MC_YAW_CUTOFF>) _param_mc_yaw_cutoff,
+
+		(ParamBool<px4::params::MC_INJECT_EN>) _param_mc_inject_en,
+		(ParamInt<px4::params::MC_INJECT_RPY>) _param_mc_inject_rpy,
+		(ParamInt<px4::params::MC_INJECT_CNT>) _param_mc_inject_cnt,
+		(ParamFloat<px4::params::MC_INJECT_START>) _param_mc_inject_start,
+		(ParamFloat<px4::params::MC_INJECT_INC>) _param_mc_inject_inc,
+		(ParamFloat<px4::params::MC_INJECT_AMP>) _param_mc_inject_amp
 	)
 
 	matrix::Vector3f _acro_rate_max;	/**< max attitude rates in acro mode */
