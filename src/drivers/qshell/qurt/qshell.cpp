@@ -63,12 +63,14 @@ px4::AppState QShell::appState;
 
 QShell::QShell()
 {
+	PX4_INFO("Init app map initialized");
 	init_app_map(m_apps);
 }
 
 int QShell::main()
 {
 	appState.setRunning(true);
+	PX4_INFO("app state set to true");
 
 	int sub_qshell_req = orb_subscribe(ORB_ID(qshell_req));
 
@@ -77,9 +79,12 @@ int QShell::main()
 		return -1;
 	}
 
+	PX4_INFO("subscription to qshell req made");
+
 	px4_pollfd_struct_t fds[1] = {};
 	fds[0].fd = sub_qshell_req;
 	fds[0].events = POLLIN;
+	PX4_INFO("started polling");
 
 	while (!appState.exitRequested()) {
 
@@ -94,6 +99,7 @@ int QShell::main()
 			char current_char;
 			std::string arg;
 			std::vector<std::string> appargs;
+			PX4_INFO("variables created for arg current char and appargs");
 
 			for (unsigned str_idx = 0; str_idx < m_qshell_req.strlen; str_idx++) {
 				current_char = m_qshell_req.cmd[str_idx];
@@ -102,6 +108,8 @@ int QShell::main()
 					if (arg.length()) {
 						appargs.push_back(arg);
 						arg = "";
+						PX4_INFO("appargs pushed back from isspace fucntion inside forloop");
+
 					}
 
 				} else {
@@ -110,10 +118,16 @@ int QShell::main()
 			}
 
 			appargs.push_back(arg);  // push last argument
+			PX4_INFO("Appargs pushed back outside forloop");
 
 			qshell_retval_s retval{};
+			PX4_INFO("qshell retval created ");
+
 			retval.return_value = run_cmd(appargs);
+			PX4_INFO("run_cmd ran");
+
 			retval.return_sequence = m_qshell_req.request_sequence;
+			PX4_INFO("VALUE OR RETURN VALUE: %i", retval.return_value);
 
 			if (retval.return_value) {
 				PX4_ERR("Failed to execute command: %s", m_qshell_req.cmd);
@@ -125,8 +139,10 @@ int QShell::main()
 			retval.timestamp = hrt_absolute_time();
 			PX4_INFO("Sending qshell retval with timestamp %llu, current timestamp %llu", retval.timestamp, hrt_absolute_time());
 			_qshell_retval_pub.publish(retval);
+			PX4_INFO("RETVAL FROM SLPI QSHELL PUBLISHED");
 
 		} else if (pret == 0) {
+
 			// Timing out is fine.
 		} else {
 			// Something is wrong.
@@ -134,13 +150,18 @@ int QShell::main()
 		}
 	}
 
+	PX4_INFO("app state to set running to true still");
+
 	appState.setRunning(false);
+	PX4_INFO("app state to set running false");
+
 	return 0;
 }
 
 int QShell::run_cmd(const std::vector<std::string> &appargs)
 {
 	// command is appargs[0]
+	PX4_INFO("setting command to appargs 0");
 	std::string command = appargs[0];
 
 	if (command.compare("help") == 0) {
@@ -163,7 +184,7 @@ int QShell::run_cmd(const std::vector<std::string> &appargs)
 
 			while (i < appargs.size() && appargs[i].c_str()[0] != '\0') {
 				arg[i] = (char *)appargs[i].c_str();
-				PX4_DEBUG("  arg%d = '%s'\n", i, arg[i]);
+				PX4_INFO("  arg%d = '%s'\n", i, arg[i]);
 				++i;
 			}
 
@@ -174,7 +195,10 @@ int QShell::run_cmd(const std::vector<std::string> &appargs)
 				PX4_ERR("Null function !!\n");
 
 			} else {
-				return m_apps[command](i, (char **)arg);
+				PX4_INFO("run cmd ran the right way!!!");
+				int x = m_apps[command](i, (char **)arg);
+				PX4_INFO("Ran m_apps command just fine");
+				return x;
 			}
 
 		}
