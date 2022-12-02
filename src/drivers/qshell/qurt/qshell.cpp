@@ -72,6 +72,8 @@ int QShell::main()
 	appState.setRunning(true);
 	PX4_INFO("app state set to true");
 
+	usleep(2000);
+
 	int sub_qshell_req = orb_subscribe(ORB_ID(qshell_req));
 
 	if (sub_qshell_req == PX4_ERROR) {

@@ -314,7 +314,7 @@ extern "C" {
 
 	int px4_ioctl(int fd, int cmd, unsigned long arg)
 	{
-		PX4_DEBUG("px4_ioctl fd = %d", fd);
+		// PX4_DEBUG("px4_ioctl fd = %d", fd);
 		int ret = 0;
 
 		cdev::CDev *dev = getFile(fd);
