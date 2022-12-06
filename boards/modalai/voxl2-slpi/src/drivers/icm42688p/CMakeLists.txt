@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2020 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,43 +30,18 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-
-set(SRCS_PLATFORM)
-if (${PX4_PLATFORM} STREQUAL "nuttx")
-	if ("${CONFIG_I2C}" STREQUAL "y")
-		list(APPEND SRCS_PLATFORM nuttx/I2C.cpp)
-	endif()
-
-	if ("${CONFIG_SPI}" STREQUAL "y")
-		list(APPEND SRCS_PLATFORM nuttx/SPI.cpp)
-	endif()
-elseif(UNIX AND NOT APPLE) #TODO: add linux PX4 platform type
-	# Linux I2Cdev and SPIdev
-	list(APPEND SRCS_PLATFORM
-		posix/I2C.cpp
-		posix/SPI.cpp
+px4_add_module(
+	MODULE drivers__imu__invensense__icm42688p
+	MAIN icm42688p
+	COMPILE_FLAGS
+		${MAX_CUSTOM_OPT_LEVEL}
+	SRCS
+		icm42688p_main.cpp
+		ICM42688P.cpp
+		ICM42688P.hpp
+		InvenSense_ICM42688P_registers.hpp
+	DEPENDS
+		px4_work_queue
+		drivers_accelerometer
+		drivers_gyroscope
 	)
-elseif((${PX4_PLATFORM} MATCHES "qurt"))
-	message(FATAL_ERROR "Qurt not supported")
-	list(APPEND SRCS_PLATFORM
-		qurt/I2C.cpp
-		qurt/SPI.cpp
-		qurt/uart.c
-	)
-endif()
-
-px4_add_library(drivers__device
-	CDev.cpp
-	${SRCS_PLATFORM}
-	)
-
-# px4_spibus_initialize (stm32_spibus_initialize)
-if (${PX4_PLATFORM} STREQUAL "nuttx")
-	if (NOT DEFINED CONFIG_BUILD_FLAT)
-		target_link_libraries(drivers__device PRIVATE nuttx_karch)
-	else()
-		target_link_libraries(drivers__device PRIVATE nuttx_arch)
-	endif()
-endif()
-
-target_link_libraries(drivers__device PRIVATE cdev)
