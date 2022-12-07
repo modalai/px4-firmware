@@ -35,8 +35,6 @@ add_library(drivers_board
 	board_config.h
 	init.c
 	spi.cpp
-	${PX4_SOURCE_DIR}/src/lib/drivers/device/qurt/SPI.cpp
-	${PX4_SOURCE_DIR}/src/lib/drivers/device/CDev.cpp
     )
 
 # Add custom drivers for SLPI

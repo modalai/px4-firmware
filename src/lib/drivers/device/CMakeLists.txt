@@ -40,18 +40,13 @@ if (${PX4_PLATFORM} STREQUAL "nuttx")
 	if ("${CONFIG_SPI}" STREQUAL "y")
 		list(APPEND SRCS_PLATFORM nuttx/SPI.cpp)
 	endif()
+elseif((${PX4_PLATFORM} MATCHES "qurt"))
+	list(APPEND SRCS_PLATFORM qurt/SPI.cpp)
 elseif(UNIX AND NOT APPLE) #TODO: add linux PX4 platform type
 	# Linux I2Cdev and SPIdev
 	list(APPEND SRCS_PLATFORM
 		posix/I2C.cpp
 		posix/SPI.cpp
-	)
-elseif((${PX4_PLATFORM} MATCHES "qurt"))
-	message(FATAL_ERROR "Qurt not supported")
-	list(APPEND SRCS_PLATFORM
-		qurt/I2C.cpp
-		qurt/SPI.cpp
-		qurt/uart.c
 	)
 endif()
 
