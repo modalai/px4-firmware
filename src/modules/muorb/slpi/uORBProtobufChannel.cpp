@@ -41,6 +41,7 @@
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/log.h>
 #include <lib/parameters/param.h>
+#include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
 
 // Definition of test to run when in muorb test mode
 static MUORBTestType test_to_run;
@@ -232,6 +233,8 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 			uORB::ProtobufChannel::GetInstance());
 
 		param_init();
+
+		px4::WorkQueueManagerStart();
 
 		const char *argv[3] = { "slpi", "start" };
         	int argc = 2;
