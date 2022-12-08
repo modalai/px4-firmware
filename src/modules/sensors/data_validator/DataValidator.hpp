@@ -43,6 +43,7 @@
 
 #include <math.h>
 #include <stdint.h>
+# include <drivers/drv_hrt.h>
 
 class DataValidator
 {
