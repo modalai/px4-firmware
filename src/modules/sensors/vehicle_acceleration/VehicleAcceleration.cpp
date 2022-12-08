@@ -244,34 +244,6 @@ void VehicleAcceleration::Run()
 
 			_acceleration_prev = accel_corrected;
 
-#ifdef __PX4_QURT
-			// Some code to measure either min and max of total delay from when the
-			// sample was generated until now (total_delay) or just min and max times
-			// between consecutive samples to make sure that we aren't seeing any drops.
-			int measure_total_delay = 0;
-			uint64_t current_time = hrt_absolute_time();
-			static uint64_t last_sample_timestamp = 0;
-			static int32_t min_time_difference_ms = 0xffffffff;
-			static int32_t max_time_difference_ms = 0;
-			static int32_t report_count = 0;
-			if (last_sample_timestamp) {
-				int32_t time_difference_ms = 0;
-				if (measure_total_delay) {
-					time_difference_ms = (current_time - sensor_data.timestamp_sample) / 1000;
-				} else {
-					time_difference_ms = (sensor_data.timestamp_sample - last_sample_timestamp) / 1000;
-				}
-				if (time_difference_ms < min_time_difference_ms) min_time_difference_ms = time_difference_ms;
-				if (time_difference_ms > max_time_difference_ms) max_time_difference_ms = time_difference_ms;
-				if ( ! (report_count++ % 1000)) {
-					PX4_DEBUG("Min: %d, max: %d", min_time_difference_ms, max_time_difference_ms);
-					min_time_difference_ms = 0xfffffff;
-					max_time_difference_ms = 0;
-				}
-			}
-			last_sample_timestamp = sensor_data.timestamp_sample;
-#endif
-
 			// publish once all new samples are processed
 			if (!_sensor_sub.updated()) {
 				// Publish vehicle_acceleration
