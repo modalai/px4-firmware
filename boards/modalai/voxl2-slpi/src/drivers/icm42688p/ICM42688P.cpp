@@ -33,7 +33,7 @@
 
 #include "ICM42688P.hpp"
 
-bool hitl_mode;
+bool hitl_mode = false;
 
 using namespace time_literals;
 
@@ -126,6 +126,7 @@ int ICM42688P::probe()
 		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
 		if (whoami == WHOAMI) {
+			PX4_INFO("ICM42688P::probe successful!");
 			return PX4_OK;
 
 		} else {
@@ -147,6 +148,8 @@ int ICM42688P::probe()
 
 void ICM42688P::RunImpl()
 {
+	PX4_INFO(">>> ICM42688P this: %p", this);
+
 	const hrt_abstime now = hrt_absolute_time();
 
 	switch (_state) {
@@ -156,8 +159,9 @@ void ICM42688P::RunImpl()
 		_reset_timestamp = now;
 		_failure_count = 0;
 		_state = STATE::WAIT_FOR_RESET;
-		ScheduleDelayed(2_ms); // to be safe wait 2 ms for soft reset to be effective
-		break;
+		// ScheduleDelayed(2_ms); // to be safe wait 2 ms for soft reset to be effective
+		// break;
+		px4_usleep(2 * 1000);
 
 	case STATE::WAIT_FOR_RESET:
 		if ((RegisterRead(Register::BANK_0::WHO_AM_I) == WHOAMI)
@@ -165,7 +169,8 @@ void ICM42688P::RunImpl()
 		    && (RegisterRead(Register::BANK_0::INT_STATUS) & INT_STATUS_BIT::RESET_DONE_INT)) {
 
 			_state = STATE::CONFIGURE;
-			ScheduleDelayed(10_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+			// ScheduleDelayed(10_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+			px4_usleep(10 * 1000);
 
 		} else {
 			// RESET not complete
@@ -178,17 +183,22 @@ void ICM42688P::RunImpl()
 				PX4_DEBUG("Reset not complete, check again in 10 ms");
 				ScheduleDelayed(10_ms);
 			}
+
+			break;
 		}
 
-		break;
+		// break;
 
 	case STATE::CONFIGURE:
+
 		if (Configure()) {
 
 			// Wakeup accel and gyro after configuring registers
-			ScheduleDelayed(1_ms); // add a delay here to be safe
+			// ScheduleDelayed(1_ms); // add a delay here to be safe
+			px4_usleep(1 * 1000);
 			RegisterWrite(Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE);
-			ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+			// ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
+			px4_usleep(30 * 1000);
 
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::FIFO_READ;
@@ -197,9 +207,11 @@ void ICM42688P::RunImpl()
 				_data_ready_interrupt_enabled = true;
 
 				// backup schedule as a watchdog timeout
-				ScheduleDelayed(100_ms);
+				// ScheduleDelayed(100_ms);
 
 			} else {
+				PX4_ERR("ICM42688P::RunImpl interrupt configuration failed");
+
 				_data_ready_interrupt_enabled = false;
 				ScheduleOnInterval(_fifo_empty_interval_us, _fifo_empty_interval_us);
 			}
@@ -207,6 +219,9 @@ void ICM42688P::RunImpl()
 			FIFOReset();
 
 		} else {
+
+			PX4_ERR("ICM42688P::RunImpl configuration failed");
+
 			// CONFIGURE not complete
 			if (hrt_elapsed_time(&_reset_timestamp) > 1000_ms) {
 				PX4_DEBUG("Configure failed, resetting");
@@ -401,9 +416,38 @@ bool ICM42688P::Configure()
 	return success;
 }
 
+static uint32_t interrupt_debug = 0;
+static const uint32_t interrupt_debug_trigger = 800;
+static hrt_abstime last_interrupt_time = 0;
+static hrt_abstime avg_interrupt_delta = 0;
+static hrt_abstime max_interrupt_delta = 0;
+static hrt_abstime min_interrupt_delta = 60 * 1000 * 1000;
+static hrt_abstime cumulative_interrupt_delta = 0;
+
 int ICM42688P::DataReadyInterruptCallback(int irq, void *context, void *arg)
 {
+	hrt_abstime current_interrupt_time = hrt_absolute_time();
+
+	if (last_interrupt_time) {
+		hrt_abstime interrupt_delta_time = current_interrupt_time - last_interrupt_time;
+		if (interrupt_delta_time > max_interrupt_delta) max_interrupt_delta = interrupt_delta_time;
+		if (interrupt_delta_time < min_interrupt_delta) min_interrupt_delta = interrupt_delta_time;
+		cumulative_interrupt_delta += interrupt_delta_time;
+	}
+
+	last_interrupt_time = current_interrupt_time;
+
+	interrupt_debug++;
+	if (interrupt_debug == interrupt_debug_trigger) {
+		avg_interrupt_delta = cumulative_interrupt_delta / interrupt_debug_trigger;
+		PX4_INFO(">>> Max: %llu, Min: %llu, Avg: %llu", max_interrupt_delta,
+                 min_interrupt_delta, avg_interrupt_delta);
+		interrupt_debug = 0;
+		cumulative_interrupt_delta = 0;
+	}
+
 	static_cast<ICM42688P *>(arg)->DataReady();
+
 	return 0;
 }
 
@@ -417,7 +461,6 @@ void ICM42688P::DataReady()
 	}
 #else
     uint16_t fifo_byte_count = FIFOReadCount();
-    PX4_DEBUG("ICM42688P::DataReady reading %u bytes", fifo_byte_count);
 
     FIFORead(hrt_absolute_time(), fifo_byte_count / sizeof(FIFO::DATA));
 #endif
@@ -507,14 +550,15 @@ uint16_t ICM42688P::FIFOReadCount()
 	return combine(fifo_count_buf[1], fifo_count_buf[2]);
 }
 
-static uint32_t debug_decimator = 0;
-static hrt_abstime last_sample_time = 0;
-static bool imu_debug = false;
+// static uint32_t debug_decimator = 0;
+// static hrt_abstime last_sample_time = 0;
+// static bool imu_debug = true;
 
-bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
+bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint16_t samples)
 {
 	FIFOTransferBuffer buffer{};
-	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, FIFO::SIZE);
+	const size_t max_transfer_size = 10 * sizeof(FIFO::DATA) + 4;
+	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, max_transfer_size);
 	SelectRegisterBank(REG_BANK_SEL_BIT::USER_BANK_0);
 
 	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
@@ -536,7 +580,7 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 		return false;
 	}
 
-	const uint8_t fifo_count_samples = fifo_count_bytes / sizeof(FIFO::DATA);
+	const uint16_t fifo_count_samples = fifo_count_bytes / sizeof(FIFO::DATA);
 
 	if (fifo_count_samples == 0) {
 		perf_count(_fifo_empty_perf);
@@ -544,7 +588,7 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 	}
 
 	// check FIFO header in every sample
-	uint8_t valid_samples = 0;
+	uint16_t valid_samples = 0;
 
 	for (int i = 0; i < math::min(samples, fifo_count_samples); i++) {
 		bool valid = true;
@@ -586,21 +630,21 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 		}
 	}
 
-	if (imu_debug) {
-		debug_decimator++;
-		if (debug_decimator == 800) {
-			debug_decimator = 0;
-			PX4_INFO("Initial: %u Next: %u Valid: %u Delta: %llu", samples, fifo_count_samples, valid_samples, timestamp_sample - last_sample_time);
-		}
-		last_sample_time = timestamp_sample;
-	}
+	// if (imu_debug) {
+	// 	debug_decimator++;
+	// 	if (debug_decimator == 801) {
+	// 		debug_decimator = 0;
+	// 		PX4_INFO("Initial: %u Next: %u Valid: %u Delta: %llu", samples, fifo_count_samples, valid_samples, timestamp_sample - last_sample_time);
+	// 	}
+	// 	last_sample_time = timestamp_sample;
+	// }
 
 	if (valid_samples > 0) {
 		if (ProcessTemperature(buffer.f, valid_samples)) {
 			ProcessGyro(timestamp_sample, buffer.f, valid_samples);
 			ProcessAccel(timestamp_sample, buffer.f, valid_samples);
 			// Pass only most recent valid sample to IMU server
-			ProcessIMU(timestamp_sample, buffer.f[valid_samples - 1]);
+			// ProcessIMU(timestamp_sample, buffer.f[valid_samples - 1]);
 			return true;
 		}
 	}

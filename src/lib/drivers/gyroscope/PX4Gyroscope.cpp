@@ -134,6 +134,8 @@ void PX4Gyroscope::update(const hrt_abstime &timestamp_sample, float x, float y,
 	_sensor_pub.publish(report);
 }
 
+static uint32_t update_debug = 0;
+
 void PX4Gyroscope::updateFIFO(sensor_gyro_fifo_s &sample)
 {
 	// rotate all raw samples and publish fifo
@@ -161,6 +163,12 @@ void PX4Gyroscope::updateFIFO(sensor_gyro_fifo_s &sample)
 	report.x = (0.5f * (_last_sample[0] + sample.x[N - 1]) + sum(sample.x, N - 1)) * scale;
 	report.y = (0.5f * (_last_sample[1] + sample.y[N - 1]) + sum(sample.y, N - 1)) * scale;
 	report.z = (0.5f * (_last_sample[2] + sample.z[N - 1]) + sum(sample.z, N - 1)) * scale;
+
+	update_debug++;
+	if (update_debug == 800) {
+		update_debug = 0;
+		PX4_INFO("Gyro x: %f, y: %f, z: %f", (double) report.x, (double) report.y, (double) report.z);
+	}
 
 	_last_sample[0] = sample.x[N - 1];
 	_last_sample[1] = sample.y[N - 1];

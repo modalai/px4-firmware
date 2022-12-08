@@ -49,7 +49,11 @@
 static int (*register_interrupt_callback_func)(int (*)(int, void*, void*), void* arg) = NULL;
 
 int px4_arch_gpiosetevent(spi_drdy_gpio_t pin, bool r, bool f, bool e, int (*func)(int, void*, void*), void* arg) {
-    if (register_interrupt_callback_func != NULL) return register_interrupt_callback_func(func, arg);
+
+    if ((register_interrupt_callback_func != NULL) && (func != NULL) && (arg != NULL)) {
+        PX4_INFO("Register interrupt %p %p %p", register_interrupt_callback_func, func, arg);
+        return register_interrupt_callback_func(func, arg);
+    }
     return -1;
 }
 
@@ -146,7 +150,7 @@ SPI::transfer(uint8_t *send, uint8_t *recv, unsigned len)
 
     if ((_fd != PX4_ERROR) && (_spi_transfer != NULL)) {
     	do {
-    		PX4_DEBUG("SPI transfer out %p in %p len %u", send, recv, len);
+    		// PX4_DEBUG("SPI transfer out %p in %p len %u", send, recv, len);
 
             if (_spi_transfer != NULL) {
                 pthread_mutex_lock(&_mutex);

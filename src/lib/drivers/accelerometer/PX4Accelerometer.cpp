@@ -135,6 +135,8 @@ void PX4Accelerometer::update(const hrt_abstime &timestamp_sample, float x, floa
 	_sensor_pub.publish(report);
 }
 
+static uint32_t update_debug = 0;
+
 void PX4Accelerometer::updateFIFO(sensor_accel_fifo_s &sample)
 {
 	// rotate all raw samples and publish fifo
@@ -149,7 +151,6 @@ void PX4Accelerometer::updateFIFO(sensor_accel_fifo_s &sample)
 	sample.timestamp = hrt_absolute_time();
 	_sensor_fifo_pub.publish(sample);
 
-
 	// publish
 	sensor_accel_s report;
 	report.timestamp_sample = sample.timestamp_sample;
@@ -162,6 +163,12 @@ void PX4Accelerometer::updateFIFO(sensor_accel_fifo_s &sample)
 	report.x = (0.5f * (_last_sample[0] + sample.x[N - 1]) + sum(sample.x, N - 1)) * scale;
 	report.y = (0.5f * (_last_sample[1] + sample.y[N - 1]) + sum(sample.y, N - 1)) * scale;
 	report.z = (0.5f * (_last_sample[2] + sample.z[N - 1]) + sum(sample.z, N - 1)) * scale;
+
+	update_debug++;
+	if (update_debug == 800) {
+		update_debug = 0;
+		PX4_INFO("Accel x: %f, y: %f, z: %f", (double) report.x, (double) report.y, (double) report.z);
+	}
 
 	_last_sample[0] = sample.x[N - 1];
 	_last_sample[1] = sample.y[N - 1];
