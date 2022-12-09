@@ -66,10 +66,12 @@ static task_entry_t taskmap[PX4_MAX_TASKS];
 static bool task_mutex_initialized = false;
 static pthread_mutex_t task_mutex;
 
-extern "C" int pthread_setname_np(pthread_t __target_thread, const char *__name) {
-	return 0;
-}
+extern "C" {
 
+int pthread_setname_np(pthread_t __target_thread, const char *__name) {	return 0; }
+int	pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy) { return 0; }
+
+}
 
 static void *entry_adapter(void *ptr)
 {
