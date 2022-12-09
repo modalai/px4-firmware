@@ -136,10 +136,14 @@ static void hrt_work_process()
 	 */
 
 	/* Default to sleeping for 1 sec */
-#ifdef __PX4_QURT
-	next = 1000;
-#else
 	next = 1000000;
+
+#ifdef __PX4_QURT
+	// With Qurt we have to wake up more often because there is an assumption
+	// that certain signals wake up a sleeping thread but it isn't the case
+	// with the Qurt POSIX implementation. So rather than assume we can come out
+	// of the sleep early by a signal we just wake up more often.
+	next = 1000;
 #endif
 
 
@@ -286,19 +290,10 @@ void hrt_work_queue_init(void)
 	// Create high priority worker thread
 	g_hrt_work.pid = px4_task_spawn_cmd("wkr_hrt",
 					    SCHED_DEFAULT,
-#ifdef __PX4_QURT
-					    5,
-#else
 					    SCHED_PRIORITY_MAX,
-#endif
 					    2000,
 					    work_hrtthread,
 					    (char *const *)NULL);
 
-
-#ifdef __PX4_QURT
-	signal(SIGALRM, _sighandler);
-#else
 	signal(SIGCONT, _sighandler);
-#endif
 }

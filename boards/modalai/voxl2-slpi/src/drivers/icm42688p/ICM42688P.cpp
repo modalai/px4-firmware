@@ -586,7 +586,8 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint16_t samples)
 	// check FIFO header in every sample
 	uint16_t valid_samples = 0;
 
-	for (int i = 0; i < math::min(samples, fifo_count_samples); i++) {
+	// for (int i = 0; i < math::min(samples, fifo_count_samples); i++) {
+	for (int i = 0; i < math::min(samples, (uint16_t) 10); i++) {
 		bool valid = true;
 
 		// With FIFO_ACCEL_EN and FIFO_GYRO_EN header should be 8’b_0110_10xx

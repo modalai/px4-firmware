@@ -37,6 +37,7 @@
 #include <string>
 
 #include <drivers/drv_hrt.h>
+#include <drivers/device/spi.h>
 #include <pthread.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/log.h>

@@ -69,7 +69,7 @@ static pthread_mutex_t task_mutex;
 extern "C" {
 
 int pthread_setname_np(pthread_t __target_thread, const char *__name) {	return 0; }
-int	pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy) { return 0; }
+int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy) { return 0; }
 
 }
 
@@ -154,11 +154,12 @@ static px4_task_t px4_task_spawn_internal(const char *name, int priority, px4_ma
 		return -1;
 	}
 
-	priority = 255 - priority;
-
-	if (priority < 5) { priority = 5; }
-
-	if (priority > 250) { priority = 250; }
+	// Qurt threads have different priority numbers. 1 is the highest
+	// priority and 254 is the lowest. But we are using the pthread
+	// implementation on Qurt which returns 255 when you call sched_get_priority_max.
+	// So, the big assumption is that the Qurt pthread implementation deals with
+	// this properly when creating the underlying Qurt task.
+	// TODO: Needs to be verified!
 
 	if (strlen(name) >= PX4_TASK_MAX_NAME_LENGTH) {
 		pthread_mutex_unlock(&task_mutex);

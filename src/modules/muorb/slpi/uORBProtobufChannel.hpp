@@ -38,7 +38,6 @@
 #include <string>
 #include <map>
 #include <pthread.h>
-#include <drivers/device/spi.h>
 
 #include "uORB/uORBCommunicator.hpp"
 
