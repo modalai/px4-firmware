@@ -47,9 +47,7 @@
 #include <parameters/px4_parameters.hpp>
 #include "tinybson/tinybson.h"
 
-#ifndef __PX4_QURT
 #include <crc32.h>
-#endif
 #include <float.h>
 #include <math.h>
 
@@ -1717,12 +1715,10 @@ uint32_t param_hash_check()
 		if (!param_used(param) || param_is_volatile(param)) {
 			continue;
 		}
-#ifndef __PX4_QURT
 		const char *name = param_name(param);
 		const void *val = param_get_value_ptr(param);
 		param_hash = crc32part((const uint8_t *)name, strlen(name), param_hash);
 		param_hash = crc32part((const uint8_t *)val, param_size(param), param_hash);
-#endif
 	}
 
 	param_unlock_reader();

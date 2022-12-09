@@ -28,3 +28,5 @@ __attribute__((visibility("default"))) int nanosleep(const struct timespec *req,
 {
 	return -1;
 }
+
+uint32_t crc32part(const uint8_t *name, uint32_t len, uint32_t hash) { return 0; }
