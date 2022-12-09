@@ -36,4 +36,6 @@ __BEGIN_DECLS
 
 long PX4_TICKS_PER_SEC = 1000L;
 
+int	pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy) { return 0; }
+
 __END_DECLS

@@ -109,6 +109,11 @@ __EXPORT int		px4_poll(px4_pollfd_struct_t *fds, unsigned int nfds, int timeout)
 __EXPORT int		px4_access(const char *pathname, int mode);
 __EXPORT px4_task_t	px4_getpid(void);
 
+#if defined(__PX4_QURT)
+#include <pthread.h>
+__EXPORT int		pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy);
+#endif
+
 __END_DECLS
 #else
 #error "No TARGET OS Provided"
