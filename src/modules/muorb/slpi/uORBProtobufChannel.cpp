@@ -43,6 +43,8 @@
 #include <lib/parameters/param.h>
 #include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
 
+#include "hrt_work.h"
+
 // Definition of test to run when in muorb test mode
 static MUORBTestType test_to_run;
 
@@ -241,6 +243,8 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 
         // Initialize the interrupt callback registration
         register_interrupt_callback_initalizer(muorb_func_ptrs.register_interrupt_callback);
+
+		hrt_work_queue_init();
 
 		const char *argv[3] = { "slpi", "start" };
         	int argc = 2;

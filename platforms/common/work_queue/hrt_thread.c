@@ -223,7 +223,7 @@ static void hrt_work_process()
 	hrt_work_unlock();
 
 	/* might sleep less if a signal received and new item was queued */
-	//PX4_INFO("Sleeping for %u usec", next);
+	// PX4_INFO("hrt_work_process sleeping for %u usec", next);
 	px4_usleep(next);
 }
 
@@ -286,7 +286,11 @@ void hrt_work_queue_init(void)
 	// Create high priority worker thread
 	g_hrt_work.pid = px4_task_spawn_cmd("wkr_hrt",
 					    SCHED_DEFAULT,
+#ifdef __PX4_QURT
+					    5,
+#else
 					    SCHED_PRIORITY_MAX,
+#endif
 					    2000,
 					    work_hrtthread,
 					    (char *const *)NULL);

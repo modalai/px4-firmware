@@ -159,9 +159,8 @@ void ICM42688P::RunImpl()
 		_reset_timestamp = now;
 		_failure_count = 0;
 		_state = STATE::WAIT_FOR_RESET;
-		// ScheduleDelayed(2_ms); // to be safe wait 2 ms for soft reset to be effective
-		// break;
-		px4_usleep(2 * 1000);
+		ScheduleDelayed(2_ms); // to be safe wait 2 ms for soft reset to be effective
+		break;
 
 	case STATE::WAIT_FOR_RESET:
 		if ((RegisterRead(Register::BANK_0::WHO_AM_I) == WHOAMI)
@@ -169,9 +168,7 @@ void ICM42688P::RunImpl()
 		    && (RegisterRead(Register::BANK_0::INT_STATUS) & INT_STATUS_BIT::RESET_DONE_INT)) {
 
 			_state = STATE::CONFIGURE;
-			// ScheduleDelayed(10_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
-			px4_usleep(10 * 1000);
-
+			ScheduleDelayed(10_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
 		} else {
 			// RESET not complete
 			if (hrt_elapsed_time(&_reset_timestamp) > 1000_ms) {
@@ -183,22 +180,18 @@ void ICM42688P::RunImpl()
 				PX4_DEBUG("Reset not complete, check again in 10 ms");
 				ScheduleDelayed(10_ms);
 			}
-
-			break;
 		}
 
-		// break;
+		break;
 
 	case STATE::CONFIGURE:
 
 		if (Configure()) {
 
 			// Wakeup accel and gyro after configuring registers
-			// ScheduleDelayed(1_ms); // add a delay here to be safe
-			px4_usleep(1 * 1000);
+			ScheduleDelayed(1_ms); // add a delay here to be safe
 			RegisterWrite(Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE);
-			// ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
-			px4_usleep(30 * 1000);
+			ScheduleDelayed(30_ms); // 30 ms gyro startup time, 10 ms accel from sleep to valid data
 
 			// if configure succeeded then start reading from FIFO
 			_state = STATE::FIFO_READ;
@@ -207,7 +200,7 @@ void ICM42688P::RunImpl()
 				_data_ready_interrupt_enabled = true;
 
 				// backup schedule as a watchdog timeout
-				// ScheduleDelayed(100_ms);
+				ScheduleDelayed(100_ms);
 
 			} else {
 				PX4_ERR("ICM42688P::RunImpl interrupt configuration failed");
@@ -416,7 +409,8 @@ bool ICM42688P::Configure()
 	return success;
 }
 
-static uint32_t interrupt_debug = 0;
+static bool interrupt_debug = true;
+static uint32_t interrupt_debug_count = 0;
 static const uint32_t interrupt_debug_trigger = 800;
 static hrt_abstime last_interrupt_time = 0;
 static hrt_abstime avg_interrupt_delta = 0;
@@ -428,22 +422,24 @@ int ICM42688P::DataReadyInterruptCallback(int irq, void *context, void *arg)
 {
 	hrt_abstime current_interrupt_time = hrt_absolute_time();
 
-	if (last_interrupt_time) {
-		hrt_abstime interrupt_delta_time = current_interrupt_time - last_interrupt_time;
-		if (interrupt_delta_time > max_interrupt_delta) max_interrupt_delta = interrupt_delta_time;
-		if (interrupt_delta_time < min_interrupt_delta) min_interrupt_delta = interrupt_delta_time;
-		cumulative_interrupt_delta += interrupt_delta_time;
-	}
+	if (interrupt_debug) {
+		if (last_interrupt_time) {
+			hrt_abstime interrupt_delta_time = current_interrupt_time - last_interrupt_time;
+			if (interrupt_delta_time > max_interrupt_delta) max_interrupt_delta = interrupt_delta_time;
+			if (interrupt_delta_time < min_interrupt_delta) min_interrupt_delta = interrupt_delta_time;
+			cumulative_interrupt_delta += interrupt_delta_time;
+		}
 
-	last_interrupt_time = current_interrupt_time;
+		last_interrupt_time = current_interrupt_time;
 
-	interrupt_debug++;
-	if (interrupt_debug == interrupt_debug_trigger) {
-		avg_interrupt_delta = cumulative_interrupt_delta / interrupt_debug_trigger;
-		PX4_INFO(">>> Max: %llu, Min: %llu, Avg: %llu", max_interrupt_delta,
-                 min_interrupt_delta, avg_interrupt_delta);
-		interrupt_debug = 0;
-		cumulative_interrupt_delta = 0;
+		interrupt_debug_count++;
+		if (interrupt_debug_count == interrupt_debug_trigger) {
+			avg_interrupt_delta = cumulative_interrupt_delta / interrupt_debug_trigger;
+			PX4_INFO(">>> Max: %llu, Min: %llu, Avg: %llu", max_interrupt_delta,
+	                 min_interrupt_delta, avg_interrupt_delta);
+			interrupt_debug_count = 0;
+			cumulative_interrupt_delta = 0;
+		}
 	}
 
 	static_cast<ICM42688P *>(arg)->DataReady();
