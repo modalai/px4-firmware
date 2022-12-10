@@ -34,4 +34,8 @@
 add_library(drivers_board
 	board_config.h
 	init.c
+	spi.cpp
     )
+
+# Add custom drivers for SLPI
+add_subdirectory(${PX4_BOARD_DIR}/src/drivers/icm42688p)
