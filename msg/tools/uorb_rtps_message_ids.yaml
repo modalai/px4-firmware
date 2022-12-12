@@ -408,4 +408,6 @@ rtps:
   - msg: estimator_odometry
     id: 200
     alias: vehicle_odometry
+  - msg: gps_metadata
+    id: 201
   ########## multi topics: end ##########

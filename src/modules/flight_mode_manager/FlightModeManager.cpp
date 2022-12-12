@@ -452,9 +452,12 @@ void FlightModeManager::handleCommand()
 	// get command
 	vehicle_command_s command;
 
+
 	while (_vehicle_command_sub.update(&command)) {
 		// check what command it is
 		FlightTaskIndex desired_task = switchVehicleCommand(command.command);
+
+		PX4_ERR("FlightModeManager::handleCommand %i", (int)desired_task);
 
 		// ignore all unkown commands
 		if (desired_task != FlightTaskIndex::None) {

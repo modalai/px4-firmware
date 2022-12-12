@@ -707,6 +707,7 @@ MavlinkReceiver::handle_message_hil_optical_flow(mavlink_message_t *msg)
 void
 MavlinkReceiver::handle_message_set_mode(mavlink_message_t *msg)
 {
+
 	mavlink_set_mode_t new_mode;
 	mavlink_msg_set_mode_decode(msg, &new_mode);
 
@@ -716,6 +717,8 @@ MavlinkReceiver::handle_message_set_mode(mavlink_message_t *msg)
 	vehicle_command_s vcmd{};
 
 	vcmd.timestamp = hrt_absolute_time();
+
+	printf("MavlinkReceiver::handle_message_set_mode %d %d %d \n", new_mode.base_mode, custom_mode.main_mode,custom_mode.sub_mode );
 
 	/* copy the content of mavlink_command_long_t cmd_mavlink into command_t cmd */
 	vcmd.param1 = (float)new_mode.base_mode;

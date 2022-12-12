@@ -160,7 +160,10 @@ EKF2::EKF2(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
 	_param_ekf2_move_test(_params->is_moving_scaler),
 	_param_ekf2_mag_check(_params->check_mag_strength),
 	_param_ekf2_synthetic_mag_z(_params->synthesize_mag_z),
-	_param_ekf2_gsf_tas_default(_params->EKFGSF_tas_default)
+	_param_ekf2_gsf_tas_default(_params->EKFGSF_tas_default),
+	_param_ekf2_in_out(_params->in_out_flag),
+	_param_ekf2_ev_airspace(_params->ev_airspace),
+	_param_ekf2_ev_airspace_hgt(_params->ev_airspace_hgt)
 {
 	PX4_ERR("**** Starting up PX4 rover EKF2 ****");
 }
@@ -173,6 +176,7 @@ EKF2::~EKF2()
 
 bool EKF2::multi_init(int imu, int mag)
 {
+	PX4_ERR("**** Starting up PX4 EKF2 multi_init  ****");
 	// advertise immediately to ensure consistent uORB instance numbering
 	_attitude_pub.advertise();
 	_local_position_pub.advertise();
@@ -229,7 +233,6 @@ void EKF2::Run()
 	if (should_exit()) {
 		_sensor_combined_sub.unregisterCallback();
 		_vehicle_imu_sub.unregisterCallback();
-
 		return;
 	}
 
@@ -373,6 +376,10 @@ void EKF2::Run()
 			if (_status_sub.copy(&vehicle_status)) {
 				const bool is_fixed_wing = (vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING);
 
+				is_manual_mode = (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_MANUAL);
+
+
+
 				// only fuse synthetic sideslip measurements if conditions are met
 				_ekf.set_fuse_beta_flag(is_fixed_wing && (_param_ekf2_fuse_beta.get() == 1));
 
@@ -435,6 +442,10 @@ void EKF2::Run()
 		UpdateGpsSample(ekf2_timestamps);
 		UpdateMagSample(ekf2_timestamps);
 		UpdateRangeSample(ekf2_timestamps);
+
+		//MODAL
+		EvaluateSystemState();
+
 
 		vehicle_odometry_s ev_odom;
 		const bool new_ev_odom = UpdateExtVisionSample(ekf2_timestamps, ev_odom);
@@ -1248,12 +1259,99 @@ bool EKF2::UpdateExtVisionSample(ekf2_timestamps_s &ekf2_timestamps, vehicle_odo
 	// EKF external vision sample
 	if (_ev_odom_sub.update(&ev_odom)) {
 
+		new_ev_data_received = true;
+
+		// save last ev data to check for runaways
+		orig_ev_data(0) = ev_odom.x;
+		orig_ev_data(1) = ev_odom.y;
+		orig_ev_data(2) = ev_odom.z;
+
+		last_orig_evvel = sqrt(ev_odom.vx * ev_odom.vx + ev_odom.vy * ev_odom.vy + ev_odom.vz * ev_odom.vz);
+
+		if (initialize_ev_offset && _armed) {
+			initialize_ev_offset = false;
+
+			// find affine transformation matrix
+			const Quatf q_ekf2ev = _ekf.getVisionAlignmentQuaternion(); // rotates from EV to EKF navigation frame
+			Quatf quat_ekf2ev(q_ekf2ev);
+			Dcmf ev_rot_mat(quat_ekf2ev);
+			Vector3f ekf_pos = _ekf.getPosition();
+			//  between 2 cooord systems
+			const Vector3f local_pos_ev_frame = ev_rot_mat.I() * Vector3f(ekf_pos(0), ekf_pos(1), ekf_pos(2));
+
+			// as vehicle goes indoors, find the frame offset, and construct a new offset vector
+			// to transform incoming extenal vision data. This is the basis for the transform
+
+#ifdef MAGNITUDE_USE
+			offset_ev_data(0) = (local_pos_ev_frame(0) - ev_odom.x);
+			offset_ev_data(1) = (local_pos_ev_frame(1) - ev_odom.y);
+			offset_ev_data(2) = (local_pos_ev_frame(2) - ev_odom.z);
+#else
+			offset_local_fix_frame_origin(0) = local_pos_ev_frame(0);
+			offset_local_fix_frame_origin(1) = local_pos_ev_frame(1);
+			offset_local_fix_frame_origin(2) = local_pos_ev_frame(2);
+			offset_ev_data(0) = ev_odom.x;
+			offset_ev_data(1) = ev_odom.y;
+			offset_ev_data(2) = ev_odom.z;
+#endif
+
+			//PX4_WARN("Create offset between EKF and VIO ref frames: [ %f, %f, %f, %f ]", (double)last_local_pos(0), (double)inv_local_pos(0), (double)_ev_odom.x, (double)offset_ev_data(0));
+			// In v1.11 the rests are broken out PER modality vs a if-else block int hese methods.
+
+		} else {
+			initialize_ev_offset = false;
+		}
+
+
+
+#ifdef MAGNITUDE_USE
+
+		// local data position in EV ref-frame,
+		// Covert this to local frame and should be the same as
+		// the ekf local frame values such that the local frame aligns itself.
+		ev_odom.x += offset_ev_data(0);
+		ev_odom.y += offset_ev_data(1);
+		ev_odom.z += offset_ev_data(2);
+#else
+		const float ev_delta_x = ev_odom.x - offset_ev_data(0);
+		const float ev_delta_y = ev_odom.y - offset_ev_data(1);
+		const float ev_delta_z = ev_odom.z - offset_ev_data(2);
+		ev_odom.x = offset_local_fix_frame_origin(0) + ev_delta_x;
+		ev_odom.y = offset_local_fix_frame_origin(1) + ev_delta_y;
+		ev_odom.z = offset_local_fix_frame_origin(2) + ev_delta_z;
+#endif
+
+//			static int  dd = 0;
+//			if (dd++ % 5 == 0)
+//			{
+//				const Vector3f t_pos = _ekf.getPosition();
+//
+//				PX4_WARN("Data: [ %f, %f, %f ]\t[ %f, %f, %f ]\t[ %f, %f, %f ]\t[ %f, %f, %f ]\t %f",
+//					(double)offset_local_fix_frame_origin(0), (double)offset_local_fix_frame_origin(1), (double)offset_local_fix_frame_origin(2),
+//					(double)orig_ev_data(0), (double)orig_ev_data(1), (double)orig_ev_data(2),
+//					(double)_ev_odom.x, (double)_ev_odom.y, (double)_ev_odom.z,
+//					(double)t_pos(0), (double)t_pos(1), (double)t_pos(2),
+//					(double) last_orig_evvel);
+//			}
+
+
+
+
+
+
+
+
+
+
+
+
+
 		if (_ev_odom_sub.get_last_generation() != last_generation + 1) {
 			PX4_ERR("%d - vehicle_visual_odometry lost, generation %d -> %d", _instance, last_generation,
 				_ev_odom_sub.get_last_generation());
 		}
 
-		if (_param_ekf2_aid_mask.get() & (MASK_USE_EVPOS | MASK_USE_EVYAW | MASK_USE_EVVEL)) {
+//		if (_param_ekf2_aid_mask.get() & (MASK_USE_EVPOS | MASK_USE_EVYAW | MASK_USE_EVVEL)) {
 
 			extVisionSample ev_data{};
 
@@ -1335,7 +1433,7 @@ bool EKF2::UpdateExtVisionSample(ekf2_timestamps_s &ekf2_timestamps, vehicle_odo
 
 		ekf2_timestamps.visual_odometry_timestamp_rel = (int16_t)((int64_t)ev_odom.timestamp / 100 -
 				(int64_t)ekf2_timestamps.timestamp / 100);
-	}
+//	}
 
 	return new_ev_odom;
 }
@@ -1388,10 +1486,11 @@ bool EKF2::UpdateFlowSample(ekf2_timestamps_s &ekf2_timestamps, optical_flow_s &
 void EKF2::UpdateGpsSample(ekf2_timestamps_s &ekf2_timestamps)
 {
 	// EKF GPS message
-	if (_param_ekf2_aid_mask.get() & MASK_USE_GPS) {
+//	if (_param_ekf2_aid_mask.get() & MASK_USE_GPS) {
 		vehicle_gps_position_s vehicle_gps_position;
 
 		if (_vehicle_gps_position_sub.update(&vehicle_gps_position)) {
+
 			gps_message gps_msg{
 				.time_usec = vehicle_gps_position.timestamp,
 				.lat = vehicle_gps_position.lat,
@@ -1416,10 +1515,13 @@ void EKF2::UpdateGpsSample(ekf2_timestamps_s &ekf2_timestamps)
 			};
 			_ekf.setGpsData(gps_msg);
 
+			// MODAL
+			gps_fix_type = gps_msg.fix_type;
+
 			_gps_time_usec = gps_msg.time_usec;
 			_gps_alttitude_ellipsoid = vehicle_gps_position.alt_ellipsoid;
 		}
-	}
+//	}
 }
 
 void EKF2::UpdateMagSample(ekf2_timestamps_s &ekf2_timestamps)
@@ -1565,6 +1667,252 @@ void EKF2::UpdateMagCalibration(const hrt_abstime &timestamp)
 	}
 }
 
+void EKF2::update_mode_states()
+{
+	param_t aid = param_handle(px4::params::EKF2_AID_MASK);
+	param_set(aid, &_params->fusion_mode);
+
+	param_t aidHgt = param_handle(px4::params::EKF2_HGT_MODE);
+	param_set(aidHgt, &_params->vdist_sensor_type);
+}
+
+
+
+void EKF2::force_mode_change_to(uint16_t cmd)
+{
+//	if (_vehicle_status.nav_state != vehicle_status_s::NAVIGATION_STATE_MANUAL)
+	{
+		vehicle_command_s vcmd{};
+		vcmd.timestamp = hrt_absolute_time();
+		vcmd.param1 = NAN;
+		vcmd.param2 = NAN;
+		vcmd.param3 = NAN;
+		vcmd.param4 = NAN;
+		vcmd.param5 = (double)NAN;
+		vcmd.param6 = (double)NAN;
+		vcmd.param7 = NAN;
+		vcmd.command = cmd;
+		vcmd.target_system = 1;
+		vcmd.target_component = 1;
+
+		uORB::Publication<vehicle_command_s> vcmd_pub{ORB_ID(vehicle_command)};
+		vcmd_pub.publish(vcmd);
+	}
+//	else
+//	{
+//		PX4_WARN("Under manual mode: ignoring custom state transition.");
+//	}
+
+}
+
+void EKF2::EvaluateSystemState()
+{
+	static bool last_gps_quality = true;
+
+	// check if the feature is turned on of off.
+	if (_param_ekf2_in_out.get()) {
+		if (_gps_metadata_sub.updated() && !fusionStateError) {
+			gps_metadata_s gps_sig_quality;
+
+			if (_gps_metadata_sub.copy(&gps_sig_quality)) {
+				// FLIGHT DEBUG
+				static int ctn = 0;
+				if (ctn++ % 20 == 0) {
+					const bool local_ok = _ekf.local_position_is_valid();
+
+					if (!local_ok) {
+						PX4_ERR("State is BAD -- Position is now Dead Reckoning");
+					}
+				}
+
+				///PX4_ERR("wait? %d  fix type:  %d   sig quality: %f", waitForOneFix, gps_fix_type, (double)gps_sig_quality.avg_cno );
+
+				if (waitForOneFix) {
+					if (gps_fix_type >= 3 && gps_sig_quality.avg_cno > 0) {
+						if (debounceSignalState++ > 4) {
+							debounceFusionState = 0;
+							waitForOneFix = false;
+							PX4_ERR("GPS now under a stable lock");
+						}
+
+					} else if (_armed) {
+						waitForOneFix = false;
+						mavlink_log_warning(&mavlink_log_pub, "Indoor Takeoff under VIO.");
+						PX4_ERR("Indoor takeoff detected.");
+
+					} else {
+						debounceSignalState = 0;
+					}
+
+				} else {
+					// get GPS state from selective monitoring
+					bool has_poor_gps_quality = gps_sig_quality.avg_cno <= 1.;
+
+					//PX4_WARN(" airspace limit %d %f %f", (unsigned)_param_ekf2_ev_airspace.get(), (double)(-1.0f*last_local_pos_arr[2]) ,(double)_param_ekf2_ev_airspace_hgt.get());
+					// run airspace logic if activated
+					if (_param_ekf2_ev_airspace.get() && _armed) {
+						const float current_alt = -1.0f * orig_ev_data(2);
+// DEBUG
+//							if (current_alt > 4.0f || fabs(last_orig_evvel) >= 5.0)
+// DEBUG
+						// if  vio went negative, or vio is flying off, cancel vio localization
+						const bool vio_state_invalid =
+							((double)current_alt <= -3.0) || ((double)fabs(last_orig_evvel) >= 7.0);
+
+						if (vio_state_invalid) {
+							if (!is_manual_mode && has_poor_gps_quality) {
+								PX4_ERR("ADFS bad VIO and GPS. Blind land, %f",
+									(double)orig_ev_data(2));
+
+								// blind land, we're done
+								force_mode_change_to(vehicle_command_s::VEHICLE_CMD_CUSTOM_0);
+								fusionStateError = 1;
+							}
+
+							has_poor_gps_quality = false;
+
+						} else if (
+							(current_alt > _param_ekf2_ev_airspace_hgt.get()) &&
+							(current_alt < 100.0f)   // margin of FAA REGS!
+						)
+						{
+							// this forces the external vision localization strategy to ALWAYS run.
+							has_poor_gps_quality = (!is_manual_mode);
+						}
+
+					}
+
+					// data comes in at 5HZ according to current GPS PX4
+					if (last_gps_quality == has_poor_gps_quality) {
+						debounceFusionState++;
+
+					} else if (fusionStateError) {
+						debounceFusionState = 1;
+
+					} else {
+						PX4_INFO("Fusion State- CNO: %d (%s), mode: %s, debounce: %d hdop: %f",
+							 gps_sig_quality.avg_cno,
+							 has_poor_gps_quality ? "BAD" : "GOOD",
+							 (_params->fusion_mode & MASK_USE_GPS) ? "GPS" : "VIO",
+							 debounceFusionState,
+							 (double)gps_sig_quality.hdop);
+						debounceFusionState = 0;
+					}
+
+					// record last state for debouncing
+					last_gps_quality = has_poor_gps_quality;
+
+					// pull the Average CNO calculated from the GPS selective CNO routine
+					// if the selective CNo says the highest sats are not in view, then switch to VIO only.
+					if (has_poor_gps_quality) {
+						// initialize home position if it exists. against gps unit 1, ignore 2.
+						// TURN OFF GPS
+						if ((_params->fusion_mode & MASK_USE_GPS) && debounceFusionState > 0) { // 0.2sec aka @ 5Hz
+							// turn on VIO turn off GPS
+							_params->fusion_mode &= ~(1UL << 0);
+
+							// Force VIO on
+							_params->fusion_mode |= 1UL << 3;  // set
+							_params->fusion_mode |= 1UL << 8;  // set
+
+							// ELSE no global ref origin, must be taking off indoor, full reference based localization
+							if (_ekf.global_position_is_valid() && gps_sig_quality.hdop < 3.0f) {
+								//rotate external frame as home/ref yaw value is established
+								_params->fusion_mode &= ~(1UL << 4); // turn off
+								_params->fusion_mode |= 1UL << 6;  // set
+								_ekf.setYawStrategy(false);
+								mavlink_log_warning(&mavlink_log_pub, "Under VIO control.");
+
+							} else {
+								// no global yaw established...full indoor flight
+								_params->fusion_mode &= ~(1UL << 6); // turn off
+								_params->fusion_mode |= 1UL << 4;  // set
+								_ekf.setYawStrategy(true);
+								mavlink_log_warning(&mavlink_log_pub, "Indoor mode. VIO Control.");
+
+							}
+
+							// Handle height
+							_params->vdist_sensor_type = VDIST_SENSOR_EV;
+
+							initialize_ev_offset = true;
+
+							update_mode_states();
+							_ekf.setFusionStrategy(has_poor_gps_quality);
+
+							PX4_ERR("<<<< stopped gps, start vio  (mask) %d %d %d %d %d (cno: %d) - %d",
+								 (unsigned)_params->fusion_mode & MASK_USE_GPS,
+								 (unsigned)_params->fusion_mode & MASK_USE_EVPOS,
+								 (unsigned)_params->fusion_mode & MASK_USE_EVYAW,
+								 (unsigned)_params->fusion_mode & MASK_ROTATE_EV,
+								 (unsigned)_params->fusion_mode & MASK_USE_EVVEL,
+								 (unsigned) gps_sig_quality.avg_cno,
+								 (unsigned) gps_sig_quality.timestamp);
+						}
+
+					} else {
+						if (gps_fix_type >= 3
+						    && (debounceFusionState > 0)) { // 2 seconds@5HZ, Time-To-First-Fix for M8N is around 1 sec, 2 sec aided starts
+							if ((_params->fusion_mode & MASK_USE_EVPOS)) {
+								// TURN OFF VIO
+								_params->fusion_mode &= ~(1UL << 3); // clear
+								_params->fusion_mode &= ~(1UL << 4);
+								_params->fusion_mode &= ~(1UL << 6);
+								_params->fusion_mode &= ~(1UL << 8);
+
+								// TURN ON GPS
+								_params->fusion_mode |= 1UL << 0;  // set
+								_params->vdist_sensor_type = VDIST_SENSOR_BARO;
+
+								offset_ev_data(0) = 0;
+								offset_ev_data(1) = 0;
+								offset_ev_data(2) = 0;
+								offset_local_fix_frame_origin(0) = 0;
+								offset_local_fix_frame_origin(1) = 0;
+								offset_local_fix_frame_origin(2) = 0;
+
+								initialize_ev_offset = false;
+
+								initialize_gps_offset = true;
+
+								update_mode_states();
+
+								_ekf.setFusionStrategy(has_poor_gps_quality);
+
+								mavlink_log_warning(&mavlink_log_pub, "Under GPS control.");
+								PX4_ERR(">>>> start gps, stop vio (mask) %d %d %d %d (cno: %d) - %d",
+									 (unsigned)_params->fusion_mode & MASK_USE_GPS,
+									 (unsigned)_params->fusion_mode & MASK_USE_EVPOS,
+									 (unsigned)_params->fusion_mode & MASK_ROTATE_EV,
+									 (unsigned)_params->fusion_mode & MASK_USE_EVVEL,
+									 (unsigned) gps_sig_quality.avg_cno,
+									 (unsigned) gps_sig_quality.timestamp);
+							}
+						}
+					}
+
+
+					//PX4_ERR(">>>>>>>>>>>> Param Mode: %d", _params->fusion_mode);
+
+				}
+
+				//PX4_ERR("sig quality: %f", (double)gps_sig_quality.avg_cno );
+
+
+			}
+		}
+	}
+
+	// get external vision data
+	// if error estimates are unavailable, use parameter defined defaults
+	new_ev_data_received = false;
+
+}
+
+
+
+
+
 int EKF2::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
@@ -1574,6 +1922,9 @@ int EKF2::task_spawn(int argc, char *argv[])
 {
 	bool success = false;
 	bool replay_mode = false;
+
+	PX4_WARN("EKF2_MULTI_IMU ***** IN Run mode *****");
+
 
 	if (argc > 1 && !strcmp(argv[1], "-r")) {
 		PX4_INFO("replay mode enabled");

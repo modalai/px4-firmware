@@ -3,7 +3,7 @@
 #include <px4_platform_common/time.h>
 #include "uart.h"
 
-#define UART_READ_POLL_INTERVAL_US 100
+#define UART_READ_POLL_INTERVAL_US 1000
 
 // Static variables
 static bool _callbacks_configured = false;
@@ -33,7 +33,6 @@ int qurt_uart_open(const char *dev, speed_t speed)
             PX4_ERR("Could not convert %s into a valid uart port number", dev);
             return -1;
         }
-        PX4_ERR("uart port %d %d", port_number, speed);
 
     	return _open_uart(port_number, speed);
     } else {

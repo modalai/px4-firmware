@@ -529,11 +529,22 @@ Commander::handle_command(const vehicle_command_s &cmd)
 			// the command VEHICLE_CMD_COMPONENT_ARM_DISARM should be used
 			// instead according to the latest mavlink spec.
 
-			PX4_INFO("Command, base: %d  custom %d sub: %d",
-					base_mode, custom_main_mode, custom_sub_mode);
+
+			PX4_INFO("Command %d, base: %d  custom %d sub: %d -- %d %d %d %d ",
+					cmd.command,
+					(uint8_t)cmd.param1,
+					(uint8_t)cmd.param2,
+					(uint8_t)cmd.param3,
+					(uint8_t)cmd.param4,
+					(uint8_t)cmd.param5,
+					(uint8_t)cmd.param6,
+					(uint8_t)cmd.param7);
 
 
 			if (base_mode & VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED) {
+
+				PX4_INFO("base_mode & VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED %d %d\n", custom_main_mode, PX4_CUSTOM_MAIN_MODE_OFFBOARD);
+
 				/* use autopilot-specific mode */
 				if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_MANUAL) {
 					/* MANUAL */
@@ -613,6 +624,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 
 				} else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_OFFBOARD) {
 
+					printf("GOING OFFBOARD\n");
 					reset_posvel_validity();
 
 					/* OFFBOARD */

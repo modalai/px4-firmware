@@ -64,6 +64,7 @@
 #include <uORB/topics/gps_dump.h>
 #include <uORB/topics/gps_inject_data.h>
 #include <uORB/topics/sensor_gps.h>
+#include <uORB/topics/gps_metadata.h>
 
 #ifndef CONSTRAINED_FLASH
 # include "devices/src/ashtech.h"
@@ -71,6 +72,9 @@
 # include "devices/src/mtk.h"
 #endif // CONSTRAINED_FLASH
 #include "devices/src/ubx.h"
+
+#include "gps_metadata_monitor.h"
+
 
 #ifdef __PX4_LINUX
 #include <linux/spi/spidev.h>
@@ -173,11 +177,16 @@ private:
 	uORB::PublicationMulti<sensor_gps_s>	_report_gps_pos_pub{ORB_ID(sensor_gps)};	///< uORB pub for gps position
 	uORB::PublicationMulti<satellite_info_s>	_report_sat_info_pub{ORB_ID(satellite_info)};		///< uORB pub for satellite info
 
+	// MODAL
+	uORB::Publication<gps_metadata_s>		_report_gps_metadata_pub{ORB_ID(gps_metadata)};		///< uORB pub for satellite info
+	gps_metadata_s			_report_gps_metadata{};
+
 	float				_rate{0.0f};					///< position update rate
 	float				_rate_rtcm_injection{0.0f};			///< RTCM message injection rate
 	unsigned			_last_rate_rtcm_injection_count{0};		///< counter for number of RTCM messages
 	unsigned			_num_bytes_read{0}; 				///< counter for number of read bytes from the UART (within update interval)
 	unsigned			_rate_reading{0}; 				///< reading rate in B/s
+
 
 	const bool			_fake_gps;					///< fake gps output
 
@@ -251,6 +260,22 @@ private:
 	void dumpGpsData(uint8_t *data, size_t len, bool msg_to_gps_device);
 
 	void initializeCommunicationDump();
+
+	/**
+	 * Monitor CN0 signal quality. Determine if the vehicle is inside a structure or outside.
+	 * @return if there are sufficient sats to monitor signal quality
+	 * 			true: there is a min collection of sats to conduct CN0 selective algo
+	 * 			false: cannot monitor signal quality
+	 */
+	bool monitorSignalQuality();
+
+	/**
+	 * Publish CN0 signal quality. uOrb publish mechanism
+	 * @return if it is possible to publish
+	 * 			true: being published
+	 * 			false: cannot publish
+	 */
+	bool publishSignalQuality();
 };
 
 px4::atomic_bool GPS::_is_gps_main_advertised{false};
@@ -274,6 +299,8 @@ GPS::GPS(const char *path, gps_driver_mode_t mode, GPSHelper::Interface interfac
 	strncpy(_port, path, sizeof(_port) - 1);
 	/* enforce null termination */
 	_port[sizeof(_port) - 1] = '\0';
+
+	PX4_ERR("GPS: ===============> PORT %s %s %d", path, _port, _configured_baudrate);
 
 	_report_gps_pos.heading = NAN;
 	_report_gps_pos.heading_offset = NAN;
@@ -584,6 +611,11 @@ int GPS::setBaudrate(unsigned baud)
 		GPS_ERR("ERR: %d (tcsetattr)", termios_state);
 		return -1;
 	}
+#else
+	if (qurt_uart_open(_port, baud) < 0) {
+		PX4_ERR("GPS: failed to set baud rate %u on serial port", baud);
+		return -1;
+	}
 #endif
 
 	return 0;
@@ -656,16 +688,31 @@ void GPS::dumpGpsData(uint8_t *data, size_t len, bool msg_to_gps_device)
 void
 GPS::run()
 {
+
+	//MODAL
+	static bool wait_for_first_lock = false;
+
+
 	if (!_fake_gps) {
 		/* open the serial port */
 #ifdef __PX4_QURT
-		_serial_fd = qurt_uart_open("6", 115200);
+		if (_configured_baudrate) {
+			_serial_fd = qurt_uart_open(_port, _configured_baudrate);
+		} else {
+			// Qurt needs a valid baud rate to successfully open a port
+			_serial_fd = qurt_uart_open(_port, 9600);
+		}
+
+		if (_serial_fd < 0) {
+			PX4_ERR("GPS: failed to open serial port. errno: %d", errno);
+			return;
+		}
 #else
 		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
 #endif
 
 		if (_serial_fd < 0) {
-			PX4_ERR("GPS: failed to open serial port: %s err: %d", _port, errno);
+			PX4_ERR("GPS: !!! failed to open serial port: %s err: %d", _port, errno);
 			return;
 		}
 
@@ -723,6 +770,18 @@ GPS::run()
 			}
 		}
 	}
+
+
+	handle = param_find("GPS_MIN_EL");
+	if (handle == PARAM_INVALID) {
+		PX4_ERR("GPS_MIN_EL value not found");
+	}
+
+	handle = param_find("GPS_MIN_CNO");
+	if (handle == PARAM_INVALID) {
+		PX4_ERR("GPS_MIN_CNO value not found");
+	}
+
 
 	int32_t gnssSystemsParam = static_cast<int32_t>(GPSHelper::GNSSSystemsMask::RECEIVER_DEFAULTS);
 
@@ -786,7 +845,9 @@ GPS::run()
 
 			/* FALLTHROUGH */
 			case GPS_DRIVER_MODE_UBX:
-				_helper = new GPSDriverUBX(_interface, &GPS::callback, this, &_report_gps_pos, _p_report_sat_info,
+				PX4_ERR("New  GPSDriverUBXModal");
+
+				_helper = new GPSDriverUBXModal(_interface, &GPS::callback, this, &_report_gps_pos, _p_report_sat_info,
 							   gps_ubx_dynmodel, heading_offset, ubx_mode);
 				break;
 #ifndef CONSTRAINED_FLASH
@@ -813,7 +874,11 @@ GPS::run()
 			gpsConfig.output_mode = GPSHelper::OutputMode::GPS;
 			gpsConfig.gnss_systems = static_cast<GPSHelper::GNSSSystemsMask>(gnssSystemsParam);
 
+			PX4_ERR("Working  GPSDriverUBXModal");
+
 			if (_helper && _helper->configure(_baudrate, gpsConfig) == 0) {
+
+				PX4_ERR("_helper && _helper->configure");
 
 				/* reset report */
 				memset(&_report_gps_pos, 0, sizeof(_report_gps_pos));
@@ -824,11 +889,17 @@ GPS::run()
 
 					/* GPS is obviously detected successfully, reset statistics */
 					_helper->resetUpdateRates();
+
+					PX4_ERR("_helper->resetUpdateRates");
+
 				}
 
 				int helper_ret;
 
+				PX4_ERR("enter while loop");
+
 				while ((helper_ret = _helper->receive(TIMEOUT_5HZ)) > 0 && !should_exit()) {
+
 
 					if (helper_ret & 1) {
 						publish();
@@ -836,8 +907,21 @@ GPS::run()
 						last_rate_count++;
 					}
 
-					if (_p_report_sat_info && (helper_ret & 2)) {
+					if (_p_report_sat_info) {
+//						if (_p_report_sat_info && (helper_ret & 2)) {
 						publishSatelliteInfo();
+					}
+
+					if (_p_report_sat_info) {
+//						if (_p_report_sat_info && (helper_ret & 2)) {
+						bool full_set = this->monitorSignalQuality();
+
+						if (!wait_for_first_lock && (_report_gps_pos.fix_type >= 3 || full_set)) {
+							PX4_WARN("Achieved first lock. Waiting to be stable.");
+							wait_for_first_lock = true;
+						}
+
+						publishSignalQuality();
 					}
 
 					reset_if_scheduled();
@@ -933,6 +1017,8 @@ GPS::run()
 #endif
 		_serial_fd = -1;
 	}
+
+//	orb_unadvertise(_report_gps_pos_pub);
 }
 
 int
@@ -1063,6 +1149,65 @@ GPS::publishSatelliteInfo()
 		//we don't publish satellite info for the secondary gps
 	}
 }
+
+bool
+GPS::monitorSignalQuality()
+{
+	bool is_ready = false;
+	int16_t cno = -1;
+
+	switch (_mode) {
+
+	//TODO: fill in support for other GPS hardware
+
+	case GPS_DRIVER_MODE_UBX:
+		// do we have a database of sats that can perform the monitoring
+		// mainly for status reporting
+		is_ready = ((GPSDriverUBXModal *)_helper)->monitorGPSSignalQualitySize();
+		// get the average CN0
+		cno = ((GPSDriverUBXModal *)_helper)->monitorGPSSignalQuality();
+		_report_gps_metadata.timestamp = _report_gps_pos.timestamp; // _report_gps_pos.time_utc_usec;
+		_report_gps_metadata.avg_cno = cno;
+		_report_gps_metadata.hdop = _report_gps_pos.hdop;
+		_report_gps_metadata.vdop = _report_gps_pos.vdop;
+		_report_gps_metadata.vn = _report_gps_pos.vel_n_m_s;
+		_report_gps_metadata.ve = _report_gps_pos.vel_e_m_s;
+		_report_gps_metadata.vd = _report_gps_pos.vel_d_m_s;
+		_report_gps_metadata.speed_accuracy = _report_gps_pos.s_variance_m_s;
+
+		break;
+
+	case GPS_DRIVER_MODE_ASHTECH:
+		break;
+
+	case GPS_DRIVER_MODE_EMLIDREACH:
+		break;
+
+	default:
+		break;
+	}
+
+	return is_ready;
+}
+
+bool
+GPS::publishSignalQuality()
+{
+
+	if (_instance == Instance::Main) {
+
+		PX4_WARN("AVG CN0: %f", (double)_report_gps_metadata.avg_cno);
+
+		_report_gps_metadata_pub.publish(_report_gps_metadata);
+
+	} else {
+		//we don't publish for the secondary gps
+	}
+
+	return true;
+}
+
+
 
 int
 GPS::custom_command(int argc, char *argv[])
@@ -1207,12 +1352,16 @@ GPS *GPS::instantiate(int argc, char *argv[])
 
 GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 {
+#ifdef __PX4_QURT
+	const char *device_name = "6";
+#else
 	const char *device_name = "/dev/ttyS3";
+#endif
 	const char *device_name_secondary = nullptr;
 	int baudrate_main = 0;
 	int baudrate_secondary = 0;
 	bool fake_gps = false;
-	bool enable_sat_info = false;
+	bool enable_sat_info = true; //MODAL
 	GPSHelper::Interface interface = GPSHelper::Interface::UART;
 	GPSHelper::Interface interface_secondary = GPSHelper::Interface::UART;
 	gps_driver_mode_t mode = GPS_DRIVER_MODE_NONE;
@@ -1222,6 +1371,9 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 	int ch;
 	const char *myoptarg = nullptr;
 
+	PX4_ERR("GPS: Read args");
+
+
 	while ((ch = px4_getopt(argc, argv, "b:d:e:fg:si:j:p:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'b':
@@ -1229,6 +1381,8 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 				PX4_ERR("baudrate parsing failed");
 				error_flag = true;
 			}
+			PX4_ERR(">>>> GPS: ******** baudrate");
+
 			break;
 		case 'g':
 			if (px4_get_parameter_value(myoptarg, baudrate_secondary) != 0) {
@@ -1239,6 +1393,7 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 
 		case 'd':
 			device_name = myoptarg;
+			PX4_ERR(">>>> GPS: ******** device name: %s", device_name);
 			break;
 
 		case 'e':

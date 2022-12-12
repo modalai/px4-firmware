@@ -32,6 +32,32 @@
  ****************************************************************************/
 
 /**
+ * minimum satellite elevation.
+ *
+ * Look for sats above this elevation: 0 to 90 degrees
+ *
+ * @group GPS
+ * @min 0
+ * @max 90
+ * @reboot_required true
+ *
+ */
+PARAM_DEFINE_FLOAT(GPS_MIN_EL, 30);
+
+
+/**
+ * CN0 signal to noise strength.
+ *
+ * Good signal above this threshold 0-90dB.
+ *
+ * @group GPS
+ * @min 0
+ * @max 90
+ * @reboot_required true
+ */
+PARAM_DEFINE_FLOAT(GPS_MIN_CNO, 30);
+
+/**
  * Dump GPS communication to a file.
  *
  * If this is set to 1, all GPS communication data will be published via uORB,
@@ -206,3 +232,8 @@ PARAM_DEFINE_INT32(GPS_1_GNSS, 0);
  * @group GPS
  */
 PARAM_DEFINE_INT32(GPS_2_GNSS, 0);
+
+
+
+
+

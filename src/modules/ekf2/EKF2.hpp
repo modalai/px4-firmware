@@ -87,6 +87,9 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/wind_estimate.h>
 #include <uORB/topics/yaw_estimator_status.h>
+#include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/gps_metadata.h>
+#include <systemlib/mavlink_log.h>
 
 #include "Utility/PreFlightChecker.hpp"
 
@@ -152,6 +155,12 @@ private:
 	void UpdateRangeSample(ekf2_timestamps_s &ekf2_timestamps);
 
 	void UpdateMagCalibration(const hrt_abstime &timestamp);
+
+	void EvaluateSystemState();
+	void force_mode_change_to(uint16_t cmd);
+	void update_mode_states();
+
+
 
 	/*
 	 * Calculate filtered WGS84 height from estimated AMSL height
@@ -260,6 +269,24 @@ private:
 	uORB::PublicationMulti<vehicle_local_position_s>     _local_position_pub;
 	uORB::PublicationMulti<vehicle_global_position_s>    _global_position_pub;
 	uORB::PublicationMulti<vehicle_odometry_s>           _odometry_pub;
+
+	// MODAL
+	uORB::Subscription _gps_metadata_sub{ORB_ID(gps_metadata)};
+	bool waitForOneFix = true;
+	float last_orig_evvel = 0.0f;
+	Vector3f orig_ev_data = {};
+	Vector3f offset_ev_data = {};
+	Vector3f offset_local_fix_frame_origin = {};
+	uint8_t debounceSignalState = 0;
+	uint8_t debounceFusionState = 0;
+	uint8_t fusionStateError = 0;
+	bool initialize_ev_offset = false;
+	bool initialize_gps_offset = false;
+	uint8_t gps_fix_type = 0;
+	orb_advert_t mavlink_log_pub = nullptr;
+	bool is_manual_mode = false;
+	bool new_ev_data_received = false;
+
 
 	PreFlightChecker _preflt_checker;
 
@@ -500,7 +527,21 @@ private:
 
 		// Used by EKF-GSF experimental yaw estimator
 		(ParamExtFloat<px4::params::EKF2_GSF_TAS>)
-		_param_ekf2_gsf_tas_default	///< default value of true airspeed assumed during fixed wing operation
+		_param_ekf2_gsf_tas_default	, ///< default value of true airspeed assumed during fixed wing operation
+
+		//MODAL
+		// Apply airspace rules to lock in modality used for localization
+		// This param tells ekf to use the external vision localization modality only if the vehicle enters a specific airspace
+		(ParamExtInt<px4::params::EKF2_USE_IN_OUT>) _param_ekf2_in_out,	///< decide if ev airspace rules apply
+
+		// Apply airspace rules to lock in modality used for localization
+		// This param tells ekf to use the external vision localization modality only if the vehicle enters a specific airspace
+		(ParamExtInt<px4::params::EKF2_USE_EV_AIR>) _param_ekf2_ev_airspace,	///< decide if ev airspace rules apply
+
+		// Apply airspace rules to lock in modality used for localization
+		// This param tells ekf to use the external vision localization modality only if the vehicle enters a specific airspace
+		(ParamExtFloat<px4::params::EKF2_EV_AIR_HGT>) _param_ekf2_ev_airspace_hgt		///< decide if ev airspace rules apply
+
 
 	)
 };

@@ -50,6 +50,8 @@
 #define RIGHT_OUT 0
 
 const char *_device;
+static double last_time;
+static uint8_t pkt[3];
 
 ModalaiEsc::ModalaiEsc() :
 	CDev(MODALAI_ESC_DEVICE_PATH),
@@ -110,6 +112,8 @@ int ModalaiEsc::init()
 	memset(&_esc_chans, 0x00, sizeof(_esc_chans));
 
 	ScheduleNow();
+
+	last_time = hrt_absolute_time();
 
 	return 0;
 }
@@ -749,14 +753,36 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 		right_rpm_cmd |= 1UL << 6;  // set
 	right_rpm_cmd |= right_rpm;  // set
 
-	uint8_t pkt[2];
-	pkt[0] = left_rpm_cmd;
-	pkt[1] = right_rpm_cmd;
+	pkt[0] = '*';
+	pkt[1] = left_rpm_cmd;
+	pkt[2] = right_rpm_cmd;
+//	if (_outputs_on)
+	{
 
-	if (_uart_port->uart_write(pkt,2) != 2) {
-		PX4_ERR("Failed to send packet");
-		return false;
+			double cur_time =  (double)hrt_absolute_time();
+			double diffOutputrate = (cur_time-last_time)*10e-6;
+			if (diffOutputrate >= 0.02)
+			{
+				if (_uart_port->uart_write(pkt,3) != 3) {
+					PX4_ERR("Failed to send packet");
+					return false;
+				}
+				last_time = hrt_absolute_time();
+
+			}
 	}
+
+//	uint8_t pkt1,pkt2,pkt3;
+//	pkt1 = '*';
+//	pkt2 = left_rpm_cmd;
+//	pkt3 = right_rpm_cmd;
+//
+//	_uart_port->uart_write(&pkt1,1);
+//	//_uart_port->uart_write(&pkt2,1);
+//	_uart_port->uart_write(&pkt3,1);
+//
+
+
 
 	perf_count(_output_update_perf);
 
@@ -781,7 +807,6 @@ void ModalaiEsc::Run()
 	if (!_uart_port->is_open()) {
 		if (_uart_port->uart_open(_device, B230400) == PX4_OK) {
 			PX4_INFO("Cytron Opened UART ESC device @ %d", B230400);
-
 		} else {
 			PX4_ERR("Failed opening device");
 			return;

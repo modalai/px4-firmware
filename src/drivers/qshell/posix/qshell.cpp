@@ -65,7 +65,7 @@ int QShell::main(std::vector<std::string> argList)
 	ret = _wait_for_retval();
 
 	if (ret != 0) {
-		PX4_ERR("Could not get return value");
+		PX4_ERR("Command failed");
 		return -1;
 	}
 
@@ -119,11 +119,11 @@ int QShell::_wait_for_retval()
 				PX4_WARN("Ignoring return value with wrong sequence");
 			} else {
 				if (retval.return_value) {
-					PX4_WARN("cmd returned with: %d", retval.return_value);
+					PX4_INFO("cmd returned with: %d", retval.return_value);
 				}
 				PX4_INFO("qshell return value timestamp: %lu, local time: %lu", retval.timestamp, hrt_absolute_time());
 
-				return 0;
+				return retval.return_value;
 			}
 		}
 

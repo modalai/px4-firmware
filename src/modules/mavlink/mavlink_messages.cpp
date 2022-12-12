@@ -1293,9 +1293,15 @@ protected:
 				// a single throttle value, but this should still be a useful heuristic for operator awareness.
 				//
 				// Use ACTUATOR_CONTROL_TARGET if accurate states are needed.
-				msg.throttle = 100 * math::max(
-						       act0.control[actuator_controls_s::INDEX_THROTTLE],
-						       act1.control[actuator_controls_s::INDEX_THROTTLE]);
+				msg.throttle = 100 *  act0.control[actuator_controls_s::INDEX_PITCH];
+
+//				PX4_ERR("Turn: %f %f %f", (double) act0.control[actuator_controls_s::INDEX_THROTTLE],
+//																(double) act0.control[actuator_controls_s::INDEX_YAW],
+//																(double) act0.control[actuator_controls_s::INDEX_PITCH]);
+//				msg.throttle = 100 * math::max(
+//						       act0.control[actuator_controls_s::INDEX_THROTTLE],
+//						       act1.control[actuator_controls_s::INDEX_THROTTLE]);
+//
 
 			} else {
 				msg.throttle = 0.0f;

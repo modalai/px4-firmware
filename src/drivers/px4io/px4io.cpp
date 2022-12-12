@@ -63,7 +63,9 @@
 #include <crc32.h>
 
 #ifdef __PX4_POSIX
+#ifndef __PX4_QURT
 #include <poll.h>
+#endif
 #endif
 
 #include <drivers/device/device.h>
@@ -120,6 +122,17 @@
 #define PX4IO_INAIR_RESTART_ENABLE	_IOC(0xff00, 1)
 #define PX4IO_REBOOT_BOOTLOADER		_IOC(0xff00, 2)
 #define PX4IO_CHECK_CRC			_IOC(0xff00, 3)
+#endif
+
+#ifdef __PX4_QURT
+static int _px4io_constrain(int x, int y, int z) {
+	if (x < y) return y;
+	else if (x > z) return z;
+	return x;
+}
+#define CONSTRAIN(x, y, z) _px4io_constrain(x, y, z)
+#else
+#define CONSTRAIN(x, y, z) math::constrain(x, y, z)
 #endif
 
 #define ORB_CHECK_INTERVAL		200000		// 200 ms -> 5 Hz
@@ -582,6 +595,8 @@ PX4IO::init()
 	param_t sys_restart_param;
 	int32_t sys_restart_val = DM_INIT_REASON_VOLATILE;
 
+	PX4_INFO("PX4IO init start");
+
 	sys_restart_param = param_find("SYS_RESTART_TYPE");
 
 	if (sys_restart_param != PARAM_INVALID) {
@@ -605,6 +620,8 @@ PX4IO::init()
 	unsigned protocol;
 	hrt_abstime start_try_time = hrt_absolute_time();
 
+	PX4_INFO("PX4IO init checking version");
+
 	do {
 		px4_usleep(2000);
 		protocol = io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_PROTOCOL_VERSION);
@@ -620,6 +637,8 @@ PX4IO::init()
 		mavlink_log_emergency(&_mavlink_log_pub, "IO protocol/firmware mismatch, abort.");
 		return -1;
 	}
+
+	PX4_INFO("PX4IO init checking hardware configuration");
 
 	_hardware      = io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_HARDWARE_VERSION);
 	_max_actuators = io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_ACTUATOR_COUNT);
@@ -667,12 +686,17 @@ PX4IO::init()
 
 	uint16_t reg;
 
+	PX4_INFO("PX4IO init checking flight state");
+
 	/* get IO's last seen FMU state */
 	ret = io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING, &reg, sizeof(reg));
 
 	if (ret != OK) {
+		PX4_ERR("flight state read error");
 		return ret;
 	}
+
+	PX4_INFO("PX4IO init analyzing flight state");
 
 	/*
 	 * in-air restart is only tried if the IO board reports it is
@@ -680,6 +704,8 @@ PX4IO::init()
 	 */
 	if ((reg & PX4IO_P_SETUP_ARMING_INAIR_RESTART_OK) &&
 	    (reg & PX4IO_P_SETUP_ARMING_FMU_ARMED)) {
+
+		PX4_INFO("PX4IO init in-air restart");
 
 		/* get a status update from IO */
 		io_get_status();
@@ -818,6 +844,8 @@ PX4IO::init()
 
 	} else {
 
+		PX4_INFO("PX4IO init when not armed");
+
 		/* dis-arm IO before touching anything */
 		io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING,
 			      PX4IO_P_SETUP_ARMING_FMU_ARMED |
@@ -855,6 +883,8 @@ PX4IO::init()
 
 	}
 
+	PX4_INFO("PX4IO init checking circuit breaker");
+
 	/* set safety to off if circuit breaker enabled */
 	if (circuit_breaker_enabled("CBRK_IO_SAFETY", CBRK_IO_SAFETY_KEY)) {
 		(void)io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_FORCE_SAFETY_OFF, PX4IO_FORCE_SAFETY_MAGIC);
@@ -881,6 +911,8 @@ PX4IO::init()
 		return -errno;
 	}
 
+	PX4_INFO("PX4IO init end");
+
 	return OK;
 }
 
@@ -897,6 +929,8 @@ PX4IO::task_main()
 	hrt_abstime poll_last = 0;
 	hrt_abstime orb_check_last = 0;
 
+	PX4_INFO("PX4IO task_main start");
+
 	/*
 	 * Subscribe to the appropriate PWM output topic based on whether we are the
 	 * primary PWM output or not.
@@ -912,10 +946,12 @@ PX4IO::task_main()
 	/* Fetch initial flight termination circuit breaker state */
 	_cb_flighttermination = circuit_breaker_enabled("CBRK_FLIGHTTERM", CBRK_FLIGHTTERM_KEY);
 
+#ifndef __PX4_QURT
 	/* poll descriptor */
 	pollfd fds[1];
 	fds[0].fd = _t_actuator_controls_0;
 	fds[0].events = POLLIN;
+#endif
 
 	_param_update_force = true;
 
@@ -925,9 +961,12 @@ PX4IO::task_main()
 	/* loop talking to IO */
 	while (!_task_should_exit) {
 
+		int ret;
+
+#ifndef __PX4_QURT
 		/* sleep waiting for topic updates, but no more than 20ms */
 		unlock();
-		int ret = ::poll(fds, 1, 20);
+		ret = ::poll(fds, 1, 20);
 		lock();
 
 		/* this would be bad... */
@@ -935,13 +974,19 @@ PX4IO::task_main()
 			warnx("poll error %d", errno);
 			continue;
 		}
+#else
+		usleep(2000);
+#endif
 
 		perf_begin(_perf_update);
 		hrt_abstime now = hrt_absolute_time();
 
+#ifndef __PX4_QURT
 		/* if we have new control data from the ORB, handle it */
 		if (fds[0].revents & POLLIN) {
-
+#else
+		if (true) {
+#endif
 			/* we're not nice to the lower-priority control groups and only check them
 			   when the primary group updated (which is now). */
 			(void)io_set_control_groups();
@@ -1210,7 +1255,9 @@ out:
 
 	/* tell the dtor that we are exiting */
 	_task = -1;
+#ifndef __PX4_QURT
 	_exit(0);
+#endif
 }
 
 void PX4IO::update_params()
@@ -1246,7 +1293,7 @@ void PX4IO::update_params()
 
 			if (param_get(param_find(str), &pwm_min) == PX4_OK) {
 				if (pwm_min >= 0) {
-					pwm.values[i] = math::constrain(pwm_min, PWM_LOWEST_MIN, PWM_HIGHEST_MIN);
+					pwm.values[i] = CONSTRAIN(pwm_min, PWM_LOWEST_MIN, PWM_HIGHEST_MIN);
 
 					if (pwm_min != pwm.values[i]) {
 						int32_t pwm_min_new = pwm.values[i];
@@ -1273,7 +1320,7 @@ void PX4IO::update_params()
 
 			if (param_get(param_find(str), &pwm_max) == PX4_OK) {
 				if (pwm_max >= 0) {
-					pwm.values[i] = math::constrain(pwm_max, PWM_LOWEST_MAX, PWM_HIGHEST_MAX);
+					pwm.values[i] = CONSTRAIN(pwm_max, PWM_LOWEST_MAX, PWM_HIGHEST_MAX);
 
 					if (pwm_max != pwm.values[i]) {
 						int32_t pwm_max_new = pwm.values[i];
@@ -1300,7 +1347,7 @@ void PX4IO::update_params()
 
 			if (param_get(param_find(str), &pwm_fail) == PX4_OK) {
 				if (pwm_fail >= 0) {
-					pwm.values[i] = math::constrain(pwm_fail, 0, PWM_HIGHEST_MAX);
+					pwm.values[i] = CONSTRAIN(pwm_fail, 0, PWM_HIGHEST_MAX);
 
 					if (pwm_fail != pwm.values[i]) {
 						int32_t pwm_fail_new = pwm.values[i];
@@ -1324,7 +1371,7 @@ void PX4IO::update_params()
 
 			if (param_get(param_find(str), &pwm_dis) == PX4_OK) {
 				if (pwm_dis >= 0) {
-					pwm.values[i] = math::constrain(pwm_dis, 0, PWM_HIGHEST_MAX);
+					pwm.values[i] = CONSTRAIN(pwm_dis, 0, PWM_HIGHEST_MAX);
 
 					if (pwm_dis != pwm.values[i]) {
 						int32_t pwm_dis_new = pwm.values[i];
@@ -1439,7 +1486,7 @@ PX4IO::io_set_control_state(unsigned group)
 
 	for (unsigned i = 0; (i < _max_controls) && (i < num_controls); i++) {
 		/* ensure FLOAT_TO_REG does not produce an integer overflow */
-		const float ctrl = math::constrain(controls.control[i], -1.0f, 1.0f);
+		const float ctrl = CONSTRAIN(controls.control[i], -1.0f, 1.0f);
 
 		if (!isfinite(ctrl)) {
 			regs[i] = INT16_MAX;
@@ -1515,7 +1562,11 @@ PX4IO::handle_motor_test()
 					if (io_reg_get(PX4IO_PAGE_CONTROL_MIN_PWM, 0, pwm_min.values, _max_actuators) == 0 &&
 					    io_reg_get(PX4IO_PAGE_CONTROL_MAX_PWM, 0, pwm_max.values, _max_actuators) == 0) {
 
+#ifndef __PX4_QURT
 						uint16_t value = math::constrain<uint16_t>(pwm_min.values[idx] +
+#else
+						uint16_t value = CONSTRAIN(pwm_min.values[idx] +
+#endif
 								 (uint16_t)((pwm_max.values[idx] - pwm_min.values[idx]) * test_motor.value),
 								 pwm_min.values[idx], pwm_max.values[idx]);
 						io_reg_set(PX4IO_PAGE_DIRECT_PWM, idx, value);
@@ -2455,14 +2506,22 @@ void
 PX4IO::print_status(bool extended_status)
 {
 	/* basic configuration */
+#ifndef __PX4_QURT
 	printf("protocol %u hardware %u bootloader %u buffer %uB crc 0x%04x%04x\n",
+#else
+	printf("protocol %lu hardware %lu bootloader %lu buffer %luB crc 0x%04lx%04lx\n",
+#endif
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_PROTOCOL_VERSION),
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_HARDWARE_VERSION),
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_BOOTLOADER_VERSION),
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_MAX_TRANSFER),
 	       io_reg_get(PX4IO_PAGE_SETUP,  PX4IO_P_SETUP_CRC),
 	       io_reg_get(PX4IO_PAGE_SETUP,  PX4IO_P_SETUP_CRC + 1));
+#ifndef __PX4_QURT
 	printf("%u controls %u actuators %u R/C inputs %u analog inputs %u relays\n",
+#else
+	printf("%lu controls %lu actuators %lu R/C inputs %lu analog inputs %lu relays\n",
+#endif
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_CONTROL_COUNT),
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_ACTUATOR_COUNT),
 	       io_reg_get(PX4IO_PAGE_CONFIG, PX4IO_P_CONFIG_RC_INPUT_COUNT),
@@ -2500,7 +2559,11 @@ PX4IO::print_status(bool extended_status)
 	printf("%hu raw R/C inputs", raw_inputs);
 
 	for (unsigned i = 0; i < raw_inputs; i++) {
+#ifndef __PX4_QURT
 		printf(" %u", io_reg_get(PX4IO_PAGE_RAW_RC_INPUT, PX4IO_P_RAW_RC_BASE + i));
+#else
+		printf(" %lu", io_reg_get(PX4IO_PAGE_RAW_RC_INPUT, PX4IO_P_RAW_RC_BASE + i));
+#endif
 	}
 
 	printf("\n");
@@ -2538,7 +2601,11 @@ PX4IO::print_status(bool extended_status)
 	printf("ADC inputs");
 
 	for (unsigned i = 0; i < adc_inputs; i++) {
+#ifndef __PX4_QURT
 		printf(" %u", io_reg_get(PX4IO_PAGE_RAW_ADC_INPUT, i));
+#else
+		printf(" %lu", io_reg_get(PX4IO_PAGE_RAW_ADC_INPUT, i));
+#endif
 	}
 
 	printf("\n");
@@ -2552,12 +2619,20 @@ PX4IO::print_status(bool extended_status)
 	       ((features & PX4IO_P_SETUP_FEATURES_ADC_RSSI) ? " RSSI_ADC" : "")
 	      );
 
+#ifndef __PX4_QURT
 	printf("rates 0x%04x default %u alt %u sbus %u\n",
+#else
+	printf("rates 0x%04lx default %lu alt %lu sbus %lu\n",
+#endif
 	       io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_PWM_RATES),
 	       io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_PWM_DEFAULTRATE),
 	       io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_PWM_ALTRATE),
 	       io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_SBUS_RATE));
+#ifndef __PX4_QURT
 	printf("debuglevel %u\n", io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_SET_DEBUG));
+#else
+	printf("debuglevel %lu\n", io_reg_get(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_SET_DEBUG));
+#endif
 
 	for (unsigned group = 0; group < 4; group++) {
 		printf("controls %u:", group);
@@ -2573,7 +2648,11 @@ PX4IO::print_status(bool extended_status)
 		for (unsigned i = 0; i < _max_rc_input; i++) {
 			unsigned base = PX4IO_P_RC_CONFIG_STRIDE * i;
 			uint16_t options = io_reg_get(PX4IO_PAGE_RC_CONFIG, base + PX4IO_P_RC_CONFIG_OPTIONS);
+#ifndef __PX4_QURT
 			printf("input %u min %u center %u max %u deadzone %u assigned %u options 0x%04hx%s%s\n",
+#else
+			printf("input %u min %lu center %lu max %lu deadzone %lu assigned %lu options 0x%04hx%s%s\n",
+#endif
 			       i,
 			       io_reg_get(PX4IO_PAGE_RC_CONFIG, base + PX4IO_P_RC_CONFIG_MIN),
 			       io_reg_get(PX4IO_PAGE_RC_CONFIG, base + PX4IO_P_RC_CONFIG_CENTER),
@@ -2589,13 +2668,21 @@ PX4IO::print_status(bool extended_status)
 	printf("failsafe");
 
 	for (unsigned i = 0; i < _max_actuators; i++) {
+#ifndef __PX4_QURT
 		printf(" %u", io_reg_get(PX4IO_PAGE_FAILSAFE_PWM, i));
+#else
+		printf(" %lu", io_reg_get(PX4IO_PAGE_FAILSAFE_PWM, i));
+#endif
 	}
 
 	printf("\ndisarmed values");
 
 	for (unsigned i = 0; i < _max_actuators; i++) {
+#ifndef __PX4_QURT
 		printf(" %u", io_reg_get(PX4IO_PAGE_DISARMED_PWM, i));
+#else
+		printf(" %lu", io_reg_get(PX4IO_PAGE_DISARMED_PWM, i));
+#endif
 	}
 
 	/* IMU heater (Pixhawk 2.1) */
@@ -3328,6 +3415,7 @@ monitor(void)
 	unsigned cancels = 2;
 
 	for (;;) {
+#ifndef __PX4_QURT
 		pollfd fds[1];
 
 		fds[0].fd = 0;
@@ -3336,8 +3424,13 @@ monitor(void)
 		if (poll(fds, 1, 2000) < 0) {
 			errx(1, "poll fail");
 		}
+#endif
 
+#ifndef __PX4_QURT
 		if (fds[0].revents == POLLIN) {
+#else
+		if (true) {
+#endif
 			/* control logic is to cancel with any key */
 			char c;
 			(void)read(0, &c, 1);
@@ -3364,6 +3457,7 @@ monitor(void)
 void
 lockdown(int argc, char *argv[])
 {
+#ifndef __PX4_QURT
 	if (g_dev != nullptr) {
 
 		if (argc > 2 && !strcmp(argv[2], "disable")) {
@@ -3416,6 +3510,7 @@ lockdown(int argc, char *argv[])
 	} else {
 		errx(1, "driver not loaded, exiting");
 	}
+#endif
 
 	px4io_exit(0);
 }

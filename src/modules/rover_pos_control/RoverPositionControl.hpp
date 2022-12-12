@@ -65,6 +65,7 @@
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_acceleration.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_global_position.h>
@@ -131,10 +132,12 @@ private:
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 
 	hrt_abstime _control_position_last_called{0}; 	/**<last call of control_position  */
+	hrt_abstime _yaw_last_called{0}; 	/**<last call of control_position  */
 
 	/* Pid controller for the speed. Here we assume we can control airspeed but the control variable is actually on
 	 the throttle. For now just assuming a proportional scaler between controlled airspeed and throttle output.*/
 	PID_t _speed_ctrl{};
+	PID_t _brake_ctrl{};
 	PID_t _yawrate_ctrl{};
 
 	// estimator reset counters
@@ -157,6 +160,7 @@ private:
 	matrix::Vector2f _prev_wp{0.0f, 0.0f};
 	matrix::Vector2f _curr_wp{0.0f, 0.0f};
 
+
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::GND_L1_PERIOD>) _param_l1_period,
 		(ParamFloat<px4::params::GND_L1_DAMPING>) _param_l1_damping,
@@ -174,6 +178,7 @@ private:
 		(ParamFloat<px4::params::GND_SPEED_THR_SC>) _param_throttle_speed_scaler,
 		(ParamFloat<px4::params::GND_NAV_RAD>) _param_gnd_nav_rad,	/**< REAL loiter radius for Rover */
 		(ParamFloat<px4::params::GND_TURN_SPD>) _param_gnd_turn_spd,
+		(ParamFloat<px4::params::GND_TURN_MIN>) _param_gnd_turn_min,
 		(ParamFloat<px4::params::GND_YAW_RATEP>) _param_gnd_yawrate_p,
 		(ParamFloat<px4::params::GND_YAWP>) _param_gnd_yaw_p,
 		(ParamFloat<px4::params::GND_YAWD>) _param_gnd_yaw_d,
@@ -188,7 +193,16 @@ private:
 
 		(ParamFloat<px4::params::GND_WHEEL_BASE>) _param_wheel_base,
 		(ParamFloat<px4::params::GND_MAX_ANG>) _param_max_turn_angle,
-		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad	/**< loiter radius for Rover */
+		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad,	/**< loiter radius for Rover */
+		(ParamFloat<px4::params::GND_BRAKE_P>) _param_brake_p,
+		(ParamFloat<px4::params::GND_BRAKE_I>) _param_brake_i,
+		(ParamFloat<px4::params::GND_BRAKE_D>) _param_brake_d,
+		(ParamFloat<px4::params::GND_BRAKE_IMAX>) _param_brake_imax,
+		(ParamFloat<px4::params::GND_SET_ANG>) _param_set_angle,
+		(ParamFloat<px4::params::GND_VER>) _param_gnd_ver,
+		(ParamFloat<px4::params::GND_SET_THR>) _param_set_throttle
+
+
 	)
 
 	bool _skid_steer_turn_request = false;
@@ -196,6 +210,7 @@ private:
 	//bool _new_waypoint = false;
 	int nav_yaw_direction = 0;
 	float _last_yaw_cmd = 0.0f;
+	float  pos_mode_last_yaw= 0.0f;
 
 	////
 	double _last_derivative = 0.;
@@ -208,6 +223,14 @@ private:
 	double turn_inplace_thresh;
 	double turn_inplace_thresh_half;
 
+	bool _anti_rollover_request = false;
+	double current_roll_body;
+	double current_pitch_body;
+	float current_yaw_speed;
+
+	float tracking_dist = 0.0f;
+	matrix::Vector2f _last_local_position_2d{0.0f, 0.0f};
+
 	double wrap_180(double x);
 
 	/**
@@ -219,7 +242,7 @@ private:
 	void		position_setpoint_triplet_poll();
 	void		attitude_setpoint_poll();
 	void		vehicle_control_mode_poll();
-	void 		vehicle_attitude_poll();
+	void 	vehicle_attitude_poll();
 
 	/**
 	 * Control position.
@@ -229,6 +252,7 @@ private:
 	void		control_velocity(const matrix::Vector3f &current_velocity, const position_setpoint_triplet_s &pos_sp_triplet);
 	void		control_attitude(const vehicle_attitude_s &att, const vehicle_attitude_setpoint_s &att_sp);
 	bool 		control_vio(const position_setpoint_triplet_s &pos_sp_triplet);
+	bool protect_rollover(float current_vel);
 
 
 };
