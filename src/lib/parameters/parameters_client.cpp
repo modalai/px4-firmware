@@ -34,8 +34,10 @@
 #define PARAM_CLIENT_IMPLEMENTATION
 
 #include "param.h"
-#include <px4_platform_common/log.h>
+#include <pthread.h>
 #include <vector>
+
+#include <px4_platform_common/log.h>
 
 #include <uORB/Subscription.hpp>
 #include <uORB/Publication.hpp>
@@ -45,9 +47,12 @@
 std::vector<const char*> param_vector;
 uORB::Publication<parameter_request_s> _param_response_pub{ORB_ID(parameter_request)};
 uORB::Subscription _param_value_sub{ORB_ID(parameter_value)};
+pthread_mutex_t lock;
 
 param_t param_find(const char *name)
 {
+	pthread_mutex_lock(&lock);
+
 	auto it = find(param_vector.begin(), param_vector.end(), name);
 
 	if(it != param_vector.end()){
@@ -59,41 +64,48 @@ param_t param_find(const char *name)
 		return index;
 	}
 
-	return -1;
+	pthread_mutex_unlock(&lock);
+
+	return EINVAL;
 }
 
 int param_get(param_t param, void *val)
 {
-
+	pthread_mutex_lock(&lock);
 	const char* param_name = param_vector[param];
 
 	parameter_request_s request{};
 
 	strcpy(request.name, param_name);
-	request.message_type = 1;
+	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
 	_param_response_pub.publish(request);
 
 	while(true){
                 usleep(10000);
 		if (_param_value_sub.updated()) {
 
-			parameter_value_s value{};
+			parameter_value_s value;
 			if (_param_value_sub.copy(&value)) {
 
-				PX4_INFO("Received retval from server");
-
 				switch (value.type) {
-				case PARAM_TYPE_INT32:
-					memcpy(val, &value.int64_value, sizeof(value.int64_value));
-					return PX4_OK;
+					case parameter_request_s::TYPE_UINT8:
+					case parameter_request_s::TYPE_INT32:
+					case parameter_request_s::TYPE_INT64:
+					{
+						memcpy(val, &value.int64_value, sizeof(value.int64_value));
+						return PX4_OK;
+					}
 
-				case PARAM_TYPE_FLOAT:
-					memcpy(val, &value.float64_value, sizeof(value.float64_value));
-					return PX4_OK;
+					case parameter_request_s::TYPE_FLOAT32:
+					case parameter_request_s::TYPE_FLOAT64: {
+						memcpy(val, &value.float64_value, sizeof(value.float64_value));
+						return PX4_OK;
+					}
 				}
 			}
 		}
 	}
+	pthread_mutex_unlock(&lock);
 
 	return PX4_ERROR;
 
