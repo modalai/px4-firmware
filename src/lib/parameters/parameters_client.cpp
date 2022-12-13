@@ -37,13 +37,14 @@
 #include <px4_platform_common/log.h>
 #include <vector>
 
+#include <uORB/Subscription.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/topics/parameter_request.h>
 #include <uORB/topics/parameter_value.h>
 
 std::vector<const char*> param_vector;
 uORB::Publication<parameter_request_s> _param_response_pub{ORB_ID(parameter_request)};
-//uORB::Subscription _param_value_sub{this, ORB_ID(parameter_value)};
+uORB::Subscription _param_value_sub{ORB_ID(parameter_value)};
 
 param_t param_find(const char *name)
 {
@@ -67,21 +68,28 @@ int param_get(param_t param, void *val)
 	const char* param_name = param_vector[param];
 
 	parameter_request_s request{};
-	parameter_value_s value{};
 
-	strcpy(request.name,param_name);
+	strcpy(request.name, param_name);
+	request.message_type = 1;
 	_param_response_pub.publish(request);
-
-	int param_value_sub = orb_subscribe(ORB_ID(parameter_value));
-	bool updated = false;
 
 	while(true){
                 usleep(10000);
-                (void) orb_check(param_value_sub, &updated);
-		if(updated){
-                        orb_copy(ORB_ID(parameter_value), param_value_sub, &value);
-			PX4_INFO("Received retval from server");
-			return 1;
+		if (_param_value_sub.updated()) {
+
+			parameter_value_s value{};
+			if (_param_value_sub.copy(&value)) {
+
+				PX4_INFO("Received retval from server");
+
+				switch (value.type) {
+				case PARAM_TYPE_INT32:
+					return value.int64_value;
+
+				case PARAM_TYPE_FLOAT:
+					return value.float64_value;
+				}
+			}
 		}
 	}
 
