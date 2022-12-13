@@ -84,16 +84,18 @@ int param_get(param_t param, void *val)
 
 				switch (value.type) {
 				case PARAM_TYPE_INT32:
-					return value.int64_value;
+					memcpy(val, &value.int64_value, sizeof(value.int64_value));
+					return PX4_OK;
 
 				case PARAM_TYPE_FLOAT:
-					return value.float64_value;
+					memcpy(val, &value.float64_value, sizeof(value.float64_value));
+					return PX4_OK;
 				}
 			}
 		}
 	}
 
-	return -1;
+	return PX4_ERROR;
 
 }
 
