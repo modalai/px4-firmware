@@ -468,7 +468,7 @@ struct param_info_s {
 __END_DECLS
 
 
-
+#ifndef __PX4_QURT
 #if defined(__cplusplus) && !defined(PARAM_IMPLEMENTATION)
 #if defined(CONFIG_ARCH_BOARD_PX4_SITL) || 0 // set to 1 to debug param type mismatches
 #include <cstdio>
@@ -505,5 +505,5 @@ static inline int param_get_cplusplus(param_t param, int32_t *val)
 #define param_get(param, val) param_get_cplusplus(param, val)
 
 #endif /* __cplusplus */
-
+#endif
 #endif

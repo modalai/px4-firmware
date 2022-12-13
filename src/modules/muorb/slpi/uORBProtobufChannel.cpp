@@ -36,6 +36,8 @@
 #include "MUORBTest.hpp"
 #include <string>
 
+#include <lib/parameters/param.h>
+
 #include <drivers/drv_hrt.h>
 #include <pthread.h>
 #include <px4_platform_common/tasks.h>
@@ -192,6 +194,18 @@ static void *test_runner(void *)
 	return nullptr;
 }
 
+static void *test_params(void *)
+{
+	usleep(10000000);
+
+	param_t trim_roll_index = param_find("TRIM_ROLL");
+	int32_t trim_roll = 1;
+	param_get(trim_roll_index, (void*) trim_roll);
+	param_notify_changes();
+
+	return nullptr;
+}
+
 __BEGIN_DECLS
 extern int slpi_main(int argc, char *argv[]);
 __END_DECLS
@@ -239,6 +253,13 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		if (slpi_main(argc, (char **) argv)) {
 			PX4_ERR("slpi failed in %s", __FUNCTION__);
 		}
+
+		(void) px4_task_spawn_cmd("test_params",
+					SCHED_DEFAULT,
+					SCHED_PRIORITY_MAX - 2,
+					2000,
+					(px4_main_t)&test_params,
+					nullptr);
 
 		px4muorb_orb_initialized = true;
 

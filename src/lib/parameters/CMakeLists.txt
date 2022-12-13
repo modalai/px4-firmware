@@ -151,7 +151,11 @@ add_custom_target(parameters_header DEPENDS px4_parameters.hpp)
 
 set(SRCS)
 
-list(APPEND SRCS parameters.cpp)
+if(NOT ${PX4_PLATFORM} MATCHES "qurt")
+	list(APPEND SRCS parameters.cpp)
+else()
+	list(APPEND SRCS parameters_client.cpp)
+endif()
 
 if(BUILD_TESTING)
 	list(APPEND SRCS param_translation_unit_tests.cpp)
@@ -161,13 +165,19 @@ endif()
 
 # TODO: find a better way to do this
 if(NOT "${PX4_BOARD}" MATCHES "px4_io")
-	add_library(parameters STATIC EXCLUDE_FROM_ALL
-		${SRCS}
-		px4_parameters.hpp
-		ParameterServer.cpp
-		ParameterServer.hpp
-	)
-
+	if(NOT "${PX4_PLATFORM}" MATCHES "qurt")
+		add_library(parameters STATIC EXCLUDE_FROM_ALL
+			${SRCS}
+			px4_parameters.hpp
+			ParameterServer.cpp
+			ParameterServer.hpp
+		)
+	else()
+		add_library(parameters STATIC EXCLUDE_FROM_ALL
+			${SRCS}
+			px4_parameters.hpp
+		)
+	endif()
 	target_link_libraries(parameters PRIVATE perf tinybson px4_platform)
 
 	target_compile_definitions(parameters PRIVATE -DMODULE_NAME="parameters")
