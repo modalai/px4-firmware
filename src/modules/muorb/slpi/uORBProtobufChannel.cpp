@@ -132,7 +132,6 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 		pthread_mutex_lock(&_rx_mutex);
 		has_subscribers = _AppsSubscriberCache[temp];
 		pthread_mutex_unlock(&_rx_mutex);
-
 		if ((has_subscribers) || (is_not_slpi_log == false)) {
 			if ((_debug) && (is_not_slpi_log)) {
 				PX4_INFO("Sending message for topic %s", messageName);
@@ -199,8 +198,17 @@ static void *test_params(void *)
 	usleep(10000000);
 
 	param_t trim_roll_index = param_find("TRIM_ROLL");
-	int32_t trim_roll = 1;
-	param_get(trim_roll_index, (void*) trim_roll);
+	float trim_roll = 1;
+
+	param_t sys_hitl_index = param_find("SYS_HITL");
+	uint32_t sys_hitl = 1;
+
+	param_get(trim_roll_index, &trim_roll);
+	PX4_INFO("Value of float: %f", (double) trim_roll);
+
+	param_get(sys_hitl_index, &sys_hitl);
+	PX4_INFO("Value of int: %i", sys_hitl);
+
 	param_notify_changes();
 
 	return nullptr;
