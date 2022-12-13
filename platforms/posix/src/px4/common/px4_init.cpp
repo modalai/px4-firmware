@@ -36,8 +36,8 @@
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/log.h>
 #include <drivers/drv_hrt.h>
-#include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
 #include <lib/parameters/param.h>
+#include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
 #include <uORB/uORB.h>
 
 int px4_platform_init(void)
