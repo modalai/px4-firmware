@@ -113,7 +113,71 @@ int param_get(param_t param, void *val)
 
 int param_set_no_notification(param_t param, const void *val)
 {
-	PX4_INFO("INSIDE param_set_no_notification");
+
+	// pthread_mutex_lock(&lock);
+	// const char* param_name = param_vector[param];
+
+	// parameter_request_s request{};
+
+	// strcpy(request.name, param_name);
+	// request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_SET;
+
+	// if(*(int8_t *)val == val || val == *(int16_t *)val || val == *(int32_t *)val || val == *(int64_t *)val){
+	// 	request.type = parameter_request_s::TYPE_INT64;
+	// 	memcpy(val, &set_request.int64_value, sizeof(set_request.int64_value));
+	// 	_param_response_pub.publish(request);
+	// 	return PX4_OK;
+	// } else {
+	// 	request.type = parameter_request_s::TYPE_FLOAT64;
+	// 	memcpy(val, &set_request.float64_value, sizeof(set_request.float64_value));
+	// 	_param_response_pub.publish(request);
+	// 	return PX4_OK;
+	// }
+
+	// return EINVAL;
+
+	pthread_mutex_lock(&lock);
+	const char* param_name = param_vector[param];
+
+	parameter_request_s request{};
+
+	strcpy(request.name, param_name);
+	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
+	_param_response_pub.publish(request);
+
+	while(true){
+                usleep(10000);
+		if (_param_value_sub.updated()) {
+
+			parameter_value_s value;
+			if (_param_value_sub.copy(&value)) {
+
+				parameter_request_s set_request{};
+				strcpy(request.name, param_name);
+				request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_SET;
+
+				switch (value.type) {
+					case parameter_request_s::TYPE_UINT8:
+					case parameter_request_s::TYPE_INT32:
+					case parameter_request_s::TYPE_INT64:{
+						request.type = parameter_request_s::TYPE_INT64;
+						memcpy(&val, &set_request.int64_value, sizeof(set_request.int64_value) / 2);
+						_param_response_pub.publish(request);
+						return PX4_OK;
+					}
+					case parameter_request_s::TYPE_FLOAT32:
+					case parameter_request_s::TYPE_FLOAT64:{
+						request.type = parameter_request_s::TYPE_FLOAT64;
+						memcpy(&val, &set_request.float64_value, sizeof(set_request.float64_value) / 2);
+						_param_response_pub.publish(request);
+						return PX4_OK;
+					}
+				}
+			}
+		}
+	}
+	pthread_mutex_unlock(&lock);
+
 	return -1;
 }
 

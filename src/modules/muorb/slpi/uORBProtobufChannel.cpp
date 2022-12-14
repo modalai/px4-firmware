@@ -201,12 +201,12 @@ static void *test_params(void *)
 	float trim_roll = 1;
 
 	param_t sys_hitl_index = param_find("SYS_HITL");
-	uint32_t sys_hitl = 1;
+	int32_t sys_hitl = 1;
 
 	param_get(trim_roll_index, &trim_roll);
 	PX4_INFO("Value of float: %f", (double) trim_roll);
 
-	param_get(sys_hitl_index, &sys_hitl);
+	param_set_no_notification(sys_hitl_index, &sys_hitl);
 	PX4_INFO("Value of int: %i", sys_hitl);
 
 	param_notify_changes();
