@@ -1635,25 +1635,21 @@ void ParameterServer::Run()
 					switch (getParameterType(param)) {
 					case PARAM_TYPE_INT32: {
 							int32_t v;
-
-							if (getParameterDefaultValue(param, &v) == 0) {
-								parameter_value.type = parameter_request_s::TYPE_INT32;
-								parameter_value.int64_value = v;
-								parameter_value.timestamp = hrt_absolute_time();
-								_param_response_pub.publish(parameter_value);
-							}
+							(void) getParameterValue(param, &v);
+							parameter_value.type = parameter_request_s::TYPE_INT32;
+							parameter_value.int64_value = v;
+							parameter_value.timestamp = hrt_absolute_time();
+							_param_response_pub.publish(parameter_value);
 						}
 						break;
 
 					case PARAM_TYPE_FLOAT: {
 							float v;
-
-							if (getParameterDefaultValue(param, &v) == 0) {
-								parameter_value.type = parameter_request_s::TYPE_FLOAT32;
-								parameter_value.float64_value = v;
-								parameter_value.timestamp = hrt_absolute_time();
-								_param_response_pub.publish(parameter_value);
-							}
+							(void) getParameterValue(param, &v);
+							parameter_value.type = parameter_request_s::TYPE_FLOAT32;
+							parameter_value.float64_value = v;
+							parameter_value.timestamp = hrt_absolute_time();
+							_param_response_pub.publish(parameter_value);
 						}
 						break;
 					}

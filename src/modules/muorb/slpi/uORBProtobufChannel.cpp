@@ -197,19 +197,13 @@ static void *test_params(void *)
 {
 	usleep(10000000);
 
-	param_t trim_roll_index = param_find("TRIM_ROLL");
-	float trim_roll = 1;
+	int32_t value_of_sys_hitl = 1;
+	int32_t value = 1;
+	int32_t new_value = 0;
 
-	param_t sys_hitl_index = param_find("SYS_HITL");
-	int32_t sys_hitl = 1;
-
-	param_get(trim_roll_index, &trim_roll);
-	PX4_INFO("Value of float: %f", (double) trim_roll);
-
-	param_set_no_notification(sys_hitl_index, &sys_hitl);
-	PX4_INFO("Value of int: %i", sys_hitl);
-
-	param_notify_changes();
+	param_get(param_find("SYS_HITL"), &value_of_sys_hitl);
+	param_set_no_notification(param_find("SYS_HITL"), &value);
+	param_get(param_find("SYS_HITL"), &new_value);
 
 	return nullptr;
 }
