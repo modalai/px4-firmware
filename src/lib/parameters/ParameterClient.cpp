@@ -63,6 +63,7 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 		middle = front + (last - front) / 2;
 		int ret = strcmp(name, getParameterName(middle));
 		if (ret == 0) {
+			PX4_INFO("FINISH FINDING PARAMETER NAME");
 			return middle;
 
 		} else if (middle == front) {
@@ -83,62 +84,98 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 
 int ParameterClient::getParameterValue(param_t param, void *val)
 {
+	pthread_mutex_lock(&lock);
+	PX4_INFO("MUTEX LOCKED INSIDE GET");
+
 	const char* param_name = getParameterName(param);
+	if(param_name == nullptr){
+		PX4_INFO("MUTEX UNLOCKED INSIDE GET");
+		pthread_mutex_unlock(&lock);
+		return PX4_ERROR;
+	}
 
 	parameter_request_s request{};
-	strcpy(request.name, param_name);
+	strncpy(request.name, param_name, sizeof(*param_name));
 	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
-	_param_response_pub.publish(request);
-	while(true){
-		parameter_value_s value;
-		if (_param_value_sub.updateBlocking(value, 100000)) {
+	_param_request_pub.publish(request);
 
-			switch (value.type) {
-				case parameter_request_s::TYPE_UINT8:
-				case parameter_request_s::TYPE_INT32:
-				case parameter_request_s::TYPE_INT64:
-				{
-					memcpy(val, &value.int64_value, sizeof(value.int64_value));
-					return PX4_OK;
-				}
-
-				case parameter_request_s::TYPE_FLOAT32:
-				case parameter_request_s::TYPE_FLOAT64: {
-					memcpy(val, &value.float64_value, sizeof(value.float64_value));
-					return PX4_OK;
-
-				}
+	parameter_value_s value;
+	pthread_mutex_unlock(&lock);
+	if (_param_value_sub.updateBlocking(value, 5000)) {
+		pthread_mutex_lock(&lock);
+		PX4_INFO("INSIDE IF STATEMENT");
+		switch (value.type) {
+			case parameter_request_s::TYPE_UINT8:
+			case parameter_request_s::TYPE_INT32:
+			case parameter_request_s::TYPE_INT64:
+			{
+				memcpy(val, &value.int64_value, sizeof(value.int64_value));
+				PX4_INFO("MUTEX UNLOCKED INSIDE GET");
+				pthread_mutex_unlock(&lock);
+				return PX4_OK;
 			}
+
+			case parameter_request_s::TYPE_FLOAT32:
+			case parameter_request_s::TYPE_FLOAT64: {
+				memcpy(val, &value.float64_value, sizeof(value.float64_value));
+				pthread_mutex_unlock(&lock);
+				return PX4_OK;
+
+			}
+			default:
+				break;
 		}
 	}
+	PX4_INFO("MUTEX UNLOCKED INSIDE GET");
+	pthread_mutex_unlock(&lock);
 	return PX4_ERROR;
 }
 
 int ParameterClient::setParameter(param_t param, const void *val, bool mark_saved, bool notify_changes)
 {
+	pthread_mutex_lock(&lock);
+	PX4_INFO("MUTEX LOCKED INSIDE SET");
 	const char* param_name = getParameterName(param);
+	if(param_name == nullptr){
+		pthread_mutex_unlock(&lock);
+		return PX4_ERROR;
+	}
+
 	parameter_request_s request_change{};
 
-	strcpy(request_change.name, param_name);
+	strncpy(request_change.name, param_name, sizeof(*param_name));
 	request_change.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_SET;
 	request_change.type = getParameterType(param);
+
+	if(request_change.type == PARAM_TYPE_UNKNOWN){
+		pthread_mutex_unlock(&lock);
+		return PX4_ERROR;
+	}
 
 	switch (request_change.type) {
 		case PARAM_TYPE_INT32:
 		{
 			request_change.type = parameter_request_s::TYPE_INT64;
 			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
-			_param_response_pub.publish(request_change);
+			_param_request_pub.publish(request_change);
+			PX4_INFO("MUTEX UNLOCKED INSIDE SET");
+			pthread_mutex_unlock(&lock);
 			return PX4_OK;
 		}
 		case PARAM_TYPE_FLOAT:
 		{
 			request_change.type = parameter_request_s::TYPE_FLOAT64;
 			memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
-			_param_response_pub.publish(request_change);
+			_param_request_pub.publish(request_change);
+			pthread_mutex_unlock(&lock);
 			return PX4_OK;
 		}
+		default:
+			break;
+
 	}
+
+	pthread_mutex_unlock(&lock);
 	return PX4_ERROR;
 }
 

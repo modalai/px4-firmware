@@ -37,6 +37,7 @@
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/tasks.h>
+#include <px4_platform_common/time.h>
 #include <drivers/drv_hrt.h>
 
 #include <uORB/Publication.hpp>
@@ -46,6 +47,8 @@
 
 #include "param.h"
 #include <parameters/px4_parameters.hpp>
+
+using namespace time_literals;
 
 class ParameterClient
 {
@@ -111,6 +114,8 @@ private:
 	 */
 	static constexpr bool handle_in_range(param_t param) { return (param < param_info_count); }
 
-	uORB::Publication<parameter_request_s> _param_response_pub{ORB_ID(parameter_request)};
+	uORB::Publication<parameter_request_s> _param_request_pub{ORB_ID(parameter_request)};
 	uORB::SubscriptionBlocking<parameter_value_s> _param_value_sub{ORB_ID(parameter_value)};
+
+	pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 };
