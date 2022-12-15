@@ -175,6 +175,8 @@ if(NOT "${PX4_BOARD}" MATCHES "px4_io")
 	else()
 		add_library(parameters STATIC EXCLUDE_FROM_ALL
 			${SRCS}
+			ParameterClient.cpp
+			ParameterClient.hpp
 			px4_parameters.hpp
 		)
 	endif()

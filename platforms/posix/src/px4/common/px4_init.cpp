@@ -46,6 +46,7 @@ int px4_platform_init(void)
 
 	px4::WorkQueueManagerStart();
 
+	//Put sleeper in here to allow wq to finish initializing before param_init is called
 	usleep(10000);
 
 	uorb_start();

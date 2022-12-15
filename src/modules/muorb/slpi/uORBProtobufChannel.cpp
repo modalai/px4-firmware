@@ -195,7 +195,9 @@ static void *test_runner(void *)
 
 static void *test_params(void *)
 {
-	usleep(10000000);
+	usleep(1000);
+	param_init();
+	usleep(1000000);
 
 	int32_t value_of_sys_hitl = 1;
 	int32_t value = 1;
@@ -204,7 +206,6 @@ static void *test_params(void *)
 	param_get(param_find("SYS_HITL"), &value_of_sys_hitl);
 	param_set_no_notification(param_find("SYS_HITL"), &value);
 	param_get(param_find("SYS_HITL"), &new_value);
-
 	return nullptr;
 }
 
