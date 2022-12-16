@@ -34,6 +34,8 @@
 #include <string.h>
 #include "uORBAppsProtobufChannel.hpp"
 #include "uORB/uORBManager.hpp"
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/parameter_request.h>
 
 extern "C" { __EXPORT int muorb_main(int argc, char *argv[]); }
 
@@ -61,6 +63,7 @@ muorb_main(int argc, char *argv[])
 
 		if (channel && channel->Initialize(enable_debug)) {
 			uORB::Manager::get_instance()->set_uorb_communicator(channel);
+			uORB::Subscription _param_request_sub{ORB_ID(parameter_request)};
 			return OK;
 		}
 

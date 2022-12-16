@@ -34,10 +34,6 @@
 #include "uORBAppsProtobufChannel.hpp"
 #include <string.h>
 #include <pthread.h>
-
-#include <uORB/Subscription.hpp>
-#include <uORB/topics/parameter_request.h>
-
 #include "fc_sensor.h"
 
 bool uORB::AppsProtobufChannel::test_flag = false;
@@ -48,8 +44,7 @@ uORBCommunicator::IChannelRxHandler *uORB::AppsProtobufChannel::_RxHandler = nul
 std::map<std::string, int> uORB::AppsProtobufChannel::_SlpiSubscriberCache;
 pthread_mutex_t uORB::AppsProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uORB::AppsProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
-bool uORB::AppsProtobufChannel::_Debug = false;
-
+bool uORB::AppsProtobufChannel::_Debug = true;
 
 void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
 		const uint8_t *data,
@@ -221,12 +216,6 @@ bool uORB::AppsProtobufChannel::Test()
 	return true;
 }
 
-static void *test_subscribe(void *)
-{
-	uORB::Subscription _param_request_sub{ORB_ID(parameter_request)};
-	return nullptr;
-}
-
 bool uORB::AppsProtobufChannel::Initialize(bool enable_debug)
 {
 	if (! _Initialized) {
@@ -245,13 +234,6 @@ bool uORB::AppsProtobufChannel::Initialize(bool enable_debug)
 	} else {
 		PX4_INFO("AppsProtobufChannel already initialized");
 	}
-
-	(void) px4_task_spawn_cmd("test_subscribe",
-				SCHED_DEFAULT,
-				SCHED_PRIORITY_MAX - 2,
-				2000,
-				(px4_main_t)&test_subscribe,
-				nullptr);
 
 	return true;
 }
