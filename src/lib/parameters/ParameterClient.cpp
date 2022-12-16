@@ -63,7 +63,6 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 		middle = front + (last - front) / 2;
 		int ret = strcmp(name, getParameterName(middle));
 		if (ret == 0) {
-			PX4_INFO("FINISH FINDING PARAMETER NAME");
 			return middle;
 
 		} else if (middle == front) {
@@ -85,32 +84,33 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 int ParameterClient::getParameterValue(param_t param, void *val)
 {
 	pthread_mutex_lock(&lock);
-	PX4_INFO("MUTEX LOCKED INSIDE GET");
 
 	const char* param_name = getParameterName(param);
 	if(param_name == nullptr){
-		PX4_INFO("MUTEX UNLOCKED INSIDE GET");
 		pthread_mutex_unlock(&lock);
 		return PX4_ERROR;
 	}
-
 	parameter_request_s request{};
-	strncpy(request.name, param_name, sizeof(*param_name));
+	strncpy(request.name, param_name, strlen(param_name));
 	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
 	_param_request_pub.publish(request);
 
 	parameter_value_s value;
-	pthread_mutex_unlock(&lock);
-	if (_param_value_sub.updateBlocking(value, 5000)) {
-		pthread_mutex_lock(&lock);
-		PX4_INFO("INSIDE IF STATEMENT");
+
+	px4_pollfd_struct_t fds[1] = {};
+	fds[0].fd = _param_value_sub;
+	fds[0].events = POLLIN;
+
+	int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 5000);
+
+	if (pret > 0 && fds[0].revents & POLLIN) {
+		orb_copy(ORB_ID(parameter_value), _param_value_sub, &value);
 		switch (value.type) {
 			case parameter_request_s::TYPE_UINT8:
 			case parameter_request_s::TYPE_INT32:
 			case parameter_request_s::TYPE_INT64:
 			{
 				memcpy(val, &value.int64_value, sizeof(value.int64_value));
-				PX4_INFO("MUTEX UNLOCKED INSIDE GET");
 				pthread_mutex_unlock(&lock);
 				return PX4_OK;
 			}
@@ -126,7 +126,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 				break;
 		}
 	}
-	PX4_INFO("MUTEX UNLOCKED INSIDE GET");
+
 	pthread_mutex_unlock(&lock);
 	return PX4_ERROR;
 }
@@ -134,7 +134,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 int ParameterClient::setParameter(param_t param, const void *val, bool mark_saved, bool notify_changes)
 {
 	pthread_mutex_lock(&lock);
-	PX4_INFO("MUTEX LOCKED INSIDE SET");
+
 	const char* param_name = getParameterName(param);
 	if(param_name == nullptr){
 		pthread_mutex_unlock(&lock);
@@ -143,7 +143,7 @@ int ParameterClient::setParameter(param_t param, const void *val, bool mark_save
 
 	parameter_request_s request_change{};
 
-	strncpy(request_change.name, param_name, sizeof(*param_name));
+	strncpy(request_change.name, param_name, strlen(param_name));
 	request_change.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_SET;
 	request_change.type = getParameterType(param);
 
@@ -158,7 +158,6 @@ int ParameterClient::setParameter(param_t param, const void *val, bool mark_save
 			request_change.type = parameter_request_s::TYPE_INT64;
 			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
 			_param_request_pub.publish(request_change);
-			PX4_INFO("MUTEX UNLOCKED INSIDE SET");
 			pthread_mutex_unlock(&lock);
 			return PX4_OK;
 		}

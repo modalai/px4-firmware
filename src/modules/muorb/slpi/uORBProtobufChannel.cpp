@@ -197,14 +197,16 @@ static void *test_params(void *)
 {
 	usleep(1000);
 	param_init();
-	usleep(1000000);
+	usleep(10000000);
 
 	int32_t value_of_sys_hitl = 1;
 	int32_t value = 1;
 	int32_t new_value = 0;
 
 	param_get(param_find("SYS_HITL"), &value_of_sys_hitl);
+	usleep(1000);
 	param_set_no_notification(param_find("SYS_HITL"), &value);
+	usleep(1000);
 	param_get(param_find("SYS_HITL"), &new_value);
 	return nullptr;
 }

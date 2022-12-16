@@ -115,7 +115,7 @@ private:
 	static constexpr bool handle_in_range(param_t param) { return (param < param_info_count); }
 
 	uORB::Publication<parameter_request_s> _param_request_pub{ORB_ID(parameter_request)};
-	uORB::SubscriptionBlocking<parameter_value_s> _param_value_sub{ORB_ID(parameter_value)};
+	int _param_value_sub = orb_subscribe(ORB_ID(parameter_value));
 
 	pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 };
