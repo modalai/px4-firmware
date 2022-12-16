@@ -83,6 +83,7 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 
 int ParameterClient::getParameterValue(param_t param, void *val)
 {
+	LockGuard lg{lock};
 
 	const char* param_name = getParameterName(param);
 	if(param_name == nullptr){
@@ -92,7 +93,6 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 	strncpy(request.name, param_name, sizeof(request.name));
 	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
 
-	pthread_mutex_lock(&lock);
 	_param_request_pub.publish(request);
 
 	parameter_value_s value;
@@ -111,14 +111,12 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 			case parameter_request_s::TYPE_INT64:
 			{
 				memcpy(val, &value.int64_value, sizeof(value.int64_value));
-				pthread_mutex_unlock(&lock);
 				return PX4_OK;
 			}
 
 			case parameter_request_s::TYPE_FLOAT32:
 			case parameter_request_s::TYPE_FLOAT64: {
 				memcpy(val, &value.float64_value, sizeof(value.float64_value));
-				pthread_mutex_unlock(&lock);
 				return PX4_OK;
 
 			}
@@ -127,7 +125,6 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 		}
 	}
 
-	pthread_mutex_unlock(&lock);
 	return PX4_ERROR;
 }
 

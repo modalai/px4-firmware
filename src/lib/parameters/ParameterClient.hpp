@@ -47,6 +47,7 @@
 
 #include "param.h"
 #include <parameters/px4_parameters.hpp>
+#include <containers/LockGuard.hpp>
 
 using namespace time_literals;
 
