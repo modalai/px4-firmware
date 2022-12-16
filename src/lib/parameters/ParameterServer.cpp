@@ -1649,7 +1649,6 @@ void ParameterServer::Run()
 							float v;
 							int result = getParameterValue(param, &v);
 							if(result == 0){
-								(void) getParameterValue(param, &v);
 								parameter_value.type = parameter_request_s::TYPE_FLOAT32;
 								parameter_value.float64_value = v;
 								parameter_value.timestamp = hrt_absolute_time();
