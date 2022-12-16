@@ -7,6 +7,8 @@ uint8 MESSAGE_TYPE_PARAM_REQUEST_LIST = 2
 uint8 MESSAGE_TYPE_PARAM_SET          = 3
 uint8 message_type                        # message type
 
+bool notify_changes             # notify changes on server side
+
 uint8 NODE_ID_ALL = 0		# MAV_COMP_ID_ALL
 uint8 node_id			# node ID
 

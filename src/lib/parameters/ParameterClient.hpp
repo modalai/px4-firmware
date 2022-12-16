@@ -102,7 +102,7 @@ public:
 	 * @param val		The value to set; assumed to point to a variable of the parameter type.
 	 * @return		Zero if the parameter's value could be set from a scalar, nonzero otherwise.
 	 */
-	int setParameter(param_t param, const void *val, bool mark_saved = true, bool notify_changes = true);
+	int setParameter(param_t param, const void *val, bool notify_changes);
 
 private:
 	static constexpr uint16_t param_info_count = sizeof(px4::parameters) / sizeof(param_info_s);

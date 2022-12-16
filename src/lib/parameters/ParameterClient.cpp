@@ -128,7 +128,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 	return PX4_ERROR;
 }
 
-int ParameterClient::setParameter(param_t param, const void *val, bool mark_saved, bool notify_changes)
+int ParameterClient::setParameter(param_t param, const void *val, bool notify_changes)
 {
 	const char* param_name = getParameterName(param);
 	if(param_name == nullptr){
@@ -140,6 +140,7 @@ int ParameterClient::setParameter(param_t param, const void *val, bool mark_save
 	strncpy(request_change.name, param_name, sizeof(request_change.name));
 	request_change.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_SET;
 	request_change.type = getParameterType(param);
+	request_change.notify_changes = notify_changes;
 
 	if(request_change.type == PARAM_TYPE_UNKNOWN){
 		return PX4_ERROR;

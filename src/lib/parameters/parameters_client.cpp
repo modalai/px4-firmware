@@ -73,7 +73,7 @@ int param_get(param_t param, void *val)
 int param_set(param_t param, const void *val)
 {
 	if (parameter_client) {
-		return parameter_client->setParameter(param, val, false, true);
+		return parameter_client->setParameter(param, val, true);
 	}
 
 	return -1;
@@ -82,7 +82,7 @@ int param_set(param_t param, const void *val)
 int param_set_no_notification(param_t param, const void *val)
 {
 	if (parameter_client) {
-		return parameter_client->setParameter(param, val, false, false);
+		return parameter_client->setParameter(param, val, false);
 	}
 
 	return -1;

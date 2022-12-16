@@ -1671,14 +1671,16 @@ void ParameterServer::Run()
 					case parameter_request_s::TYPE_INT32:
 					case parameter_request_s::TYPE_INT64: {
 							int32_t i32_value = request.int64_value;
-							setParameter(param, &i32_value);
+							bool notify_changes_val = request.notify_changes;;
+							setParameter(param, &i32_value, false, notify_changes_val);
 						}
 						break;
 
 					case parameter_request_s::TYPE_FLOAT32:
 					case parameter_request_s::TYPE_FLOAT64: {
 							float float32_value = request.float64_value;
-							setParameter(param, &float32_value);
+							bool notify_changes_val = request.notify_changes;;
+							setParameter(param, &float32_value, false, notify_changes_val);
 						}
 					}
 				}
