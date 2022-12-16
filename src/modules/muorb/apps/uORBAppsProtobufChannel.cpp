@@ -33,10 +33,6 @@
 
 #include "uORBAppsProtobufChannel.hpp"
 #include <string.h>
-#include <pthread.h>
-
-#include <uORB/Subscription.hpp>
-#include <uORB/topics/parameter_request.h>
 
 #include "fc_sensor.h"
 
@@ -221,12 +217,6 @@ bool uORB::AppsProtobufChannel::Test()
 	return true;
 }
 
-static void *test_subscribe(void *)
-{
-	uORB::Subscription _param_request_sub{ORB_ID(parameter_request)};
-	return nullptr;
-}
-
 bool uORB::AppsProtobufChannel::Initialize(bool enable_debug)
 {
 	if (! _Initialized) {
@@ -245,13 +235,6 @@ bool uORB::AppsProtobufChannel::Initialize(bool enable_debug)
 	} else {
 		PX4_INFO("AppsProtobufChannel already initialized");
 	}
-
-	(void) px4_task_spawn_cmd("test_subscribe",
-				SCHED_DEFAULT,
-				SCHED_PRIORITY_MAX - 2,
-				2000,
-				(px4_main_t)&test_subscribe,
-				nullptr);
 
 	return true;
 }

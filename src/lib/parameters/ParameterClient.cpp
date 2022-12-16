@@ -83,16 +83,16 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 
 int ParameterClient::getParameterValue(param_t param, void *val)
 {
-	pthread_mutex_lock(&lock);
 
 	const char* param_name = getParameterName(param);
 	if(param_name == nullptr){
-		pthread_mutex_unlock(&lock);
 		return PX4_ERROR;
 	}
 	parameter_request_s request{};
-	strncpy(request.name, param_name, strlen(param_name));
+	strncpy(request.name, param_name, sizeof(request.name));
 	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
+
+	pthread_mutex_lock(&lock);
 	_param_request_pub.publish(request);
 
 	parameter_value_s value;
@@ -133,22 +133,18 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 
 int ParameterClient::setParameter(param_t param, const void *val, bool mark_saved, bool notify_changes)
 {
-	pthread_mutex_lock(&lock);
-
 	const char* param_name = getParameterName(param);
 	if(param_name == nullptr){
-		pthread_mutex_unlock(&lock);
 		return PX4_ERROR;
 	}
 
 	parameter_request_s request_change{};
 
-	strncpy(request_change.name, param_name, strlen(param_name));
+	strncpy(request_change.name, param_name, sizeof(request_change.name));
 	request_change.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_SET;
 	request_change.type = getParameterType(param);
 
 	if(request_change.type == PARAM_TYPE_UNKNOWN){
-		pthread_mutex_unlock(&lock);
 		return PX4_ERROR;
 	}
 
@@ -158,7 +154,6 @@ int ParameterClient::setParameter(param_t param, const void *val, bool mark_save
 			request_change.type = parameter_request_s::TYPE_INT64;
 			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
 			_param_request_pub.publish(request_change);
-			pthread_mutex_unlock(&lock);
 			return PX4_OK;
 		}
 		case PARAM_TYPE_FLOAT:
@@ -166,7 +161,6 @@ int ParameterClient::setParameter(param_t param, const void *val, bool mark_save
 			request_change.type = parameter_request_s::TYPE_FLOAT64;
 			memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
 			_param_request_pub.publish(request_change);
-			pthread_mutex_unlock(&lock);
 			return PX4_OK;
 		}
 		default:
@@ -174,7 +168,6 @@ int ParameterClient::setParameter(param_t param, const void *val, bool mark_save
 
 	}
 
-	pthread_mutex_unlock(&lock);
 	return PX4_ERROR;
 }
 

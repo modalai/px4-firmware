@@ -36,12 +36,15 @@
 #include "MUORBTest.hpp"
 #include <string>
 
-#include <lib/parameters/param.h>
-
 #include <drivers/drv_hrt.h>
+#include <drivers/device/spi.h>
 #include <pthread.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/log.h>
+#include <lib/parameters/param.h>
+#include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
+
+#include "hrt_work.h"
 
 // Definition of test to run when in muorb test mode
 static MUORBTestType test_to_run;
@@ -132,6 +135,7 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 		pthread_mutex_lock(&_rx_mutex);
 		has_subscribers = _AppsSubscriberCache[temp];
 		pthread_mutex_unlock(&_rx_mutex);
+
 		if ((has_subscribers) || (is_not_slpi_log == false)) {
 			if ((_debug) && (is_not_slpi_log)) {
 				PX4_INFO("Sending message for topic %s", messageName);
@@ -193,24 +197,6 @@ static void *test_runner(void *)
 	return nullptr;
 }
 
-static void *test_params(void *)
-{
-	usleep(1000);
-	param_init();
-	usleep(10000000);
-
-	int32_t value_of_sys_hitl = 1;
-	int32_t value = 1;
-	int32_t new_value = 0;
-
-	param_get(param_find("SYS_HITL"), &value_of_sys_hitl);
-	usleep(1000);
-	param_set_no_notification(param_find("SYS_HITL"), &value);
-	usleep(1000);
-	param_get(param_find("SYS_HITL"), &new_value);
-	return nullptr;
-}
-
 __BEGIN_DECLS
 extern int slpi_main(int argc, char *argv[]);
 __END_DECLS
@@ -249,6 +235,18 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		uORB::Manager::get_instance()->set_uorb_communicator(
 			uORB::ProtobufChannel::GetInstance());
 
+		param_init();
+
+		px4::WorkQueueManagerStart();
+
+		// Configure the SPI driver function pointers
+		device::SPI::configure_callbacks(muorb_func_ptrs._config_spi_bus_func_t, muorb_func_ptrs._spi_transfer_func_t);
+
+		// Initialize the interrupt callback registration
+		register_interrupt_callback_initalizer(muorb_func_ptrs.register_interrupt_callback);
+
+		hrt_work_queue_init();
+
 		const char *argv[3] = { "slpi", "start" };
 		int argc = 2;
 
@@ -258,13 +256,6 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		if (slpi_main(argc, (char **) argv)) {
 			PX4_ERR("slpi failed in %s", __FUNCTION__);
 		}
-
-		(void) px4_task_spawn_cmd("test_params",
-					SCHED_DEFAULT,
-					SCHED_PRIORITY_MAX - 2,
-					2000,
-					(px4_main_t)&test_params,
-					nullptr);
 
 		px4muorb_orb_initialized = true;
 
