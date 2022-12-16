@@ -46,6 +46,7 @@ pthread_mutex_t uORB::AppsProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER
 pthread_mutex_t uORB::AppsProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
 bool uORB::AppsProtobufChannel::_Debug = false;
 
+
 void uORB::AppsProtobufChannel::ReceiveCallback(const char *topic,
 		const uint8_t *data,
 		uint32_t length_in_bytes)
