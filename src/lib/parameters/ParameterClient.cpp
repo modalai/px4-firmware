@@ -44,6 +44,7 @@ const char *ParameterClient::getParameterName(param_t param)
 	if (handle_in_range(param)) {
 		return px4::parameters[param].name;
 	}
+
 	return nullptr;
 }
 
@@ -62,6 +63,7 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 	while (front <= last) {
 		middle = front + (last - front) / 2;
 		int ret = strcmp(name, getParameterName(middle));
+
 		if (ret == 0) {
 			return middle;
 
@@ -85,10 +87,12 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 {
 	LockGuard lg{lock};
 
-	const char* param_name = getParameterName(param);
-	if(param_name == nullptr){
+	const char *param_name = getParameterName(param);
+
+	if (param_name == nullptr) {
 		return PX4_ERROR;
 	}
+
 	parameter_request_s request{};
 	strncpy(request.name, param_name, sizeof(request.name));
 	request.message_type = parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ;
@@ -105,23 +109,24 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 
 	if (pret > 0 && fds[0].revents & POLLIN) {
 		orb_copy(ORB_ID(parameter_value), _param_value_sub, &value);
+
 		switch (value.type) {
-			case parameter_request_s::TYPE_UINT8:
-			case parameter_request_s::TYPE_INT32:
-			case parameter_request_s::TYPE_INT64:
-			{
+		case parameter_request_s::TYPE_UINT8:
+		case parameter_request_s::TYPE_INT32:
+		case parameter_request_s::TYPE_INT64: {
 				memcpy(val, &value.int64_value, sizeof(value.int64_value));
 				return PX4_OK;
 			}
 
-			case parameter_request_s::TYPE_FLOAT32:
-			case parameter_request_s::TYPE_FLOAT64: {
+		case parameter_request_s::TYPE_FLOAT32:
+		case parameter_request_s::TYPE_FLOAT64: {
 				memcpy(val, &value.float64_value, sizeof(value.float64_value));
 				return PX4_OK;
 
 			}
-			default:
-				break;
+
+		default:
+			break;
 		}
 	}
 
@@ -130,8 +135,9 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 
 int ParameterClient::setParameter(param_t param, const void *val, bool notify_changes)
 {
-	const char* param_name = getParameterName(param);
-	if(param_name == nullptr){
+	const char *param_name = getParameterName(param);
+
+	if (param_name == nullptr) {
 		return PX4_ERROR;
 	}
 
@@ -142,30 +148,33 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 	request_change.type = getParameterType(param);
 	request_change.notify_changes = notify_changes;
 
-	if(request_change.type == PARAM_TYPE_UNKNOWN){
+	if (request_change.type == PARAM_TYPE_UNKNOWN) {
 		return PX4_ERROR;
 	}
 
 	switch (request_change.type) {
-		case PARAM_TYPE_INT32:
-		{
+	case PARAM_TYPE_INT32: {
 			request_change.type = parameter_request_s::TYPE_INT64;
 			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
 			int retval = _param_request_pub.publish(request_change);
-			if(retval){
+
+			if (retval) {
 				return PX4_OK;
 			}
 		}
-		case PARAM_TYPE_FLOAT:
-		{
+
+	case PARAM_TYPE_FLOAT: {
 			request_change.type = parameter_request_s::TYPE_FLOAT64;
 			memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
 			int retval = _param_request_pub.publish(request_change);
-			if(retval){
+
+			if (retval) {
 				return PX4_OK;
-			}		}
-		default:
-			break;
+			}
+		}
+
+	default:
+		break;
 
 	}
 
@@ -173,6 +182,11 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 }
 
 void ParameterClient::notifyChanges()
+{
+	return;
+}
+
+void ParameterClient::setParameterUsed(param_t param)
 {
 	return;
 }

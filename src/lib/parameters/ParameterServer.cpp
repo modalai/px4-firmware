@@ -1636,7 +1636,8 @@ void ParameterServer::Run()
 					case PARAM_TYPE_INT32: {
 							int32_t v;
 							int result = getParameterValue(param, &v);
-							if(result == 0){
+
+							if (result == 0) {
 								parameter_value.type = parameter_request_s::TYPE_INT32;
 								parameter_value.int64_value = v;
 								parameter_value.timestamp = hrt_absolute_time();
@@ -1648,7 +1649,8 @@ void ParameterServer::Run()
 					case PARAM_TYPE_FLOAT: {
 							float v;
 							int result = getParameterValue(param, &v);
-							if(result == 0){
+
+							if (result == 0) {
 								parameter_value.type = parameter_request_s::TYPE_FLOAT32;
 								parameter_value.float64_value = v;
 								parameter_value.timestamp = hrt_absolute_time();

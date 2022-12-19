@@ -87,3 +87,10 @@ int param_set_no_notification(param_t param, const void *val)
 
 	return -1;
 }
+
+void param_set_used(param_t param)
+{
+	if (parameter_client) {
+		return parameter_client->setParameterUsed(param);
+	}
+}

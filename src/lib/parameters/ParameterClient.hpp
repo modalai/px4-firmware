@@ -104,6 +104,14 @@ public:
 	 */
 	int setParameter(param_t param, const void *val, bool notify_changes);
 
+	/**
+	 * Mark a parameter as used. Only marked parameters will be sent to a GCS.
+	 * A call to param_find() will mark a param as used as well.
+	 *
+	 * @param param         A handle returned by param_find or passed by param_foreach.
+	 */
+	void setParameterUsed(param_t param);
+
 private:
 	static constexpr uint16_t param_info_count = sizeof(px4::parameters) / sizeof(param_info_s);
 
