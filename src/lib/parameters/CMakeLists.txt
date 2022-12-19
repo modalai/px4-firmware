@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2017 - 2020 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2017 - 2022 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -151,7 +151,11 @@ add_custom_target(parameters_header DEPENDS px4_parameters.hpp)
 
 set(SRCS)
 
-list(APPEND SRCS parameters.cpp)
+if(NOT ${PX4_PLATFORM} MATCHES "qurt")
+	list(APPEND SRCS parameters.cpp)
+else()
+	list(APPEND SRCS parameters_client.cpp)
+endif()
 
 if(BUILD_TESTING)
 	list(APPEND SRCS param_translation_unit_tests.cpp)
@@ -159,31 +163,30 @@ else()
 	list(APPEND SRCS param_translation.cpp)
 endif()
 
-if(${PX4_PLATFORM} STREQUAL "nuttx")
-	add_subdirectory(flashparams)
-
-	# build user-side interface for protected build
-	if(NOT CONFIG_BUILD_FLAT)
-		list(APPEND SRCS parameters_ioctl.cpp)
-		add_library(usr_parameters usr_parameters_if.cpp px4_parameters.hpp)
-		add_dependencies(usr_parameters prebuild_targets)
-		target_compile_definitions(usr_parameters PRIVATE -DMODULE_NAME="usr_parameters")
-	endif()
-endif()
-
 # TODO: find a better way to do this
 if(NOT "${PX4_BOARD}" MATCHES "px4_io")
-	add_library(parameters STATIC EXCLUDE_FROM_ALL
-		${SRCS}
-		px4_parameters.hpp
-	)
-
+	if(NOT "${PX4_PLATFORM}" MATCHES "qurt")
+		add_library(parameters STATIC EXCLUDE_FROM_ALL
+			${SRCS}
+			px4_parameters.hpp
+			ParameterServer.cpp
+			ParameterServer.hpp
+		)
+	else()
+		add_library(parameters STATIC EXCLUDE_FROM_ALL
+			${SRCS}
+			ParameterClient.cpp
+			ParameterClient.hpp
+			px4_parameters.hpp
+		)
+	endif()
 	target_link_libraries(parameters PRIVATE perf tinybson px4_platform)
 
-	target_compile_definitions(parameters PRIVATE -DMODULE_NAME="parameters" -D__KERNEL__)
+	target_compile_definitions(parameters PRIVATE -DMODULE_NAME="parameters")
 	target_compile_options(parameters
 		PRIVATE
 			#-DDEBUG_BUILD
+			#${MAX_CUSTOM_OPT_LEVEL}
 			-Wno-cast-align		# TODO: fix and enable
 			-Wno-sign-compare	# TODO: fix and enable
 	)
@@ -193,7 +196,7 @@ endif()
 add_dependencies(parameters prebuild_targets)
 
 if(${PX4_PLATFORM} STREQUAL "nuttx")
-	target_link_libraries(parameters PRIVATE flashparams)
+	#target_link_libraries(parameters PRIVATE flashparams)
 endif()
 
 px4_add_functional_gtest(SRC ParameterTest.cpp LINKLIBS parameters)

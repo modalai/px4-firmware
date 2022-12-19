@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2019 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,29 +31,59 @@
  *
  ****************************************************************************/
 
-#include <px4_platform_common/init.h>
-#include <px4_platform_common/px4_config.h>
-#include <px4_platform_common/defines.h>
-#include <px4_platform_common/log.h>
-#include <drivers/drv_hrt.h>
-#include <lib/parameters/param.h>
-#include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
-#include <uORB/uORB.h>
+#define PARAM_CLIENT_CALLBACK_IMPLEMENTATION
 
-int px4_platform_init(void)
+#include "ParameterClient.hpp"
+static ParameterClient *parameter_client {nullptr};
+
+#include "param.h"
+
+void param_init()
 {
-	hrt_init();
+	if (parameter_client == nullptr) {
+		parameter_client = new ParameterClient();
+	}
+}
 
-	px4::WorkQueueManagerStart();
+void param_notify_changes()
+{
+	if (parameter_client) {
+		parameter_client->notifyChanges();
+	}
+}
 
-	//Put sleeper in here to allow wq to finish initializing before param_init is called
-	usleep(10000);
+param_t param_find(const char *name)
+{
+	if (parameter_client) {
+		return parameter_client->findParameter(name, true);
+	}
 
-	uorb_start();
+	return PARAM_INVALID;
+}
 
-	param_init();
+int param_get(param_t param, void *val)
+{
+	if (parameter_client) {
+		return parameter_client->getParameterValue(param, val);
+	}
 
-	px4_log_initialize();
+	return -1;
+}
 
-	return PX4_OK;
+int param_set(param_t param, const void *val)
+{
+	if (parameter_client) {
+		return parameter_client->setParameter(param, val, true);
+	}
+
+	return -1;
+}
+
+int param_set_no_notification(param_t param, const void *val)
+{
+	if (parameter_client) {
+		return parameter_client->setParameter(param, val, false);
+	}
+
+	return -1;
 }

@@ -303,8 +303,6 @@ __EXPORT void		param_reset_all(void);
  */
 __EXPORT void		param_reset_excludes(const char *excludes[], int num_excludes);
 
-typedef bool(*param_filter_func)(param_t handle);
-
 /**
  * Reset only specific parameters to their default values.
  *
@@ -322,6 +320,7 @@ __EXPORT void		param_reset_specific(const char *resets[], int num_resets);
  * 			the parameter should be exported. No filtering if nullptr is passed.
  * @return		Zero on success, nonzero on failure.
  */
+typedef bool(*param_filter_func)(param_t handle);
 __EXPORT int		param_export(const char *filename, param_filter_func filter);
 
 /**
@@ -469,7 +468,7 @@ struct param_info_s {
 __END_DECLS
 
 
-
+#ifndef __PX4_QURT
 #if defined(__cplusplus) && !defined(PARAM_IMPLEMENTATION)
 #if defined(CONFIG_ARCH_BOARD_PX4_SITL) || 0 // set to 1 to debug param type mismatches
 #include <cstdio>
@@ -506,5 +505,5 @@ static inline int param_get_cplusplus(param_t param, int32_t *val)
 #define param_get(param, val) param_get_cplusplus(param, val)
 
 #endif /* __cplusplus */
-
+#endif
 #endif
