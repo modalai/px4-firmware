@@ -73,9 +73,8 @@ muorb_main(int argc, char *argv[])
 		PX4_INFO("Got muorb test command");
 
 		if (channel && channel->Initialize(enable_debug)) {
-			uORB::Subscription _param_request_sub{ORB_ID(parameter_request)};
 			uORB::Manager::get_instance()->set_uorb_communicator(channel);
-
+			uORB::Subscription _param_request_sub{ORB_ID(parameter_request)};
 			if (channel->Test()) { return OK; }
 		}
 

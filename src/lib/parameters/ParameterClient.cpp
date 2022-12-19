@@ -151,11 +151,8 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 		{
 			request_change.type = parameter_request_s::TYPE_INT64;
 			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
-			_param_request_pub.publish(request_change);
-
-			int get_value;
-			(void) getParameterValue(param, &get_value);
-			if(get_value == *(int*) val){
+			int retval = _param_request_pub.publish(request_change);
+			if(retval){
 				return PX4_OK;
 			}
 		}
@@ -163,15 +160,10 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 		{
 			request_change.type = parameter_request_s::TYPE_FLOAT64;
 			memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
-			_param_request_pub.publish(request_change);
-
-			double get_value;
-			(void) getParameterValue(param, &get_value);
-			double epsilon = 0.0000001;
-			if(fabs(get_value - *(double*) val) < epsilon){
+			int retval = _param_request_pub.publish(request_change);
+			if(retval){
 				return PX4_OK;
-			}
-		}
+			}		}
 		default:
 			break;
 
