@@ -1623,6 +1623,8 @@ void ParameterServer::Run()
 
 			if (request.message_type == parameter_request_s::MESSAGE_TYPE_PARAM_REQUEST_READ) {
 
+				PX4_INFO("^^^ Got a parameter read request for %s ^^^", request.name);
+
 				parameter_value_s parameter_value{};
 				parameter_value.param_count = countUsed();
 
@@ -1640,6 +1642,8 @@ void ParameterServer::Run()
 								parameter_value.type = parameter_request_s::TYPE_INT32;
 								parameter_value.int64_value = v;
 								parameter_value.timestamp = hrt_absolute_time();
+								PX4_INFO("^^^ Publishing int value %d ^^^", v);
+
 								_param_response_pub.publish(parameter_value);
 							}
 						}
@@ -1652,6 +1656,8 @@ void ParameterServer::Run()
 								parameter_value.type = parameter_request_s::TYPE_FLOAT32;
 								parameter_value.float64_value = v;
 								parameter_value.timestamp = hrt_absolute_time();
+								PX4_INFO("^^^ Publishing float value %f ^^^", (double) v);
+
 								_param_response_pub.publish(parameter_value);
 							}
 						}
