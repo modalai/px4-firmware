@@ -79,6 +79,21 @@ int param_set(param_t param, const void *val)
 	return -1;
 }
 
+void param_set_used(param_t param)
+{
+	if (parameter_client) {
+		const char* param_name = parameter_client->getParameterName(param);
+		if (param_name != nullptr) {
+			PX4_ERR("param_set_used called for parameter %s", param_name);
+		} else {
+
+			PX4_ERR("param_set_used called for unknown parameter");
+		}
+	} else {
+		PX4_ERR("param_set_used called before initialization");
+	}
+}
+
 int param_set_no_notification(param_t param, const void *val)
 {
 	if (parameter_client) {
