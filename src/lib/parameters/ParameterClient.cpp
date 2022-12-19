@@ -130,7 +130,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 			{
 				memcpy(val, &value.int64_value, sizeof(value.int64_value));
 				PX4_INFO("^^^ Got int64 value %d ^^^", value.int64_value);
-				return PX4_OK;	(void) orb_unsubscribe(_param_value_sub);
+				return PX4_OK;
 
 			}
 
