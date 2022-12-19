@@ -83,6 +83,8 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 
 int ParameterClient::getParameterValue(param_t param, void *val)
 {
+	return PX4_ERROR;
+
 	LockGuard lg{lock};
 
 	const char* param_name = getParameterName(param);

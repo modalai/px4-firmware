@@ -46,7 +46,8 @@
 
 using namespace time_literals;
 
-#define CRSF_BAUDRATE 420000
+// #define CRSF_BAUDRATE 420000
+#define CRSF_BAUDRATE 250000
 
 #ifdef __PX4_QURT
 #include <drivers/device/qurt/uart.h>
@@ -84,11 +85,12 @@ int CrsfRc::task_spawn(int argc, char *argv[])
 			break;
 
 		case '?':
+			PX4_ERR("unrecognized flag ?");
 			error_flag = true;
 			break;
 
 		default:
-			PX4_WARN("unrecognized flag");
+			PX4_ERR("unrecognized flag %c", (char) ch);
 			error_flag = true;
 			break;
 		}

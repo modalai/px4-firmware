@@ -61,19 +61,18 @@ param_t param_find(const char *name)
 	return PARAM_INVALID;
 }
 
+param_t param_find_no_notification(const char *name)
+{
+	PX4_ERR("param_find_no_notification called for parameter %s", name);
+
+	return param_find(name);
+}
+
+
 int param_get(param_t param, void *val)
 {
 	if (parameter_client) {
 		return parameter_client->getParameterValue(param, val);
-	}
-
-	return -1;
-}
-
-int param_set(param_t param, const void *val)
-{
-	if (parameter_client) {
-		return parameter_client->setParameter(param, val, true);
 	}
 
 	return -1;
@@ -94,11 +93,36 @@ void param_set_used(param_t param)
 	}
 }
 
+
+int param_set(param_t param, const void *val)
+{
+	if (parameter_client) {
+		return parameter_client->setParameter(param, val, true);
+	}
+
+	return -1;
+}
+
 int param_set_no_notification(param_t param, const void *val)
 {
 	if (parameter_client) {
 		return parameter_client->setParameter(param, val, false);
 	}
 
+	return -1;
+}
+
+int param_reset_no_notification(param_t param)
+{
+	if (parameter_client) {
+		const char* param_name = parameter_client->getParameterName(param);
+		if (param_name != nullptr) {
+			PX4_ERR("param_reset_no_notification called for parameter %s", param_name);
+		} else {
+			PX4_ERR("param_reset_no_notification called for unknown parameter");
+		}
+	} else {
+		PX4_ERR("param_reset_no_notification called before initialization");
+	}
 	return -1;
 }
