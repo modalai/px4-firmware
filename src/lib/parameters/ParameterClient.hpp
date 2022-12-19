@@ -63,7 +63,7 @@ public:
 	 * @param name		The canonical name of the parameter being looked up.
 	 * @return		A handle to the parameter, or PARAM_INVALID if the parameter does not exist.
 	 */
-	param_t findParameter(const char *name, bool notification = true);
+	param_t findParameter(const char *name);
 
 	/**
 	 * Obtain the name of a parameter.

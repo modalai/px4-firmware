@@ -52,7 +52,7 @@ param_type_t ParameterClient::getParameterType(param_t param)
 	return handle_in_range(param) ? px4::parameters_type[param] : PARAM_TYPE_UNKNOWN;
 }
 
-param_t ParameterClient::findParameter(const char *name, bool notification)
+param_t ParameterClient::findParameter(const char *name)
 {
 	param_t middle;
 	param_t front = 0;
@@ -163,10 +163,10 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 			int retval = _param_request_pub.publish(request_change);
 			if(retval){
 				return PX4_OK;
-			}		}
+			}
+		}
 		default:
 			break;
-
 	}
 
 	return PX4_ERROR;

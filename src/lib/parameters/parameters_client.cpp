@@ -55,7 +55,7 @@ void param_notify_changes()
 param_t param_find(const char *name)
 {
 	if (parameter_client) {
-		return parameter_client->findParameter(name, true);
+		return parameter_client->findParameter(name);
 	}
 
 	return PARAM_INVALID;
