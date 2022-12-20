@@ -81,6 +81,7 @@ msp_name_t construct_display_message(const struct vehicle_status_s& vehicle_stat
 		case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
 			display.set(MessageDisplayType::FLIGHT_MODE, "ALTCTL");
 			break;
+		case vehicle_status_s::NAVIGATION_STATE_LOITERCTL:
 		case vehicle_status_s::NAVIGATION_STATE_POSCTL:
 			display.set(MessageDisplayType::FLIGHT_MODE, "POSCTL");
 			break;

@@ -55,6 +55,8 @@
 #include <uORB/topics/home_position.h>
 #include <lib/weather_vane/WeatherVane.hpp>
 
+
+
 struct ekf_reset_counters_s {
 	uint8_t xy;
 	uint8_t vxy;

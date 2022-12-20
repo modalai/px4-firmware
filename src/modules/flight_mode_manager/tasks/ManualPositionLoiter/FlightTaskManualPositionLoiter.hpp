@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,58 +32,43 @@
  ****************************************************************************/
 
 /**
- * @file px4_custom_mode.h
- * PX4 custom flight modes
+ * @file FlightTaskManualPosition.hpp
+ *
+ * Flight task for manual position controlled mode.
  *
  */
 
-#ifndef PX4_CUSTOM_MODE_H_
-#define PX4_CUSTOM_MODE_H_
+#pragma once
 
-#include <stdint.h>
+#include <lib/collision_prevention/CollisionPrevention.hpp>
+#include "FlightTaskManualPosition.hpp"
+#include <uORB/Publication.hpp>
+#include <uORB/topics/vehicle_attitude_setpoint.h>
 
-enum PX4_CUSTOM_MAIN_MODE {
-	PX4_CUSTOM_MAIN_MODE_MANUAL = 1,
-	PX4_CUSTOM_MAIN_MODE_ALTCTL,
-	PX4_CUSTOM_MAIN_MODE_POSCTL,
-	PX4_CUSTOM_MAIN_MODE_AUTO,
-	PX4_CUSTOM_MAIN_MODE_ACRO,
-	PX4_CUSTOM_MAIN_MODE_OFFBOARD,
-	PX4_CUSTOM_MAIN_MODE_STABILIZED,
-	PX4_CUSTOM_MAIN_MODE_RATTITUDE,
-	PX4_CUSTOM_MAIN_MODE_LOITER,
-	PX4_CUSTOM_MAIN_MODE_SIMPLE /* unused, but reserved for future use */
+class FlightTaskManualPositionLoiter : public FlightTaskManualPosition
+{
+public:
+	FlightTaskManualPositionLoiter() = default;
+
+	virtual ~FlightTaskManualPositionLoiter() = default;
+	bool activate(const vehicle_local_position_setpoint_s &last_setpoint) override;
+	bool updateInitialize() override;
+	bool update() override;
+
+protected:
+	void _updateSetpoints() override;
+	void _updateXYlock(); /**< applies position lock based on stick and velocity */
+
+	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskManualAltitude,
+					(ParamFloat<px4::params::MPC_VEL_MANUAL>) _param_mpc_vel_manual,
+					(ParamFloat<px4::params::MPC_LAND_VEL_XY>) _param_mpc_land_vel_xy,
+					(ParamFloat<px4::params::MPC_ACC_HOR_MAX>) _param_mpc_acc_hor_max,
+					(ParamFloat<px4::params::MPC_TILTMAX_AIR>) _param_mpc_man_tilt_max
+				       )
+private:
+	float _computeVelXYGroundDist();
+	float _velocity_scale{0.0f}; //scales the stick input to velocity
+	uint8_t _reset_counter{0}; /**< counter for estimator resets in xy-direction */
+	uORB::Publication<vehicle_attitude_setpoint_s>	_vehicle_attitude_setpoint_pub;
+
 };
-
-enum PX4_CUSTOM_SUB_MODE_AUTO {
-	PX4_CUSTOM_SUB_MODE_AUTO_READY = 1,
-	PX4_CUSTOM_SUB_MODE_AUTO_TAKEOFF,
-	PX4_CUSTOM_SUB_MODE_AUTO_LOITER,
-	PX4_CUSTOM_SUB_MODE_AUTO_MISSION,
-	PX4_CUSTOM_SUB_MODE_AUTO_RTL,
-	PX4_CUSTOM_SUB_MODE_AUTO_LAND,
-	PX4_CUSTOM_SUB_MODE_AUTO_RESERVED_DO_NOT_USE, // was PX4_CUSTOM_SUB_MODE_AUTO_RTGS, deleted 2020-03-05
-	PX4_CUSTOM_SUB_MODE_AUTO_FOLLOW_TARGET,
-	PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND
-};
-
-enum PX4_CUSTOM_SUB_MODE_POSCTL {
-	PX4_CUSTOM_SUB_MODE_POSCTL_POSCTL = 0,
-	PX4_CUSTOM_SUB_MODE_POSCTL_ORBIT
-};
-
-union px4_custom_mode {
-	struct {
-		uint16_t reserved;
-		uint8_t main_mode;
-		uint8_t sub_mode;
-	};
-	uint32_t data;
-	float data_float;
-	struct {
-		uint16_t reserved_hl;
-		uint16_t custom_mode_hl;
-	};
-};
-
-#endif /* PX4_CUSTOM_MODE_H_ */

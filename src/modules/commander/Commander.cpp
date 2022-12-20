@@ -544,7 +544,13 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					reset_posvel_validity();
 					main_ret = main_state_transition(_status, commander_state_s::MAIN_STATE_POSCTL, _status_flags, &_internal_state);
 
-				} else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_AUTO) {
+				}
+				else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_LOITER) {
+					/* POSCTL */
+					reset_posvel_validity();
+					main_ret = main_state_transition(_status, commander_state_s::MAIN_STATE_LOITER, _status_flags, &_internal_state);
+				}
+				else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_AUTO) {
 					/* AUTO */
 					if (custom_sub_mode > 0) {
 						reset_posvel_validity();
@@ -702,7 +708,8 @@ Commander::handle_command(const vehicle_command_s &cmd)
 
 						if (cmd_arms && throttle_above_center &&
 						    (_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL ||
-						     _status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL)) {
+						     _status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL ||
+					         _status.nav_state == vehicle_status_s::NAVIGATION_STATE_LOITERCTL)) {
 							mavlink_log_critical(&_mavlink_log_pub, "Arming denied! Throttle not centered");
 							cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_DENIED;
 							break;
@@ -2204,6 +2211,7 @@ Commander::run()
 					    && (_internal_state.main_state != commander_state_s::MAIN_STATE_STAB)
 					    && (_internal_state.main_state != commander_state_s::MAIN_STATE_ALTCTL)
 					    && (_internal_state.main_state != commander_state_s::MAIN_STATE_POSCTL)
+					    && (_internal_state.main_state != commander_state_s::MAIN_STATE_LOITER)
 					    && (_internal_state.main_state != commander_state_s::MAIN_STATE_RATTITUDE)
 					   ) {
 						print_reject_arm("Not arming: Switch to a manual mode first");
@@ -2259,6 +2267,7 @@ Commander::run()
 					    _status.nav_state == vehicle_status_s::NAVIGATION_STATE_STAB ||
 					    _status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL ||
 					    _status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL ||
+						_status.nav_state == vehicle_status_s::NAVIGATION_STATE_LOITERCTL ||
 					    _status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD ||
 					    _status.nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT) {
 
@@ -3114,6 +3123,18 @@ Commander::set_main_state_rc()
 					}
 				}
 
+				if (new_mode == commander_state_s::MAIN_STATE_LOITER) {
+
+					/* fall back to altitude control */
+					new_mode = commander_state_s::MAIN_STATE_ALTCTL;
+					print_reject_mode("POSITION CONTROL");
+					res = main_state_transition(_status, new_mode, _status_flags, &_internal_state);
+
+					if (res != TRANSITION_DENIED) {
+						break;
+					}
+				}
+
 				if (new_mode == commander_state_s::MAIN_STATE_POSCTL) {
 
 					/* fall back to altitude control */
@@ -3405,6 +3426,7 @@ Commander::update_control_mode()
 		control_mode.flag_control_climb_rate_enabled = true;
 		break;
 
+	case vehicle_status_s::NAVIGATION_STATE_LOITERCTL:
 	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
 		control_mode.flag_control_manual_enabled = true;
 		control_mode.flag_control_rates_enabled = true;
@@ -4103,7 +4125,7 @@ void Commander::UpdateEstimateValidity()
 
 	// relax local position eph threshold in operator controlled position mode
 	// TODO: update to vehicle_control_mode (when available) - flag_control_manual_enabled && flag_control_position_enabled
-	if (_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL) {
+	if (_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL || _status.nav_state == vehicle_status_s::NAVIGATION_STATE_LOITERCTL) {
 		// Set the allowable position uncertainty based on combination of flight and estimator state
 		// When we are in a operator demanded position control mode and are solely reliant on optical flow, do not check position error because it will gradually increase throughout flight and the operator will compensate for the drift
 		const bool reliant_on_opt_flow = ((status.control_mode_flags & (1 << estimator_status_s::CS_OPT_FLOW))

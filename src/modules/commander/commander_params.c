@@ -388,6 +388,7 @@ PARAM_DEFINE_INT32(COM_OBL_RC_ACT, 0);
  * @value 8 Stabilized
  * @value 9 Rattitude
  * @value 12 Follow Me
+ * @value 13 LOITER
  * @group Commander
  */
 PARAM_DEFINE_INT32(COM_FLTMODE1, -1);

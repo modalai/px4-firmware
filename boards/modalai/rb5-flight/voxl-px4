@@ -10,7 +10,7 @@ else
 fi
 
 DAEMON=" "
-G="HOLYBRO"
+G="MATEK"
 R="SPEKTRUM"
 
 while getopts "dmrioh" flag

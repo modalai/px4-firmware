@@ -313,6 +313,11 @@ void FlightModeManager::start_flight_task()
 			break;
 
 		case 4:
+
+		// case 5:
+		// 	error = switchTask(FlightTaskIndex::ManualPositionLoiter);
+		// 	break;
+
 		default:
 			error = switchTask(FlightTaskIndex::ManualAcceleration);
 			break;
@@ -331,6 +336,26 @@ void FlightModeManager::start_flight_task()
 			task_failure = false;
 		}
 	}
+
+	if (_vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_LOITERCTL || task_failure) {
+		should_disable_task = false;
+		FlightTaskError error = FlightTaskError::NoError;
+		error = switchTask(FlightTaskIndex::ManualPositionLoiter);
+
+		if (error != FlightTaskError::NoError) {
+			if (prev_failure_count == 0) {
+				PX4_WARN("CUSTOM Loiter-Ctrl activation failed with error: %s", errorToString(error));
+			}
+
+			task_failure = true;
+			_task_failure_count++;
+
+		} else {
+			check_failure(task_failure, vehicle_status_s::NAVIGATION_STATE_LOITERCTL);
+			task_failure = false;
+		}
+	}
+
 
 	// manual altitude control
 	if (_vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL || task_failure) {

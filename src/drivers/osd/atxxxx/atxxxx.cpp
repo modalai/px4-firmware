@@ -383,6 +383,7 @@ OSDatxxxx::get_flight_mode(uint8_t nav_state)
 		flight_mode = "ALTITUDE";
 		break;
 
+	case vehicle_status_s::NAVIGATION_STATE_LOITERCTL:
 	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
 		flight_mode = "POSITION";
 		break;

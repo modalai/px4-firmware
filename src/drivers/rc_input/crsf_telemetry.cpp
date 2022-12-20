@@ -141,6 +141,7 @@ bool CRSFTelemetry::send_flight_mode()
 		flight_mode = "Altitude";
 		break;
 
+	case vehicle_status_s::NAVIGATION_STATE_LOITERCTL:
 	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
 		flight_mode = "Position";
 		break;
