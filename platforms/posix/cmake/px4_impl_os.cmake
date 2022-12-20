@@ -220,6 +220,14 @@ function(px4_os_add_flags)
 
 	include_directories(platforms/posix/include)
 
+	# Need to make sure that the Linux processor on VOXL2
+	# knows about all parameters since it is acting as the
+	# parameter server for other processors that may define
+	# parameters that it doesn't normally know about.
+	if (${PX4_BOARD_NAME} MATCHES "MODALAI_VOXL2")
+		set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
+	endif()
+
 	if ("${PX4_BOARD}" MATCHES "sitl")
 
 		if(UNIX AND APPLE)
