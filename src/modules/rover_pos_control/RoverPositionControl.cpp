@@ -340,8 +340,11 @@ bool RoverPositionControl::control_vio(
 		}
 
 		float dist_target = get_distance_to_next_waypoint_vio(
-				(double) current_position(0), (double) current_position(1),
-				(double) _curr_wp(0), (double) _curr_wp(1), 0, 0);
+				(double) current_position(0),
+				(double) current_position(1),
+				(double) _curr_wp(0),
+				(double) _curr_wp(1),
+				0, 0);
 
 		double t_bearing = (double)get_bearing_to_next_waypoint_vio(
 				(double) current_position(0),
@@ -361,6 +364,14 @@ bool RoverPositionControl::control_vio(
 
 			if (protect_rollover(tracking_dist))
 				break;
+
+			PX4_INFO("NED --> WP request: [%f,%f]\tcur(x,y)[%f,%f]  distance: %f",
+					(double) current_position(0),
+					(double) current_position(1),
+					(double) _curr_wp(0),
+					(double)_curr_wp(1),
+					(double)dist_target);
+
 
 			if (dist_target < _param_gnd_nav_rad.get()) {
 				PX4_INFO("** dist_target too small or out of range %f %f",
@@ -1059,7 +1070,7 @@ void RoverPositionControl::run() {
 
 	PX4_INFO("RoverPositionControl::run()");
 
-	_param_gnd_ver.set(1.17);
+	_param_gnd_ver.set(1.18);
 	_param_gnd_ver.commit_no_notification();
 
 
@@ -1310,8 +1321,8 @@ void RoverPositionControl::run() {
 
 					double turn_request = wrap_180(pos_mode_target_bearing - b_yaw);
 
-					PX4_ERR("RoverPositionControl::YAW: %f  [%f]",
-							pos_mode_target_bearing, turn_request);
+//					PX4_ERR("RoverPositionControl::YAW: %f  [%f]",
+//							pos_mode_target_bearing, turn_request);
 
 					//				double turn_request_delta = fabs(turn_request);
 	//				int yaw_direction = sign(turn_request);
@@ -1458,9 +1469,9 @@ void RoverPositionControl::run() {
 							{
 								float kp_yawv = _param_gnd_yawrate_p.get();
 								float target_yaw_speed = _param_gndspeed_trim_yaw.get();
-								if (fabs(turn_request) < 0.43) // 25deg
+								if (fabs(turn_request) < 0.5) // 25deg
 								{
-									target_yaw_speed = 0.08;   // 5 deg/s
+									target_yaw_speed = 0.05;   // 5 deg/s
 								}
 
 								if (fabs(input_yaw_rate) < target_yaw_speed)
@@ -1471,7 +1482,7 @@ void RoverPositionControl::run() {
 								}
 								else
 								{
-									pos_mode_last_yaw -= (0.5f*turn_request_direction*kp_yawv);
+									pos_mode_last_yaw -= (turn_request_direction*kp_yawv);
 								}
 
 							}
