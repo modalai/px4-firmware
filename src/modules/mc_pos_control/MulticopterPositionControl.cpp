@@ -247,6 +247,9 @@ void MulticopterPositionControl::Run()
 		if (_trajectory_setpoint_sub.update(&setpoint)) {
 			_control.setInputSetpoint(setpoint);
 
+			PX4_INFO("task setpoint z: %f\n", (double)setpoint.z);
+
+
 			// check if all local states are valid and map accordingly
 			set_vehicle_states(setpoint.vz);
 			_control.setState(_states);
@@ -289,7 +292,6 @@ void MulticopterPositionControl::Run()
 			vehicle_local_position_setpoint_s local_pos_sp{};
 			local_pos_sp.timestamp = time_stamp_now;
 			_control.getLocalPositionSetpoint(local_pos_sp);
-			_local_pos_sp_pub.publish(local_pos_sp);
 
 			// Publish attitude setpoint output
 			// It's important to publish also when disarmed otheriwse the attitude setpoint stays uninitialized.
@@ -305,17 +307,22 @@ void MulticopterPositionControl::Run()
 			// so if we're in our custom mode, we need to know that there is no LPE OR GPE? not sure if we should actually be checking both
 			// here but we are anyways
 			// so how do we check the lp validity from here?
+			static float last_setpoint_z = 0.0;
 			if((_commander_state.main_state == commander_state_s::MAIN_STATE_LOITER) && !_vehicle_status_flags.condition_local_position_valid && !_vehicle_status_flags.condition_global_position_valid){
 				PX4_INFO("IN CUSTOM MODE, MISSING LPE AND GPE\n");
+				static float last_setpoint_z = setpoint.z;
 				// in this case, we set the attitude setpoint ourselves and zero that guy out
 				// this should be a zero rotation quaternion by default?
 				const Quatf q_sp{};
 				q_sp.copyTo(attitude_setpoint.q_d);
 				// no need to set the individual eulers, they should be disregarded
+				local_pos_sp.z = setpoint.z;
+				// now it seems that the velocity setpoint goes crazy here, so lets just set it to 0?
+				local_pos_sp.vz = 0;
+				PX4_INFO("local pose setpoint z: %f\n", (double)local_pos_sp.z);
+
 			}
-			else {
-				_control.getAttitudeSetpoint(attitude_setpoint);
-			}
+			_local_pos_sp_pub.publish(local_pos_sp);
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
 		} else {

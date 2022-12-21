@@ -241,6 +241,8 @@ void PositionControl::getLocalPositionSetpoint(vehicle_local_position_setpoint_s
 	local_position_setpoint.vz = _vel_sp(2);
 	_acc_sp.copyTo(local_position_setpoint.acceleration);
 	_thr_sp.copyTo(local_position_setpoint.thrust);
+
+	PX4_INFO("LPE: %f, %f, %f, %f, %f, %f\n", (double)local_position_setpoint.x,(double) local_position_setpoint.y,(double) local_position_setpoint.z, (double)local_position_setpoint.vx, (double)local_position_setpoint.vy, (double)local_position_setpoint.vz);
 }
 
 void PositionControl::getAttitudeSetpoint(vehicle_attitude_setpoint_s &attitude_setpoint) const

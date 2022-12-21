@@ -48,6 +48,7 @@ FlightTaskManualAltitude::FlightTaskManualAltitude() :
 
 bool FlightTaskManualAltitude::updateInitialize()
 {
+
 	bool ret = FlightTask::updateInitialize();
 
 	_sticks.checkAndSetStickInputs();
@@ -55,6 +56,8 @@ bool FlightTaskManualAltitude::updateInitialize()
 	if (_sticks_data_required) {
 		ret = ret && _sticks.isAvailable();
 	}
+
+	// PX4_INFO("UPDATE INIT FLIGHT TASK ALT: %d\n", ret && PX4_ISFINITE(_position(2)) && PX4_ISFINITE(_velocity(2)) && PX4_ISFINITE(_yaw));
 
 	// in addition to manual require valid position and velocity in D-direction and valid yaw
 	return ret && PX4_ISFINITE(_position(2)) && PX4_ISFINITE(_velocity(2)) && PX4_ISFINITE(_yaw);
@@ -74,6 +77,9 @@ bool FlightTaskManualAltitude::activate(const vehicle_local_position_setpoint_s 
 
 	_max_speed_up = _constraints.speed_up;
 	_max_speed_down = _constraints.speed_down;
+
+	// PX4_INFO("ACTIVATE FLIGHT TASK ALT: %d\n", ret);
+
 
 	return ret;
 }

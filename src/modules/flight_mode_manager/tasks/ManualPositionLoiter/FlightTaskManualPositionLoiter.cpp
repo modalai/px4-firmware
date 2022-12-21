@@ -45,15 +45,20 @@ bool FlightTaskManualPositionLoiter::updateInitialize()
 {
 	bool ret = FlightTaskManualAltitude::updateInitialize();
 
+	// PX4_INFO("UPDATE INIT FLIGHT TASK LOITER: %d\n", ret);
+
 	// require valid position / velocity in xy
-	return ret && PX4_ISFINITE(_position(0))
-	       && PX4_ISFINITE(_position(1))
-	       && PX4_ISFINITE(_velocity(0))
-	       && PX4_ISFINITE(_velocity(1));
+	// require nothing i guess
+	return ret;
+	// && PX4_ISFINITE(_position(0))
+	    //    && PX4_ISFINITE(_position(1))
+	    //    && PX4_ISFINITE(_velocity(0))
+	    //    && PX4_ISFINITE(_velocity(1));
 }
 
 bool FlightTaskManualPositionLoiter::activate(const vehicle_local_position_setpoint_s &last_setpoint)
 {
+
 	// all requirements from altitude-mode still have to hold
 	bool ret = FlightTaskManualAltitude::activate(last_setpoint);
 
@@ -66,6 +71,8 @@ bool FlightTaskManualPositionLoiter::activate(const vehicle_local_position_setpo
 	_position_setpoint(1) = _position(1);
 	_velocity_setpoint(0) = _velocity_setpoint(1) = 0.0f;
 	_velocity_scale = _constraints.speed_xy;
+
+	// PX4_INFO("ACTIVATE FLIGHT TASK LOITER: %d\n", ret);
 
 	// for position-controlled mode, we need a valid position and velocity state
 	// in NE-direction
@@ -106,9 +113,13 @@ void FlightTaskManualPositionLoiter::_updateXYlock()
 void FlightTaskManualPositionLoiter::_updateSetpoints()
 {
 	FlightTaskManualAltitude::_updateSetpoints(); // needed to get yaw and setpoints in z-direction
+
 	_acceleration_setpoint.setNaN(); // don't use the horizontal setpoints from FlightTaskAltitude
 
 	_updateXYlock(); // check for position lock
+	// PX4_INFO("SETPOINT UPDATE, position: %f\n", (double)_position_setpoint(2));
+	PX4_INFO("LPS: %f, %f, %f, %f, %f, %f\n", (double)_position_setpoint(0),(double) _position_setpoint(1),(double) _position_setpoint(2), (double)_velocity_setpoint(0),(double) _velocity_setpoint(1),(double) _velocity_setpoint(2));
+
 }
 
 bool FlightTaskManualPositionLoiter::update()

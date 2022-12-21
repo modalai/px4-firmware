@@ -558,6 +558,9 @@ void FlightModeManager::generateTrajectorySetpoint(const float dt,
 		_current_task.task->reActivate();
 	}
 
+	// PX4_INFO("FMM: task setpoint z: %f\n", (double)setpoint.z);
+
+
 
 	setpoint.timestamp = hrt_absolute_time();
 	_trajectory_setpoint_pub.publish(setpoint);
