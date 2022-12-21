@@ -152,6 +152,13 @@ function(px4_os_add_flags)
 	set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
 	set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS)
 
+	# Need to make sure that the DSP processor on VOXL2
+	# knows about all parameters since some modules need parameters
+	# from other modules that are not running on the DSP.
+	if (${PX4_BOARD_NAME} MATCHES "MODALAI_VOXL2")
+		set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
+	endif()
+
 endfunction()
 
 #=============================================================================
