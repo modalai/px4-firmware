@@ -128,7 +128,8 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 			case parameter_request_s::TYPE_INT32:
 			case parameter_request_s::TYPE_INT64:
 			{
-				memcpy(val, &value.int64_value, sizeof(value.int64_value));
+				// memcpy(val, &value.int64_value, sizeof(value.int64_value));
+				memcpy(val, &value.int64_value, 4);
 				PX4_INFO("^^^ Got int64 value %d ^^^", value.int64_value);
 				return PX4_OK;
 
@@ -136,7 +137,8 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 
 			case parameter_request_s::TYPE_FLOAT32:
 			case parameter_request_s::TYPE_FLOAT64: {
-				memcpy(val, &value.float64_value, sizeof(value.float64_value));
+				// memcpy(val, &value.float64_value, sizeof(value.float64_value));
+				memcpy(val, &value.float64_value, 4);
 				PX4_INFO("^^^ Got float64 value %d ^^^", value.float64_value);
 				return PX4_OK;
 
@@ -174,7 +176,8 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 		case PARAM_TYPE_INT32:
 		{
 			request_change.type = parameter_request_s::TYPE_INT64;
-			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
+			// memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
+			memcpy(&request_change.int64_value, val, 4);
 			int retval = _param_request_pub.publish(request_change);
 			if(retval){
 				return PX4_OK;
@@ -183,7 +186,8 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 		case PARAM_TYPE_FLOAT:
 		{
 			request_change.type = parameter_request_s::TYPE_FLOAT64;
-			memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
+			// memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
+			memcpy(&request_change.float64_value, val, 4);
 			int retval = _param_request_pub.publish(request_change);
 			if(retval){
 				return PX4_OK;
