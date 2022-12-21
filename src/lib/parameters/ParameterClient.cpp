@@ -58,14 +58,14 @@ param_t ParameterClient::findParameter(const char *name, bool notification)
 	param_t front = 0;
 	param_t last = param_info_count;
 
-	PX4_INFO("Looking for parameter %s", name);
+	// PX4_INFO("Looking for parameter %s", name);
 
 	//perform a binary search of the known parameters
 	while (front <= last) {
 		middle = front + (last - front) / 2;
 		int ret = strcmp(name, getParameterName(middle));
 		if (ret == 0) {
-			PX4_INFO("Found parameter %s", name);
+			// PX4_INFO("Found parameter %s", name);
 			return middle;
 
 		} else if (middle == front) {
@@ -105,7 +105,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 		return PX4_ERROR;
 	}
 
-	PX4_INFO("^^^ Getting parameter %s ^^^", param_name);
+	// PX4_INFO("^^^ Getting parameter %s ^^^", param_name);
 
 	parameter_request_s request{};
 	strncpy(request.name, param_name, sizeof(request.name));
@@ -130,7 +130,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 			{
 				// memcpy(val, &value.int64_value, sizeof(value.int64_value));
 				memcpy(val, &value.int64_value, 4);
-				PX4_INFO("^^^ Got int64 value %d ^^^", value.int64_value);
+				// PX4_INFO("^^^ Got int64 value %d ^^^", value.int64_value);
 				return PX4_OK;
 
 			}
@@ -139,7 +139,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 			case parameter_request_s::TYPE_FLOAT64: {
 				// memcpy(val, &value.float64_value, sizeof(value.float64_value));
 				memcpy(val, &value.float64_value, 4);
-				PX4_INFO("^^^ Got float64 value %d ^^^", value.float64_value);
+				// PX4_INFO("^^^ Got float64 value %d ^^^", value.float64_value);
 				return PX4_OK;
 
 			}
