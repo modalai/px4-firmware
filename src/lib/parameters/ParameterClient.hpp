@@ -104,6 +104,14 @@ public:
 	 */
 	int setParameter(param_t param, const void *val, bool notify_changes);
 
+	/**
+	 * Determine the size of a parameter.
+	 *
+	 * @param param		A handle returned by param_find or passed by param_foreach.
+	 * @return		The size of the parameter's value.
+	 */
+	size_t getParameterSize(param_t param);
+
 private:
 	static constexpr uint16_t param_info_count = sizeof(px4::parameters) / sizeof(param_info_s);
 

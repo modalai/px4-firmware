@@ -52,6 +52,22 @@ param_type_t ParameterClient::getParameterType(param_t param)
 	return handle_in_range(param) ? px4::parameters_type[param] : PARAM_TYPE_UNKNOWN;
 }
 
+size_t ParameterClient::getParameterSize(param_t param)
+{
+	if (handle_in_range(param)) {
+		switch (getParameterType(param)) {
+		case PARAM_TYPE_INT32:
+		case PARAM_TYPE_FLOAT:
+			return 4;
+
+		default:
+			return 0;
+		}
+	}
+
+	return 0;
+}
+
 param_t ParameterClient::findParameter(const char *name, bool notification)
 {
 	param_t middle;
@@ -105,7 +121,7 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 		return PX4_ERROR;
 	}
 
-	PX4_INFO("^^^ Getting parameter %s ^^^", param_name);
+	//PX4_INFO("^^^ Getting parameter %s ^^^", param_name);
 
 	parameter_request_s request{};
 	strncpy(request.name, param_name, sizeof(request.name));
@@ -128,16 +144,16 @@ int ParameterClient::getParameterValue(param_t param, void *val)
 			case parameter_request_s::TYPE_INT32:
 			case parameter_request_s::TYPE_INT64:
 			{
-				memcpy(val, &value.int64_value, sizeof(value.int64_value));
-				PX4_INFO("^^^ Got int64 value %d ^^^", value.int64_value);
+				memcpy(val, &value.int64_value, getParameterSize(param));
+				//PX4_INFO("^^^ Got int64 value %d ^^^", value.int64_value);
 				return PX4_OK;
 
 			}
 
 			case parameter_request_s::TYPE_FLOAT32:
 			case parameter_request_s::TYPE_FLOAT64: {
-				memcpy(val, &value.float64_value, sizeof(value.float64_value));
-				PX4_INFO("^^^ Got float64 value %d ^^^", value.float64_value);
+				memcpy(val, &value.float64_value, getParameterSize(param));
+				//PX4_INFO("^^^ Got float64 value %d ^^^", value.float64_value);
 				return PX4_OK;
 
 			}
@@ -174,7 +190,7 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 		case PARAM_TYPE_INT32:
 		{
 			request_change.type = parameter_request_s::TYPE_INT64;
-			memcpy(&request_change.int64_value, val, sizeof(request_change.int64_value));
+			memcpy(&request_change.int64_value, val, getParameterSize(param));
 			int retval = _param_request_pub.publish(request_change);
 			if(retval){
 				return PX4_OK;
@@ -183,7 +199,7 @@ int ParameterClient::setParameter(param_t param, const void *val, bool notify_ch
 		case PARAM_TYPE_FLOAT:
 		{
 			request_change.type = parameter_request_s::TYPE_FLOAT64;
-			memcpy(&request_change.float64_value, val, sizeof(request_change.float64_value));
+			memcpy(&request_change.float64_value, val, getParameterSize(param));
 			int retval = _param_request_pub.publish(request_change);
 			if(retval){
 				return PX4_OK;
