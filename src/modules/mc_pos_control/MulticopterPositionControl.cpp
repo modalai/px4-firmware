@@ -156,6 +156,9 @@ void MulticopterPositionControl::poll_subscriptions()
 			}
 		}
 	}
+
+	_commander_state_sub.update(&_commander_state);
+	_vehicle_status_flags_sub.update(&_vehicle_status_flags);
 }
 
 void MulticopterPositionControl::set_vehicle_states(const float &vel_sp_z)
@@ -293,9 +296,26 @@ void MulticopterPositionControl::Run()
 			// Not publishing when not running a flight task
 			// in stabilized mode attitude setpoints get ignored
 			// in offboard with attitude setpoints they come from MAVLink directly
+
+			// need an extra check here for if we are in out loiter mode without an active lpe
+			// how to do that....
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			attitude_setpoint.timestamp = time_stamp_now;
-			_control.getAttitudeSetpoint(attitude_setpoint);
+
+			// so if we're in our custom mode, we need to know that there is no LPE OR GPE? not sure if we should actually be checking both
+			// here but we are anyways
+			// so how do we check the lp validity from here?
+			if((_commander_state.main_state == commander_state_s::MAIN_STATE_LOITER) && !_vehicle_status_flags.condition_local_position_valid && !_vehicle_status_flags.condition_global_position_valid){
+				PX4_INFO("IN CUSTOM MODE, MISSING LPE AND GPE\n");
+				// in this case, we set the attitude setpoint ourselves and zero that guy out
+				// this should be a zero rotation quaternion by default?
+				const Quatf q_sp{};
+				q_sp.copyTo(attitude_setpoint.q_d);
+				// no need to set the individual eulers, they should be disregarded
+			}
+			else {
+				_control.getAttitudeSetpoint(attitude_setpoint);
+			}
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
 		} else {

@@ -69,6 +69,4 @@ private:
 	float _computeVelXYGroundDist();
 	float _velocity_scale{0.0f}; //scales the stick input to velocity
 	uint8_t _reset_counter{0}; /**< counter for estimator resets in xy-direction */
-	uORB::Publication<vehicle_attitude_setpoint_s>	_vehicle_attitude_setpoint_pub;
-
 };

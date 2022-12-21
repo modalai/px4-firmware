@@ -60,6 +60,8 @@
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
+#include <uORB/topics/commander_state.h>
+#include <uORB/topics/vehicle_status_flags.h>
 
 #include "PositionControl/PositionControl.hpp"
 
@@ -99,6 +101,9 @@ private:
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_constraints_sub{ORB_ID(vehicle_constraints)};
+	uORB::Subscription _commander_state_sub{ORB_ID(commander_state)};
+	uORB::Subscription _vehicle_status_flags_sub{ORB_ID(vehicle_status_flags)};
+
 
 	hrt_abstime	_time_stamp_last_loop{0};		/**< time stamp of last loop iteration */
 
@@ -106,6 +111,10 @@ private:
 
 	vehicle_control_mode_s	_control_mode{};		/**< vehicle control mode */
 	vehicle_local_position_s _local_pos{};			/**< vehicle local position */
+	commander_state_s _commander_state{};
+	vehicle_status_flags_s _vehicle_status_flags{};
+
+
 
 	DEFINE_PARAMETERS(
 		// Position Control
