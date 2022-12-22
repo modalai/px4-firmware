@@ -49,6 +49,11 @@ int32_t qc_esc_create_extended_version_request_packet(uint8_t id, uint8_t *out, 
 	return qc_esc_create_packet(ESC_PACKET_TYPE_VERSION_EXT_REQUEST, &id, 1, out, out_size);
 }
 
+int32_t qc_esc_create_tune_config_request_packet(uint8_t id, uint8_t *out, uint16_t out_size)
+{
+	return qc_esc_create_packet(ESC_PACKET_TYPE_CONFIG_TUNE_REQUEST, &id, 1, out, out_size);
+}
+
 int32_t qc_esc_create_reset_packet(uint8_t id, uint8_t *out, uint16_t out_size)
 {
 	char payload[]  = "RESET0";

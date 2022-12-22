@@ -225,7 +225,7 @@ private:
 	uint32_t    _rx_crc_error_count{0};
 	uint32_t    _rx_packet_count{0};
 
-	static const uint8_t READ_BUF_SIZE = 128;
+	static const uint16_t READ_BUF_SIZE = 256;
 	uint8_t     _read_buf[READ_BUF_SIZE];
 
 	void 			updateLeds(vehicle_control_mode_s mode, led_control_s control);

@@ -379,6 +379,25 @@ int ModalaiEsc::parseResponse(uint8_t *buf, uint8_t len, bool print_feedback)
 				PX4_INFO("\tFirmware   : version %4d, hash %.12s",ver.sw_version,ver.firmware_git_version);
 				PX4_INFO("\tBootloader : version %4d, hash %.12s",ver.bootloader_version,ver.bootloader_git_version);
 			}
+			else if (packet_type == ESC_PACKET_TYPE_TUNE_CONFIG && packet_size == sizeof(QC_ESC_CONFIG_TUNE))
+			{
+				//PX4_INFO("\t Got tune config packet of size %i",packet_size);
+				QC_ESC_CONFIG_TUNE conf;
+				memcpy(&conf, _fb_packet.buffer, packet_size);
+				PX4_INFO("\t");
+				PX4_INFO("\tTune Config: min_rpm          : %i", conf.min_rpm);
+				PX4_INFO("\tTune Config: max_rpm          : %i", conf.max_rpm);
+				PX4_INFO("\tTune Config: kp               : %i", conf.kp);
+        PX4_INFO("\tTune Config: ki               : %i", conf.ki);
+				PX4_INFO("\tTune Config: max_rpm_delta    : %i", conf.max_rpm_delta);
+				PX4_INFO("\tTune Config: max_kpe          : %i", conf.max_kpe);
+				PX4_INFO("\tTune Config: max_kie          : %i", conf.max_kie);
+				PX4_INFO("\tTune Config: vbat_nominal_mv  : %i", conf.vbat_nominal_mv);
+				PX4_INFO("\tTune Config: pwm_vs_rpm_curve : %f %f %f",
+					(double)conf.pwm_vs_rpm_curve_a0, (double)conf.pwm_vs_rpm_curve_a1, (double)conf.pwm_vs_rpm_curve_a2);
+
+				PX4_INFO("\tTune Config: CRC              : 0x%0X", conf.crc);
+			}
 		}
 		else  //parser error
 		{
@@ -600,6 +619,19 @@ int ModalaiEsc::custom_command(int argc, char *argv[])
 			cmd.len = qc_esc_create_extended_version_request_packet(esc_id, cmd.buf, sizeof(cmd.buf));
 			cmd.response = true;
 			cmd.resp_delay_us = 5000;
+			return get_instance()->sendCommandThreadSafe(&cmd);
+
+		} else {
+			print_usage("Invalid ESC ID, use 0-3");
+			return 0;
+		}
+
+	} else if (!strcmp(verb, "config-tune")) {
+		if (esc_id < 4) {
+			PX4_INFO("Request tune config for ESC: %i", esc_id);
+			cmd.len = qc_esc_create_tune_config_request_packet(esc_id, cmd.buf, sizeof(cmd.buf));
+			cmd.response = true;
+			cmd.resp_delay_us = 10000;
 			return get_instance()->sendCommandThreadSafe(&cmd);
 
 		} else {

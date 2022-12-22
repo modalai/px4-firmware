@@ -71,11 +71,11 @@ enum { ESC_PACKET_POS_HEADER1 = 0,
 
 // Definition of the structure that holds the state of the incoming data that is being recived (i.e. incomplete packets)
 typedef struct {
-	uint8_t  len_received; // Number of chars received so far
-	uint8_t  len_expected; // Expected number of chars based on header
+	uint16_t  len_received; // Number of chars received so far
+	uint16_t  len_expected; // Expected number of chars based on header
 	uint8_t   *bp;         // Pointer to the next write position in the buffer
 	uint16_t crc;          // Accumulated CRC value so far
-	uint8_t  buffer[64];   // Buffer to hold incoming data that is being parsed
+	uint8_t  buffer[256];   // Buffer to hold incoming data that is being parsed
 } EscPacket;
 
 
@@ -142,6 +142,95 @@ typedef struct {
 	uint16_t crc;
 }  __attribute__((__packed__)) QC_ESC_FB_RESPONSE_V2;
 
+typedef struct{
+  uint8_t  startdelim;
+  uint8_t  length;
+  uint8_t  type;
+  uint8_t  reserved0;
+  uint8_t  id;         //WARNING: bootloader assumes ID is in this position - do not move the id byte
+  uint8_t  dir;
+  uint32_t reserved1;
+  uint32_t reserved2;
+  uint16_t crc;
+} __attribute__ ((__packed__)) QC_ESC_CONFIG_META;
+
+typedef struct{
+  uint8_t  startdelim;
+  uint8_t  length;
+  uint8_t  type;
+  uint8_t  reserved0;
+
+  uint8_t  id_map[8];
+
+  float    vsense_scale;
+  float    isense_scale;
+  uint32_t isense_zero_mv;
+  uint32_t reserved1;
+  uint16_t reserved2;
+  uint16_t crc;
+} __attribute__ ((__packed__)) QC_ESC_CONFIG_BOARD;
+
+typedef struct{
+  uint8_t  startdelim;
+  uint8_t  length;
+  uint8_t  type;
+  uint8_t  protocol_version;
+  uint32_t input_mode;
+  uint32_t baud_rate;
+  uint32_t char_timeout_ns;
+  uint32_t cmd_timeout_ns;
+  uint32_t reserved0;
+
+  uint16_t reserved1;
+  uint16_t crc;
+} __attribute__ ((__packed__)) QC_ESC_CONFIG_UART;
+
+typedef struct{
+  uint8_t  startdelim;
+  uint8_t  length;
+  uint8_t  type;
+  uint8_t  num_cycles_per_rev;
+
+  uint32_t pwm_frequency;
+  uint32_t min_rpm;
+  uint32_t max_rpm;
+  uint16_t min_pwm;
+  uint16_t max_pwm;
+  uint32_t dt_threshold_ns;
+  uint32_t max_dt_ns;
+  uint32_t min_dt_ns;
+  uint32_t stall_timeout_ns;
+  uint16_t min_num_cross_for_closed_loop;
+  uint8_t  require_reset_if_stalled;
+  uint8_t  brake_to_stop;
+  int32_t  kp;
+  int32_t  ki;
+  int32_t  max_rpm_delta;
+  int32_t  max_kpe;
+  int32_t  max_kie;
+  uint32_t vbat_nominal_mv;
+  uint32_t dt_bootstrap_ns;
+  int32_t  timing_advance;
+  int32_t  sense_advance;
+  int32_t  demag_timing;
+  float    pwm_vs_rpm_curve_a0;
+  float    pwm_vs_rpm_curve_a1;
+  float    pwm_vs_rpm_curve_a2;
+  uint16_t spinup_power;
+  uint16_t latch_power;
+  uint32_t alignment_time_ns;
+  uint32_t spinup_stall_dt_ns;
+  uint32_t spinup_stall_check_ns;
+  uint8_t  tone_freqs[4];
+  uint8_t  tone_times_ms[4];
+  uint8_t  tone_powers[4];
+  uint32_t reserved0;
+  uint32_t reserved1;
+  uint32_t reserved2;
+  uint16_t reserved3;
+  uint16_t crc;
+} __attribute__ ((__packed__)) QC_ESC_CONFIG_TUNE;
+
 
 //-------------------------------------------------------------------------
 //Below are functions for generating packets that would be outgoing to ESCs
@@ -158,6 +247,8 @@ int32_t qc_esc_create_packet(uint8_t type, uint8_t *input_data, uint16_t input_s
 // If an ESC with this id is connected and receives this command, it will reply with it's version information
 int32_t qc_esc_create_version_request_packet(uint8_t id, uint8_t *out, uint16_t out_size);
 int32_t qc_esc_create_extended_version_request_packet(uint8_t id, uint8_t *out, uint16_t out_size);
+
+int32_t qc_esc_create_tune_config_request_packet(uint8_t id, uint8_t *out, uint16_t out_size);
 
 // Create a packet for requesting an ESC with desired id to reset
 // When ESC with the particular id receives this command, and it's not spinning, ESC will reset
