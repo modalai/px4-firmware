@@ -198,10 +198,8 @@ private:
 		(ParamFloat<px4::params::GND_BRAKE_I>) _param_brake_i,
 		(ParamFloat<px4::params::GND_BRAKE_D>) _param_brake_d,
 		(ParamFloat<px4::params::GND_BRAKE_IMAX>) _param_brake_imax,
-		(ParamFloat<px4::params::GND_SET_ANG>) _param_set_angle,
-		(ParamFloat<px4::params::GND_VER>) _param_gnd_ver,
-		(ParamFloat<px4::params::GND_SET_THR>) _param_set_throttle
-
+		(ParamFloat<px4::params::GND_BRK_ANG>) _param_brake_angle,
+		(ParamFloat<px4::params::GND_VER>) _param_gnd_ver
 
 	)
 
@@ -226,6 +224,7 @@ private:
 	bool _anti_rollover_request = false;
 	double current_roll_body;
 	double current_pitch_body;
+	double current_yaw_body;
 	float current_yaw_speed;
 
 	float tracking_dist = 0.0f;

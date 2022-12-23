@@ -123,20 +123,6 @@ PARAM_DEFINE_FLOAT(GND_THR_CRUISE, 0.1f);
  */
 PARAM_DEFINE_FLOAT(GND_THR_MAX, 0.3f);
 
-/**
- * Throttle limit max
- *
- * This is the maximum throttle % that can be used by the controller.
- * For a Traxxas stampede vxl with the ESC set to training, 30 % is enough
- *
- * @unit norm
- * @min -1.0
- * @max 1.0
- * @decimal 2
- * @increment 0.01
- * @group Rover Position Control
- */
-PARAM_DEFINE_FLOAT(GND_SET_THR, 0.0f);
 
 /**
  * Throttle limit min
@@ -151,7 +137,7 @@ PARAM_DEFINE_FLOAT(GND_SET_THR, 0.0f);
  * @increment 0.01
  * @group Rover Position Control
  */
-PARAM_DEFINE_FLOAT(GND_THR_MIN, 0.0f);
+PARAM_DEFINE_FLOAT(GND_THR_MIN, 0.25f);
 
 /**
  * Idle throttle
@@ -356,29 +342,17 @@ PARAM_DEFINE_FLOAT(GND_TURN_MIN, 0.09f);
 
 
 /**
- * Turn speed.
+ * Brake Angle activation.
  *
  * @unit rad
  * @min 0.0
- * @max 3.141
- * @decimal 3
- * @increment 0.01
+ * @max 1.5
+ * @decimal 5
+ * @increment 0.001
  * @group Rover Position Control
  */
-PARAM_DEFINE_FLOAT(GND_SET_ANG, 0.0f);
+PARAM_DEFINE_FLOAT(GND_BRK_ANG, 0.0349f);
 
-/**
- * Turn speed.
- *
- * @unit rad
- * @volatile
- * @min 0
- * @max 1
- * @decimal 1
- * @increment 1
- * @group Rover Position Control
- */
-//PARAM_DEFINE_FLOAT(GND_SET_ANG_STATUS, 0.0f);
 
 /**
  * YAW P.
@@ -459,13 +433,13 @@ PARAM_DEFINE_FLOAT(GND_IMU_DLY, 0.001f);
  * This is the proportional gain for the speed closed loop controller
  *
  * @unit %m/s
- * @min 0.005
- * @max 50.0
- * @decimal 3
- * @increment 0.005
+ * @min 0.00
+ * @max 2.0
+ * @decimal 4
+ * @increment 0.01
  * @group Rover Position Control
  */
-PARAM_DEFINE_FLOAT(GND_BRAKE_P, 5.0f);
+PARAM_DEFINE_FLOAT(GND_BRAKE_P, 1.0f);
 
 /**
  * Speed Integral gain
@@ -474,12 +448,12 @@ PARAM_DEFINE_FLOAT(GND_BRAKE_P, 5.0f);
  *
  * @unit %m/s
  * @min 0.00
- * @max 50.0
+ * @max 1.0
  * @decimal 3
  * @increment 0.005
  * @group Rover Position Control
  */
-PARAM_DEFINE_FLOAT(GND_BRAKE_I, 3.0f);
+PARAM_DEFINE_FLOAT(GND_BRAKE_I, 0.0f);
 
 /**
  * Speed proportional gain
@@ -487,13 +461,13 @@ PARAM_DEFINE_FLOAT(GND_BRAKE_I, 3.0f);
  * This is the derivative gain for the speed closed loop controller
  *
  * @unit %m/s
- * @min 0.00
- * @max 50.0
- * @decimal 3
- * @increment 0.005
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
  * @group Rover Position Control
  */
-PARAM_DEFINE_FLOAT(GND_BRAKE_D, 0.002f);
+PARAM_DEFINE_FLOAT(GND_BRAKE_D, 0.22);
 
 /**
  * Speed integral maximum value
