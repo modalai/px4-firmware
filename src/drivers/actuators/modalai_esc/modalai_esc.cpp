@@ -47,7 +47,8 @@
 const char *_device;
 
 ModalaiEsc::ModalaiEsc() :
-	OutputModuleInterface(MODULE_NAME, px4::wq_configurations::hp_default),
+	OutputModuleInterface(MODULE_NAME, px4::serial_port_to_wq(MODALAI_ESC_DEFAULT_PORT)),
+	_mixing_output{"UART_ESC", MODALAI_ESC_OUTPUT_CHANNELS, *this, MixingOutput::SchedulingPolicy::Auto, true},
 	_cycle_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
 	_output_update_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": output update interval"))
 {
@@ -1092,6 +1093,13 @@ bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS]
 			}
 		}
 	}
+	/*
+	static uint16_t filter = 0;
+	if(filter++>1024){
+		filter=0;
+		PX4_ERR("%i - %i - %i - %i", _esc_chans[0].rate_req, _esc_chans[1].rate_req, _esc_chans[2].rate_req, _esc_chans[3].rate_req);
+	}
+	*/
 
 	Command cmd;
 	cmd.len = qc_esc_create_rpm_packet4_fb(_esc_chans[0].rate_req,
