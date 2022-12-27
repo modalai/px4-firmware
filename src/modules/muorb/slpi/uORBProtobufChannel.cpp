@@ -43,10 +43,13 @@
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/log.h>
 #include <lib/parameters/param.h>
+<<<<<<< HEAD
 #include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
 #include <qurt.h>
 
 #include "hrt_work.h"
+=======
+>>>>>>> 835aaa6614f585e5c4266bf256f5753dc4baadcc
 
 // Definition of test to run when in muorb test mode
 static MUORBTestType test_to_run;

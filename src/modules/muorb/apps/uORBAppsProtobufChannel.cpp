@@ -33,6 +33,8 @@
 
 #include "uORBAppsProtobufChannel.hpp"
 #include <string.h>
+#include <lib/parameters/param.h>
+#include <px4_platform_common/tasks.h>
 
 #include "fc_sensor.h"
 
