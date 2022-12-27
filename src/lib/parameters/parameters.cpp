@@ -1624,7 +1624,6 @@ param_import_callback(bson_decoder_t decoder, bson_node_t node)
 	// don't return zero, that means EOF
 	return 1;
 }
-#endif
 
 static int
 param_import_internal(int fd)

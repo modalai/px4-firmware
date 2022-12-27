@@ -44,11 +44,14 @@ int px4_platform_init(void)
 {
 	hrt_init();
 
-	param_init();
-
 	px4::WorkQueueManagerStart();
 
+	//Put sleeper in here to allow wq to finish initializing before param_init is called
+	usleep(10000);
+
 	uorb_start();
+
+	param_init();
 
 	px4_log_initialize();
 
