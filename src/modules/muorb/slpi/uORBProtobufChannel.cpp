@@ -268,6 +268,8 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 			return -1;
 		}
 
+		hrt_init();
+
 		uORB::Manager::initialize();
 		uORB::Manager::get_instance()->set_uorb_communicator(
 			uORB::ProtobufChannel::GetInstance());
