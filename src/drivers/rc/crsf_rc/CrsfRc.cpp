@@ -46,7 +46,8 @@
 
 using namespace time_literals;
 
-#define CRSF_BAUDRATE 420000
+// #define CRSF_BAUDRATE 420000
+#define CRSF_BAUDRATE 250000
 
 #ifdef __PX4_QURT
 #include <drivers/device/qurt/uart.h>
