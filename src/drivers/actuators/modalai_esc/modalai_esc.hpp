@@ -77,7 +77,7 @@ public:
 	bool updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			   unsigned num_outputs, unsigned num_control_groups_updated) override;
 
-	virtual int	init();
+	int	init();
 
 	typedef enum {
 		UART_ESC_RESET,
@@ -177,7 +177,7 @@ private:
 	} led_rsc_t;
 
 	ch_assign_t		_output_map[MODALAI_ESC_OUTPUT_CHANNELS] {{1, 1}, {2, 1}, {3, 1}, {4, 1}};
-	MixingOutput 		_mixing_output{"MODALAI_ESC", MODALAI_ESC_OUTPUT_CHANNELS, *this, MixingOutput::SchedulingPolicy::Auto, false, false};
+	MixingOutput 		_mixing_output;
 
 	perf_counter_t		_cycle_perf;
 	perf_counter_t		_output_update_perf;

@@ -1,0 +1,26 @@
+module_name: MODALAI ESC Output
+actuator_output:
+  show_subgroups_if: 'UART_ESC_CONFIG>0'
+  config_parameters:
+    - param: 'UART_ESC_CONFIG'
+      label: 'Configure'
+      function: 'enable'
+    - param: 'UART_ESC_BAUD'
+      label: 'Bitrate'
+    - param: 'UART_ESC_RPM_MIN'
+      label: 'RPM Min'
+    - param: 'UART_ESC_RPM_MAX'
+      label: 'RPM Max'
+    - param: 'UART_ESC_MOTOR1'
+      label: 'Motor 1 Mapping'
+    - param: 'UART_ESC_MOTOR2'
+      label: 'Motor 2 Mapping'
+    - param: 'UART_ESC_MOTOR3'
+      label: 'Motor 3 Mapping'
+    - param: 'UART_ESC_MOTOR4'
+      label: 'Motor 4 Mapping'
+  output_groups:
+    - param_prefix: UART_ESC
+      group_label: 'ESC Channels'
+      channel_label: 'Channel'
+      num_channels: 4
