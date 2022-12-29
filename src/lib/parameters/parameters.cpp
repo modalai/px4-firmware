@@ -862,15 +862,15 @@ bool param_used(param_t param)
 
 void param_set_used(param_t param)
 {
-	if (handle_in_range(param)) {
-		params_active.set(param, true);
-	}
-
 #if defined(CONFIG_PARAM_CLIENT)
 
 	if (! param_used(param)) { param_client_set_used(param); }
 
 #endif
+
+	if (handle_in_range(param)) {
+		params_active.set(param, true);
+	}
 }
 
 int param_set_default_value(param_t param, const void *val)
