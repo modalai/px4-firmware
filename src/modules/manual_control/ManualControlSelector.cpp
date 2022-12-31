@@ -30,6 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+#include <px4_log.h>
 
 #include "ManualControlSelector.hpp"
 
@@ -55,6 +56,8 @@ void ManualControlSelector::updateWithNewInputSample(uint64_t now, const manual_
 		_setpoint.valid = true;
 		_setpoint.timestamp = now; // timestamp_sample is preserved
 		_instance = instance;
+
+		// PX4_INFO("Updating setpoint with input");
 
 		if (_first_valid_source == manual_control_setpoint_s::SOURCE_UNKNOWN) {
 			// initialize first valid source once

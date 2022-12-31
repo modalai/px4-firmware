@@ -443,14 +443,17 @@ bool MixingOutput::update()
 
 			if (_armed.armed || (_armed.prearmed && _functions[i]->allowPrearmControl())) {
 				outputs[i] = _functions[i]->value(_function_assignment[i]);
+				// PX4_INFO("mixer_module::update armed %d", i);
 
 			} else {
+				// PX4_INFO("mixer_module::update not armed %d", i);
 				outputs[i] = NAN;
 			}
 
 			_reversible_mask |= (uint32_t)_functions[i]->reversible(_function_assignment[i]) << i;
 
 		} else {
+			// PX4_INFO("mixer_module::update no function %d", i);
 			outputs[i] = NAN;
 		}
 	}
@@ -459,6 +462,8 @@ bool MixingOutput::update()
 		if (!_armed.armed && !_armed.manual_lockdown) {
 			_actuator_test.overrideValues(outputs, _max_num_outputs);
 		}
+
+		// PX4_INFO("mixer_module::update %d %d %f %f %f %f",_armed.armed, has_updates, (double) outputs[0], (double) outputs[1], (double) outputs[2], (double) outputs[3]);
 
 		limitAndUpdateOutputs(outputs, has_updates);
 	}
@@ -469,6 +474,7 @@ bool MixingOutput::update()
 void
 MixingOutput::limitAndUpdateOutputs(float outputs[MAX_ACTUATORS], bool has_updates)
 {
+	// PX4_INFO("limitAndUpdateOutputs %d %d %f %f %f %f", _throttle_armed, _actuator_test.inTestMode(), (double) outputs[0], (double) outputs[1], (double) outputs[2], (double) outputs[3]);
 	bool stop_motors = !_throttle_armed && !_actuator_test.inTestMode();
 
 	if (_armed.lockdown || _armed.manual_lockdown) {

@@ -487,6 +487,8 @@ void RCUpdate::Run()
 			}
 		}
 
+		// PX4_INFO("RC channels: %f %f %f %f", (double) _rc.channels[0], (double) _rc.channels[1], (double) _rc.channels[2], (double) _rc.channels[3]);
+
 		/*
 		 * some RC systems glitch after a reboot, we should ignore the first 100ms of regained signal
 		 * as the glitch might be interpreted as a commanded stick action or a flight mode switch

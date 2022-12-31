@@ -190,7 +190,7 @@ void RC_ControllerModule::run()
 
 	while (!should_exit()) {
 
-        usleep(100000);
+        usleep(10000);
 
     	rc_data.input_source = input_rc_s::RC_INPUT_SOURCE_QURT;
         rc_data.channel_count = 4;

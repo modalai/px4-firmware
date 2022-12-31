@@ -554,6 +554,7 @@ transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_
 			if (!_vehicle_control_mode.flag_control_climb_rate_enabled &&
 			    !_failsafe_flags.manual_control_signal_lost && !_is_throttle_low
 			    && _vehicle_status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_ROVER) {
+				PX4_INFO("%d %d %d %d", _vehicle_control_mode.flag_control_climb_rate_enabled, _failsafe_flags.manual_control_signal_lost, _is_throttle_low, (_vehicle_status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_ROVER));
 				mavlink_log_critical(&_mavlink_log_pub, "Arming denied: high throttle\t");
 				events::send(events::ID("commander_arm_denied_throttle_high"),
 				{events::Log::Critical, events::LogInternal::Info},
@@ -2712,10 +2713,14 @@ void Commander::manualControlCheck()
 	manual_control_setpoint_s manual_control_setpoint;
 	const bool manual_control_updated = _manual_control_setpoint_sub.update(&manual_control_setpoint);
 
+	// PX4_INFO("manual_control_updated: %d, manual_control_setpoint.valid: %d", manual_control_updated, manual_control_setpoint.valid);
+
 	if (manual_control_updated && manual_control_setpoint.valid) {
 
 		_is_throttle_above_center = (manual_control_setpoint.throttle > 0.2f);
 		_is_throttle_low = (manual_control_setpoint.throttle < -0.8f);
+
+		// PX4_INFO("setting is_throttle_low: %d", _is_throttle_low);
 
 		if (_arm_state_machine.isArmed()) {
 			// Abort autonomous mode and switch to position mode if sticks are moved significantly
