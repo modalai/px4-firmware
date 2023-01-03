@@ -1061,7 +1061,7 @@ void ModalaiEsc::mix_turtle_mode(uint16_t outputs[MAX_ACTUATORS])
 bool ModalaiEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			       unsigned num_outputs, unsigned num_control_groups_updated)
 {
-	PX4_INFO("ModalaiEsc::updateOutputs %d %d %d %d %d", stop_motors, outputs[0], outputs[1], outputs[2], outputs[3]);
+	// PX4_INFO("ModalaiEsc::updateOutputs %d %d %d %d %d", stop_motors, outputs[0], outputs[1], outputs[2], outputs[3]);
 
 	if (num_outputs != MODALAI_ESC_OUTPUT_CHANNELS) {
 		return false;
