@@ -1,0 +1,29 @@
+# FPV Quadcopter in trapezoidal configuration
+
+[info]
+key = "4fpv"
+description = "FPV Quadcopter in trapezoidal configuration"
+
+[rotor_default]
+direction = "CW"
+axis      = [0.0, 0.0, -1.0]
+Ct        = 1.0
+Cm        = 0.05
+
+[[rotors]]
+name      = "front_right"
+position  = [0.0734, 0.0957, 0.0]
+direction = "CCW"
+
+[[rotors]]
+name      = "rear_left"
+position  = [-0.0734, -0.08555, 0.0]
+direction = "CCW"
+
+[[rotors]]
+name     = "front_left"
+position = [0.0734, -0.0957, 0.0]
+
+[[rotors]]
+name     = "rear_right"
+position = [-0.0734, 0.08555, 0.0]

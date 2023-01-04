@@ -50,6 +50,7 @@ set(geometry_files
 	quad_wide.toml
 	quad_x_cw.toml
 	quad_x.toml
+	quad_fpv.toml
 	quad_x_pusher.toml
 	quad_y.toml
 	tri_y.toml

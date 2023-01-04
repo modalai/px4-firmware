@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# @name FPV Quadcopter
+#
+# @type Quadrotor Trapezoidal
+# @class Copter
+#
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+set MIXER quad_fpv
+
+set PWM_OUT 1234
