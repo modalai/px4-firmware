@@ -62,6 +62,11 @@ VotedSensorsUpdate::VotedSensorsUpdate(bool hil_enabled,
 		_accel.voter.set_timeout(500000);
 	}
 
+#ifdef __PX4_QURT
+	_gyro.voter.set_timeout(500000);
+	_accel.voter.set_timeout(500000);
+#endif
+
 	initializeSensors();
 
 	parametersUpdate();
