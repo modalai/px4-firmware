@@ -10,7 +10,7 @@ build:
     - make modalai_fc-v2_bootloader
     - make modalai_fc-v2
   only:
-    - modalai-1.13
+    - modalai-1.13.2
   artifacts:
     untracked: true
     expire_in: 20 min
