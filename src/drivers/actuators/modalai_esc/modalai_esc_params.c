@@ -85,7 +85,7 @@ PARAM_DEFINE_INT32(UART_ESC_BAUD, 250000);
  * @min 0
  * @max 1
  */
-PARAM_DEFINE_INT32(UART_ESC_REV1, 0);
+// PARAM_DEFINE_INT32(UART_ESC_REV1, 0);
 
 /**
  * UART ESC Motor 2 reverse flag (1 to reverse direction)
@@ -96,7 +96,7 @@ PARAM_DEFINE_INT32(UART_ESC_REV1, 0);
  * @min 0
  * @max 1
  */
-PARAM_DEFINE_INT32(UART_ESC_REV2, 0);
+// PARAM_DEFINE_INT32(UART_ESC_REV2, 0);
 
 /**
  * UART ESC Motor 3 reverse flag (1 to reverse direction)
@@ -107,7 +107,7 @@ PARAM_DEFINE_INT32(UART_ESC_REV2, 0);
  * @min 0
  * @max 1
  */
-PARAM_DEFINE_INT32(UART_ESC_REV3, 0);
+// PARAM_DEFINE_INT32(UART_ESC_REV3, 0);
 
 /**
  * UART ESC Motor 4 reverse flag (1 to reverse direction)
@@ -118,7 +118,7 @@ PARAM_DEFINE_INT32(UART_ESC_REV3, 0);
  * @min 0
  * @max 1
  */
-PARAM_DEFINE_INT32(UART_ESC_REV4, 0);
+// PARAM_DEFINE_INT32(UART_ESC_REV4, 0);
 
 /**
  * UART ESC RPM Min

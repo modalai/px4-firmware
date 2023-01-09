@@ -144,10 +144,12 @@ int ModalaiEsc::load_params(uart_esc_params_t *params, ch_assign_t *map)
 	param_get(param_find("UART_ESC_FUNC3"),  &params->function_map[2]);
 	param_get(param_find("UART_ESC_FUNC4"),  &params->function_map[3]);
 
-	param_get(param_find("UART_ESC_REV1"),  &params->direction_map[0]);
-	param_get(param_find("UART_ESC_REV2"),  &params->direction_map[1]);
-	param_get(param_find("UART_ESC_REV3"),  &params->direction_map[2]);
-	param_get(param_find("UART_ESC_REV4"),  &params->direction_map[3]);
+	// param_get(param_find("UART_ESC_REV1"),  &params->direction_map[0]);
+	// param_get(param_find("UART_ESC_REV2"),  &params->direction_map[1]);
+	// param_get(param_find("UART_ESC_REV3"),  &params->direction_map[2]);
+	// param_get(param_find("UART_ESC_REV4"),  &params->direction_map[3]);
+	param_get(param_find("UART_ESC_REV"),  &params->direction_map[0]);
+	params->direction_map[3] = params->direction_map[2] = params->direction_map[1] = params->direction_map[0]; 
 
 	param_get(param_find("UART_ESC_RPM_MIN"), &params->rpm_min);
 	param_get(param_find("UART_ESC_RPM_MAX"), &params->rpm_max);
