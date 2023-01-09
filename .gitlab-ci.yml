@@ -33,4 +33,4 @@ deploy:
     - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.bin $GCLOUD_BUCKET/fc-v2/bl/
     - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.px4 $GCLOUD_BUCKET/fc-v2/bl/
   only:
-    - modalai-1.13
+    - modalai-1.13.2
