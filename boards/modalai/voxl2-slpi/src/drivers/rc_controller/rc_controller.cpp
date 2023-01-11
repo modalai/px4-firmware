@@ -175,9 +175,12 @@ RC_ControllerModule::RC_ControllerModule()
 	: ModuleParams(nullptr)
 {
     _throttle = 800;
-    _yaw      = 1500;
-    _pitch    = 1500;
-    _roll     = 1500;
+    // _yaw      = 1500;
+    // _pitch    = 1500;
+    // _roll     = 1500;
+    _yaw      = 800;
+    _pitch    = 800;
+    _roll     = 800;
 }
 
 void RC_ControllerModule::run()
