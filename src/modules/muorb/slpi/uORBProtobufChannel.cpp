@@ -38,6 +38,7 @@
 
 #include <drivers/drv_hrt.h>
 #include <drivers/device/spi.h>
+#include <drivers/device/i2c.h>
 #include <drivers/device/qurt/uart.h>
 #include <pthread.h>
 #include <px4_platform_common/tasks.h>
@@ -280,6 +281,10 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 
 		uORB::ProtobufChannel::GetInstance()->RegisterSendHandler(muorb_func_ptrs.topic_data_func_ptr);
 
+		// Configure the I2C driver function pointers
+		device::I2C::configure_callbacks(muorb_func_ptrs._config_i2c_bus_func_t, muorb_func_ptrs._set_i2c_address_func_t,
+						 muorb_func_ptrs._i2c_transfer_func_t);
+
 		// Configure the SPI driver function pointers
 		device::SPI::configure_callbacks(muorb_func_ptrs._config_spi_bus_func_t, muorb_func_ptrs._spi_transfer_func_t);
 
@@ -308,7 +313,7 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		qurt_thread_attr_set_stack_addr(&aggregator_attr, aggregator_stack);
 		qurt_thread_attr_set_stack_size(&aggregator_attr, aggregator_stack_size);
 		char thread_name[QURT_THREAD_ATTR_NAME_MAXLEN];
- 		strncpy(thread_name, "PX4_muorb_agg", QURT_THREAD_ATTR_NAME_MAXLEN);
+		strncpy(thread_name, "PX4_muorb_agg", QURT_THREAD_ATTR_NAME_MAXLEN);
 		qurt_thread_attr_set_name(&aggregator_attr, thread_name);
 		qurt_thread_attr_set_priority(&aggregator_attr, aggregator_thread_priority);
 		(void) qurt_thread_create(&aggregator_tid, &aggregator_attr, aggregator_thread_func, NULL);
