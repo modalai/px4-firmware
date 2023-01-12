@@ -122,7 +122,7 @@ protected:
 	virtual bool	external() const override { return px4_i2c_bus_external(_device_id.devid_s.bus); }
 
 private:
-	uint32_t		               _frequency{0};
+	uint32_t	        	_frequency{0};
 	int                            _i2c_fd{-1};
 	static _config_i2c_bus_func_t  _config_i2c_bus;
 	static _set_i2c_address_func_t _set_i2c_address;
