@@ -45,23 +45,27 @@
 #include <mathlib/mathlib.h>
 #include <lib/drivers/device/Device.hpp>
 
+#ifndef __PX4_QURT
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
-#include <pthread.h>
 #include <sys/socket.h>
+#endif
+
+#include <pthread.h>
 #include <termios.h>
-#include <arpa/inet.h>
 
 #include <limits>
 
+#ifndef __PX4_QURT
 static int _fd;
 static unsigned char _buf[2048];
 static sockaddr_in _srcaddr;
 static unsigned _addrlen = sizeof(_srcaddr);
+#endif
 
 const unsigned mode_flag_armed = 128;
 const unsigned mode_flag_custom = 1;
@@ -75,13 +79,13 @@ SimulatorMavlink *SimulatorMavlink::_instance = nullptr;
 static constexpr vehicle_odometry_s vehicle_odometry_empty {
 	.timestamp = 0,
 	.timestamp_sample = 0,
-	.position = {NAN, NAN, NAN},
-	.q = {NAN, NAN, NAN, NAN},
-	.velocity = {NAN, NAN, NAN},
-	.angular_velocity = {NAN, NAN, NAN},
-	.position_variance = {NAN, NAN, NAN},
-	.orientation_variance = {NAN, NAN, NAN},
-	.velocity_variance = {NAN, NAN, NAN},
+	.position = {0, 0, 0},
+	.q = {0, 0, 0, 0},
+	.velocity = {0, 0, 0},
+	.angular_velocity = {0, 0, 0},
+	.position_variance = {0, 0, 0},
+	.orientation_variance = {0, 0, 0},
+	.velocity_variance = {0, 0, 0},
 	.pose_frame = vehicle_odometry_s::POSE_FRAME_UNKNOWN,
 	.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_UNKNOWN,
 	.reset_counter = 0,
@@ -110,6 +114,51 @@ void SimulatorMavlink::parameters_update(bool force)
 		updateParams();
 	}
 }
+
+int SimulatorMavlink::openPort(const char *dev_val, speed_t speed_val)
+{
+        if (_uart_fd >= 0) {
+                PX4_ERR("Port in use: %s (%i)", dev_val, errno);
+                return -1;
+        }
+
+        _uart_fd = qurt_uart_open(dev_val, speed_val);
+        PX4_DEBUG("qurt_uart_opened");
+
+        if (_uart_fd < 0) {
+                PX4_ERR("Error opening port: %s (%i)", dev_val, errno);
+                return -1;
+        }
+
+        return 0;
+}
+
+int SimulatorMavlink::closePort()
+{
+        _uart_fd = -1;
+
+        return 0;
+}
+
+int SimulatorMavlink::readResponse(void *buf, size_t len)
+{
+        if (_uart_fd < 0 || buf == NULL) {
+                PX4_ERR("invalid state for reading or buffer");
+                return -1;
+        }
+    return qurt_uart_read(_uart_fd, (char*) buf, len, ASYNC_UART_READ_WAIT_US);
+}
+
+int SimulatorMavlink::writeResponse(void *buf, size_t len)
+{
+        if (_uart_fd < 0 || buf == NULL) {
+                PX4_ERR("invalid state for writing or buffer");
+                return -1;
+        }
+
+    return qurt_uart_write(_uart_fd, (const char*) buf, len);
+}
+
 
 void SimulatorMavlink::actuator_controls_from_outputs(mavlink_hil_actuator_controls_t *msg)
 {
@@ -176,7 +225,7 @@ void SimulatorMavlink::send_controls()
 		mavlink_message_t message{};
 		mavlink_msg_hil_actuator_controls_encode(_param_mav_sys_id.get(), _param_mav_comp_id.get(), &message, &hil_act_control);
 
-		PX4_DEBUG("sending controls t=%ld (%ld)", _actuator_outputs.timestamp, hil_act_control.time_usec);
+		PX4_INFO("sending controls t=%ld (%ld)", _actuator_outputs.timestamp, hil_act_control.time_usec);
 
 		send_mavlink_message(message);
 
@@ -479,7 +528,9 @@ void SimulatorMavlink::handle_message_hil_sensor(const mavlink_message_t *msg)
 
 		abstime_to_ts(&ts, imu.time_usec);
 
+#ifndef __PX4_QURT
 		px4_clock_settime(CLOCK_MONOTONIC, &ts);
+#endif
 	}
 
 	hrt_abstime now_us = hrt_absolute_time();
@@ -496,7 +547,6 @@ void SimulatorMavlink::handle_message_hil_sensor(const mavlink_message_t *msg)
 
 	last_time = now_us;
 #endif
-
 	update_sensors(now_us, imu);
 
 	if (imu.id == 0) {
@@ -959,6 +1009,10 @@ void SimulatorMavlink::send_mavlink_message(const mavlink_message_t &aMsg)
 
 	bufLen = mavlink_msg_to_send_buffer(buf, &aMsg);
 
+#ifdef __PX4_QURT
+	int writeRetval = writeResponse(&buf, bufLen);
+	PX4_INFO("Succesful write of actuator back to gazebo: %d at %llu", writeRetval, hrt_absolute_time());
+#else
 	ssize_t len;
 
 	if (_ip == InternetProtocol::UDP) {
@@ -971,6 +1025,7 @@ void SimulatorMavlink::send_mavlink_message(const mavlink_message_t &aMsg)
 	if (len <= 0) {
 		PX4_WARN("Failed sending mavlink message: %s", strerror(errno));
 	}
+#endif
 }
 
 void *SimulatorMavlink::sending_trampoline(void * /*unused*/)
@@ -1062,6 +1117,7 @@ void SimulatorMavlink::run()
 	pthread_setname_np(pthread_self(), "sim_rcv");
 #endif
 
+#ifndef __PX4_QURT
 	struct sockaddr_in _myaddr {};
 	_myaddr.sin_family = AF_INET;
 	_myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -1144,6 +1200,14 @@ void SimulatorMavlink::run()
 		PX4_INFO("Simulator connected on TCP port %u.", _port);
 
 	}
+#else
+	int open = isOpen();
+	if(open){
+		closePort();
+	}
+	const char* charport = port_val.c_str();
+	(void) openPort(charport, (speed_t) baudrate);
+#endif
 
 	// Create a thread for sending data to the simulator.
 	pthread_t sender_thread;
@@ -1160,22 +1224,24 @@ void SimulatorMavlink::run()
 	param.sched_priority = SCHED_PRIORITY_ACTUATOR_OUTPUTS + 1;
 	(void)pthread_attr_setschedparam(&sender_thread_attr, &param);
 
+#ifndef __PX4_QURT
 	struct pollfd fds[2] = {};
 	unsigned fd_count = 1;
 	fds[0].fd = _fd;
 	fds[0].events = POLLIN;
 
-	// got data from simulator, now activate the sending thread
-	pthread_create(&sender_thread, &sender_thread_attr, SimulatorMavlink::sending_trampoline, nullptr);
-	pthread_attr_destroy(&sender_thread_attr);
-
 	mavlink_status_t mavlink_status = {};
 
 	// Request HIL_STATE_QUATERNION for ground truth.
 	request_hil_state_quaternion();
+#endif
+
+	// got data from simulator, now activate the sending thread
+	pthread_create(&sender_thread, &sender_thread_attr, SimulatorMavlink::sending_trampoline, nullptr);
+	pthread_attr_destroy(&sender_thread_attr);
 
 	while (true) {
-
+#ifndef __PX4_QURT
 		// wait for new mavlink messages to arrive
 		int pret = ::poll(&fds[0], fd_count, 1000);
 
@@ -1205,6 +1271,21 @@ void SimulatorMavlink::run()
 			}
 		}
 	}
+#else
+		uint8_t rx_buf[1024];
+		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
+                if (readRetval) {
+                        mavlink_message_t msg;
+                        mavlink_status_t _status{};
+                        for (int i = 0; i <= readRetval; i++){
+                                if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &_status)) {
+                                        handle_message(&msg);
+                                }
+                        }
+		}
+
+	}
+#endif
 }
 
 void SimulatorMavlink::check_failure_injections()

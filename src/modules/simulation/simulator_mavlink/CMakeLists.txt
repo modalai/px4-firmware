@@ -31,29 +31,55 @@
 #
 ############################################################################
 
-px4_add_module(
-	MODULE modules__simulation__simulator_mavlink
-	MAIN simulator_mavlink
-	COMPILE_FLAGS
-		-Wno-double-promotion
-		-Wno-cast-align
-		-Wno-address-of-packed-member # TODO: fix in c_library_v2
-	INCLUDES
-		${CMAKE_BINARY_DIR}/mavlink
-		${CMAKE_BINARY_DIR}/mavlink/development
-		${CMAKE_BINARY_DIR}/mavlink/common
-		${CMAKE_BINARY_DIR}/mavlink/standard
-	SRCS
-		SimulatorMavlink.cpp
-		SimulatorMavlink.hpp
-	DEPENDS
-		mavlink_c_generate
-		conversion
-		geo
-		drivers_accelerometer
-		drivers_gyroscope
-		drivers_magnetometer
-	)
+if(${PX4_PLATFORM} STREQUAL "qurt")
+	px4_add_module(
+		MODULE modules__simulation__simulator_mavlink
+		MAIN simulator_mavlink
+		COMPILE_FLAGS
+			-Wno-double-promotion
+			-Wno-cast-align
+			-Wno-address-of-packed-member # TODO: fix in c_library_v2
+		INCLUDES
+			${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/common
+			${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink
+			${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/development
+			${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/standard
+		SRCS
+			SimulatorMavlink.cpp
+			SimulatorMavlink.hpp
+		DEPENDS
+			#mavlink_c_generate
+			conversion
+			geo
+			drivers_accelerometer
+			drivers_gyroscope
+			drivers_magnetometer
+		)
+else()
+	px4_add_module(
+		MODULE modules__simulation__simulator_mavlink
+		MAIN simulator_mavlink
+		COMPILE_FLAGS
+			-Wno-double-promotion
+			-Wno-cast-align
+			-Wno-address-of-packed-member # TODO: fix in c_library_v2
+		INCLUDES
+			${CMAKE_BINARY_DIR}/mavlink
+			${CMAKE_BINARY_DIR}/mavlink/development
+			${CMAKE_BINARY_DIR}/mavlink/common
+			${CMAKE_BINARY_DIR}/mavlink/standard
+		SRCS
+			SimulatorMavlink.cpp
+			SimulatorMavlink.hpp
+		DEPENDS
+			mavlink_c_generate
+			conversion
+			geo
+			drivers_accelerometer
+			drivers_gyroscope
+			drivers_magnetometer
+		)
+endif()
 
 include(sitl_targets_flightgear.cmake)
 include(sitl_targets_gazebo.cmake)
