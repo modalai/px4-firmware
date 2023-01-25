@@ -189,7 +189,7 @@ double RoverPositionControl::wrap_180(double angle) {
 }
 
 
-//static double map_range(double x, double in_min, double in_max, double out_min, double out_max) {
+//static double  map_range_double(double x, double in_min, double in_max, double out_min, double out_max) {
 //  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 //}
 
@@ -1072,7 +1072,7 @@ void RoverPositionControl::run() {
 
 	PX4_INFO("RoverPositionControl::run()");
 
-	_param_gnd_ver.set(1.22);
+	_param_gnd_ver.set(1.24);
 	_param_gnd_ver.commit_no_notification();
 
 
@@ -1086,9 +1086,12 @@ void RoverPositionControl::run() {
 
 	double target_angle = 0;
 	double target_throttle = 0;
+	double last_target_angle = 0;
 	double last_target_throttle = 0;
 	float vel_mag = 0.0f;
     bool  force_brake = false;
+    bool turn_in_place = false;
+    bool pause_throttle = false;
 
 	while (!should_exit()) {
 
@@ -1241,7 +1244,6 @@ void RoverPositionControl::run() {
 					_manual_control_setpoint_sub, &_manual_control_setpoint);
 
 			bool  got_new_message = false;
-//			bool  mix_user_input = false;
 
 			if (manual_mode) {
 
@@ -1287,19 +1289,24 @@ void RoverPositionControl::run() {
 						_last_derivative    = 0;
 						_integrator = 0;
 						force_brake = false;
+						turn_in_place = false;
 						got_new_message = false;
+						pause_throttle = false;
 
-					 /* manual/direct control */
-					//PX4_INFO("Manual mode!");
-					_act_controls.control[actuator_controls_s::INDEX_ROLL] =
-							_manual_control_setpoint.y;
-					_act_controls.control[actuator_controls_s::INDEX_PITCH] =
-							-_manual_control_setpoint.x;
-					_act_controls.control[actuator_controls_s::INDEX_YAW] =
-							_manual_control_setpoint.r; //TODO: Readd yaw scale param
-					_act_controls.control[actuator_controls_s::INDEX_THROTTLE] =
-							_manual_control_setpoint.z;
-
+						 if ((_manual_control_setpoint.x * 1000.0f  != 4.0f) &&
+								( _manual_control_setpoint.x * 1000.0f  != 1.0f))
+						 {
+							 /* manual/direct control */
+							//PX4_INFO("Manual mode!");
+							_act_controls.control[actuator_controls_s::INDEX_ROLL] =
+									_manual_control_setpoint.y;
+							_act_controls.control[actuator_controls_s::INDEX_PITCH] =
+									-_manual_control_setpoint.x;
+							_act_controls.control[actuator_controls_s::INDEX_YAW] =
+									_manual_control_setpoint.r; //TODO: Readd yaw scale param
+							_act_controls.control[actuator_controls_s::INDEX_THROTTLE] =
+									_manual_control_setpoint.z;
+						 }
 					// reset target bearing
 					demo_mode_target_bearing = 3.141;
 					pos_mode_target_bearing = 0;
@@ -1307,42 +1314,144 @@ void RoverPositionControl::run() {
 					actual_turn_direction = 0;
 					target_throttle = 0;
 					last_target_throttle = 0;
+					last_target_angle = 0;
 					target_angle = 0;
- 
 				 }
 				 else
 				{
 
 					 float autonomous_mode_multipler = 1.0f;
-//					 float user_input_yaw = 0.0f;
+					//float user_input_yaw = 0.0f;
+			 	 	 bool  mix_user_input = false;
+
+//						PX4_ERR("RoverPositionControl::STAB: %f %f %d %d %f",
+//							target_angle,
+//							target_throttle,
+//							(uint16_t)_manual_control_setpoint.aux1,
+//							(uint16_t) _manual_control_setpoint.r,
+//							(double)(_manual_control_setpoint.x * 1000.0f));
+
 
 					 // if I'm in position and x is 0, ignore this message, likely from joystick
-					 if (pos_mode)
+					 if (stab_mode)
 					 {
+						 if ((_manual_control_setpoint.x * 1000.0f  != 4.0f) &&
+								( _manual_control_setpoint.x * 1000.0f  != 1.0f))
+						 {
+								_manual_control_setpoint.x = 0.0;
+								force_brake = false;
+								got_new_message = false;
+								last_target_throttle = 0;
+								last_target_angle = 0;
+								turn_in_place = false;
+								mix_user_input = false;
+								 autonomous_mode_multipler = 1.0f;
+									pause_throttle = false;
+
+								target_angle =  (double) (_manual_control_setpoint.y * autonomous_mode_multipler);
+								target_throttle =  (double)  (_manual_control_setpoint.z * autonomous_mode_multipler);
+
+//								PX4_ERR("RoverPositionControl::STAB: %f %f %d %d %f",
+//									target_angle,
+//									target_throttle,
+//									(uint16_t)_manual_control_setpoint.aux1,
+//									(uint16_t) _manual_control_setpoint.r,
+//									(double)(_manual_control_setpoint.x * 1000.0f));
+
+							}
+					 }
+					 else  if (pos_mode)
+					 {
+
+						 if (!turn_in_place && !force_brake && pause_throttle)
+						 {
+								float tdt = 0.01; // Using non zero value to a avoid division by zero
+
+								if (control_pos_manual_last_called > 0) {
+									tdt = hrt_elapsed_time(&control_pos_manual_last_called) * 1e-6f;
+								}
+
+
+								PX4_ERR("RoverPositionControl::PAUSE: %f (%f)",
+									(double)	_manual_control_setpoint.x, (double)tdt);
+
+								if (tdt < 5)
+								{
+
+									if (tdt > 2 && _manual_control_setpoint.x > 0.0f)
+									{
+										PX4_ERR("RoverPositionControl::RELEASE: %f (%f)",
+											(double)	_manual_control_setpoint.x, (double)tdt);
+
+										control_pos_manual_last_called = hrt_absolute_time();
+										pause_throttle = false;
+									}
+									else
+									{
+										_act_controls.control[actuator_controls_s::INDEX_ROLL] = 0;
+										_act_controls.control[actuator_controls_s::INDEX_PITCH] = 0;
+										_act_controls.control[actuator_controls_s::INDEX_YAW] = 0;
+										_act_controls.control[actuator_controls_s::INDEX_THROTTLE] = 0;
+										continue;
+									}
+								}
+								else
+								{
+									PX4_ERR("RoverPositionControl::MOVE ON: %f (%f)",
+										(double)	_manual_control_setpoint.x, (double)tdt);
+
+									pause_throttle = false;
+									turn_in_place = true;
+									_manual_control_setpoint.x = 1.0f;
+									_manual_control_setpoint.y = 1.0f;
+									control_pos_manual_last_called = hrt_absolute_time();
+								}
+						 }
+						 else
+								pause_throttle = false;
+
 						 if ( _manual_control_setpoint.x > 0.0f)
 						 {
 							 force_brake = (_manual_control_setpoint.x * 1000.0f  == 3.0f);
+
+							 if (!turn_in_place)
+								 turn_in_place = (_manual_control_setpoint.x * 1000.0f  == 1.0f) &&
+									 (_manual_control_setpoint.y * 10.0f  == 1.0f);
+
+							 mix_user_input = !turn_in_place && (_manual_control_setpoint.x * 1000.0f  == 4.0f);
+
+							 if (mix_user_input)
+							 {
+						 		    _manual_control_setpoint.z = _manual_control_setpoint.z * 1000.0f;
+//									PX4_ERR("RoverPositionControl::IR Z distance: %f (%f)",
+//										(double)	_manual_control_setpoint.z, (double)_param_ir_limit.get());
+
+						 		    if (_manual_control_setpoint.z == 0.0f)
+						 		    {
+										pause_throttle = true;
+						 		    }
+						 		    else if (_manual_control_setpoint.z < _param_ir_limit.get())
+									{
+										PX4_ERR("RoverPositionControl::IR Beacon lost or hit limit, turn in place");
+
+										 turn_in_place = true;
+										 _manual_control_setpoint.x = 1.0f;
+										 _manual_control_setpoint.y = 1.0f;
+
+									}
+
+							 }
+
 							 autonomous_mode_multipler = 10.0f;
 							 got_new_message = true;
 
-							 if (force_brake)
-								 PX4_ERR("**** Brake logic FORCED ON ****");
+//							 if (force_brake)
+//								 PX4_ERR("**** Brake logic FORCED ON ****");
+//							 if (turn_in_place)
+//								 PX4_ERR("**** Request TURN in  PLACE ****");
+
+
 						 }
-//						 else
-//						 {
-//							 if (fabsf(_manual_control_setpoint.y) > 0.05f)
-//							 {
-//								 //mix_user_input = true;
-//								 user_input_yaw = _manual_control_setpoint.y;
-//								 user_input_yaw = math::constrain(user_input_yaw, -0.6f, 0.6f);
-//
-//							 }
-//						 }
-					 }
-					 else if (stab_mode)
-					 {
-							force_brake = false;
-							got_new_message = false;
 					 }
 
 					 // Calculate the current heading
@@ -1367,22 +1476,35 @@ void RoverPositionControl::run() {
 
 					//OVERRIDE
 
-					if ((got_new_message && pos_mode) || stab_mode)
+					if (got_new_message && pos_mode)
 					{
 						last_target_throttle = target_throttle;
 						got_new_message = false;
-						target_angle =  (double) (_manual_control_setpoint.y * autonomous_mode_multipler);
-						target_throttle =  (double)  (_manual_control_setpoint.z * autonomous_mode_multipler);
-						PX4_ERR("RoverPositionControl::INPUTS: %f %f %d %d %f",
-								target_angle, target_throttle,
-								(uint16_t)_manual_control_setpoint.aux1, (uint16_t) _manual_control_setpoint.r, (double)(_manual_control_setpoint.x * 1000.0f));
+
+						if (turn_in_place)
+							target_angle = 1.0;
+						else
+							target_angle =  (double) (_manual_control_setpoint.y * autonomous_mode_multipler);
+
+						if (!mix_user_input)
+						{
+							target_throttle =  (double)  (_manual_control_setpoint.z * autonomous_mode_multipler);
+
+//							if (!turn_in_place)
+//							PX4_ERR("RoverPositionControl::INPUTS: %f %f %d %d %f",
+//								target_angle,
+//								target_throttle,
+//								(uint16_t)_manual_control_setpoint.aux1,
+//								(uint16_t) _manual_control_setpoint.r,
+//								(double)(_manual_control_setpoint.x * 1000.0f));
+						}
 					}
 
 					if (pos_mode)
 					{
 						 if  (target_throttle > 0.05)
 						{
-							target_angle = 0;
+							 //target_angle = 0;
 							pos_mode_last_yaw = 0.0;
 							refine_yaw = 0;
 							debounce_yaw = 0;
@@ -1403,10 +1525,16 @@ void RoverPositionControl::run() {
 								pos_mode_target_bearing = b_yaw;
 					}
 
-					double turn_request = wrap_180(pos_mode_target_bearing - b_yaw);
+					 if (mix_user_input && !turn_in_place)
+					 {
+						 last_target_angle  =  target_angle; //map_range_double(target_angle, -0.9, 0.9, -0.5, 0.5);
+						 pos_mode_target_bearing = b_yaw;
+					 }
 
-//					PX4_ERR("RoverPositionControl::YAW: %f  [%f]",
-//							pos_mode_target_bearing, turn_request);
+					 double turn_request = wrap_180(pos_mode_target_bearing - b_yaw);
+
+//					PX4_ERR("RoverPositionControl::YAW: %f %f  [%f]", target_angle,
+//							pos_mode_target_bearing*M_PI/180.0, turn_request*M_PI/180.0);
 
 					//				double turn_request_delta = fabs(turn_request);
 	//				int yaw_direction = sign(turn_request);
@@ -1444,11 +1572,6 @@ void RoverPositionControl::run() {
 					yaw_authority += (double)_integrator;
 
 					float control_effort = math::constrain((float)yaw_authority, -0.6f, 0.6f);
-
-//					if (mix_user_input)
-//					{
-//						control_effort = (0.7f  * control_effort) + (0.3f * user_input_yaw);
-//					}
 					// ESTABLISHED YAW control authority
 
 
@@ -1490,12 +1613,13 @@ void RoverPositionControl::run() {
 							cmd_throttle *= _param_brake_p.get();
 
 						cmd_throttle = math::constrain(cmd_throttle,
-								-_param_throttle_max.get(),  _param_throttle_min.get());
+								-_param_throttle_max.get()*0.5f,  _param_throttle_min.get());
+// TDK ONLY						-_param_throttle_max.get(),  _param_throttle_min.get());
 					}
 					else
 					{
 						cmd_throttle = math::constrain(cmd_throttle,
-								-_param_throttle_max.get(), _param_throttle_max.get());
+								-_param_throttle_max.get()*.3f, _param_throttle_max.get());
 					}
 
 					// ESTABLISHED THROTTLE control authority
@@ -1527,11 +1651,11 @@ void RoverPositionControl::run() {
 					}
 
 
-					PX4_INFO("RoverPositionControl::VEL: (%f) %f [%f, %f]",
-							(double) pos_mode_last_vel,
-							(double) cmd_throttle,
-							(double) x_vel,
-							(double) x_acc);
+//					PX4_INFO("RoverPositionControl::VEL: (%f) %f [%f, %f]",
+//							(double) pos_mode_last_vel,
+//							(double) cmd_throttle,
+//							(double) x_vel,
+//							(double) x_acc);
 
 
 					float input_yaw_cmd = target_angle;
@@ -1546,6 +1670,8 @@ void RoverPositionControl::run() {
 
 					float current_yaw_mag = fabs(input_yaw_cmd);
 
+
+
 					if (stab_mode)
 					{
 						if (current_yaw_mag> 0.05f)
@@ -1553,13 +1679,15 @@ void RoverPositionControl::run() {
 //								if (fabs(input_yaw_rate) < _param_gndspeed_trim_yaw.get() )
 //									pos_mode_last_yaw += (yaw_cmd_direction*_param_gnd_yawrate_p.get());
 
+//							PX4_INFO("RoverPositionControl::STAB: %d", yaw_cmd_direction);
+
 								if (fabs(input_yaw_rate) < _param_gndspeed_trim_yaw.get())
 								{
 									pos_mode_last_yaw += (yaw_cmd_direction*_param_gnd_yawrate_p.get());
 								}
 								else
 								{
-									pos_mode_last_yaw -= (0.3f*yaw_cmd_direction*_param_gnd_yawrate_p.get());
+									pos_mode_last_yaw -= (yaw_cmd_direction*_param_gnd_yawrate_p.get());
 								}
 
 						}
@@ -1568,6 +1696,7 @@ void RoverPositionControl::run() {
 					        if (actual_turn_direction > 0)
 							{
 								target_angle = 0;
+								last_target_angle = 0.0;
 							}
 						
 							pos_mode_last_yaw = 0.0f;
@@ -1579,14 +1708,16 @@ void RoverPositionControl::run() {
 					}
 					else
 					{
-						if (fabs(target_angle) >= 1.0)
+						if (turn_in_place)
 						{
+							last_target_angle = 0.0;
 
 							_act_controls.control[actuator_controls_s::INDEX_PITCH] = 1.0;
 
 							turn_request = wrap_180(demo_mode_target_bearing - b_yaw);
 
-							//PX4_INFO("RoverPositionControl::demo_mode_target_bearing %f (%f)", (double)demo_mode_target_bearing*M_PI/180.0, (double)turn_request*M_PI/180.0);
+//							PX4_INFO("RoverPositionControl::demo_mode_target_bearing %f (%f)",
+//									(double)demo_mode_target_bearing, (double)turn_request);
 
 							int turn_request_direction  = sign(turn_request);
 							if (actual_turn_direction == 0)
@@ -1623,18 +1754,40 @@ void RoverPositionControl::run() {
 //									else
 //										PX4_INFO("RoverPositionControl::stopped correction got target: %f", turn_request);
 
-									pos_mode_target_bearing = demo_mode_target_bearing;
+									PX4_INFO("RoverPositionControl::demo_mode_target_bearing %f (%f) [%f]",
+										(double)demo_mode_target_bearing, (double)b_yaw, (double)turn_request);
 
 									if (vel_mag < _param_imu_delay.get())
 									{
-										PX4_INFO("RoverPositionControl::Going to heading %f", (double)demo_mode_target_bearing);
+										PX4_INFO(" RoverPositionControl::Going to heading %f. Finished Turn in Place.", (double)demo_mode_target_bearing);
 
-										if (fabs(demo_mode_target_bearing) <= 0.25)
-											demo_mode_target_bearing = 3.1410;
+										pos_mode_target_bearing = b_yaw;
+
+										if (_param_tracking_mode.get())
+										{
+											demo_mode_target_bearing = wrap_180(b_yaw + M_PI);
+											PX4_INFO(" RoverPositionControl::USING relative heading %f %f %f.",
+													(double)demo_mode_target_bearing,
+													(double)b_yaw,
+													(double)b_yaw+M_PI);
+										}
 										else
-											demo_mode_target_bearing = 0.0;
+										{
+											pos_mode_target_bearing = demo_mode_target_bearing;
+
+//											if (fabs(b_yaw) <= 0.25)
+//												demo_mode_target_bearing =  M_PI;
+//											else
+//												demo_mode_target_bearing = 0;
+
+											PX4_INFO(" RoverPositionControl::Using ABSOLUTE heading %f %f.",
+													(double)demo_mode_target_bearing,
+													(double)b_yaw);
+										}
 
 										target_angle = 0;
+										last_target_angle = 0.0;
+										turn_in_place = false;
 										_act_controls.control[actuator_controls_s::INDEX_PITCH] = 0.0;
 									}
 
@@ -1645,14 +1798,6 @@ void RoverPositionControl::run() {
 									actual_turn_direction = 0;
 									pos_mode_last_yaw = 0.0f;
 								}
-							}
-						}
-						else
-						{
-							if (current_yaw_mag> 0.05f)
-							{
-									if (fabs(input_yaw_rate) < _param_gndspeed_trim_yaw.get() )
-										pos_mode_last_yaw += yaw_cmd_direction*_param_gnd_yawrate_p.get();
 							}
 						}
 					}
@@ -1686,7 +1831,7 @@ void RoverPositionControl::run() {
 					_act_controls.control[actuator_controls_s::INDEX_ROLL] = 0;
 
 
-					if (current_yaw_mag > 0.05f || (target_angle != 0.0))
+					if (turn_in_place)
 					{
 //						PX4_INFO("RoverPositionControl::YAW: %f %f %f",
 //								(double) input_yaw_rate,
@@ -1694,68 +1839,54 @@ void RoverPositionControl::run() {
 //								(double) pos_mode_last_yaw);
 
 						_act_controls.control[actuator_controls_s::INDEX_YAW] = pos_mode_last_yaw;
-
-//						if (target_throttle > 0.05)
-//						{
-//							_act_controls.control[actuator_controls_s::INDEX_THROTTLE] = pos_mode_last_vel;
-//
-//						}
-//						else
-//						{
 						_act_controls.control[actuator_controls_s::INDEX_THROTTLE] = 0;
 						pid_reset_integral(&_speed_ctrl);
-
-//						}
+	//						}
 					}
 					else if (fabs(target_throttle) > 0.05)
 					{
-						_act_controls.control[actuator_controls_s::INDEX_YAW] = control_effort;
-						_act_controls.control[actuator_controls_s::INDEX_THROTTLE] =
-								pos_mode_last_vel;
-						pid_reset_integral(&_brake_ctrl);
+						if (fabs(last_target_angle) > 0.05)
+							_act_controls.control[actuator_controls_s::INDEX_YAW] = last_target_angle;
+						else
+							_act_controls.control[actuator_controls_s::INDEX_YAW] = control_effort;
+
+						_act_controls.control[actuator_controls_s::INDEX_THROTTLE] =	pos_mode_last_vel;
+
+// 				         PX4_ERR("RoverPositionControl::IR: %f %f",
+// 							(double)_act_controls.control[actuator_controls_s::INDEX_YAW],
+//							(double)_act_controls.control[actuator_controls_s::INDEX_THROTTLE] );
+//
+						 pid_reset_integral(&_brake_ctrl);
 					}
 					else
 					{
-//						matrix::Vector3f current_velocity(_local_pos.vx, _local_pos.vy,
-//								_local_pos.vz);
-//
-//						 mission_target_speed = 0;
-//						// Velocity in body frame
-//						const Dcmf man_R_to_body(Quatf(_vehicle_att.q).inversed());
-//						const Vector3f man_vel = man_R_to_body
-//								* Vector3f(current_velocity(0), current_velocity(1),
-//										current_velocity(2));
-//
-//						const float x_man_vel = man_vel(0);
-//						const float x_man_acc = _vehicle_acceleration_sub.get().xyz[0];
-//
-//						mission_target_speed = 0;
-//
-//		   			   float  mission_throttle = pid_calculate(&_brake_ctrl, mission_target_speed, x_man_vel,
-//		   					x_man_acc, dt);
-//
-//
-//						// Constrain throttle between min and max
-//						mission_throttle = math::constrain(mission_throttle,
-//								-1.0f, 1.0f);
-//
-//						_act_controls.control[actuator_controls_s::INDEX_THROTTLE] += mission_throttle;
-//						_act_controls.control[actuator_controls_s::INDEX_YAW] = 0;
+						if (stab_mode)
+							_act_controls.control[actuator_controls_s::INDEX_YAW] = pos_mode_last_yaw;
+						else if (fabs(last_target_angle) > 0.05)
+							_act_controls.control[actuator_controls_s::INDEX_YAW] = last_target_angle;
+						else
+							_act_controls.control[actuator_controls_s::INDEX_YAW] = 0;
 
-						_act_controls.control[actuator_controls_s::INDEX_YAW] = 0;
+
 						_integrator = 0;
 
 						// if I was moving
 						double abs_pitch = fabs(current_pitch_body);
 						if (force_brake || (abs_pitch > brake_angle_limit))
 						{
-							PX4_INFO("RoverPositionControl::BRAKING: +-%f [%f]", abs_pitch, brake_angle_limit);
+							PX4_INFO("RoverPositionControl::BRAKING: *%d) +-%f [%f]", force_brake, abs_pitch, brake_angle_limit);
 							_act_controls.control[actuator_controls_s::INDEX_THROTTLE] = pos_mode_last_vel*0.75f;
 						}
 						else
 						{
 							_act_controls.control[actuator_controls_s::INDEX_THROTTLE] = 0;
 						}
+
+// 				         PX4_ERR("RoverPositionControl::IR: %f %f",
+// 							(double)_act_controls.control[actuator_controls_s::INDEX_YAW],
+//							(double)_act_controls.control[actuator_controls_s::INDEX_THROTTLE] );
+
+
 					}
 
 //					PX4_INFO("RoverPositionControl::Throttle_Power: (%f) %f [%f] [%f] [%f, %f]",

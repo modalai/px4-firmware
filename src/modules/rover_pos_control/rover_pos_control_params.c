@@ -483,6 +483,30 @@ PARAM_DEFINE_FLOAT(GND_BRAKE_D, 0.22);
  */
 PARAM_DEFINE_FLOAT(GND_BRAKE_IMAX, 1.0f);
 
+/**
+ * Use IR tags for tracking
+ *
+ * Use IR tags to follow me
+ * @min 0
+ * @max 1
+ * @value 0 No tracking
+ * @value 1 Tracking
+ * @group Rover Position Control
+ */
+PARAM_DEFINE_INT32(GND_USE_TAGS, 0);
+
+
+/**
+ * Use IR tag value for turn in place
+ *
+ * Use IR tags to follow me
+ * @min -100.0
+ * @max 100.0
+ * @value 0 no IR marker
+ * @value 1 limit of marker
+ * @group Rover Position Control
+ */
+PARAM_DEFINE_FLOAT(GND_IR_TURN, -98.0);
 
 /**
  * VERSION

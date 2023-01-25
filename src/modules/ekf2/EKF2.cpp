@@ -363,7 +363,6 @@ void EKF2::Run()
 		if (_start_time_us > 0) {
 			_integrated_time_us += imu_dt;
 			_last_time_slip_us = (imu_sample_new.time_us - _start_time_us) - _integrated_time_us;
-
 		} else {
 			_start_time_us = imu_sample_new.time_us;
 			_last_time_slip_us = 0;
@@ -377,8 +376,6 @@ void EKF2::Run()
 				const bool is_fixed_wing = (vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING);
 
 				is_manual_mode = (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_MANUAL);
-
-
 
 				// only fuse synthetic sideslip measurements if conditions are met
 				_ekf.set_fuse_beta_flag(is_fixed_wing && (_param_ekf2_fuse_beta.get() == 1));

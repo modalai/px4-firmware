@@ -199,6 +199,8 @@ private:
 		(ParamFloat<px4::params::GND_BRAKE_D>) _param_brake_d,
 		(ParamFloat<px4::params::GND_BRAKE_IMAX>) _param_brake_imax,
 		(ParamFloat<px4::params::GND_BRK_ANG>) _param_brake_angle,
+		(ParamInt<px4::params::GND_USE_TAGS>) _param_tracking_mode,
+		(ParamFloat<px4::params::GND_IR_TURN>) _param_ir_limit,
 		(ParamFloat<px4::params::GND_VER>) _param_gnd_ver
 
 	)
