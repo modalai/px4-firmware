@@ -217,7 +217,6 @@ void SimulatorMavlink::send_esc_telemetry(mavlink_hil_actuator_controls_t hil_ac
 void SimulatorMavlink::send_controls()
 {
 	orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
-
 	if (_actuator_outputs.timestamp > 0) {
 		mavlink_hil_actuator_controls_t hil_act_control;
 		actuator_controls_from_outputs(&hil_act_control);
@@ -225,7 +224,7 @@ void SimulatorMavlink::send_controls()
 		mavlink_message_t message{};
 		mavlink_msg_hil_actuator_controls_encode(_param_mav_sys_id.get(), _param_mav_comp_id.get(), &message, &hil_act_control);
 
-		PX4_INFO("sending controls t=%ld (%ld)", _actuator_outputs.timestamp, hil_act_control.time_usec);
+		PX4_DEBUG("sending controls t=%ld (%ld)", _actuator_outputs.timestamp, hil_act_control.time_usec);
 
 		send_mavlink_message(message);
 
@@ -1010,8 +1009,7 @@ void SimulatorMavlink::send_mavlink_message(const mavlink_message_t &aMsg)
 	bufLen = mavlink_msg_to_send_buffer(buf, &aMsg);
 
 #ifdef __PX4_QURT
-	int writeRetval = writeResponse(&buf, bufLen);
-	PX4_INFO("Succesful write of actuator back to gazebo: %d at %llu", writeRetval, hrt_absolute_time());
+	(void) writeResponse(&buf, bufLen);
 #else
 	ssize_t len;
 
@@ -1223,7 +1221,6 @@ void SimulatorMavlink::run()
 	//  to send the lockstep update to the simulation
 	param.sched_priority = SCHED_PRIORITY_ACTUATOR_OUTPUTS + 1;
 	(void)pthread_attr_setschedparam(&sender_thread_attr, &param);
-
 #ifndef __PX4_QURT
 	struct pollfd fds[2] = {};
 	unsigned fd_count = 1;
@@ -1232,9 +1229,9 @@ void SimulatorMavlink::run()
 
 	mavlink_status_t mavlink_status = {};
 
+#endif
 	// Request HIL_STATE_QUATERNION for ground truth.
 	request_hil_state_quaternion();
-#endif
 
 	// got data from simulator, now activate the sending thread
 	pthread_create(&sender_thread, &sender_thread_attr, SimulatorMavlink::sending_trampoline, nullptr);
