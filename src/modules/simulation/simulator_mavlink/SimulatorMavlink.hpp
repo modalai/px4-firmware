@@ -83,6 +83,13 @@
 #include <mavlink.h>
 #include <mavlink_types.h>
 
+#ifdef __PX4_QURT
+#include <string>
+#include <drivers/device/qurt/uart.h>
+#include <px4_platform_common/time.h>
+#define ASYNC_UART_READ_WAIT_US 2000
+#endif
+
 using namespace time_literals;
 
 //! Enumeration to use on the bitmask in HIL_SENSOR
@@ -308,6 +315,18 @@ private:
 
 #if defined(ENABLE_LOCKSTEP_SCHEDULER)
 	px4::atomic<bool> _has_initialized {false};
+#endif
+
+#ifdef __PX4_QURT
+	int _uart_fd;
+	std::string port_val = "2";
+	int baudrate = 921600;
+
+	int openPort(const char *dev, speed_t speed);
+	int closePort();
+	int readResponse(void *buf, size_t len);
+	int writeResponse(void *buf, size_t len);
+	bool isOpen() { return _uart_fd >= 0; };
 #endif
 
 	int _lockstep_component{-1};

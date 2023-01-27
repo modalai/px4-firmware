@@ -45,23 +45,27 @@
 #include <mathlib/mathlib.h>
 #include <lib/drivers/device/Device.hpp>
 
+#ifndef __PX4_QURT
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
-#include <pthread.h>
 #include <sys/socket.h>
+#endif
+
+#include <pthread.h>
 #include <termios.h>
-#include <arpa/inet.h>
 
 #include <limits>
 
+#ifndef __PX4_QURT
 static int _fd;
 static unsigned char _buf[2048];
 static sockaddr_in _srcaddr;
 static unsigned _addrlen = sizeof(_srcaddr);
+#endif
 
 const unsigned mode_flag_armed = 128;
 const unsigned mode_flag_custom = 1;
@@ -75,6 +79,15 @@ SimulatorMavlink *SimulatorMavlink::_instance = nullptr;
 static constexpr vehicle_odometry_s vehicle_odometry_empty {
 	.timestamp = 0,
 	.timestamp_sample = 0,
+#ifdef __PX4_QURT
+	.position = {0, 0, 0},
+	.q = {0, 0, 0, 0},
+	.velocity = {0, 0, 0},
+	.angular_velocity = {0, 0, 0},
+	.position_variance = {0, 0, 0},
+	.orientation_variance = {0, 0, 0},
+	.velocity_variance = {0, 0, 0},
+#else
 	.position = {NAN, NAN, NAN},
 	.q = {NAN, NAN, NAN, NAN},
 	.velocity = {NAN, NAN, NAN},
@@ -82,6 +95,7 @@ static constexpr vehicle_odometry_s vehicle_odometry_empty {
 	.position_variance = {NAN, NAN, NAN},
 	.orientation_variance = {NAN, NAN, NAN},
 	.velocity_variance = {NAN, NAN, NAN},
+#endif
 	.pose_frame = vehicle_odometry_s::POSE_FRAME_UNKNOWN,
 	.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_UNKNOWN,
 	.reset_counter = 0,
@@ -110,6 +124,51 @@ void SimulatorMavlink::parameters_update(bool force)
 		updateParams();
 	}
 }
+
+int SimulatorMavlink::openPort(const char *dev_val, speed_t speed_val)
+{
+        if (_uart_fd >= 0) {
+                PX4_ERR("Port in use: %s (%i)", dev_val, errno);
+                return -1;
+        }
+
+        _uart_fd = qurt_uart_open(dev_val, speed_val);
+        PX4_DEBUG("qurt_uart_opened");
+
+        if (_uart_fd < 0) {
+                PX4_ERR("Error opening port: %s (%i)", dev_val, errno);
+                return -1;
+        }
+
+        return 0;
+}
+
+int SimulatorMavlink::closePort()
+{
+        _uart_fd = -1;
+
+        return 0;
+}
+
+int SimulatorMavlink::readResponse(void *buf, size_t len)
+{
+        if (_uart_fd < 0 || buf == NULL) {
+                PX4_ERR("invalid state for reading or buffer");
+                return -1;
+        }
+    return qurt_uart_read(_uart_fd, (char*) buf, len, ASYNC_UART_READ_WAIT_US);
+}
+
+int SimulatorMavlink::writeResponse(void *buf, size_t len)
+{
+        if (_uart_fd < 0 || buf == NULL) {
+                PX4_ERR("invalid state for writing or buffer");
+                return -1;
+        }
+
+    return qurt_uart_write(_uart_fd, (const char*) buf, len);
+}
+
 
 void SimulatorMavlink::actuator_controls_from_outputs(mavlink_hil_actuator_controls_t *msg)
 {
@@ -167,8 +226,10 @@ void SimulatorMavlink::send_esc_telemetry(mavlink_hil_actuator_controls_t hil_ac
 
 void SimulatorMavlink::send_controls()
 {
+#ifdef __PX4_QURT
+	uint64_t timestamp = hrt_absolute_time();
+#endif
 	orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
-
 	if (_actuator_outputs.timestamp > 0) {
 		mavlink_hil_actuator_controls_t hil_act_control;
 		actuator_controls_from_outputs(&hil_act_control);
@@ -182,10 +243,16 @@ void SimulatorMavlink::send_controls()
 
 		send_esc_telemetry(hil_act_control);
 	}
+#ifdef __PX4_QURT
+	uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+	if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+#endif
 }
+
 
 void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil_sensor_t &sensors)
 {
+	hrt_abstime new_time = hrt_absolute_time();
 	// temperature only updated with baro
 	if ((sensors.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
 		if (PX4_ISFINITE(sensors.temperature)) {
@@ -210,28 +277,27 @@ void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil
 
 			if (_accel_stuck[sensors.id]) {
 				_px4_accel[sensors.id].updateFIFO(_last_accel_fifo);
-
 			} else if (!_accel_blocked[sensors.id]) {
 				_px4_accel[sensors.id].set_temperature(_sensors_temperature);
 
 				_last_accel_fifo.samples = 1;
-				_last_accel_fifo.dt = time - _last_accel_fifo.timestamp_sample;
-				_last_accel_fifo.timestamp_sample = time;
+				_last_accel_fifo.dt = new_time - _last_accel_fifo.timestamp_sample;
+				_last_accel_fifo.timestamp_sample = new_time;
 				_last_accel_fifo.x[0] = sensors.xacc / ACCEL_FIFO_SCALE;
 				_last_accel_fifo.y[0] = sensors.yacc / ACCEL_FIFO_SCALE;
 				_last_accel_fifo.z[0] = sensors.zacc / ACCEL_FIFO_SCALE;
-
 				_px4_accel[sensors.id].updateFIFO(_last_accel_fifo);
 			}
 
 		} else {
 			if (_accel_stuck[sensors.id]) {
-				_px4_accel[sensors.id].update(time, _last_accel[sensors.id](0), _last_accel[sensors.id](1), _last_accel[sensors.id](2));
+				_px4_accel[sensors.id].update(new_time, _last_accel[sensors.id](0), _last_accel[sensors.id](1), _last_accel[sensors.id](2));
 
 			} else if (!_accel_blocked[sensors.id]) {
 				_px4_accel[sensors.id].set_temperature(_sensors_temperature);
-				_px4_accel[sensors.id].update(time, sensors.xacc, sensors.yacc, sensors.zacc);
+				_px4_accel[sensors.id].update(new_time, sensors.xacc, sensors.yacc, sensors.zacc);
 				_last_accel[sensors.id] = matrix::Vector3f{sensors.xacc, sensors.yacc, sensors.zacc};
+
 			}
 		}
 	}
@@ -258,22 +324,21 @@ void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil
 				_px4_gyro[sensors.id].set_temperature(_sensors_temperature);
 
 				_last_gyro_fifo.samples = 1;
-				_last_gyro_fifo.dt = time - _last_gyro_fifo.timestamp_sample;
-				_last_gyro_fifo.timestamp_sample = time;
+				_last_gyro_fifo.dt = new_time - _last_gyro_fifo.timestamp_sample;
+				_last_gyro_fifo.timestamp_sample = new_time;
 				_last_gyro_fifo.x[0] = sensors.xgyro / GYRO_FIFO_SCALE;
 				_last_gyro_fifo.y[0] = sensors.ygyro / GYRO_FIFO_SCALE;
 				_last_gyro_fifo.z[0] = sensors.zgyro / GYRO_FIFO_SCALE;
-
 				_px4_gyro[sensors.id].updateFIFO(_last_gyro_fifo);
 			}
 
 		} else {
 			if (_gyro_stuck[sensors.id]) {
-				_px4_gyro[sensors.id].update(time, _last_gyro[sensors.id](0), _last_gyro[sensors.id](1), _last_gyro[sensors.id](2));
+				_px4_gyro[sensors.id].update(new_time, _last_gyro[sensors.id](0), _last_gyro[sensors.id](1), _last_gyro[sensors.id](2));
 
 			} else if (!_gyro_blocked[sensors.id]) {
 				_px4_gyro[sensors.id].set_temperature(_sensors_temperature);
-				_px4_gyro[sensors.id].update(time, sensors.xgyro, sensors.ygyro, sensors.zgyro);
+				_px4_gyro[sensors.id].update(new_time, sensors.xgyro, sensors.ygyro, sensors.zgyro);
 				_last_gyro[sensors.id] = matrix::Vector3f{sensors.xgyro, sensors.ygyro, sensors.zgyro};
 			}
 		}
@@ -287,14 +352,14 @@ void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil
 		}
 
 		if (_mag_stuck[sensors.id]) {
-			_px4_mag[sensors.id].update(time, _last_magx[sensors.id], _last_magy[sensors.id], _last_magz[sensors.id]);
-
+			_px4_mag[sensors.id].update(new_time, _last_magx[sensors.id], _last_magy[sensors.id], _last_magz[sensors.id]);
 		} else if (!_mag_blocked[sensors.id]) {
 			_px4_mag[sensors.id].set_temperature(_sensors_temperature);
-			_px4_mag[sensors.id].update(time, sensors.xmag, sensors.ymag, sensors.zmag);
+			_px4_mag[sensors.id].update(new_time, sensors.xmag, sensors.ymag, sensors.zmag);
 			_last_magx[sensors.id] = sensors.xmag;
 			_last_magy[sensors.id] = sensors.ymag;
 			_last_magz[sensors.id] = sensors.zmag;
+
 		}
 	}
 
@@ -308,7 +373,7 @@ void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil
 
 		// publish
 		sensor_baro_s sensor_baro{};
-		sensor_baro.timestamp_sample = time;
+		sensor_baro.timestamp_sample = new_time;
 		sensor_baro.pressure = _last_baro_pressure;
 		sensor_baro.temperature = _last_baro_temperature;
 
@@ -326,7 +391,7 @@ void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil
 	// differential pressure
 	if ((sensors.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS && !_airspeed_blocked) {
 		differential_pressure_s report{};
-		report.timestamp_sample = time;
+		report.timestamp_sample = new_time;
 		report.device_id = 1377548; // 1377548: DRV_DIFF_PRESS_DEVTYPE_SIM, BUS: 1, ADDR: 5, TYPE: SIMULATION
 		report.differential_pressure_pa = sensors.diff_pressure * 100.f; // hPa to Pa;
 		report.temperature = _sensors_temperature;
@@ -479,7 +544,9 @@ void SimulatorMavlink::handle_message_hil_sensor(const mavlink_message_t *msg)
 
 		abstime_to_ts(&ts, imu.time_usec);
 
+#ifndef __PX4_QURT
 		px4_clock_settime(CLOCK_MONOTONIC, &ts);
+#endif
 	}
 
 	hrt_abstime now_us = hrt_absolute_time();
@@ -496,7 +563,6 @@ void SimulatorMavlink::handle_message_hil_sensor(const mavlink_message_t *msg)
 
 	last_time = now_us;
 #endif
-
 	update_sensors(now_us, imu);
 
 	if (imu.id == 0) {
@@ -959,6 +1025,9 @@ void SimulatorMavlink::send_mavlink_message(const mavlink_message_t &aMsg)
 
 	bufLen = mavlink_msg_to_send_buffer(buf, &aMsg);
 
+#ifdef __PX4_QURT
+	(void) writeResponse(&buf, bufLen);
+#else
 	ssize_t len;
 
 	if (_ip == InternetProtocol::UDP) {
@@ -971,6 +1040,7 @@ void SimulatorMavlink::send_mavlink_message(const mavlink_message_t &aMsg)
 	if (len <= 0) {
 		PX4_WARN("Failed sending mavlink message: %s", strerror(errno));
 	}
+#endif
 }
 
 void *SimulatorMavlink::sending_trampoline(void * /*unused*/)
@@ -1062,6 +1132,7 @@ void SimulatorMavlink::run()
 	pthread_setname_np(pthread_self(), "sim_rcv");
 #endif
 
+#ifndef __PX4_QURT
 	struct sockaddr_in _myaddr {};
 	_myaddr.sin_family = AF_INET;
 	_myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -1144,6 +1215,14 @@ void SimulatorMavlink::run()
 		PX4_INFO("Simulator connected on TCP port %u.", _port);
 
 	}
+#else
+	int open = isOpen();
+	if(open){
+		closePort();
+	}
+	const char* charport = port_val.c_str();
+	(void) openPort(charport, (speed_t) baudrate);
+#endif
 
 	// Create a thread for sending data to the simulator.
 	pthread_t sender_thread;
@@ -1159,23 +1238,24 @@ void SimulatorMavlink::run()
 	//  to send the lockstep update to the simulation
 	param.sched_priority = SCHED_PRIORITY_ACTUATOR_OUTPUTS + 1;
 	(void)pthread_attr_setschedparam(&sender_thread_attr, &param);
-
+#ifndef __PX4_QURT
 	struct pollfd fds[2] = {};
 	unsigned fd_count = 1;
 	fds[0].fd = _fd;
 	fds[0].events = POLLIN;
 
+	mavlink_status_t mavlink_status = {};
+
+#endif
+	// Request HIL_STATE_QUATERNION for ground truth.
+	request_hil_state_quaternion();
+
 	// got data from simulator, now activate the sending thread
 	pthread_create(&sender_thread, &sender_thread_attr, SimulatorMavlink::sending_trampoline, nullptr);
 	pthread_attr_destroy(&sender_thread_attr);
 
-	mavlink_status_t mavlink_status = {};
-
-	// Request HIL_STATE_QUATERNION for ground truth.
-	request_hil_state_quaternion();
-
 	while (true) {
-
+#ifndef __PX4_QURT
 		// wait for new mavlink messages to arrive
 		int pret = ::poll(&fds[0], fd_count, 1000);
 
@@ -1205,6 +1285,23 @@ void SimulatorMavlink::run()
 			}
 		}
 	}
+#else
+		uint64_t timestamp = hrt_absolute_time();
+		uint8_t rx_buf[1024];
+		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
+                if (readRetval) {
+                        mavlink_message_t msg;
+                        mavlink_status_t _status{};
+                        for (int i = 0; i <= readRetval; i++){
+                                if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &_status)) {
+                                        handle_message(&msg);
+                                }
+                        }
+		}
+		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+	}
+#endif
 }
 
 void SimulatorMavlink::check_failure_injections()
