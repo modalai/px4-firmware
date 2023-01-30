@@ -149,10 +149,6 @@ private:
 	AlphaFilter<float> _act_control_pitch_filter;
 	AlphaFilter<float> _act_control_yaw_filter;
 
-	AlphaFilter<float> _act_control_roll_filter;
-	AlphaFilter<float> _act_control_pitch_filter;
-	AlphaFilter<float> _act_control_yaw_filter;
-
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,
 		(ParamFloat<px4::params::MC_ROLLRATE_I>) _param_mc_rollrate_i,
@@ -187,9 +183,16 @@ private:
 
 		(ParamBool<px4::params::MC_BAT_SCALE_EN>) _param_mc_bat_scale_en,
 
-		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
+		// (ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl,
 		(ParamFloat<px4::params::MC_ROLL_CUTOFF>) _param_mc_roll_cutoff,
 		(ParamFloat<px4::params::MC_PITCH_CUTOFF>) _param_mc_pitch_cutoff,
-		(ParamFloat<px4::params::MC_YAW_CUTOFF>) _param_mc_yaw_cutoff
+		(ParamFloat<px4::params::MC_YAW_CUTOFF>) _param_mc_yaw_cutoff,
+
+		(ParamBool<px4::params::MC_INJECT_EN>) _param_mc_inject_en,
+		(ParamInt<px4::params::MC_INJECT_RPY>) _param_mc_inject_rpy,
+		(ParamInt<px4::params::MC_INJECT_CNT>) _param_mc_inject_cnt,
+		(ParamFloat<px4::params::MC_INJECT_START>) _param_mc_inject_start,
+		(ParamFloat<px4::params::MC_INJECT_INC>) _param_mc_inject_inc,
+		(ParamFloat<px4::params::MC_INJECT_AMP>) _param_mc_inject_amp
 	)
 };

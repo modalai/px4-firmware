@@ -115,8 +115,8 @@ MspOsd::MspOsd(const char *device) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
 {
-	_display.set_period(_param_osd_scroll_rate.get() * 1000ULL);
-	_display.set_dwell(_param_osd_dwell_time.get() * 1000ULL);
+	_display.set_period(_param_scroll_rate.get() * 1000ULL);
+	_display.set_dwell(_param_dwell_time.get() * 1000ULL);
 
 	// back up device name for connection later
 	strcpy(_device, device);
@@ -265,7 +265,7 @@ void MspOsd::Run()
 	}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
-	if (_param_osd_symbols.get() == 0) {
+	if (_param_symbols.get() == 0) {
 		return;
 	}
 
@@ -284,7 +284,7 @@ void MspOsd::Run()
 						     vehicle_status,
 						     vehicle_attitude,
 						     log_message,
-						     _param_osd_log_level.get(),
+						     _param_log_level.get(),
 						     _display);
 		this->Send(MSP_NAME, &display_message);
 	}
@@ -415,13 +415,13 @@ void MspOsd::Send(const unsigned int message_type, const void *payload)
 void MspOsd::parameters_update()
 {
 	// update our display rate and dwell time
-	_display.set_period(hrt_abstime(_param_osd_scroll_rate.get() * 1000ULL));
-	_display.set_dwell(hrt_abstime(_param_osd_dwell_time.get() * 1000ULL));
+	_display.set_period(hrt_abstime(_param_scroll_rate.get() * 1000ULL));
+	_display.set_dwell(hrt_abstime(_param_dwell_time.get() * 1000ULL));
 }
 
 bool MspOsd::enabled(const SymbolIndex &symbol)
 {
-	return _param_osd_symbols.get() & (1u << symbol);
+	return _param_symbols.get() & (1u << symbol);
 }
 
 int MspOsd::task_spawn(int argc, char *argv[])
@@ -483,7 +483,7 @@ int MspOsd::print_status()
 	PX4_INFO("Running on %s", _device);
 	PX4_INFO("\tinitialized: %d", _is_initialized);
 	PX4_INFO("\tinitialization issues: %d", _performance_data.initialization_problems);
-	PX4_INFO("\tscroll rate: %d", static_cast<int>(_param_osd_scroll_rate.get()));
+	PX4_INFO("\tscroll rate: %d", static_cast<int>(_param_scroll_rate.get()));
 	PX4_INFO("\tsuccessful sends: %lu", _performance_data.successful_sends);
 	PX4_INFO("\tunsuccessful sends: %lu", _performance_data.unsuccessful_sends);
 
