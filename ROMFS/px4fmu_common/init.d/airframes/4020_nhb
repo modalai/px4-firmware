@@ -1,0 +1,159 @@
+#!/bin/sh
+#
+# @name NHB
+#
+# @type Quadrotor x
+# @class Copter
+#
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+# hardware specific params
+param set-default BAT1_CAPACITY 1300.0000
+param set-default BAT1_N_CELLS 6
+param set-default BAT1_R_INTERNAL 0.0020
+param set-default BAT_N_CELLS 6
+
+# arming / disarming params
+param set-default COM_ARM_EKF_BIAS 0.0000
+param set-default COM_ARM_EKF_HGT 0.0000
+param set-default COM_ARM_EKF_VEL 0.000
+param set-default COM_ARM_EKF_POS 0.000
+param set-default COM_ARM_EKF_YAW 0.000
+param set-default COM_ARM_ACC_MAX 0.0000
+param set-default COM_ARM_ACC_MIN 0.0000
+param set-default COM_ARM_BAD_INOV 1
+param set-default COM_ARM_IMU_ACC 0.0
+param set-default COM_ARM_IMU_GYR 0.0
+param set-default COM_ARM_MAG_ANG -1
+param set-default COM_DISARM_FORCE 1
+param set-default COM_DISARM_LAND -1.0000
+param set-default COM_DISARM_PRFLT -1.0000
+param set-default FD_FAIL_P 180
+param set-default FD_FAIL_R 180
+
+# PID controller tuning params
+param set-default MC_PITCH_P 8
+param set-default MC_PITCHRATE_D 0.0013
+param set-default MC_PITCHRATE_I 0.7312
+param set-default MC_PITCHRATE_MAX 1600
+param set-default MC_PITCHRATE_P 0.1050
+param set-default MC_ROLL_P 8
+param set-default MC_ROLLRATE_D 0.0013
+param set-default MC_ROLLRATE_I 0.5685
+param set-default MC_ROLLRATE_MAX 1600
+param set-default MC_ROLLRATE_P 0.0908
+param set-default MC_YAW_P 1.5
+param set-default MC_YAW_CUTOFF 25.02
+param set-default MC_YAWRATE_I 8.1473
+param set-default MC_YAWRATE_MAX 1300.0000
+param set-default MC_YAWRATE_P 0.1780
+
+# RC controller feel params
+param set-default MC_ACRO_EXPO 0.3000
+param set-default MC_ACRO_EXPO_Y 0.3000
+param set-default MC_ACRO_P_MAX 900.0000
+param set-default MC_ACRO_R_MAX 900.0000
+param set-default MC_ACRO_SUPEXPO 0.8400
+param set-default MC_ACRO_SUPEXPOY 0.8400
+param set-default MC_ACRO_Y_MAX 900.0000
+
+# RC controller mapping params
+param set-default COM_FLTMODE1 1
+param set-default COM_FLTMODE4 1
+param set-default COM_FLTMODE6 6
+param set-default COM_RCL_ACT_T 0.5000
+
+# Flight Performance restriction params
+param set-default MPC_MANTHR_MIN 0.0400
+param set-default MPC_MAN_TILT_MAX 20.0000
+param set-default MPC_TILTMAX_AIR 20.0000
+param set-default MPC_MAN_Y_MAX 150.0
+param set-default MPC_THR_MAX 0.8000
+param set-default MPC_THR_MIN 0.0400
+param set-default MPC_JERK_MAX 15.0000
+param set-default MPC_XY_VEL_I_ACC 0.1000
+param set-default MPC_XY_VEL_P_ACC 3.0000
+param set-default MPC_Z_VEL_D_ACC 0.2000
+param set-default MPC_Z_VEL_I_ACC 1.2000
+param set-default MPC_Z_VEL_MAX_DN 1.5000
+param set-default MPC_Z_VEL_MAX_UP 1.5000
+param set-default MPC_Z_VEL_P_ACC 5.7000
+param set-default MPC_Z_V_AUTO_UP 1.3000
+
+# ESC driver params
+param set-default UART_ESC_CONFIG 1
+param set-default UART_ESC_MODE 1
+param set-default UART_ESC_MOTOR1 -2
+param set-default UART_ESC_MOTOR2 -4
+param set-default UART_ESC_MOTOR3 -1
+param set-default UART_ESC_MOTOR4 -3
+param set-default UART_ESC_RPM_MAX 24000
+param set-default UART_ESC_RPM_MIN 3000
+param set-default UART_ESC_BAUD 2000000
+param set-default UAVCAN_ENABLE 0
+
+# EKF params
+param set-default EKF2_AID_MASK 516
+param set-default EKF2_ARSP_THR 0.1000
+param set-default EKF2_BCOEF_X 102.0000
+param set-default EKF2_BCOEF_Y 102.0000
+param set-default EKF2_FUSE_BETA 1
+param set-default EKF2_GPS_CHECK 0
+param set-default EKF2_MAG_CHECK 0
+param set-default EKF2_MAG_TYPE 5
+param set-default EKF2_MCOEF 0.3200
+param set-default EKF2_RNG_AID 0
+param set-default EKF2_IMU_POS_Y -0.0155
+param set-default EKF2_IMU_POS_Z 0.0040
+param set-default EKF2_REQ_EPH 6.0000
+param set-default EKF2_REQ_EPV 10.0000
+param set-default EKF2_REQ_PDOP 3.5000
+param set-default EKF2_REQ_SACC 1.0000
+param set-default EKF2_NOAID_NOISE 10.0
+param set-default EKF2_FP_ALIM 0.0
+
+# Single-instance EKF Params
+param set-default SENS_MAG_MODE 1
+param set-default SENS_IMU_MODE 1
+param set-default EKF2_MULTI_MAG 0
+param set-default EKF2_MULTI_IMU 0
+
+# noise filtering params
+param set-default IMU_DGYRO_CUTOFF 60.0000
+param set-default IMU_GYRO_CUTOFF 180.0000
+param set-default IMU_GYRO_DNF_BW 20.0000
+param set-default IMU_GYRO_DNF_EN 2
+param set-default IMU_GYRO_FFT_LEN 1024
+param set-default IMU_GYRO_FFT_MAX 192.0000
+param set-default IMU_GYRO_FFT_MIN 32.0000
+param set-default IMU_GYRO_RATEMAX 800
+
+# miscellaneous important params
+param set-default COM_OF_LOSS_T 0.5000
+param set-default COM_RC_IN_MODE 0
+param set-default GF_ACTION 1
+param set-default LNDMC_ALT_GND -1.0000
+param set-default SDLOG_MODE 2
+param set-default SDLOG_PROFILE 1
+param set-default MPC_POS_MODE 1
+param set-default MPC_THR_HOVER 0.2000
+param set-default MAN_ARM_GESTURE 0
+param set-default NAV_RCL_ACT 6
+param set-default THR_MDL_FAC 0.8069
+param set-default SELECTOR_ENABLED 1
+param set-default MAV_1_MODE 0
+param set-default PARAM_SET 3
+param set-default PARAM_SET_CHANL 6
+param set-default SER_TEL2_BAUD 115200
+
+# follow up for further questioning
+param set-default CAL_MAG0_ROT 10
+param set-default HTE_HT_NOISE 0.0005
+param set-default HTE_THR_RANGE 0.4000
+param set-default PWM_AUX_OUT 1234
+param set-default PWM_MAIN_MIN 1075
+param set-default PWM_MAIN_OUT 1234
+param set-default PWM_MAIN_RATE 0

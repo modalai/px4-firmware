@@ -470,6 +470,12 @@ else
 		payload_deliverer start
 	fi
 
+	# Check for parameter set selector module
+	if param compare -s SELECTOR_ENABLED 1
+	then
+		param_set_selector start
+	fi
+
 	#
 	# Optional board supplied extras: rc.board_extras
 	#
