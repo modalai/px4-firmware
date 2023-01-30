@@ -226,10 +226,10 @@ void SimulatorMavlink::send_esc_telemetry(mavlink_hil_actuator_controls_t hil_ac
 
 void SimulatorMavlink::send_controls()
 {
-#ifdef __PX4_QURT
-	uint64_t timestamp = hrt_absolute_time();
-#endif
-	orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
+// #ifdef __PX4_QURT
+// 	uint64_t timestamp = hrt_absolute_time();
+// #endif
+	orb_copy(ORB_ID(actuator_outputs_sim), _actuator_outputs_sub, &_actuator_outputs);
 	if (_actuator_outputs.timestamp > 0) {
 		mavlink_hil_actuator_controls_t hil_act_control;
 		actuator_controls_from_outputs(&hil_act_control);
@@ -243,10 +243,10 @@ void SimulatorMavlink::send_controls()
 
 		send_esc_telemetry(hil_act_control);
 	}
-#ifdef __PX4_QURT
-	uint64_t elapsed_time = hrt_absolute_time() - timestamp;
-	if (elapsed_time < 5000) usleep(5000 - elapsed_time);
-#endif
+// #ifdef __PX4_QURT
+// 	uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+// 	if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+// #endif
 }
 
 
@@ -371,7 +371,7 @@ void SimulatorMavlink::update_sensors(const hrt_abstime &time, const mavlink_hil
 			_last_baro_temperature = sensors.temperature;
 		}
 
-		// publish
+		// publishtimestamp
 		sensor_baro_s sensor_baro{};
 		sensor_baro.timestamp_sample = new_time;
 		sensor_baro.pressure = _last_baro_pressure;
@@ -1089,7 +1089,7 @@ void SimulatorMavlink::send()
 		if (fds_actuator_outputs[0].revents & POLLIN) {
 			// Got new data to read, update all topics.
 			parameters_update(false);
-			check_failure_injections();
+			//check_failure_injections();
 			_vehicle_status_sub.update(&_vehicle_status);
 			_battery_status_sub.update(&_battery_status);
 
@@ -1246,10 +1246,9 @@ void SimulatorMavlink::run()
 
 	mavlink_status_t mavlink_status = {};
 
-#endif
 	// Request HIL_STATE_QUATERNION for ground truth.
 	request_hil_state_quaternion();
-
+#endif
 	// got data from simulator, now activate the sending thread
 	pthread_create(&sender_thread, &sender_thread_attr, SimulatorMavlink::sending_trampoline, nullptr);
 	pthread_attr_destroy(&sender_thread_attr);
@@ -1286,7 +1285,7 @@ void SimulatorMavlink::run()
 		}
 	}
 #else
-		uint64_t timestamp = hrt_absolute_time();
+		//uint64_t timestamp = hrt_absolute_time();
 		uint8_t rx_buf[1024];
 		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
                 if (readRetval) {
@@ -1298,8 +1297,8 @@ void SimulatorMavlink::run()
                                 }
                         }
 		}
-		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
-		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+		// uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+		// if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
 #endif
 }
