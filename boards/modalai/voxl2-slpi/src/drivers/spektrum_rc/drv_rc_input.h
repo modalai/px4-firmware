@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * Copyright (C) 2022 - 2023 ModalAI, Inc. All rights reserved.
+ *   Copyright (c) 2012-2014 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,41 +30,59 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#pragma once
 
-#include <stdarg.h>
-#include <stdio.h>
+/**
+ * @file drv_rc_input.h
+ *
+ * R/C input interface.
+ */
+
+#ifndef _DRV_RC_INPUT_H
+#define _DRV_RC_INPUT_H
+
 #include <stdint.h>
-#include <px4_platform_common/defines.h>
+#include <sys/ioctl.h>
+#include <uORB/topics/input_rc.h>
 
-__BEGIN_DECLS
+// #include "drv_orb_dev.h"
 
-extern void qurt_log_to_apps(int level, const char *message);
+/**
+ * Path for the default R/C input device.
+ *
+ * Note that on systems with more than one R/C input path (e.g.
+ * PX4FMU with PX4IO connected) there may be other devices that
+ * respond to this protocol.
+ *
+ * Input data may be obtained by subscribing to the input_rc
+ * object, or by poll/reading from the device.
+ */
+#define RC_INPUT0_DEVICE_PATH	"/dev/input_rc0"
 
-// Defining hap_debug
-void HAP_debug(const char *msg, int level, const char *filename, int line);
+/**
+ * Maximum RSSI value
+ */
+#define RC_INPUT_RSSI_MAX	100
 
-static __inline void qurt_log(int level, const char *file, int line,
-			      const char *format, ...)
-{
-	char buf[256];
-	va_list args;
-	va_start(args, format);
-	vsnprintf(buf, sizeof(buf), format, args);
-	va_end(args);
-	HAP_debug(buf, level, file, line);
+/**
+ * Input signal type, value is a control position from zero to 100
+ * percent.
+ */
+typedef uint16_t		rc_input_t;
 
-	qurt_log_to_apps(level, buf);
-}
+#define _RC_INPUT_BASE		0x2b00
 
-static __inline void qurt_log_raw(const char *format, ...)
-{
-	char buf[256];
-	va_list args;
-	va_start(args, format);
-	vsnprintf(buf, sizeof(buf), format, args);
-	va_end(args);
-	qurt_log_to_apps(1, buf);
-}
+/** Enable RSSI input via ADC */
+#ifdef __PX4_POSIX
+#define RC_INPUT_ENABLE_RSSI_ANALOG	(_RC_INPUT_BASE | 1)
+#else
+#define RC_INPUT_ENABLE_RSSI_ANALOG	_IOC(_RC_INPUT_BASE, 1)
+#endif
 
-__END_DECLS
+/** Enable RSSI input via PWM signal */
+#ifdef __PX4_POSIX
+#define RC_INPUT_ENABLE_RSSI_PWM	(_RC_INPUT_BASE | 2)
+#else
+#define RC_INPUT_ENABLE_RSSI_PWM	_IOC(_RC_INPUT_BASE, 2)
+#endif
+
+#endif /* _DRV_RC_INPUT_H */
