@@ -92,6 +92,14 @@ void Ekf::predictHagl(const imuSample &imu_delayed)
 
 void Ekf::controlHaglRngFusion()
 {
+	// not sure where this lives as a param
+	_hagl_sensor_status.flags.range_finder = 1;
+	// this needs to be fake set here, otherwise we will be unable to arm and stuck
+	// in a perpetual velocity estimate error cycle due to flow data in without a
+	// usable hagl estimate
+	_control_status.flags.in_air = 1;
+
+
 	if (!(_params.terrain_fusion_mode & TerrainFusionMask::TerrainFuseRangeFinder)
 	    || _control_status.flags.rng_fault) {
 
