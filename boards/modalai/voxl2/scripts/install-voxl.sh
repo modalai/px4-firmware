@@ -19,10 +19,10 @@ adb push boards/modalai/voxl2/target/voxl-px4-set-default-parameters.config /etc
 adb push boards/modalai/voxl2/target/voxl-px4-fake-imu-calibration.config /etc/modalai
 
 # Push the json files
-adb push build/modalai_voxl2_default/actuators.json.xz /data/px4
-adb push build/modalai_voxl2_default/component_general.json.xz /data/px4
-adb push build/modalai_voxl2_default/parameters.json.xz /data/px4
-adb push build/modalai_voxl2_default/events/all_events.json.xz /data/px4
+adb push build/modalai_voxl2_default/actuators.json.xz /data/px4/etc/extras
+adb push build/modalai_voxl2_default/component_general.json.xz /data/px4/etc/extras
+adb push build/modalai_voxl2_default/parameters.json.xz /data/px4/etc/extras
+adb push build/modalai_voxl2_default/events/all_events.json.xz /data/px4/etc/extras
 
 # Make sure to setup all of the needed px4 aliases.
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-accelsim"
