@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * Copyright (C) 2022 - 2023 ModalAI, Inc. All rights reserved.
+ * Copyright (C) 2022-2023 ModalAI, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,16 @@ static __inline void qurt_log(int level, const char *file, int line,
 	HAP_debug(buf, level, file, line);
 
 	qurt_log_to_apps(level, buf);
+}
+
+static __inline void qurt_log_raw(const char *format, ...)
+{
+	char buf[256];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buf, sizeof(buf), format, args);
+	va_end(args);
+	qurt_log_to_apps(1, buf);
 }
 
 __END_DECLS

@@ -476,7 +476,7 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 	LockGuard lg{mavlink_module_mutex};
 
 	for (Mavlink *inst : mavlink_module_instances) {
-		if (inst && (inst != self) && (inst->_forwarding_on)) {
+		if (inst && (inst != self) && (inst->get_forwarding_on())) {
 			// Pass message only if target component was seen before
 			if (inst->_receiver.component_was_seen(target_system_id, target_component_id)) {
 				inst->pass_message(msg);
@@ -1859,6 +1859,27 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 int
 Mavlink::task_main(int argc, char *argv[])
 {
+	// If stdin, stdout and/or stderr file descriptors (0, 1, 2)
+	// are not open when mavlink module starts (as might be the case for USB auto-start),
+	// use default /dev/null so that these numbers are not used by other other files.
+	if (fcntl(0, F_GETFD) == -1) {
+		int tmp = open("/dev/null", O_RDONLY);
+		dup2(tmp, 0);
+		close(tmp);
+	}
+
+	if (fcntl(1, F_GETFD) == -1) {
+		int tmp = open("/dev/null", O_WRONLY);
+		dup2(tmp, 1);
+		close(tmp);
+	}
+
+	if (fcntl(2, F_GETFD) == -1) {
+		int tmp = open("/dev/null", O_WRONLY);
+		dup2(tmp, 2);
+		close(tmp);
+	}
+
 	int ch;
 	_baudrate = 57600;
 	_datarate = 0;
@@ -2119,6 +2140,9 @@ Mavlink::task_main(int argc, char *argv[])
 		_ftp_on = true;
 		_is_usb_uart = true;
 
+		// Always forward messages to/from the USB instance.
+		_forwarding_on = true;
+
 		set_telemetry_status_type(telemetry_status_s::LINK_TYPE_USB);
 	}
 
@@ -2183,7 +2207,7 @@ Mavlink::task_main(int argc, char *argv[])
 	pthread_mutex_init(&_radio_status_mutex, nullptr);
 
 	/* if we are passing on mavlink messages, we need to prepare a buffer for this instance */
-	if (_forwarding_on) {
+	if (get_forwarding_on()) {
 		/* initialize message buffer if multiplexing is on.
 		 * make space for two messages plus off-by-one space as we use the empty element
 		 * marker ring buffer approach.
@@ -2537,7 +2561,7 @@ Mavlink::task_main(int argc, char *argv[])
 		_events.update(t);
 
 		/* pass messages from other UARTs */
-		if (_forwarding_on) {
+		if (get_forwarding_on()) {
 
 			bool is_part;
 			uint8_t *read_ptr;
@@ -2629,7 +2653,7 @@ Mavlink::task_main(int argc, char *argv[])
 		_socket_fd = -1;
 	}
 
-	if (_forwarding_on) {
+	if (get_forwarding_on()) {
 		message_buffer_destroy();
 		pthread_mutex_destroy(&_message_buffer_mutex);
 	}
@@ -2949,6 +2973,7 @@ Mavlink::display_status()
 	       _ftp_on ? "YES" : "NO",
 	       _transmitting_enabled ? "YES" : "NO");
 	printf("\tmode: %s\n", mavlink_mode_str(_mode));
+	printf("\tForwarding: %s\n", get_forwarding_on() ? "On" : "Off");
 	printf("\tMAVLink version: %" PRId32 "\n", _protocol_version);
 
 	printf("\ttransport protocol: ");
