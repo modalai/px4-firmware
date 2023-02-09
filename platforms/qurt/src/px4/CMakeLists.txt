@@ -35,6 +35,7 @@
 set(QURT_LAYER_SRCS
 	drv_hrt.cpp
 	tasks.cpp
+	sem.c
 	px4_qurt_impl.cpp
 	main.cpp
 	qurt_log.cpp

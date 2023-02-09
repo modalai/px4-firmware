@@ -398,27 +398,6 @@ const char *px4_get_taskname()
 
 }
 
-static void timer_cb(void *data)
-{
-	px4_sem_t *sem = reinterpret_cast<px4_sem_t *>(data);
-
-	sem_post(sem);
-}
-
-int px4_sem_timedwait(px4_sem_t *sem, const struct timespec *ts)
-{
-	work_s _hpwork = {};
-
-	struct timespec ts_now;
-	px4_clock_gettime(CLOCK_MONOTONIC, &ts_now);
-
-	hrt_abstime timeout_us = ts_to_abstime((struct timespec *)ts) - ts_to_abstime(&ts_now);
-
-	hrt_work_queue(&_hpwork, (worker_t)&timer_cb, (void *)sem, timeout_us);
-	sem_wait(sem);
-	hrt_work_cancel(&_hpwork);
-	return 0;
-}
 
 int px4_prctl(int option, const char *arg2, pthread_t pid)
 {
