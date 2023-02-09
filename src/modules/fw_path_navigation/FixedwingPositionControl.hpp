@@ -33,11 +33,11 @@
 
 
 /**
- * @file fw_pos_control_l1_main.hpp
- * Implementation of a generic position controller based on the L1 norm. Outputs a bank / roll
+ * @file fw_path_navigation_main.hpp
+ * Implementation of a generic path navigation. Outputs a bank / roll
  * angle, equivalent to a lateral motion (for copters and rovers).
  *
- * The implementation for the controllers is in the ECL library. This class only
+ * The implementation for the controllers is in a separate library. This class only
  * interfaces to the library.
  *
  * @author Lorenz Meier <lorenz@px4.io>
@@ -55,7 +55,6 @@
 
 #include <drivers/drv_hrt.h>
 #include <lib/geo/geo.h>
-#include <lib/l1/ECL_L1_Pos_Controller.hpp>
 #include <lib/npfg/npfg.hpp>
 #include <lib/tecs/TECS.hpp>
 #include <lib/mathlib/mathlib.h>
@@ -156,10 +155,6 @@ static constexpr float MIN_PITCH_DURING_MANUAL_TAKEOFF = 0.0f;
 // [m] arbitrary buffer altitude added to clearance altitude setpoint during takeoff to ensure aircraft passes the clearance
 // altitude while waiting for navigator to flag it exceeded
 static constexpr float kClearanceAltitudeBuffer = 10.0f;
-
-// [m] a very large number to hopefully avoid the "fly back" case in L1 waypoint following logic once passed the second
-// waypoint in the segment. this is unecessary with NPFG.
-static constexpr float L1_VIRTUAL_TAKEOFF_WP_DIST = 1.0e6f;
 
 // [m/s] maximum rate at which the touchdown position can be nudged
 static constexpr float MAX_TOUCHDOWN_POSITION_NUDGE_RATE = 4.0f;
@@ -415,9 +410,6 @@ private:
 	// CLosest point on path to track
 	matrix::Vector2f _closest_point_on_path;
 
-	// L1 guidance - lateral-directional position control
-	ECL_L1_Pos_Controller _l1_control;
-
 	// nonlinear path following guidance - lateral-directional position control
 	NPFG _npfg;
 
@@ -658,19 +650,6 @@ private:
 	void reset_takeoff_state();
 	void reset_landing_state();
 
-	bool using_npfg_with_wind_estimate() const;
-
-	/**
-	 * @brief Returns the velocity vector to be input in the lateral-directional guidance laws.
-	 *
-	 * Replaces the ground velocity vector with an air velocity vector depending on the wind condition and whether
-	 * NPFG or L1 are being used for horizontal position control.
-	 *
-	 * @param ground_speed Vehicle ground velocity vector [m/s]
-	 * @return Velocity vector to control with lateral-directional guidance [m/s]
-	 */
-	Vector2f get_nav_speed_2d(const Vector2f &ground_speed);
-
 	/**
 	 * @brief Decides which control mode to execute.
 	 *
@@ -847,12 +826,9 @@ private:
 
 		(ParamFloat<px4::params::FW_GND_SPD_MIN>) _param_fw_gnd_spd_min,
 
-		(ParamFloat<px4::params::FW_L1_DAMPING>) _param_fw_l1_damping,
-		(ParamFloat<px4::params::FW_L1_PERIOD>) _param_fw_l1_period,
-		(ParamFloat<px4::params::FW_L1_R_SLEW_MAX>) _param_fw_l1_r_slew_max,
+		(ParamFloat<px4::params::FW_PN_R_SLEW_MAX>) _param_fw_pn_r_slew_max,
 		(ParamFloat<px4::params::FW_R_LIM>) _param_fw_r_lim,
 
-		(ParamBool<px4::params::FW_USE_NPFG>) _param_fw_use_npfg,
 		(ParamFloat<px4::params::NPFG_PERIOD>) _param_npfg_period,
 		(ParamFloat<px4::params::NPFG_DAMPING>) _param_npfg_damping,
 		(ParamBool<px4::params::NPFG_LB_PERIOD>) _param_npfg_en_period_lb,
@@ -926,7 +902,7 @@ private:
 		(ParamFloat<px4::params::FW_WING_SPAN>) _param_fw_wing_span,
 		(ParamFloat<px4::params::FW_WING_HEIGHT>) _param_fw_wing_height,
 
-		(ParamFloat<px4::params::RWTO_L1_PERIOD>) _param_rwto_l1_period,
+		(ParamFloat<px4::params::RWTO_NPFG_PERIOD>) _param_rwto_npfg_period,
 		(ParamBool<px4::params::RWTO_NUDGE>) _param_rwto_nudge,
 
 		(ParamFloat<px4::params::FW_LND_FL_TIME>) _param_fw_lnd_fl_time,
