@@ -25,7 +25,7 @@ void configure_uart_callbacks(open_uart_func_t open_func,
 	}
 }
 
-int qurt_uart_open(const char *dev, speed_t speed)
+int qurt_uart_open(const char *dev, uint32_t speed)
 {
 	if (_callbacks_configured) {
 		// Convert device string into a uart port number

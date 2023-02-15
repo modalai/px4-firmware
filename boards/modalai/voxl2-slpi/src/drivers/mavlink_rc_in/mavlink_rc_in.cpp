@@ -35,7 +35,7 @@
 #include <stdint.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/getopt.h>
-#include <drivers/device/qurt/uart.h>
+#include <drivers/device/Serial.hpp>
 #include <uORB/uORB.h>
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -47,10 +47,7 @@
 #include <lib/rc/crsf.h>
 #include <lib/perf/perf_counter.h>
 
-
-#define ASYNC_UART_READ_WAIT_US 500
 #define RC_INPUT_RSSI_MAX	100
-
 #define TX_BUFFER_LEN 20
 
 extern "C" { __EXPORT int mavlink_rc_in_main(int argc, char *argv[]); }
@@ -64,8 +61,6 @@ volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 static px4_task_t _mav_task_handle = -1;
 
-static int _uart_fd = -1;
-
 static bool debug = false;
 static bool mav_en = true;
 static bool crsf_en = false;
@@ -74,6 +69,7 @@ static bool filter_local_rc_messages = true;
 static bool dump_received_messages = false;
 static bool dump_transmitted_messages = false;
 
+static device::Serial _uart;
 std::string port = "7";
 uint32_t baudrate = 115200;
 
@@ -84,9 +80,6 @@ perf_counter_t	_perf_rx_rate = nullptr;
 
 static uint8_t _rc_lq;
 static uint8_t _rc_rssi_dbm;
-
-int open_port(const char *dev, speed_t speed);
-int close_port();
 
 int write_response(void *buf, size_t len);
 
@@ -150,7 +143,7 @@ void mavlink_out_task(int argc, char *argv[])
 			uint16_t hb_newBufLen = 0;
 			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
 
-			nwrite = qurt_uart_write(_uart_fd, (char *) &hb_newBuf[0], hb_newBufLen);
+			nwrite = _uart.write((char *) &hb_newBuf[0], hb_newBufLen);
 
 			if (nwrite != hb_newBufLen) {
 				PX4_ERR("Heartbeat write failed. Expected %d, got %d", hb_newBufLen, nwrite);
@@ -252,10 +245,10 @@ void task_main(int argc, char *argv[])
 		}
 	}
 
-	if (open_port(port.c_str(), (speed_t) baudrate) == -1) {
+	if (_uart.open(port.c_str(), baudrate) == -1) {
 		PX4_ERR("Failed to open UART");
 		return;
-	}
+	} else if (debug) { PX4_INFO("UART opened successfully"); }
 
 	_mav_task_handle = px4_task_spawn_cmd("mavlink_rc_in_mav",
 					      SCHED_DEFAULT,
@@ -278,7 +271,7 @@ void task_main(int argc, char *argv[])
 
 	while (! _task_should_exit) {
 		// Check for incoming messages from the TBS Crossfire receiver
-		int nread = qurt_uart_read(_uart_fd, (char *) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
+		int nread = _uart.read(rx_buf, sizeof(rx_buf));
 
 		if (nread) {
 			if (debug) {
@@ -395,39 +388,14 @@ void handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
 	_rc_pub.publish(rc);
 }
 
-int open_port(const char *dev, speed_t speed)
-{
-	if (_uart_fd >= 0) {
-		PX4_ERR("Port already in use: %s", dev);
-		return -1;
-	}
-
-	_uart_fd = qurt_uart_open(dev, speed);
-
-	if (_uart_fd < 0) {
-		PX4_ERR("Error opening port: %s (%i)", dev, errno);
-		return -1;
-
-	} else if (debug) { PX4_INFO("qurt uart opened successfully"); }
-
-	return 0;
-}
-
-int close_port()
-{
-	_uart_fd = -1;
-
-	return 0;
-}
-
 int write_response(void *buf, size_t len)
 {
-	if (_uart_fd < 0 || buf == NULL) {
+	if (!_uart.isOpen() || buf == NULL) {
 		PX4_ERR("invalid state for writing or buffer");
 		return -1;
 	}
 
-	return qurt_uart_write(_uart_fd, (const char *) buf, len);
+	return _uart.write((const char *) buf, len);
 }
 
 int start(int argc, char *argv[])

@@ -85,7 +85,7 @@ perf_counter_t	_perf_rx_rate = nullptr;
 // static uint8_t _rc_lq;
 // static uint8_t _rc_rssi_dbm;
 
-int open_port(const char *dev, speed_t speed);
+int open_port(const char *dev, uint32_t speed);
 int close_port();
 
 int write_response(void *buf, size_t len);
@@ -304,7 +304,7 @@ void task_main(int argc, char *argv[])
 		}
 	}
 
-	if (open_port(port.c_str(), (speed_t) baudrate) == -1) {
+	if (open_port(port.c_str(), baudrate) == -1) {
 		PX4_ERR("Failed to open UART");
 		return;
 	}
@@ -498,7 +498,7 @@ void handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
 	_rc_pub.publish(rc);
 }
 
-int open_port(const char *dev, speed_t speed)
+int open_port(const char *dev, uint32_t speed)
 {
 	if (_uart_fd >= 0) {
 		PX4_ERR("Port already in use: %s", dev);
