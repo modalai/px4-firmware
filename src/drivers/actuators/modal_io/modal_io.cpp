@@ -314,6 +314,7 @@ int ModalIo::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					int motor_idx = _output_map[id].number - 1; // mapped motor id.. user defined mapping is 1-4, array is 0-3
 
 					if (print_feedback) {
+#ifdef __PX4_QURT
 						uint32_t rpm         = fb.rpm;
 						uint32_t power       = fb.power;
 						uint32_t voltage     = fb.voltage;
@@ -321,6 +322,7 @@ int ModalIo::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 						int32_t  temperature = fb.temperature / 100;
 						PX4_INFO("[%lld] ID_RAW=%d ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC", tnow, (int)id, motor_idx + 1,
 							 (int)rpm, (int)power, (int)voltage, (int)current, (int)temperature);
+#endif
 					}
 
 					_esc_chans[id].rate_meas     = fb.rpm;
@@ -1466,7 +1468,7 @@ int ModalIo::print_status()
 	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
 
 	PX4_INFO("");
-
+#ifdef __PX4_QURT
 	PX4_INFO("Params: MODAL_IO_CONFIG: %li", _parameters.config);
 	PX4_INFO("Params: MODAL_IO_BAUD: %li", _parameters.baud_rate);
 
@@ -1482,7 +1484,7 @@ int ModalIo::print_status()
 
 	PX4_INFO("Params: MODAL_IO_RPM_MIN: %li", _parameters.rpm_min);
 	PX4_INFO("Params: MODAL_IO_RPM_MAX: %li", _parameters.rpm_max);
-
+#endif
 	PX4_INFO("");
 
 	for( int i = 0; i < MODAL_IO_OUTPUT_CHANNELS; i++){
