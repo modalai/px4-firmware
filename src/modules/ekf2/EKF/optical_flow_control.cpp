@@ -212,9 +212,9 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 					fuseOptFlow();
 					_last_known_pos.xy() = _state.pos.xy();
 				}
-				// else {
-				// 	PX4_WARN("terrain estimator sad %ld", _time_last_hagl_fuse);
-				// }
+				else {
+					PX4_INFO("terrain estimator sad %ld", _time_last_hagl_fuse);
+				}
 
 				_flow_data_ready = false;
 			}

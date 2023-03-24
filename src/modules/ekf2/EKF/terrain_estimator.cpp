@@ -100,9 +100,15 @@ void Ekf::controlHaglRngFusion()
 	}
 
 	if (_range_sensor.isDataHealthy()) {
-		const bool continuing_conditions_passing = _control_status.flags.in_air && _rng_consistency_check.isKinematicallyConsistent();
+		// const bool continuing_conditions_passing = _control_status.flags.in_air && _rng_consistency_check.isKinematicallyConsistent();
+		const bool continuing_conditions_passing = _control_status.flags.in_air;
 		//const bool continuing_conditions_passing = _control_status.flags.in_air && !_control_status.flags.rng_hgt; // TODO: should not be fused when using range height
-		const bool starting_conditions_passing = continuing_conditions_passing && _range_sensor.isRegularlySendingData() && (_rng_consistency_check.getTestRatio() < 1.f);
+		// const bool starting_conditions_passing = continuing_conditions_passing && _range_sensor.isRegularlySendingData() && (_rng_consistency_check.getTestRatio() < 1.f);
+		const bool starting_conditions_passing = continuing_conditions_passing;
+
+		if (! _rng_consistency_check.isKinematicallyConsistent()) {
+			PX4_INFO("Range data is not Kinematically Consistent");
+		}
 
 		_time_last_healthy_rng_data = _time_delayed_us;
 
@@ -145,6 +151,8 @@ void Ekf::controlHaglRngFusion()
 	} else if (_hagl_sensor_status.flags.range_finder && isTimedOut(_time_last_healthy_rng_data, _params.reset_timeout_max)) {
 		// No data anymore. Stop until it comes back.
 		stopHaglRngFusion();
+	// } else {
+	// 	PX4_INFO("Range sensor data is not healthy");
 	}
 }
 
@@ -240,9 +248,11 @@ void Ekf::fuseHaglRng()
 		// record last successful fusion event
 		_time_last_hagl_fuse = _time_delayed_us;
 		_innov_check_fail_status.flags.reject_hagl = false;
+		PX4_INFO("HAGL fusion succeeded");
 
 	} else {
 		_innov_check_fail_status.flags.reject_hagl = true;
+		PX4_INFO("Rejecting HAGL fusion");
 	}
 }
 
