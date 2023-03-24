@@ -64,9 +64,9 @@ void SensorRangeFinder::updateValidity(uint64_t current_time_us)
 	updateDtDataLpf(current_time_us);
 
 	if (_is_faulty || isSampleOutOfDate(current_time_us) || !isDataContinuous()) {
-		if (_is_faulty) PX4_INFO("_is_faulty is set");
-		if (isSampleOutOfDate(current_time_us)) PX4_INFO("sample is out of date");
-		if (!isDataContinuous()) PX4_INFO("sample data is not continuous");
+		// if (_is_faulty) PX4_INFO("_is_faulty is set");
+		// if (isSampleOutOfDate(current_time_us)) PX4_INFO("sample is out of date");
+		// if (!isDataContinuous()) PX4_INFO("sample data is not continuous");
 		_is_sample_valid = false;
 		_is_regularly_sending_data = false;
 		return;
@@ -80,7 +80,7 @@ void SensorRangeFinder::updateValidity(uint64_t current_time_us)
 
 		if (_sample.quality == 0) {
 			_time_bad_quality_us = current_time_us;
-			PX4_INFO("sample quality is 0");
+			// PX4_INFO("sample quality is 0");
 
 		} else if (current_time_us - _time_bad_quality_us > _quality_hyst_us) {
 			// We did not receive bad quality data for some time
@@ -91,21 +91,21 @@ void SensorRangeFinder::updateValidity(uint64_t current_time_us)
 				if (!_is_stuck) {
 					_is_sample_valid = true;
 					_time_last_valid_us = _sample.time_us;
-					PX4_INFO("Data is valid");
+					// PX4_INFO("Data is valid");
 
 				} else {
-					PX4_INFO("Data is stuck");
+				// 	PX4_INFO("Data is stuck");
 				}
 			} else {
-				if (!isTiltOk()) PX4_INFO("tilt is not okay");
-				if (!isDataInRange()) PX4_INFO("data is not in range");
+			// 	if (!isTiltOk()) PX4_INFO("tilt is not okay");
+			// 	if (!isDataInRange()) PX4_INFO("data is not in range");
 
 			}
 		} else {
-			PX4_INFO("Waiting to recover from bad quality data");
+			// PX4_INFO("Waiting to recover from bad quality data");
 		}
 	} else {
-		PX4_INFO("sample is not ready");
+		// PX4_INFO("sample is not ready");
 
 	}
 }

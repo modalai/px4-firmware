@@ -115,7 +115,7 @@ void Ekf::fuseOptFlow()
 	    || (_aid_src_optical_flow.innovation_variance[1] < R_LOS)) {
 		// we need to reinitialise the covariance matrix and abort this fusion step
 		ECL_ERR("Opt flow error - covariance reset");
-		PX4_INFO("Optic flow fusion failed due to failed innovation variance");
+		// PX4_INFO("Optic flow fusion failed due to failed innovation variance");
 		initialiseCovariance();
 		return;
 	}
@@ -128,7 +128,7 @@ void Ekf::fuseOptFlow()
 
 	// if either axis fails we abort the fusion
 	if (_aid_src_optical_flow.innovation_rejected) {
-		PX4_INFO("Optic flow fusion failed due to failed innovation checks");
+		// PX4_INFO("Optic flow fusion failed due to failed innovation checks");
 		return;
 	}
 
@@ -151,8 +151,7 @@ void Ekf::fuseOptFlow()
 			if (_aid_src_optical_flow.innovation_variance[1] < R_LOS) {
 				// we need to reinitialise the covariance matrix and abort this fusion step
 				ECL_ERR("Opt flow error - covariance reset");
-				PX4_INFO("Optic flow fusion failed due to covariance reset");
-
+				// PX4_INFO("Optic flow fusion failed due to covariance reset");
 				initialiseCovariance();
 				return;
 			}
@@ -164,7 +163,7 @@ void Ekf::fuseOptFlow()
 		if (measurementUpdate(Kfusion, _aid_src_optical_flow.innovation_variance[index], _aid_src_optical_flow.innovation[index])) {
 			fused[index] = true;
 		} else {
-			PX4_INFO("measurementUpdate failure");
+			// PX4_INFO("measurementUpdate failure");
 		}
 	}
 
