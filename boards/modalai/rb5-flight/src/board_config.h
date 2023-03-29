@@ -54,7 +54,7 @@
 #define PX4_I2C_BUS_EXPANSION   3  // I2C3: J14 / Power
 #define PX4_I2C_BUS_EXPANSION2  9  // I2C9: J15 / Radio Receiver / Sensors
 
-#define PX4_NUMBER_I2C_BUSES    3
+#define PX4_NUMBER_I2C_BUSES    4
 
 #define PX4_I2C_OBDEV_BMP280  0x76
 
