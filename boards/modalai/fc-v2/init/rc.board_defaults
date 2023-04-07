@@ -3,10 +3,15 @@
 # board specific defaults
 #------------------------------------------------------------------------------
 
-# Like FCV1, MAV_1 mavlink channel is used to talk to VOXL via onboard mode
-# unlike FCV1, TELEM1 is used to connect to VOXL instead of TELEM2
+# Disable TELEM1 MAVLINK; used by OSD,
 param set-default MAV_0_CONFIG 0
-param set-default MAV_1_CONFIG 101
-param set-default MAV_1_MODE 2
-param set-default MAV_1_RATE 0
+
+# enable OSD on FCv2-J1 TELEM1 port by default (/dev/ttyS6)
+param set-default MSP_OSD_CONFIG 101
 param set-default SER_TEL1_BAUD 921600
+
+# Disable TELEM2, used by ModalAI ESC (/dev/ttyS4)
+param set-default MAV_1_CONFIG 0
+
+# use ModalAI ESC by default
+param set-default UART_ESC_CONFIG 1

@@ -3,12 +3,6 @@
 # ModalAI FC-v2 specific board sensors init
 #------------------------------------------------------------------------------
 
-# ModalAI ESC
-if param greater UART_ESC_CONFIG 0
-then
-	modalai_esc -d /dev/ttyS6 start
-fi
-
 board_adc start
 
 # VOXL Power Module
@@ -26,3 +20,6 @@ icm42688p -s -b 2 -R 12 start
 
 # Internal I2C baro
 icp20100 -I start
+
+# start ModalAI ESC
+modalai_esc -d /dev/ttyS4 start
