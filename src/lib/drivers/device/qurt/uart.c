@@ -46,6 +46,13 @@ int qurt_uart_open(const char *dev, speed_t speed)
 	return -1;
 }
 
+int qurt_uart_close(int fd) {
+
+	// TODO: Implement a reasonable close
+
+	return 0;
+}
+
 int qurt_uart_write(int fd, const char *buf, size_t len)
 {
 	if (fd < 0) {
