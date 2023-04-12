@@ -3,7 +3,7 @@
 #include <string.h> // strncpy
 #include <px4_log.h>
 #include <drivers/device/qurt/uart.h>
-
+#include <drivers/drv_hrt.h>
 
 namespace device
 {
@@ -96,71 +96,65 @@ ssize_t SerialImpl::read(uint8_t *buffer, size_t buffer_size)
 
 ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t character_count, uint32_t timeout_us)
 {
-	// const size_t required_bytes = math::min(buffer_size, character_count);
-	// const hrt_abstime start_time_us = hrt_absolute_time();
-	// 
-	// if (!_open) {
-	// 	open();
-	// }
-	// 
-	// if (!_configured) {
-	// 	configure();
-	// }
-	// 
-	// while (true) {
-	// 	int bytes_available = 0;
-	// 	int ioctl_ret = ::ioctl(_serial_fd, FIONREAD, (unsigned long)&bytes_available);
-	// 
-	// 	if ((ioctl_ret == 0) && (bytes_available >= (int)required_bytes)) {
-	// 		return read(buffer, buffer_size);
-	// 	}
-	// 
-	// 	if (bytes_available < (int)required_bytes) {
-	// 
-	// 		if (timeout_us > 0) {
-	// 			const uint64_t elapsed_us = hrt_elapsed_time(&start_time_us);
-	// 
-	// 			if (elapsed_us > timeout_us) {
-	// 				//PX4_WARN("readAtLeast timeout %d bytes available (%llu us elapsed)", bytes_available, elapsed_us);
-	// 				return -1;
-	// 			}
-	// 		}
-	// 
-	// 		int desired_bytes = required_bytes - bytes_available;
-	// 
-	// 		uint32_t sleeptime_us = desired_bytes * 1'000'000 / (_baudrate / 10);
-	// 
-	// 		if (desired_bytes == 1 || sleeptime_us <= 1000) {
-	// 
-	// 			int poll_timeout_ms = 0;
-	// 
-	// 			if (timeout_us > 0) {
-	// 				poll_timeout_ms = timeout_us / 1000;
-	// 			}
-	// 
-	// 			pollfd fds[1];
-	// 			fds[0].fd = _serial_fd;
-	// 			fds[0].events = POLLIN;
-	// 
-	// 			int poll_ret = ::poll(fds, 1, poll_timeout_ms);
-	// 
-	// 			if (poll_ret > 0) {
-	// 				if (fds[0].revents & POLLIN) {
-	// 					// There is data to read
-	// 				}
-	// 			}
-	// 
-	// 		} else {
-	// 			if (timeout_us > 0) {
-	// 				sleeptime_us = math::min(sleeptime_us, timeout_us);
-	// 			}
-	// 
-	// 			//PX4_INFO("%s %d/%d bytes available, sleep time %" PRIu32 "us", _port, bytes_available, required_bytes, sleeptime_us);
-	// 
-	// 			px4_usleep(sleeptime_us);
-	// 		}
-	// 	}
-	// }
+	const hrt_abstime start_time_us = hrt_absolute_time();
+	int total_bytes_read = 0;
+	
+	if (!_open) {
+		open();
+	}
+	
+	if (!_configured) {
+		configure();
+	}
+
+	if (character_count < buffer_size) {
+		PX4_ERR("%s: Buffer not big enough to hold desired amount of read data", __FUNCTION__);
+		return -1;
+	}
+
+	while (total_bytes_read < (int) character_count) {
+
+		if (timeout_us > 0) {
+			const uint64_t elapsed_us = hrt_elapsed_time(&start_time_us);
+
+			if (elapsed_us >= timeout_us) {
+				// If there was a partial read but not enough to satisfy the minimum then they will be lost
+				// but this really should never happen when everything is working normally.
+				PX4_WARN("%s timeout %d bytes read (%llu us elapsed)", __FUNCTION__, total_bytes_read, elapsed_us);
+				return -1;
+			}
+		}
+	
+		int current_bytes_read = read(&buffer[total_bytes_read], buffer_size - total_bytes_read);
+
+		if (current_bytes_read < 0) {
+			// Again, if there was a partial read but not enough to satisfy the minimum then they will be lost
+			// but this really should never happen when everything is working normally.
+			PX4_ERR("%s failed to read uart", __FUNCTION__);
+			return -1;
+		}
+
+		// Current bytes read could be zero
+		total_bytes_read += current_bytes_read;
+
+		// If we have at least reached our desired minimum number of characters
+		// then we can return now
+		if (total_bytes_read >= (int) character_count) {
+			return total_bytes_read;
+		}
+
+		// Wait a set amount of time before trying again or the remaining time
+		// until the timeout if we are getting close
+		const uint64_t elapsed_us = hrt_elapsed_time(&start_time_us);
+		int64_t time_until_timeout = timeout_us - elapsed_us;
+		uint64_t time_to_sleep = 5000;
+		if ((time_until_timeout >= 0) &&
+			(time_until_timeout < (int64_t) time_to_sleep)) {
+			time_to_sleep = time_until_timeout;
+		}
+
+		px4_usleep(time_to_sleep);
+	}
 
 	return -1;
 }

@@ -310,7 +310,7 @@ void task_main(int argc, char *argv[])
 	while (! _task_should_exit) {
 		// Check for incoming messages from the TBS Crossfire receiver
 #ifdef NEW_UART_UI
-		int nread = _uart->read(rx_buf, sizeof(rx_buf));
+		int nread = _uart->readAtLeast(rx_buf, sizeof(rx_buf), MAVLINK_NUM_NON_PAYLOAD_BYTES, 100000);
 #else
 		int nread = qurt_uart_read(_uart_fd, (char *) rx_buf, sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
 #endif
