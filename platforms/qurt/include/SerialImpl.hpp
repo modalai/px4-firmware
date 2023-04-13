@@ -39,21 +39,18 @@ public:
 	bool setBaudrate(uint32_t baudrate);
 
 	ByteSize getBytesize() const;
-	void setBytesize(ByteSize bytesize);
+	bool setBytesize(ByteSize bytesize);
 
 	Parity getParity() const;
-	void setParity(Parity parity);
+	bool setParity(Parity parity);
 
 	StopBits getStopbits() const;
-	void setStopbits(StopBits stopbits);
+	bool setStopbits(StopBits stopbits);
 
 	FlowControl getFlowcontrol() const;
-	void setFlowcontrol(FlowControl flowcontrol);
+	bool setFlowcontrol(FlowControl flowcontrol);
 
 private:
-
-	bool configure();
-
 
 	int _serial_fd{-1};
 
@@ -61,7 +58,6 @@ private:
 	size_t _bytes_written{0};
 
 	bool _open{false};
-	bool _configured{false};
 
 	char _port[32] {};
 

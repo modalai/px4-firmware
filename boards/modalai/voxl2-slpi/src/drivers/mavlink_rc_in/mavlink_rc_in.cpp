@@ -441,6 +441,14 @@ int open_port(const char *dev, uint32_t speed)
 	_uart = new Serial(dev, speed);
 
 	if (_uart == nullptr) {
+		PX4_ERR("Error creating serial device");
+		return -1;
+
+	}
+
+	_uart->open();
+
+	if (!_uart->open()) {
 		PX4_ERR("Error opening port: %s (%i)", dev, errno);
 		return -1;
 

@@ -70,16 +70,16 @@ public:
 	bool setBaudrate(uint32_t baudrate);
 
 	ByteSize getBytesize() const;
-	void setBytesize(ByteSize bytesize);
+	bool setBytesize(ByteSize bytesize);
 
 	Parity getParity() const;
-	void setParity(Parity parity);
+	bool setParity(Parity parity);
 
 	StopBits getStopbits() const;
-	void setStopbits(StopBits stopbits);
+	bool setStopbits(StopBits stopbits);
 
 	FlowControl getFlowcontrol() const;
-	void setFlowcontrol(FlowControl flowcontrol);
+	bool setFlowcontrol(FlowControl flowcontrol);
 
 	// printStatus()
 	//  port, read bytes, write bytes

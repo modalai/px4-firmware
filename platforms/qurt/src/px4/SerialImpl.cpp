@@ -19,6 +19,8 @@ SerialImpl::SerialImpl(const char *port, uint32_t baudrate, ByteSize bytesize, P
 	if (port) {
 		strncpy(_port, port, sizeof(_port) - 1);
 		_port[sizeof(_port) - 1] = '\0';
+	} else {
+		_port[0] = 0;
 	}
 }
 
@@ -35,19 +37,39 @@ bool SerialImpl::open()
 		return true;
 	}
 
+	_open = false;
+	_serial_fd = -1;
+
+	if (_bytesize != ByteSize::EightBits) {
+		PX4_ERR("Qurt platform only supports ByteSize::EightBits");
+		return false;
+	}
+
+	if (_parity != Parity::None) {
+		PX4_ERR("Qurt platform only supports Parity::None");
+		return false;
+	}
+
+	if (_stopbits != StopBits::One) {
+		PX4_ERR("Qurt platform only supports StopBits::One");
+		return false;
+	}
+
+	if (_flowcontrol != FlowControl::Disabled) {
+		PX4_ERR("Qurt platform only supports FlowControl::Disabled");
+		return false;
+	}
+
+	// qurt_uart_open will check validity of port and baudrate
 	int serial_fd = qurt_uart_open(_port, _baudrate);
 
 	if (serial_fd < 0) {
-		PX4_ERR("failed to open %s, errno: %d, %s", _port, errno, strerror(errno));
+		PX4_ERR("failed to open %s, fd returned: %d", _port, serial_fd);
 		return false;
 	}
 
 	_serial_fd = serial_fd;
 	_open = true;
-
-	if (configure()) {
-		_configured = true;
-	}
 
 	return _open;
 }
@@ -59,27 +81,21 @@ bool SerialImpl::isOpen() const
 
 bool SerialImpl::close()
 {
-	int ret = 0;
-
 	if (_serial_fd >= 0) {
-		ret = qurt_uart_close(_serial_fd);
+		qurt_uart_close(_serial_fd);
 	}
 
 	_serial_fd = -1;
 	_open = false;
-	_configured = false;
 
-	return (ret == 0);
+	return true;
 }
 
 ssize_t SerialImpl::read(uint8_t *buffer, size_t buffer_size)
 {
 	if (!_open) {
-		open();
-	}
-
-	if (!_configured) {
-		configure();
+		PX4_ERR("Cannot read from serial device until it has been opened");
+		return -1;
 	}
 
 	int ret_read = qurt_uart_read(_serial_fd, (char*) buffer, buffer_size, 500);
@@ -96,21 +112,18 @@ ssize_t SerialImpl::read(uint8_t *buffer, size_t buffer_size)
 
 ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t character_count, uint32_t timeout_us)
 {
-	const hrt_abstime start_time_us = hrt_absolute_time();
-	int total_bytes_read = 0;
-	
 	if (!_open) {
-		open();
-	}
-	
-	if (!_configured) {
-		configure();
+		PX4_ERR("Cannot readAtLeast from serial device until it has been opened");
+		return -1;
 	}
 
 	if (buffer_size < character_count) {
 		PX4_ERR("%s: Buffer not big enough to hold desired amount of read data", __FUNCTION__);
 		return -1;
 	}
+
+	const hrt_abstime start_time_us = hrt_absolute_time();
+	int total_bytes_read = 0;
 
 	while (total_bytes_read < (int) character_count) {
 
@@ -121,6 +134,7 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 				// If there was a partial read but not enough to satisfy the minimum then they will be lost
 				// but this really should never happen when everything is working normally.
 				PX4_WARN("%s timeout %d bytes read (%llu us elapsed)", __FUNCTION__, total_bytes_read, elapsed_us);
+				// Or, instead of returning an error, should we return the number of bytes read (assuming it is greater than zero)?
 				return -1;
 			}
 		}
@@ -131,6 +145,7 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 			// Again, if there was a partial read but not enough to satisfy the minimum then they will be lost
 			// but this really should never happen when everything is working normally.
 			PX4_ERR("%s failed to read uart", __FUNCTION__);
+			// Or, instead of returning an error, should we return the number of bytes read (assuming it is greater than zero)?
 			return -1;
 		}
 
@@ -162,11 +177,8 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 ssize_t SerialImpl::write(const void *buffer, size_t buffer_size)
 {
 	if (!_open) {
-		open();
-	}
-
-	if (!_configured) {
-		configure();
+		PX4_ERR("Cannot write to serial device until it has been opened");
+		return -1;
 	}
 
 	int ret_write = qurt_uart_write(_serial_fd, (const char*) buffer, buffer_size);
@@ -188,17 +200,7 @@ const char *SerialImpl::getPort() const
 
 bool SerialImpl::setPort(const char *port)
 {
-	if (port) {
-
-		if (strcmp(port, _port) == 0) {
-			return true;
-		}
-
-		strncpy(_port, port, sizeof(_port) - 1);
-		_port[sizeof(_port) - 1] = '\0';
-
-		_configured = false;
-
+	if (strcmp(port, _port) == 0) {
 		return true;
 	}
 
@@ -212,21 +214,14 @@ uint32_t SerialImpl::getBaudrate() const
 
 bool SerialImpl::setBaudrate(uint32_t baudrate)
 {
-	// process baud rate change
-
-
 	// check if already configured
-	if (baudrate == _baudrate) {
+	if ((baudrate == _baudrate) && _open) {
 		return true;
 	}
 
-	if (baudrate != 0) {
-		_baudrate = baudrate;
-		_configured = false;
-		return true;
-	}
-
-	return false;
+	// process baud rate change
+	_baudrate = baudrate;
+	return open();
 }
 
 ByteSize SerialImpl::getBytesize() const
@@ -234,12 +229,13 @@ ByteSize SerialImpl::getBytesize() const
 	return _bytesize;
 }
 
-void SerialImpl::setBytesize(ByteSize bytesize)
+bool SerialImpl::setBytesize(ByteSize bytesize)
 {
-	if (bytesize != _bytesize) {
-		_bytesize = bytesize;
-		_configured = false;
+	if (bytesize != ByteSize::EightBits) {
+		return false;
 	}
+
+	return true;
 }
 
 Parity SerialImpl::getParity() const
@@ -247,12 +243,13 @@ Parity SerialImpl::getParity() const
 	return _parity;
 }
 
-void SerialImpl::setParity(Parity parity)
+bool SerialImpl::setParity(Parity parity)
 {
-	if (parity != _parity) {
-		_parity = parity;
-		_configured = false;
+	if (parity != Parity::None) {
+		return false;
 	}
+
+	return true;
 }
 
 StopBits SerialImpl::getStopbits() const
@@ -260,12 +257,13 @@ StopBits SerialImpl::getStopbits() const
 	return _stopbits;
 }
 
-void SerialImpl::setStopbits(StopBits stopbits)
+bool SerialImpl::setStopbits(StopBits stopbits)
 {
-	if (stopbits != _stopbits) {
-		_stopbits = stopbits;
-		_configured = false;
+	if (stopbits != StopBits::One) {
+		return false;
 	}
+
+	return true;
 }
 
 FlowControl SerialImpl::getFlowcontrol() const
@@ -273,40 +271,12 @@ FlowControl SerialImpl::getFlowcontrol() const
 	return _flowcontrol;
 }
 
-void SerialImpl::setFlowcontrol(FlowControl flowcontrol)
+bool SerialImpl::setFlowcontrol(FlowControl flowcontrol)
 {
-	if (flowcontrol != _flowcontrol) {
-		_flowcontrol = flowcontrol;
-		_configured = false;
-	}
-}
-
-bool SerialImpl::configure()
-{
-	_configured = false;
-
-	if (!isOpen()) {
+	if (flowcontrol != FlowControl::Disabled) {
 		return false;
 	}
 
-	// ByteSize: termios CSIZE
-
-	// StopBits: termios CSTOPB
-
-	// Parity: termios PARENB, PARODD
-
-	// FlowControl: termios CRTSCTS
-
-	// VMIN = 0, VTIME = 0: No blocking, return immediately with what is available
-
-	// baudrate: input speed (cfsetispeed)
-
-	// baudrate: output speed (cfsetospeed)
-
-	// tcsetattr: set attributes
-
-	PX4_INFO("%s configured successfully", _port);
-	_configured = true;
 	return true;
 }
 

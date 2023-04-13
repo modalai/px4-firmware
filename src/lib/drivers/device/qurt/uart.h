@@ -8,7 +8,7 @@ extern "C" {
 #include <termios.h>
 
 int qurt_uart_open(const char *dev, speed_t speed);
-int qurt_uart_close(int fd);
+void qurt_uart_close(int fd);
 int qurt_uart_write(int fd, const char *buf, size_t len);
 int qurt_uart_read(int fd, char *buf, size_t len, uint32_t timeout_us);
 

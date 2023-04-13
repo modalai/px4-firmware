@@ -76,9 +76,9 @@ ByteSize Serial::getBytesize() const
 	return _impl.getBytesize();
 }
 
-void Serial::setBytesize(ByteSize bytesize)
+bool Serial::setBytesize(ByteSize bytesize)
 {
-	_impl.setBytesize(bytesize);
+	return _impl.setBytesize(bytesize);
 }
 
 Parity Serial::getParity() const
@@ -86,9 +86,9 @@ Parity Serial::getParity() const
 	return _impl.getParity();
 }
 
-void Serial::setParity(Parity parity)
+bool Serial::setParity(Parity parity)
 {
-	_impl.setParity(parity);
+	return _impl.setParity(parity);
 }
 
 StopBits Serial::getStopbits() const
@@ -96,9 +96,9 @@ StopBits Serial::getStopbits() const
 	return _impl.getStopbits();
 }
 
-void Serial::setStopbits(StopBits stopbits)
+bool Serial::setStopbits(StopBits stopbits)
 {
-	_impl.setStopbits(stopbits);
+	return _impl.setStopbits(stopbits);
 }
 
 FlowControl Serial::getFlowcontrol() const
@@ -106,9 +106,9 @@ FlowControl Serial::getFlowcontrol() const
 	return _impl.getFlowcontrol();
 }
 
-void Serial::setFlowcontrol(FlowControl flowcontrol)
+bool Serial::setFlowcontrol(FlowControl flowcontrol)
 {
-	_impl.setFlowcontrol(flowcontrol);
+	return _impl.setFlowcontrol(flowcontrol);
 }
 
 } // namespace device
