@@ -40,6 +40,12 @@ if(NOT "${PX4_PLATFORM}" MATCHES "qurt" AND NOT "${PX4_BOARD}" MATCHES "io-v2" A
 	)
 endif()
 
+if("${PX4_PLATFORM}" MATCHES "qurt")
+	list(APPEND SRCS
+		Serial.cpp
+	)
+endif()
+
 add_library(px4_platform STATIC
 	board_common.c
 	board_identity.c

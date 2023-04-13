@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-// #define NEW_UART_UI
+#define NEW_UART_UI
 
 #include <string>
 #include <stdint.h>

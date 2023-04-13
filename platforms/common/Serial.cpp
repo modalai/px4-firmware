@@ -1,4 +1,4 @@
-#include "Serial.hpp"
+#include <px4_platform_common/Serial.hpp>
 
 namespace device
 {

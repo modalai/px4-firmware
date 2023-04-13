@@ -107,7 +107,7 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 		configure();
 	}
 
-	if (character_count < buffer_size) {
+	if (buffer_size < character_count) {
 		PX4_ERR("%s: Buffer not big enough to hold desired amount of read data", __FUNCTION__);
 		return -1;
 	}
