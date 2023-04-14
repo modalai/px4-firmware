@@ -53,6 +53,7 @@ public:
 	       StopBits stopbits = StopBits::One, FlowControl flowcontrol = FlowControl::Disabled);
 	virtual ~Serial();
 
+	// Open sets up the port and gets it configured based on desired configuration
 	bool open();
 	bool isOpen() const;
 
@@ -63,8 +64,13 @@ public:
 
 	ssize_t write(const void *buffer, size_t buffer_size);
 
+	// Perhaps this can be removed? To change the port you need to create a new object.
 	const char *getPort() const;
 	bool setPort(const char *port);
+
+	// If port is already open then the following configuration functions
+	// will reconfigure the port. If the port is not yet open then they will
+	// simply store the configuration in preparation for the port to be opened.
 
 	uint32_t getBaudrate() const;
 	bool setBaudrate(uint32_t baudrate);
