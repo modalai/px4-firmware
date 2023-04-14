@@ -128,6 +128,7 @@ qshell control_allocator start
 qshell rc_update start
 qshell commander start
 qshell commander mode manual
+qshell param_set_selector start
 
 /bin/sleep 1
 
