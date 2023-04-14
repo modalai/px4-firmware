@@ -219,9 +219,14 @@ bool SerialImpl::setBaudrate(uint32_t baudrate)
 		return true;
 	}
 
-	// process baud rate change
 	_baudrate = baudrate;
-	return open();
+
+	// process baud rate change now if port is already open
+	if (_open) {
+		return open();
+	}
+
+	return true;
 }
 
 ByteSize SerialImpl::getBytesize() const
