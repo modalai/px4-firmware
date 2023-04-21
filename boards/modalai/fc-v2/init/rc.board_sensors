@@ -6,7 +6,7 @@
 # ModalAI ESC
 if param greater UART_ESC_CONFIG 0
 then
-	modalai_esc -d /dev/ttyS6 start
+	modalai_esc start
 fi
 
 board_adc start
