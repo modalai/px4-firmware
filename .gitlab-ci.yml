@@ -4,13 +4,13 @@ stages:
 
 build:
   stage: build
-  image: px4io/px4-dev-nuttx-bionic:2021-12-11
+  image: px4io/px4-dev-nuttx-bionic:2022-08-12
   script:
     - make modalai_fc-v1
     - make modalai_fc-v2_bootloader
     - make modalai_fc-v2
   only:
-    - modalai-1.13.2
+    - modalai-1.13.3
   artifacts:
     untracked: true
     expire_in: 20 min
@@ -33,4 +33,4 @@ deploy:
     - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.bin $GCLOUD_BUCKET/fc-v2/bl/
     - gsutil cp build/modalai_fc-v2_bootloader/modalai_fc-v2_bootloader.px4 $GCLOUD_BUCKET/fc-v2/bl/
   only:
-    - modalai-1.13.2
+    - modalai-1.13.3
