@@ -1952,7 +1952,12 @@ Commander::run()
 		}
 
 		// update manual_control_setpoint before geofence (which might check sticks or switches)
-		_manual_control_setpoint_sub.update(&_manual_control_setpoint);
+
+		// Make sure we only get the latest data if there were multiple updates
+		// in the uorb topic queue
+		while (_manual_control_setpoint_sub.updated()) {
+			_manual_control_setpoint_sub.copy(&_manual_control_setpoint);
+		}
 
 		/* start geofence result check */
 		_geofence_result_sub.update(&_geofence_result);
