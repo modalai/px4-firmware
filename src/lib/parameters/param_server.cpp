@@ -31,6 +31,9 @@
  *
  ****************************************************************************/
 
+#include <algorithm>
+#include <string>
+#include <cstring>
 #include <string.h>
 #include <stdbool.h>
 #include <px4_platform_common/log.h>
@@ -65,6 +68,8 @@ static int param_reset_rsp_fd = PX4_ERROR;
 
 static px4_task_t   sync_thread_tid;
 static const char  *sync_thread_name = "server_sync_thread";
+
+using namespace std;
 
 static int param_sync_thread(int argc, char *argv[])
 {
@@ -138,6 +143,25 @@ static int param_sync_thread(int argc, char *argv[])
 
 			} else {
 				orb_publish(ORB_ID(parameter_server_set_value_response), param_set_value_rsp_h, &v_rsp);
+			}
+
+			// If the parameter being set is a calibration parameter then save it out to
+			// a separate calibration file so that they can be preserved and reloaded
+			// after system updates
+			string cal_file_name = param_get_default_file();
+			string cal_file_append;
+			string param_name(v_req.parameter_name);
+			string cal_strings[] = {"CAL_GYRO", "CAL_MAG", "CAL_BARO", "CAL_ACC"};
+			for (auto i: cal_strings) {
+				if (param_name.substr(0, i.size()) == i) {
+					cal_file_append = i.substr(4, i.size());
+					transform(cal_file_append.begin(), cal_file_append.end(), cal_file_append.begin(), ::tolower);
+					cal_file_append += ".cal";
+				}
+			}
+
+			if (! cal_file_append.empty()) {
+				PX4_INFO("Writing %s to file %s", v_req.parameter_name, (cal_file_name + cal_file_append).c_str());
 			}
 		}
 	}
