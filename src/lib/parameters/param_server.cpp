@@ -33,9 +33,11 @@
 
 #include <algorithm>
 #include <string>
-#include <cstring>
+#include <sstream>
 #include <string.h>
 #include <stdbool.h>
+#include <fstream>
+#include <iostream>
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/tasks.h>
 
@@ -153,15 +155,59 @@ static int param_sync_thread(int argc, char *argv[])
 			string param_name(v_req.parameter_name);
 			string cal_strings[] = {"CAL_GYRO", "CAL_MAG", "CAL_BARO", "CAL_ACC"};
 			for (auto i: cal_strings) {
+				// Check to see if the parameter is one of the desired calibration parameters
 				if (param_name.substr(0, i.size()) == i) {
-					cal_file_append = i.substr(4, i.size());
+					// We want the filename to be the standard parameters file name with
+					// the calibration type appended to it.
+					cal_file_append = i.substr(3, i.size());
+					// Make sure it is lowercase
 					transform(cal_file_append.begin(), cal_file_append.end(), cal_file_append.begin(), ::tolower);
+					// And add a cal file extension
 					cal_file_append += ".cal";
+					break;
 				}
 			}
 
+			// Also check for level horizon calibration parameters
+			if (cal_file_append.empty() &&
+ 				(param_name == "SENS_BOARD_X_OFF" || param_name == "SENS_BOARD_Y_OFF")) {
+				cal_file_append = "_level.cal";
+			}
+
 			if (! cal_file_append.empty()) {
-				PX4_INFO("Writing %s to file %s", v_req.parameter_name, (cal_file_name + cal_file_append).c_str());
+				cal_file_name += cal_file_append;
+
+				stringstream param_data_stream;
+
+				switch (param_type(param)) {
+				case PARAM_TYPE_INT32:
+					param_data_stream << v_req.int_value;
+					break;
+
+				case PARAM_TYPE_FLOAT:
+					param_data_stream << v_req.float_value;
+					break;
+
+				default:
+					PX4_ERR("Calibration parameter must be either int or float");
+					break;
+				}
+
+				string param_data(v_req.parameter_name);
+				param_data += ',';
+				param_data += param_data_stream.str();
+
+				PX4_INFO("Writing %s to file %s", param_data.c_str(), cal_file_name.c_str());
+
+				// open a file in write (append) mode.
+				ofstream cal_file;
+				cal_file.open(cal_file_name, ios_base::app);
+				if (cal_file) {
+					cal_file << param_data << endl;
+					cal_file.close();
+				} else {
+					PX4_ERR("Couldn't open %s for writing calibration value", cal_file_name.c_str());
+				}
 			}
 		}
 	}
