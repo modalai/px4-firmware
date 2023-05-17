@@ -182,10 +182,12 @@ static int param_sync_thread(int argc, char *argv[])
 				switch (param_type(param)) {
 				case PARAM_TYPE_INT32:
 					param_data_stream << v_req.int_value;
+					param_data_stream << "\t" << 6;
 					break;
 
 				case PARAM_TYPE_FLOAT:
 					param_data_stream << v_req.float_value;
+					param_data_stream << "\t" << 9;
 					break;
 
 				default:
@@ -193,8 +195,10 @@ static int param_sync_thread(int argc, char *argv[])
 					break;
 				}
 
-				string param_data(v_req.parameter_name);
-				param_data += ',';
+				string param_data;
+				param_data += "1\t1\t";
+				param_data += v_req.parameter_name;
+				param_data += "\t";
 				param_data += param_data_stream.str();
 
 				PX4_INFO("Writing %s to file %s", param_data.c_str(), cal_file_name.c_str());
