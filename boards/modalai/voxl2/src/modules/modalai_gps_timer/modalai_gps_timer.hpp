@@ -1,6 +1,8 @@
+#pragma once
+
 /****************************************************************************
  *
- *   Copyright (c) 2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2023 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,31 +33,51 @@
  *
  ****************************************************************************/
 
-/**
- * @file definitions.h
- * common platform-specific definitions & abstractions for gps
- * @author Beat Küng <beat-kueng@gmx.net>
- */
-
-#pragma once
-
-#include <drivers/drv_hrt.h>
+#include <px4_log.h>
+#include <parameters/param.h>
+#include <perf/perf_counter.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/defines.h>
-#include <px4_platform_common/log.h>
-#include <uORB/topics/satellite_info.h>
+#include <px4_platform_common/posix.h>
+#include <px4_platform_common/tasks.h>
+#include <px4_platform_common/module_params.h>
+#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+
+#include <uORB/uORB.h>
+#include <uORB/Subscription.hpp>
 #include <uORB/topics/sensor_gps.h>
-#include <uORB/topics/sensor_gnss_relative.h>
 
-#define GPS_INFO(...) PX4_INFO(__VA_ARGS__)
-#define GPS_WARN(...) PX4_WARN(__VA_ARGS__)
-#define GPS_ERR(...) PX4_ERR(__VA_ARGS__)
+#include <chrono>
+#include <ctime>
+#include <time.h>
 
-#define gps_usleep px4_usleep
+using namespace time_literals;
 
-/**
- * Get the current time in us. Function signature:
- * uint64_t hrt_absolute_time()
- */
-#define gps_absolute_time hrt_absolute_time
-typedef hrt_abstime gps_abstime;
+class ModalaiGPSTimer : public ModuleBase<ModalaiGPSTimer>, public ModuleParams
+{
+public:
+	ModalaiGPSTimer();
+	~ModalaiGPSTimer() override;
 
+	/** @see ModuleBase */
+	static int task_spawn(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static ModalaiGPSTimer *instantiate(int argc, char *argv[]);
+
+	static int custom_command(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static int print_usage(const char *reason = nullptr);
+
+	/** @see ModuleBase::run() */
+	void run() override;
+
+private:
+
+	uORB::Subscription sensor_gps_sub{ORB_ID(sensor_gps)};
+	bool _is_running = false;
+	px4_task_t _task_handle = -1;
+
+};
