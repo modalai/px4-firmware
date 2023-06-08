@@ -1,17 +1,20 @@
 
 #include <time.h>
 #include <px4_log.h>
-#include <qurt_alloc.h>
+// #include <qurt.h>
+
+void *voxl_malloc( unsigned int size);
+void voxl_free( void *ptr);
 
 __attribute__((visibility("default"))) void free(void *ptr)
 {
-	qurt_free(ptr);
+	voxl_free(ptr);
 	ptr = 0;
 }
 
 __attribute__((visibility("default"))) void *malloc(size_t size)
 {
-	return qurt_malloc(size);
+	return voxl_malloc(size);
 }
 
 __attribute__((visibility("default"))) void *calloc(size_t nmemb, size_t size)

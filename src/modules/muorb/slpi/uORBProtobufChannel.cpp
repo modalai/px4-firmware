@@ -45,7 +45,7 @@
 #include <px4_platform_common/log.h>
 #include <lib/parameters/param.h>
 #include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
-#include <qurt.h>
+// #include <qurt.h>
 
 #include "hrt_work.h"
 
@@ -67,14 +67,17 @@ bool _px4_muorb_debug = false;
 static bool px4muorb_orb_initialized = false;
 
 // Thread for aggregator checking
-qurt_thread_t aggregator_tid;
-qurt_thread_attr_t aggregator_attr;
+// qurt_thread_t aggregator_tid;
+// qurt_thread_attr_t aggregator_attr;
 // 1 is highest priority, 255 is lowest. Set it low.
-const uint32_t aggregator_thread_priority = 240;
+const uint32_t aggregator_thread_priority = 15;
+// const uint32_t aggregator_thread_priority = 240;
 const uint32_t aggregator_stack_size = 8096;
+
 char aggregator_stack[aggregator_stack_size];
 
-static void aggregator_thread_func(void *ptr)
+// static void aggregator_thread_func(void *ptr)
+static int aggregator_thread_func(void *ptr)
 {
 	PX4_INFO("muorb aggregator thread running");
 
@@ -84,10 +87,12 @@ static void aggregator_thread_func(void *ptr)
 		// Check for timeout. Send buffer if timeout happened.
 		muorb->SendAggregateData();
 
-		qurt_timer_sleep(2000);
+		// qurt_timer_sleep(2000);
+		px4_usleep(2000);
 	}
 
-	qurt_thread_exit(QURT_EOK);
+	// qurt_thread_exit(QURT_EOK);
+	return 0;
 }
 
 int16_t uORB::ProtobufChannel::topic_advertised(const char *messageName)
@@ -309,14 +314,21 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		}
 
 		// Setup the thread to monitor for topic aggregator timeouts
-		qurt_thread_attr_init(&aggregator_attr);
-		qurt_thread_attr_set_stack_addr(&aggregator_attr, aggregator_stack);
-		qurt_thread_attr_set_stack_size(&aggregator_attr, aggregator_stack_size);
-		char thread_name[QURT_THREAD_ATTR_NAME_MAXLEN];
-		strncpy(thread_name, "PX4_muorb_agg", QURT_THREAD_ATTR_NAME_MAXLEN);
-		qurt_thread_attr_set_name(&aggregator_attr, thread_name);
-		qurt_thread_attr_set_priority(&aggregator_attr, aggregator_thread_priority);
-		(void) qurt_thread_create(&aggregator_tid, &aggregator_attr, aggregator_thread_func, NULL);
+		// qurt_thread_attr_init(&aggregator_attr);
+		// qurt_thread_attr_set_stack_addr(&aggregator_attr, aggregator_stack);
+		// qurt_thread_attr_set_stack_size(&aggregator_attr, aggregator_stack_size);
+		// char thread_name[QURT_THREAD_ATTR_NAME_MAXLEN];
+		// strncpy(thread_name, "PX4_muorb_agg", QURT_THREAD_ATTR_NAME_MAXLEN);
+		// qurt_thread_attr_set_name(&aggregator_attr, thread_name);
+		// qurt_thread_attr_set_priority(&aggregator_attr, aggregator_thread_priority);
+		// (void) qurt_thread_create(&aggregator_tid, &aggregator_attr, aggregator_thread_func, NULL);
+
+		(void) px4_task_spawn_cmd("MUORB_Aggr",
+					  SCHED_DEFAULT,
+					  aggregator_thread_priority,
+					  aggregator_stack_size,
+					  (px4_main_t)&aggregator_thread_func,
+					  nullptr);
 
 		px4muorb_orb_initialized = true;
 
