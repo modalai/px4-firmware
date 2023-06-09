@@ -87,7 +87,7 @@ set(CMAKE_C_CREATE_SHARED_LIBRARY
 	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
 
 set(CMAKE_CXX_CREATE_SHARED_LIBRARY
-	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group ${TOOLSLIB}/libc++.so.1 ${TOOLSLIB}/libc++abi.so.1 ${HEXAGON_SDK_ROOT}/libs/weak_refs/ship/hexagon_toolv84/weak_refs.so --end-group --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
+	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group ${TOOLSLIB}/libc++.so.1 ${TOOLSLIB}/libc++abi.so.1 ${HEXAGON_SDK_ROOT}/libs/weak_refs.so --end-group --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
 
 set(DYNAMIC_LIBS -Wl,${TOOLSLIB}/libc++.a)
 
