@@ -39,6 +39,7 @@
 
 #include <drivers/drv_hrt.h>
 #include <pthread.h>
+#include <string.h>
 #include "hrt_work.h"
 
 #define PX4_TASK_STACK_SIZE 8192
@@ -87,18 +88,18 @@ extern "C" {
 	// Qurt system image. So, it is being defined here.
 	int pthread_attr_setthreadname(pthread_attr_t *attr, const char *name)
 	{
-		if (attr == NULL) { return -1; }
-
-		if (&attr->name[0] == NULL) { return -1; }
-
-		if (name == NULL) { return -1; }
-
-		size_t name_len = strlen(name);
-
-		if (name_len > PX4_TASK_MAX_NAME_LENGTH) { name_len = PX4_TASK_MAX_NAME_LENGTH; }
-
-		memcpy(attr->name, name, name_len);
-		attr->name[name_len] = 0;
+		// if (attr == NULL) { return -1; }
+		// 
+		// if (&attr->name[0] == NULL) { return -1; }
+		// 
+		// if (name == NULL) { return -1; }
+		// 
+		// size_t name_len = strlen(name);
+		// 
+		// if (name_len > PX4_TASK_MAX_NAME_LENGTH) { name_len = PX4_TASK_MAX_NAME_LENGTH; }
+		// 
+		// memcpy(attr->name, name, name_len);
+		// attr->name[name_len] = 0;
 
 		return 0;
 	}
@@ -279,7 +280,8 @@ int px4_task_delete(px4_task_t id)
 		pid = taskmap[id].tid;
 
 	} else {
-		return -EINVAL;
+		// return -EINVAL;
+		return -1;
 	}
 
 	pthread_mutex_lock(&task_mutex);
@@ -329,19 +331,20 @@ void px4_task_exit(int ret)
 int px4_task_kill(px4_task_t id, int sig)
 {
 	int rv = 0;
-	pthread_t pid;
+	// pthread_t pid;
 	PX4_DEBUG("Called px4_task_kill %d, taskname %s", sig, taskmap[id].name);
 
 	if (id < PX4_MAX_TASKS && taskmap[id].tid != 0) {
 		pthread_mutex_lock(&task_mutex);
-		pid = taskmap[id].tid;
+		// pid = taskmap[id].tid;
 		pthread_mutex_unlock(&task_mutex);
 
 	} else {
-		return -EINVAL;
+		// return -EINVAL;
+		return -1;
 	}
 
-	rv = pthread_kill(pid, sig);
+	// rv = pthread_kill(pid, sig);
 
 	return rv;
 }

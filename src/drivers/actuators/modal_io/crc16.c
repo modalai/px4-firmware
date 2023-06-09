@@ -72,7 +72,7 @@ const uint16_t crc16_table[256] = {
 	0x8201, 0x42c0, 0x4380, 0x8341, 0x4100, 0x81c1, 0x8081, 0x4040,
 };
 
-uint16_t crc16_init()
+uint16_t crc16_init(void)
 {
 	return 0xFFFF;
 }

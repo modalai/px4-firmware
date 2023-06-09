@@ -39,7 +39,8 @@ set(HEXAGON_SDK_INCLUDES
 	${HEXAGON_SDK_ROOT}/tools/HEXAGON_Tools/8.4.05/Tools/target/hexagon/include
 	)
 
-set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
+# set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon/lib/${V_ARCH}/G0/pic)
+set(TOOLSLIB ${HEXAGON_TOOLS_ROOT}/target/hexagon-unknown-linux-musl/usr/lib)
 
 set(HEXAGON_ARCH_FLAGS
 	-march=hexagon
@@ -64,7 +65,7 @@ list2string(HEXAGON_START_LINK_FLAGS
 	"-o <TARGET>"
 	-L${TOOLSLIB}
 	-Bsymbolic
-	${TOOLSLIB}/libgcc.a
+	# ${TOOLSLIB}/libgcc.a
 	--wrap=malloc
 	--wrap=calloc
 	--wrap=free
@@ -76,18 +77,18 @@ list2string(HEXAGON_START_LINK_FLAGS
 	)
 
 set(HEXAGON_END_LINK_FLAGS)
-list2string(HEXAGON_END_LINK_FLAGS
-	--start-group
-	-lgcc
-	--end-group
-	${TOOLSLIB}/finiS.o
-	)
+#list2string(HEXAGON_END_LINK_FLAGS
+#	--start-group
+#	# -lgcc
+#	--end-group
+#	${TOOLSLIB}/finiS.o
+#	)
 
-set(CMAKE_C_CREATE_SHARED_LIBRARY
-	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
+#set(CMAKE_C_CREATE_SHARED_LIBRARY
+#	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
 
-set(CMAKE_CXX_CREATE_SHARED_LIBRARY
-	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group ${TOOLSLIB}/libc++.so.1 ${TOOLSLIB}/libc++abi.so.1 ${HEXAGON_SDK_ROOT}/libs/weak_refs/ship/hexagon_toolv84/weak_refs.so --end-group --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
+#set(CMAKE_CXX_CREATE_SHARED_LIBRARY
+#	"${HEXAGON_LINK} ${HEXAGON_START_LINK_FLAGS} --start-group ${TOOLSLIB}/libc++.so.1 ${TOOLSLIB}/libc++abi.so.1 ${HEXAGON_SDK_ROOT}/libs/weak_refs/ship/hexagon_toolv84/weak_refs.so --end-group --start-group --whole-archive <OBJECTS> <LINK_LIBRARIES> --end-group ${HEXAGON_END_LINK_FLAGS}")
 
 set(DYNAMIC_LIBS -Wl,${TOOLSLIB}/libc++.a)
 
@@ -161,7 +162,7 @@ set(CMAKE_CXX_FLAGS ${QURT_CMAKE_CXX_FLAGS})
 # These settings enable CMake to build the required test apps
 list2string(CMAKE_EXE_LINKER_FLAGS
 	-m${V_ARCH}
-	-mG0lib
+	# -mG0lib
 	-G0
 	-fpic
 	-shared

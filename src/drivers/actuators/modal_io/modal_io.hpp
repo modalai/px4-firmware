@@ -129,7 +129,7 @@ private:
 
 	ModalIoSerial 		*_uart_port;
 
-	typedef struct {
+	typedef struct modal_io_params_struct {
 		int32_t		config{MODAL_IO_UART_CONFIG};
 		int32_t		mode{MODAL_IO_MODE};
 		int32_t		turtle_motor_expo{35};
@@ -164,7 +164,7 @@ private:
 		int8_t		direction;
 	} ch_assign_t;
 
-	typedef struct {
+	typedef struct led_rsc_struct {
 		led_control_s		control{};
 		vehicle_control_mode_s	mode{};
 		uint8_t			led_mask;// TODO led_mask[MODAL_IO_OUTPUT_CHANNELS];

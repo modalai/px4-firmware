@@ -3,6 +3,11 @@
 #include <px4_log.h>
 // #include <qurt.h>
 
+__attribute__((visibility("default"))) int posix_memalign(void **memptr, size_t alignment, size_t size);
+int posix_memalign(void **memptr, size_t alignment, size_t size) {
+	return -1;
+}
+
 void *voxl_malloc( unsigned int size);
 void voxl_free( void *ptr);
 

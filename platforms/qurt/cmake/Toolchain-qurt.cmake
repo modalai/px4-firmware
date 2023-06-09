@@ -32,7 +32,7 @@
 include(CMakeForceCompiler)
 
 set(V_ARCH "v66")
-set(CROSSDEV "hexagon-")
+set(CROSSDEV "hexagon-unknown-linux-musl-")
 
 set(HEXAGON_BIN	${HEXAGON_TOOLS_ROOT}/bin)
 

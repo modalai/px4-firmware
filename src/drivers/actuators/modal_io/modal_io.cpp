@@ -839,7 +839,7 @@ void ModalIo::update_leds(vehicle_control_mode_s mode, led_control_s control)
 	}
 }
 
-void ModalIo::mix_turtle_mode(uint16_t outputs[MAX_ACTUATORS])
+void ModalIo::mix_turtle_mode(uint16_t outputs[])
 {
 	bool use_pitch = true;
 	bool use_roll  = true;
