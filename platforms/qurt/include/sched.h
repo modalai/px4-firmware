@@ -1,6 +1,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SCHED_FIFO 0
 
 typedef struct sched_param sched_param;
@@ -16,3 +20,7 @@ static inline int sched_yield(void)
 {
    return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

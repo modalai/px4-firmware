@@ -6,6 +6,11 @@
 #include <errno.h>
 #include <time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define PTHREAD_NAME_LEN 16
 #define PTHREAD_STACK_MIN 4096*2
 
@@ -87,3 +92,8 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
 int pthread_cond_timedwait(pthread_cond_t * cond, pthread_mutex_t * mutex, const struct timespec *time);
 int pthread_cond_broadcast(pthread_cond_t *cond);
 int pthread_cond_destroy(pthread_cond_t *cond);
+
+#ifdef __cplusplus
+}
+#endif
+
