@@ -34,3 +34,11 @@ __attribute__((visibility("default"))) int nanosleep(const struct timespec *req,
 	PX4_ERR("Undefined nanosleep called");
 	return -1;
 }
+
+// These are all undefined in new SDK so they need to be defined here...
+// TODO: Why? What are these used for?
+int sys_close(unsigned int fd) { return -1; };
+int sys_write(unsigned int fd, const char *buf, size_t count) { return -1; }
+int sys_remove(const char* filename) { return -1; }
+void _exit(int code) { while(1); }
+int sys_Mtxdst() { return -1; }

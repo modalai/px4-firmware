@@ -1,0 +1,492 @@
+/home/px4-build/
+|-- libs
+|   `-- weak_refs.so
+|-- setup_env.source
+`-- tools
+    `-- HEXAGON_Tools
+        `-- 8.4.05
+            `-- Tools
+                |-- bin
+                |   |-- clang-10
+                |   |-- hexagon-ar -> llvm-ar
+                |   |-- hexagon-clang -> clang-10
+                |   |-- hexagon-clang++ -> clang-10
+                |   |-- hexagon-link -> ld.qcld
+                |   |-- hexagon-ranlib -> llvm-ar
+                |   |-- ld.qcld
+                |   `-- llvm-ar
+                |-- lib
+                |   |-- libLW.so -> libLW.so.10
+                |   |-- libLW.so.10
+                |   |-- libc++.so -> libc++.so.1.0
+                |   |-- libc++.so.1 -> libc++.so.1.0
+                |   |-- libc++.so.1.0
+                |   |-- libc++abi.so -> libc++abi.so.1.0
+                |   |-- libc++abi.so.1 -> libc++abi.so.1.0
+                |   `-- libc++abi.so.1.0
+                `-- target
+                    `-- hexagon
+                        |-- include
+                        |   |-- assert.h
+                        |   |-- c++
+                        |   |   |-- algorithm
+                        |   |   |-- bitset
+                        |   |   |-- cassert
+                        |   |   |-- ccomplex
+                        |   |   |-- cctype
+                        |   |   |-- cerrno
+                        |   |   |-- cfenv
+                        |   |   |-- cfloat
+                        |   |   |-- cinttypes
+                        |   |   |-- ciso646
+                        |   |   |-- climits
+                        |   |   |-- clocale
+                        |   |   |-- cmath
+                        |   |   |-- complex
+                        |   |   |-- csetjmp
+                        |   |   |-- csignal
+                        |   |   |-- cstdarg
+                        |   |   |-- cstdbool
+                        |   |   |-- cstddef
+                        |   |   |-- cstdint
+                        |   |   |-- cstdio
+                        |   |   |-- cstdlib
+                        |   |   |-- cstring
+                        |   |   |-- ctgmath
+                        |   |   |-- ctime
+                        |   |   |-- cwchar
+                        |   |   |-- cwctype
+                        |   |   |-- deque
+                        |   |   |-- embedded
+                        |   |   |   |-- bitset
+                        |   |   |   |-- cassert
+                        |   |   |   |-- cctype
+                        |   |   |   |-- cerrno
+                        |   |   |   |-- cfloat
+                        |   |   |   |-- climits
+                        |   |   |   |-- clocale
+                        |   |   |   |-- cmath
+                        |   |   |   |-- complex
+                        |   |   |   |-- csetjmp
+                        |   |   |   |-- csignal
+                        |   |   |   |-- cstdarg
+                        |   |   |   |-- cstddef
+                        |   |   |   |-- cstdio
+                        |   |   |   |-- cstdlib
+                        |   |   |   |-- cstring
+                        |   |   |   |-- ctime
+                        |   |   |   |-- cwchar
+                        |   |   |   |-- exception
+                        |   |   |   |-- fstream
+                        |   |   |   |-- iomanip
+                        |   |   |   |-- ios
+                        |   |   |   |-- iosfwd
+                        |   |   |   |-- iostream
+                        |   |   |   |-- istream
+                        |   |   |   |-- limits
+                        |   |   |   |-- locale
+                        |   |   |   |-- new
+                        |   |   |   |-- ostream
+                        |   |   |   |-- sstream
+                        |   |   |   |-- stdexcept
+                        |   |   |   |-- streambuf
+                        |   |   |   |-- string
+                        |   |   |   |-- strstream
+                        |   |   |   |-- xcomplex
+                        |   |   |   |-- xdebug
+                        |   |   |   |-- xiosbase
+                        |   |   |   |-- xlocinfo.h
+                        |   |   |   |-- xlocnum
+                        |   |   |   |-- xmath.h
+                        |   |   |   |-- xmtx.h
+                        |   |   |   |-- xstddef
+                        |   |   |   |-- xstring
+                        |   |   |   |-- ymath.h
+                        |   |   |   `-- yvals.h
+                        |   |   |-- exception
+                        |   |   |-- export
+                        |   |   |   |-- algorithm
+                        |   |   |   |-- bitset
+                        |   |   |   |-- complex
+                        |   |   |   |-- deque
+                        |   |   |   |-- fstream
+                        |   |   |   |-- hash_map
+                        |   |   |   |-- hash_set
+                        |   |   |   |-- ios
+                        |   |   |   |-- iosfwd
+                        |   |   |   |-- istream
+                        |   |   |   |-- list
+                        |   |   |   |-- locale
+                        |   |   |   |-- map
+                        |   |   |   |-- numeric
+                        |   |   |   |-- ostream
+                        |   |   |   |-- set
+                        |   |   |   |-- slist
+                        |   |   |   |-- sstream
+                        |   |   |   |-- streambuf
+                        |   |   |   |-- string
+                        |   |   |   |-- valarray
+                        |   |   |   |-- vector
+                        |   |   |   |-- xhash
+                        |   |   |   |-- xlocale
+                        |   |   |   |-- xlocmon
+                        |   |   |   |-- xlocnum
+                        |   |   |   |-- xloctime
+                        |   |   |   |-- xstring
+                        |   |   |   |-- xtree
+                        |   |   |   `-- xutility
+                        |   |   |-- fstream
+                        |   |   |-- fstream.h
+                        |   |   |-- functional
+                        |   |   |-- hardware
+                        |   |   |-- hash_map
+                        |   |   |-- hash_set
+                        |   |   |-- iomanip
+                        |   |   |-- iomanip.h
+                        |   |   |-- ios
+                        |   |   |-- iosfwd
+                        |   |   |-- iostream
+                        |   |   |-- iostream.h
+                        |   |   |-- istream
+                        |   |   |-- iterator
+                        |   |   |-- limits
+                        |   |   |-- list
+                        |   |   |-- locale
+                        |   |   |-- map
+                        |   |   |-- memory
+                        |   |   |-- new
+                        |   |   |-- new.h
+                        |   |   |-- numeric
+                        |   |   |-- ostream
+                        |   |   |-- queue
+                        |   |   |-- rope
+                        |   |   |-- set
+                        |   |   |-- slist
+                        |   |   |-- sstream
+                        |   |   |-- stack
+                        |   |   |-- stdexcept
+                        |   |   |-- stdiostream.h
+                        |   |   |-- streambuf
+                        |   |   |-- string
+                        |   |   |-- strstream
+                        |   |   |-- strstream.h
+                        |   |   |-- typeinfo
+                        |   |   |-- utility
+                        |   |   |-- v1
+                        |   |   |   |-- __bit_reference
+                        |   |   |   |-- __bsd_locale_defaults.h
+                        |   |   |   |-- __bsd_locale_fallbacks.h
+                        |   |   |   |-- __config
+                        |   |   |   |-- __cxxabi_config.h
+                        |   |   |   |-- __debug
+                        |   |   |   |-- __errc
+                        |   |   |   |-- __functional_03
+                        |   |   |   |-- __functional_base
+                        |   |   |   |-- __functional_base_03
+                        |   |   |   |-- __hash_table
+                        |   |   |   |-- __libcpp_version
+                        |   |   |   |-- __locale
+                        |   |   |   |-- __mutex_base
+                        |   |   |   |-- __node_handle
+                        |   |   |   |-- __nullptr
+                        |   |   |   |-- __split_buffer
+                        |   |   |   |-- __sso_allocator
+                        |   |   |   |-- __std_stream
+                        |   |   |   |-- __string
+                        |   |   |   |-- __threading_support
+                        |   |   |   |-- __tree
+                        |   |   |   |-- __tuple
+                        |   |   |   |-- __undef_macros
+                        |   |   |   |-- algorithm
+                        |   |   |   |-- any
+                        |   |   |   |-- array
+                        |   |   |   |-- atomic
+                        |   |   |   |-- bit
+                        |   |   |   |-- bitset
+                        |   |   |   |-- cassert
+                        |   |   |   |-- ccomplex
+                        |   |   |   |-- cctype
+                        |   |   |   |-- cerrno
+                        |   |   |   |-- cfenv
+                        |   |   |   |-- cfloat
+                        |   |   |   |-- charconv
+                        |   |   |   |-- chrono
+                        |   |   |   |-- cinttypes
+                        |   |   |   |-- ciso646
+                        |   |   |   |-- climits
+                        |   |   |   |-- clocale
+                        |   |   |   |-- cmath
+                        |   |   |   |-- codecvt
+                        |   |   |   |-- compare
+                        |   |   |   |-- complex
+                        |   |   |   |-- complex.h
+                        |   |   |   |-- condition_variable
+                        |   |   |   |-- csetjmp
+                        |   |   |   |-- csignal
+                        |   |   |   |-- cstdarg
+                        |   |   |   |-- cstdbool
+                        |   |   |   |-- cstddef
+                        |   |   |   |-- cstdint
+                        |   |   |   |-- cstdio
+                        |   |   |   |-- cstdlib
+                        |   |   |   |-- cstring
+                        |   |   |   |-- ctgmath
+                        |   |   |   |-- ctime
+                        |   |   |   |-- ctype.h
+                        |   |   |   |-- cwchar
+                        |   |   |   |-- cwctype
+                        |   |   |   |-- cxxabi.h
+                        |   |   |   |-- deque
+                        |   |   |   |-- errno.h
+                        |   |   |   |-- exception
+                        |   |   |   |-- execution
+                        |   |   |   |-- experimental
+                        |   |   |   |   |-- __config
+                        |   |   |   |   |-- __memory
+                        |   |   |   |   |-- algorithm
+                        |   |   |   |   |-- coroutine
+                        |   |   |   |   |-- deque
+                        |   |   |   |   |-- filesystem
+                        |   |   |   |   |-- forward_list
+                        |   |   |   |   |-- functional
+                        |   |   |   |   |-- iterator
+                        |   |   |   |   |-- list
+                        |   |   |   |   |-- map
+                        |   |   |   |   |-- memory_resource
+                        |   |   |   |   |-- propagate_const
+                        |   |   |   |   |-- regex
+                        |   |   |   |   |-- set
+                        |   |   |   |   |-- simd
+                        |   |   |   |   |-- string
+                        |   |   |   |   |-- type_traits
+                        |   |   |   |   |-- unordered_map
+                        |   |   |   |   |-- unordered_set
+                        |   |   |   |   |-- utility
+                        |   |   |   |   `-- vector
+                        |   |   |   |-- ext
+                        |   |   |   |   |-- __hash
+                        |   |   |   |   |-- hash_map
+                        |   |   |   |   `-- hash_set
+                        |   |   |   |-- fenv.h
+                        |   |   |   |-- filesystem
+                        |   |   |   |-- float.h
+                        |   |   |   |-- forward_list
+                        |   |   |   |-- fstream
+                        |   |   |   |-- functional
+                        |   |   |   |-- future
+                        |   |   |   |-- initializer_list
+                        |   |   |   |-- inttypes.h
+                        |   |   |   |-- iomanip
+                        |   |   |   |-- ios
+                        |   |   |   |-- iosfwd
+                        |   |   |   |-- iostream
+                        |   |   |   |-- istream
+                        |   |   |   |-- iterator
+                        |   |   |   |-- limits
+                        |   |   |   |-- limits.h
+                        |   |   |   |-- list
+                        |   |   |   |-- locale
+                        |   |   |   |-- locale.h
+                        |   |   |   |-- map
+                        |   |   |   |-- math.h
+                        |   |   |   |-- memory
+                        |   |   |   |-- module.modulemap
+                        |   |   |   |-- mutex
+                        |   |   |   |-- new
+                        |   |   |   |-- numeric
+                        |   |   |   |-- optional
+                        |   |   |   |-- ostream
+                        |   |   |   |-- queue
+                        |   |   |   |-- random
+                        |   |   |   |-- ratio
+                        |   |   |   |-- regex
+                        |   |   |   |-- scoped_allocator
+                        |   |   |   |-- set
+                        |   |   |   |-- setjmp.h
+                        |   |   |   |-- shared_mutex
+                        |   |   |   |-- span
+                        |   |   |   |-- sstream
+                        |   |   |   |-- stack
+                        |   |   |   |-- stdbool.h
+                        |   |   |   |-- stddef.h
+                        |   |   |   |-- stdexcept
+                        |   |   |   |-- stdint.h
+                        |   |   |   |-- stdio.h
+                        |   |   |   |-- stdlib.h
+                        |   |   |   |-- streambuf
+                        |   |   |   |-- string
+                        |   |   |   |-- string.h
+                        |   |   |   |-- string_view
+                        |   |   |   |-- strstream
+                        |   |   |   |-- support
+                        |   |   |   |   |-- android
+                        |   |   |   |   |   `-- locale_bionic.h
+                        |   |   |   |   |-- fuchsia
+                        |   |   |   |   |   `-- xlocale.h
+                        |   |   |   |   |-- ibm
+                        |   |   |   |   |   |-- limits.h
+                        |   |   |   |   |   |-- locale_mgmt_aix.h
+                        |   |   |   |   |   |-- support.h
+                        |   |   |   |   |   `-- xlocale.h
+                        |   |   |   |   |-- musl
+                        |   |   |   |   |   `-- xlocale.h
+                        |   |   |   |   |-- newlib
+                        |   |   |   |   |   `-- xlocale.h
+                        |   |   |   |   |-- solaris
+                        |   |   |   |   |   |-- floatingpoint.h
+                        |   |   |   |   |   |-- wchar.h
+                        |   |   |   |   |   `-- xlocale.h
+                        |   |   |   |   |-- win32
+                        |   |   |   |   |   |-- limits_msvc_win32.h
+                        |   |   |   |   |   `-- locale_win32.h
+                        |   |   |   |   `-- xlocale
+                        |   |   |   |       |-- __nop_locale_mgmt.h
+                        |   |   |   |       |-- __posix_l_fallback.h
+                        |   |   |   |       `-- __strtonum_fallback.h
+                        |   |   |   |-- system_error
+                        |   |   |   |-- tgmath.h
+                        |   |   |   |-- thread
+                        |   |   |   |-- tuple
+                        |   |   |   |-- type_traits
+                        |   |   |   |-- typeindex
+                        |   |   |   |-- typeinfo
+                        |   |   |   |-- unordered_map
+                        |   |   |   |-- unordered_set
+                        |   |   |   |-- utility
+                        |   |   |   |-- valarray
+                        |   |   |   |-- variant
+                        |   |   |   |-- vector
+                        |   |   |   |-- version
+                        |   |   |   |-- wchar.h
+                        |   |   |   `-- wctype.h
+                        |   |   |-- valarray
+                        |   |   |-- vector
+                        |   |   |-- wchar.hx
+                        |   |   |-- xcomplex
+                        |   |   |-- xdebug
+                        |   |   |-- xhash
+                        |   |   |-- xiosbase
+                        |   |   |-- xlocale
+                        |   |   |-- xlocinfo
+                        |   |   |-- xlocinfo.h
+                        |   |   |-- xlocmes
+                        |   |   |-- xlocmon
+                        |   |   |-- xlocnum
+                        |   |   |-- xloctime
+                        |   |   |-- xmemory
+                        |   |   |-- xstddef
+                        |   |   |-- xstring
+                        |   |   |-- xtree
+                        |   |   `-- xutility
+                        |   |-- complex.h
+                        |   |-- crt0if.h
+                        |   |-- ctype.h
+                        |   |-- dirent.h
+                        |   |-- dlfcn.h
+                        |   |-- errno.h
+                        |   |-- fcntl.h
+                        |   |-- fenv.h
+                        |   |-- float.h
+                        |   |-- generic
+                        |   |   |-- fcntl.h
+                        |   |   |-- signal.h
+                        |   |   |-- sys
+                        |   |   |   `-- types.h
+                        |   |   `-- time.h
+                        |   |-- hexagon_cache.h
+                        |   |-- hexagon_circ_brev_intrinsics.h
+                        |   |-- hexagon_protos.h
+                        |   |-- hexagon_reg_timer.h
+                        |   |-- hexagon_sim_timer.h
+                        |   |-- hexagon_standalone.h
+                        |   |-- hexagon_types.h
+                        |   |-- hmx_hexagon_protos.h
+                        |   |-- hvx_hexagon_protos.h
+                        |   |-- inttypes.h
+                        |   |-- iohw.h
+                        |   |-- iso646.h
+                        |   |-- limits.h
+                        |   |-- locale.h
+                        |   |-- math.h
+                        |   |-- memory.h
+                        |   |-- q6_circ_brev_intrinsics.h
+                        |   |-- q6cache.h
+                        |   |-- q6protos.h
+                        |   |-- q6reg_timer.h
+                        |   |-- q6sim_timer.h
+                        |   |-- q6standalone.h
+                        |   |-- q6types.h
+                        |   |-- search.h
+                        |   |-- setjmp.h
+                        |   |-- signal.h
+                        |   |-- stdalign.h
+                        |   |-- stdarg.h
+                        |   |-- stdbool.h
+                        |   |-- stddef.h
+                        |   |-- stdint.h
+                        |   |-- stdio.h
+                        |   |-- stdlib.h
+                        |   |-- string.h
+                        |   |-- strings.h
+                        |   |-- sys
+                        |   |   |-- dirent.h
+                        |   |   |-- fcntl.h
+                        |   |   |-- mman.h
+                        |   |   |-- queue.h
+                        |   |   |-- stat.h
+                        |   |   |-- time.h
+                        |   |   |-- times.h
+                        |   |   |-- types.h
+                        |   |   `-- unistd.h
+                        |   |-- tgmath.h
+                        |   |-- time.h
+                        |   |-- types.h
+                        |   |-- uchar.h
+                        |   |-- unistd.h
+                        |   |-- wchar.h
+                        |   |-- wctype.h
+                        |   |-- xalloc.h
+                        |   |-- xfcntl.h
+                        |   |-- xlocale.h
+                        |   |-- xmath.h
+                        |   |-- xmtloc.h
+                        |   |-- xmtx.h
+                        |   |-- xstate.h
+                        |   |-- xstdio.h
+                        |   |-- xstrxfrm.h
+                        |   |-- xtgmath.h
+                        |   |-- xtgmath1.h
+                        |   |-- xtime.h
+                        |   |-- xtinfo.h
+                        |   |-- xtls.h
+                        |   |-- xwcc.h
+                        |   |-- xwchar.h
+                        |   |-- xwcstod.h
+                        |   |-- xwcsxfrm.h
+                        |   |-- xwctype.h
+                        |   |-- xwstdio.h
+                        |   |-- xwstr.h
+                        |   |-- yfuns.h
+                        |   |-- ymath.h
+                        |   `-- yvals.h
+                        `-- lib
+                            `-- v66
+                                `-- G0
+                                    `-- pic
+                                        |-- finiS.o
+                                        |-- initS.o
+                                        |-- libc++.a
+                                        |-- libc++.so -> libc++.so.1.0
+                                        |-- libc++.so.1 -> libc++.so.1.0
+                                        |-- libc++.so.1.0
+                                        |-- libc++abi.a
+                                        |-- libc++abi.so -> libc++abi.so.1.0
+                                        |-- libc++abi.so.1 -> libc++abi.so.1.0
+                                        |-- libc++abi.so.1.0
+                                        |-- libc.a
+                                        |-- libc_eh.a
+                                        |-- libgcc.a
+                                        |-- libm.a
+                                        `-- libstandalone.a
+
+32 directories, 457 files
