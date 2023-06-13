@@ -37,9 +37,8 @@ SerialImpl::~SerialImpl()
 
 bool SerialImpl::open()
 {
-	if (isOpen()) {
-		return true;
-	}
+	// There's no harm in calling open multiple times on the same port.
+	// In fact, that's the only way to change the baudrate
 
 	_open = false;
 	_serial_fd = -1;
@@ -70,6 +69,8 @@ bool SerialImpl::open()
 	if (serial_fd < 0) {
 		PX4_ERR("failed to open %s, fd returned: %d", _port, serial_fd);
 		return false;
+	} else {
+		PX4_INFO("Successfully opened UART %s with baudrate %u", _port, _baudrate);
 	}
 
 	_serial_fd = serial_fd;
@@ -138,9 +139,9 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 			if (elapsed_us >= timeout_us) {
 				// If there was a partial read but not enough to satisfy the minimum then they will be lost
 				// but this really should never happen when everything is working normally.
-				PX4_WARN("%s timeout %d bytes read (%llu us elapsed)", __FUNCTION__, total_bytes_read, elapsed_us);
+				// PX4_WARN("%s timeout %d bytes read (%llu us elapsed)", __FUNCTION__, total_bytes_read, elapsed_us);
 				// Or, instead of returning an error, should we return the number of bytes read (assuming it is greater than zero)?
-				return -1;
+				return total_bytes_read;
 			}
 		}
 	
@@ -220,7 +221,7 @@ uint32_t SerialImpl::getBaudrate() const
 bool SerialImpl::setBaudrate(uint32_t baudrate)
 {
 	// check if already configured
-	if ((baudrate == _baudrate) && _open) {
+	if (baudrate == _baudrate) {
 		return true;
 	}
 

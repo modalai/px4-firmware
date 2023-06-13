@@ -790,6 +790,9 @@ GPS::run()
 				px4_sleep(1);
 				continue;
 			}
+
+			_uart->open();
+
 		} else if ((_interface == GPSHelper::Interface::SPI) && (_spi_fd < 0)){
 			_spi_fd = ::open(_port, O_RDWR | O_NOCTTY);
 
