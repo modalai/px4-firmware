@@ -51,7 +51,6 @@ if(NOT PX4_BOARD MATCHES "io-v2")
 		px4_24xxxx_mtd.c
 		px4_crypto.cpp
 		progmem_dump.c
-		SerialImpl.cpp
 	)
 
 	# Kernel side & nuttx flat build common libraries

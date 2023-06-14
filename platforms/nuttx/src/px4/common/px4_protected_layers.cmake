@@ -15,7 +15,6 @@ add_library(px4_layer
 	usr_board_ctrl.c
 	usr_hrt.cpp
 	usr_mcu_version.cpp
-	SerialImpl.cpp
 )
 
 target_link_libraries(px4_layer
