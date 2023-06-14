@@ -144,10 +144,12 @@ bool SerialImpl::open()
 		return false;
 	}
 
-	// Configure the serial port
-	if ( ! configure()) {
-		PX4_ERR("failed to configure %s err: %d", _port, errno);
-		return false;
+	// Configure the serial port if a baudrate has been configured
+	if (_baudrate) {
+		if ( ! configure()) {
+			PX4_ERR("failed to configure %s err: %d", _port, errno);
+			return false;
+		}
 	}
 
 	_serial_fd = serial_fd;
