@@ -46,13 +46,7 @@
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_hrt.h>
 
-#include <mavlink_types.h>
-#include <standard/mavlink.h>
-#include <standard/standard.h>
-#include <protocol.h>
-#include <mavlink_helpers.h>
-#include <minimal/mavlink_msg_heartbeat.h>
-#include <common.h>
+#include <mavlink.h>
 
 #include <uORB/uORB.h>
 #include <uORB/Publication.hpp>
@@ -68,9 +62,9 @@
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/radio_status.h>
+#include <uORB/topics/sensor_baro.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
-//#include <lib/drivers/barometer/PX4Barometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 #include <lib/drivers/magnetometer/PX4Magnetometer.hpp>
 
@@ -102,6 +96,8 @@ bool radio_once = false;
 bool rc_once = false;
 std::string port = "2";
 int baudrate = 921600;
+const unsigned mode_flag_custom = 1;
+const unsigned mode_flag_armed = 128;
 
 uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
 uORB::Publication<sensor_gps_s>				_gps_pub{ORB_ID(sensor_gps)};
@@ -109,6 +105,7 @@ uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(di
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
+uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pubs[2] {{ORB_ID(sensor_baro)}, {ORB_ID(sensor_baro)}};
 
 // hil_sensor and hil_state_quaternion
 enum SensorSource {
@@ -228,13 +225,13 @@ handle_message_dsp(mavlink_message_t *msg)
 		handle_message_command_long_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
-		PX4_INFO("Heartbeat msg received");
+		//PX4_INFO("Heartbeat msg received");
 		break;
 	case MAVLINK_MSG_ID_SYSTEM_TIME:
 		// PX4_INFO("MAVLINK SYSTEM TIME");
 		break;
 	default:
-		PX4_ERR("Unknown msg ID: %d", msg->msgid);
+		//PX4_ERR("Unknown msg ID: %d", msg->msgid);
 		break;
 	}
 }
@@ -247,7 +244,7 @@ void *send_actuator(void *){
 void send_actuator_data(){
 
 	//int _act_sub = orb_subscribe(ORB_ID(actuator_outputs));
-	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), 0);
+	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_sim), 0);
 	PX4_INFO("Got %d from orb_subscribe", _actuator_outputs_sub);
 	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
 	PX4_INFO("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
@@ -267,11 +264,8 @@ void send_actuator_data(){
 		bool actuator_updated = false;
 		(void) orb_check(_actuator_outputs_sub, &actuator_updated);
 
-		//PX4_ERR("Value of actuator_updated: %d", actuator_updated);
-
 		if(actuator_updated){
 			orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
-			// PX4_INFO("Value of updated actuator: %d", actuator_updated);
 			px4_lockstep_wait_for_components();
 
 			if (_actuator_outputs.timestamp > 0) {
@@ -284,8 +278,8 @@ void send_actuator_data(){
 				uint8_t  newBuf[512];
 				uint16_t newBufLen = 0;
 				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-					int writeRetval = writeResponse(&newBuf, newBufLen);
-					PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
+				int writeRetval = writeResponse(&newBuf, newBufLen);
+				PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
 			}
 		}
 
@@ -376,13 +370,12 @@ void task_main(int argc, char *argv[])
 		// Check for incoming messages from the simulator
 		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
 		if (readRetval) {
-		 	// PX4_INFO("Value of rx_buff: %s", rx_buf);
-		    	// PX4_INFO("Got %d bytes", readRetval);
 			//Take readRetval and convert it into mavlink msg
 			mavlink_message_t msg;
 			mavlink_status_t _status{};
 			for (int i = 0; i <= readRetval; i++){
-				if (mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &_status)) {
+				if(mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &_status)){
+					//PX4_INFO("Value of msg id: %i", msg.msgid);
 					handle_message_dsp(&msg);
 				}
 			}
@@ -404,10 +397,10 @@ void task_main(int argc, char *argv[])
 			orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
 		}
 
-		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+		// uint64_t elapsed_time = hrt_absolute_time() - timestamp;
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
 
-		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+		// if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
 }
 
@@ -697,51 +690,21 @@ void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg)
 
 	msg->time_usec = hrt_absolute_time();
 
-	static constexpr float pwm_center = (PWM_DEFAULT_MAX + PWM_DEFAULT_MIN) / 2;
+	bool armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 
-	for (unsigned i = 0; i < 16; i++) {
-		if (_actuator_outputs.output[i] > PWM_DEFAULT_MIN / 2) {
-			if (i < 4) {
-				/* scale PWM out 900..2100 us to 0..1 for rotors */
-				msg->controls[i] = (_actuator_outputs.output[i] - PWM_DEFAULT_MIN) / (PWM_DEFAULT_MAX - PWM_DEFAULT_MIN);
-
-			} else {
-				/* scale PWM out 900..2100 us to -1..1 for other channels */
-				msg->controls[i] = (_actuator_outputs.output[i] - pwm_center) / ((PWM_DEFAULT_MAX - PWM_DEFAULT_MIN) / 2);
-			}
-		} else {
-			/* send 0 when disarmed and for disabled channels */
-			msg->controls[i] = 0.0f;
+	if (armed) {
+		for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
+			msg->controls[i] = _actuator_outputs.output[i];
 		}
 	}
 
-	msg->mode = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED;
-
-	if (_control_mode.flag_control_auto_enabled) {
-		msg->mode |= MAV_MODE_FLAG_AUTO_ENABLED;
-	}
-
-	if (_control_mode.flag_control_manual_enabled) {
-		msg->mode |= MAV_MODE_FLAG_MANUAL_INPUT_ENABLED;
-	}
-
-	if (_control_mode.flag_control_attitude_enabled) {
-		msg->mode |= MAV_MODE_FLAG_STABILIZE_ENABLED;
-	}
-
-	if (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-		msg->mode |= MAV_MODE_FLAG_SAFETY_ARMED;
-	}
-
-	if (_vehicle_status.hil_state == vehicle_status_s::HIL_STATE_ON) {
-		msg->mode |= MAV_MODE_FLAG_HIL_ENABLED;
-	}
-
-	if (_vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION) {
-		msg->mode |= MAV_MODE_FLAG_GUIDED_ENABLED;
-	}
-
+	msg->mode = mode_flag_custom;
+	msg->mode |= (armed) ? mode_flag_armed : 0;
 	msg->flags = 0;
+
+#if defined(ENABLE_LOCKSTEP_SCHEDULER)
+	msg->flags |= 1;
+#endif
 }
 
 int openPort(const char *dev, speed_t speed)
@@ -910,17 +873,22 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 	}
 
 	// baro
-	// if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
-	// 	if (_px4_baro == nullptr) {
-	// 		// 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
-	// 		_px4_baro = new PX4Barometer(6620172);
-	// 	}
+	if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
+		// publish
+		sensor_baro_s sensor_baro{};
+		sensor_baro.timestamp_sample = gyro_accel_time;
+		sensor_baro.pressure = hil_sensor.abs_pressure * 100.f; // hPa to Pa;
+		sensor_baro.temperature = hil_sensor.temperature;;
 
-	// 	if (_px4_baro != nullptr) {
-	// 		_px4_baro->set_temperature(hil_sensor.temperature);
-	// 		_px4_baro->update(gyro_accel_time, hil_sensor.abs_pressure);
-	// 	}
-	//}
+		// publish 1st baro
+		sensor_baro.device_id = 6620172; // 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
+		sensor_baro.timestamp = hrt_absolute_time();
+		_sensor_baro_pubs[0].publish(sensor_baro);
+
+		sensor_baro.device_id = 6620428; // 6620428: DRV_BARO_DEVTYPE_BAROSIM, BUS: 2, ADDR: 4, TYPE: SIMULATION
+		sensor_baro.timestamp = hrt_absolute_time();
+		_sensor_baro_pubs[1].publish(sensor_baro);
+	}
 
 	// differential pressure
 	if ((hil_sensor.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS) {
