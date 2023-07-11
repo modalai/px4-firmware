@@ -63,6 +63,7 @@
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/radio_status.h>
 #include <uORB/topics/sensor_baro.h>
+#include <uORB/topics/esc_status.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
@@ -106,6 +107,8 @@ uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visu
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
 uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pubs[2] {{ORB_ID(sensor_baro)}, {ORB_ID(sensor_baro)}};
+uORB::Publication<esc_status_s>			_esc_status_pub{ORB_ID(esc_status)};
+int32_t _output_functions[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS] {};
 
 // hil_sensor and hil_state_quaternion
 enum SensorSource {
@@ -116,10 +119,20 @@ enum SensorSource {
 	DIFF_PRESS	= 0b10000000000
 };
 
-PX4Accelerometer *_px4_accel{nullptr};
+//PX4Accelerometer *_px4_accel{nullptr};
 //PX4Barometer *_px4_baro{nullptr};
-PX4Gyroscope *_px4_gyro{nullptr};
-PX4Magnetometer *_px4_mag{nullptr};
+//PX4Gyroscope *_px4_gyro{nullptr};
+//PX4Magnetometer *_px4_mag{nullptr};
+
+// simulated sensor instances
+static constexpr uint8_t ACCEL_COUNT_MAX = 3;
+PX4Accelerometer *_px4_accel[ACCEL_COUNT_MAX];
+
+static constexpr uint8_t GYRO_COUNT_MAX = 3;
+PX4Gyroscope *_px4_gyro[GYRO_COUNT_MAX];
+
+static constexpr uint8_t MAG_COUNT_MAX = 2;
+PX4Magnetometer *_px4_mag[MAG_COUNT_MAX];
 
 hrt_abstime _last_heartbeat_check{0};
 
@@ -158,6 +171,10 @@ vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
 radio_status_s _rstatus {};
 
+sensor_accel_fifo_s accel_fifo{};
+sensor_gyro_fifo_s gyro_fifo{};
+
+
 int openPort(const char *dev, speed_t speed);
 int closePort();
 
@@ -186,12 +203,13 @@ void handle_message_command_long_dsp(mavlink_message_t *msg);
 void CheckHeartbeats(const hrt_abstime &t, bool force);
 void handle_message_dsp(mavlink_message_t *msg);
 void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
+void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control);
 
 void
 handle_message_dsp(mavlink_message_t *msg)
 {
 	//PX4_INFO("msg ID: %d", msg->msgid);
-	// PX4_ERR("msg ID: %d", msg->msgid);
+	// PX4_ERR("msg ID: %d", msg->msgid);s
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_HIL_SENSOR:
 		handle_message_hil_sensor_dsp(msg);
@@ -245,14 +263,13 @@ void send_actuator_data(){
 
 	//int _act_sub = orb_subscribe(ORB_ID(actuator_outputs));
 	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_sim), 0);
-	PX4_INFO("Got %d from orb_subscribe", _actuator_outputs_sub);
+	//PX4_INFO("Got %d from orb_subscribe", _actuator_outputs_sub);
 	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
-	PX4_INFO("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
+	//PX4_INFO("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
 
 	while (true){
 
-		uint64_t timestamp = hrt_absolute_time();
-
+		//uint64_t timestamp = hrt_absolute_time();
 
 		bool controls_updated = false;
 		(void) orb_check(_vehicle_control_mode_sub_, &controls_updated);
@@ -280,12 +297,14 @@ void send_actuator_data(){
 				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
 				int writeRetval = writeResponse(&newBuf, newBufLen);
 				PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
+
+				send_esc_telemetry_dsp(hil_act_control);
 			}
 		}
 
-		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+		//uint64_t elapsed_time = hrt_absolute_time() - timestamp;
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
-		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+		//if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
 }
 
@@ -327,14 +346,22 @@ void task_main(int argc, char *argv[])
 	}
 
 	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
-	uint64_t last_imu_update_timestamp = last_heartbeat_timestamp;
+	//uint64_t last_imu_update_timestamp = last_heartbeat_timestamp;
 
-	_px4_accel = new PX4Accelerometer(1310988);
-	_px4_gyro = new PX4Gyroscope(1310988);
+	_px4_accel[0] = new PX4Accelerometer(1310988, ROTATION_NONE);
+	_px4_accel[1] = new PX4Accelerometer(1310996, ROTATION_NONE);
+	_px4_accel[2] = new PX4Accelerometer(1311004, ROTATION_NONE);
+
+	_px4_gyro[0] = new PX4Gyroscope(1310988, ROTATION_NONE);
+	_px4_gyro[1] = new PX4Gyroscope(1310996, ROTATION_NONE);
+	_px4_gyro[2] = new PX4Gyroscope(1311004, ROTATION_NONE);
+
+	_px4_mag[0] = new PX4Magnetometer(197388, ROTATION_NONE);
+	_px4_mag[1] = new PX4Magnetometer(197644, ROTATION_NONE);
 
 	// Create a thread for sending data to the simulator.
 	if(!crossfire){
-		pthread_t sender_thread;
+		pthread_t sender_thread;s
 		pthread_attr_t sender_thread_attr;
 		pthread_attr_init(&sender_thread_attr);
 		pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
@@ -356,16 +383,16 @@ void task_main(int argc, char *argv[])
 		uint64_t timestamp = hrt_absolute_time();
 
 		// Send out sensor messages every 10ms
-		if (got_first_sensor_msg) {
-			uint64_t delta_time = timestamp - last_imu_update_timestamp;
-			if (delta_time > 15000) {
-				PX4_ERR("Sending updates at %llu, delta %llu", timestamp, delta_time);
-			}
-			uint64_t _px4_gyro_accle_timestamp = hrt_absolute_time();
-			_px4_gyro->update(_px4_gyro_accle_timestamp, x_gyro, y_gyro, z_gyro);
-			_px4_accel->update(_px4_gyro_accle_timestamp, x_accel, y_accel, z_accel);
-			last_imu_update_timestamp = timestamp;
-		}
+		// if (got_first_sensor_msg) {
+		// 	uint64_t delta_time = timestamp - last_imu_update_timestamp;
+		// 	if (delta_time > 15000) {
+		// 		PX4_ERR("Sending updates at %llu, delta %llu", timestamp, delta_time);
+		// 	}
+		// 	uint64_t _px4_gyro_accel_timestamp = hrt_absolute_time();
+		// 	_px4_gyro->update(_px4_gyro_accel_timestamp, x_gyro, y_gyro, z_gyro);
+		// 	_px4_accel->update(_px4_gyro_accel_timestamp, x_accel, y_accel, z_accel);
+		// 	last_imu_update_timestamp = timestamp;
+		// }
 
 		// Check for incoming messages from the simulator
 		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
@@ -397,12 +424,44 @@ void task_main(int argc, char *argv[])
 			orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
 		}
 
-		// uint64_t elapsed_time = hrt_absolute_time() - timestamp;
+		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
 
-		// if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
 	}
 }
+
+void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
+{
+	esc_status_s esc_status{};
+	esc_status.timestamp = hrt_absolute_time();
+	const int max_esc_count = math::min(actuator_outputs_s::NUM_ACTUATOR_OUTPUTS, esc_status_s::CONNECTED_ESC_MAX);
+
+	const bool armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
+	int max_esc_index = 0;
+
+	for (int i = 0; i < max_esc_count; i++) {
+		if (_output_functions[i] != 0) {
+			max_esc_index = i;
+		}
+
+		esc_status.esc[i].actuator_function = _output_functions[i]; // TODO: this should be in pwm_sim...
+		esc_status.esc[i].timestamp = esc_status.timestamp;
+		esc_status.esc[i].esc_errorcount = 0; // TODO
+		//esc_status.esc[i].esc_voltage = _battery_status.voltage_v;
+		esc_status.esc[i].esc_current = armed ? 1.0f + math::abs_t(hil_act_control.controls[i]) * 15.0f :
+						0.0f; // TODO: magic number
+		esc_status.esc[i].esc_rpm = hil_act_control.controls[i] * 6000;  // TODO: magic number
+		//esc_status.esc[i].esc_temperature = 20.0 + math::abs_t(hil_act_control.controls[i]) * 40.0;
+	}
+
+	esc_status.esc_count = max_esc_index + 1;
+	esc_status.esc_armed_flags = (1u << esc_status.esc_count) - 1;
+	esc_status.esc_online_flags = (1u << esc_status.esc_count) - 1;
+
+	_esc_status_pub.publish(esc_status);
+}
+
 
 void
 handle_message_command_long_dsp(mavlink_message_t *msg)
@@ -830,46 +889,83 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 
 	// gyro
 	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
-		if (_px4_gyro != nullptr) {
-			if (PX4_ISFINITE(temperature)) {
-				_px4_gyro->set_temperature(temperature);
-			}
+		if (hil_sensor.id >= GYRO_COUNT_MAX) {
+			PX4_ERR("Number of simulated gyroscope %d out of range. Max: %d", hil_sensor.id, GYRO_COUNT_MAX);
+			return;
 		}
 
-		x_gyro = hil_sensor.xgyro;
-		y_gyro = hil_sensor.ygyro;
-		z_gyro = hil_sensor.zgyro;
+		if (hil_sensor.id == 0) {
+			// gyro 0 is simulated FIFO
+			static constexpr float GYRO_FIFO_SCALE = math::radians(2000.f / 32768.f);
+			static constexpr float GYRO_FIFO_RANGE = math::radians(2000.f);
+
+			_px4_gyro[hil_sensor.id]->set_scale(GYRO_FIFO_SCALE);
+			_px4_gyro[hil_sensor.id]->set_range(GYRO_FIFO_RANGE);
+			_px4_gyro[hil_sensor.id]->set_temperature(temperature);
+
+			// gyro 0 is simulated FIFO
+			gyro_fifo.samples = 1;
+			gyro_fifo.dt = gyro_accel_time - gyro_fifo.timestamp_sample;
+			gyro_fifo.timestamp_sample = gyro_accel_time;
+			gyro_fifo.x[0] = hil_sensor.xgyro / GYRO_FIFO_SCALE;
+			gyro_fifo.y[0] = hil_sensor.ygyro / GYRO_FIFO_SCALE;
+			gyro_fifo.z[0] = hil_sensor.zgyro / GYRO_FIFO_SCALE;
+
+			_px4_gyro[hil_sensor.id]->updateFIFO(gyro_fifo);
+		} else {
+			_px4_gyro[hil_sensor.id]->set_temperature(temperature);
+			_px4_gyro[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
+		}
 	}
 
-	// accelerometer
+	// // accelerometer
 	if ((hil_sensor.fields_updated & SensorSource::ACCEL) == SensorSource::ACCEL) {
-		if (_px4_accel != nullptr) {
-			if (PX4_ISFINITE(temperature)) {
-				_px4_accel->set_temperature(temperature);
-			}
+		if (hil_sensor.id >= ACCEL_COUNT_MAX) {
+			PX4_ERR("Number of simulated accelerometer %d out of range. Max: %d", hil_sensor.id, ACCEL_COUNT_MAX);
+			return;
 		}
 
-		x_accel = hil_sensor.xacc;
-		y_accel = hil_sensor.yacc;
-		z_accel = hil_sensor.zacc;
+		if (hil_sensor.id == 0) {
+			// accel 0 is simulated FIFO
+			static constexpr float ACCEL_FIFO_SCALE = CONSTANTS_ONE_G / 2048.f;
+			static constexpr float ACCEL_FIFO_RANGE = 16.f * CONSTANTS_ONE_G;
+
+			_px4_accel[hil_sensor.id]->set_scale(ACCEL_FIFO_SCALE);
+			_px4_accel[hil_sensor.id]->set_range(ACCEL_FIFO_RANGE);
+			_px4_accel[hil_sensor.id]->set_temperature(temperature);
+
+			accel_fifo.samples = 1;
+			accel_fifo.dt = gyro_accel_time - accel_fifo.timestamp_sample;
+			accel_fifo.timestamp_sample = gyro_accel_time;
+			accel_fifo.x[0] = hil_sensor.xacc / ACCEL_FIFO_SCALE;
+			accel_fifo.y[0] = hil_sensor.yacc / ACCEL_FIFO_SCALE;
+			accel_fifo.z[0] = hil_sensor.zacc / ACCEL_FIFO_SCALE;
+
+			_px4_accel[hil_sensor.id]->updateFIFO(accel_fifo);
+		} else {
+			_px4_accel[hil_sensor.id]->set_temperature(temperature);
+			_px4_accel[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
+		}
 	}
 
 	// magnetometer
-	if(!vio){
-		if ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG) {
-			if (_px4_mag == nullptr) {
-				// 197388: DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
-				_px4_mag = new PX4Magnetometer(197388);
-			}
+	//if(!vio){
+	if ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG) {
+		// if (_px4_mag == nullptr) {
+		// 	// 197388: DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
+		// 	_px4_mag = new PX4Magnetometer(197388);
+		// }
 
-			if (_px4_mag != nullptr) {
-				if (PX4_ISFINITE(temperature)) {
-					_px4_mag->set_temperature(temperature);
-				}
+		// if (_px4_mag != nullptr) {
+		// 	if (PX4_ISFINITE(temperature)) {
+		// 		_px4_mag->set_temperature(temperature);
+		// 	}
 
-				_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
-			}
-		}
+		// 	_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
+		// }
+	
+		_px4_mag[hil_sensor.id]->set_temperature(temperature);
+		_px4_mag[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
 	}
 
 	// baro
@@ -893,25 +989,26 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 	// differential pressure
 	if ((hil_sensor.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS) {
 		differential_pressure_s report{};
-		report.timestamp = gyro_accel_time;
+		report.timestamp_sample = gyro_accel_time;
+		report.device_id = 1377548; // 1377548: DRV_DIFF_PRESS_DEVTYPE_SIM, BUS: 1, ADDR: 5, TYPE: SIMULATION
 		report.temperature = hil_sensor.temperature;
+		report.timestamp = hrt_absolute_time();
 		report.differential_pressure_pa = hil_sensor.diff_pressure * 100.0f; // convert from millibar to bar;
-
 		_differential_pressure_pub.publish(report);
 	}
 
 	// battery status
-	{
-		battery_status_s hil_battery_status{};
+	// {
+	// 	battery_status_s hil_battery_status{};
 
-		hil_battery_status.timestamp = gyro_accel_time;
-		hil_battery_status.voltage_v = 11.5f;
-		hil_battery_status.voltage_filtered_v = 11.5f;
-		hil_battery_status.current_a = 10.0f;
-		hil_battery_status.discharged_mah = -1.0f;
+	// 	hil_battery_status.timestamp = gyro_accel_time;
+	// 	hil_battery_status.voltage_v = 11.5f;
+	// 	hil_battery_status.voltage_filtered_v = 11.5f;
+	// 	hil_battery_status.current_a = 10.0f;
+	// 	hil_battery_status.discharged_mah = -1.0f;
 
-		_battery_pub.publish(hil_battery_status);
-	}
+	// 	_battery_pub.publish(hil_battery_status);
+	// }
 }
 
 uint64_t first_gps_msg_timestamp = 0;
