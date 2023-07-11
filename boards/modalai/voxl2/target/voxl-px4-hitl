@@ -73,11 +73,11 @@ param load
 # the log file may be corrupted.
 logger start -e -t -b 200
 
-/bin/sleep 1
+#/bin/sleep 1
 
 # IMU (accelerometer / gyroscope)
-/bin/echo "Starting IMU driver with no rotation"
-qshell icm42688p start -s -h
+#/bin/echo "Starting IMU driver with no rotation"
+#qshell icm42688p start -s -h
 
 /bin/sleep 1
 
