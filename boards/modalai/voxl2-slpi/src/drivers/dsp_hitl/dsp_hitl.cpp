@@ -68,6 +68,7 @@
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 #include <lib/drivers/magnetometer/PX4Magnetometer.hpp>
+#include <lib/drivers/device/Device.hpp> // For DeviceId union
 
 #include <px4_log.h>
 #include <px4_platform_common/module.h>
@@ -101,12 +102,12 @@ const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
 
 uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
-uORB::Publication<sensor_gps_s>				_gps_pub{ORB_ID(sensor_gps)};
+uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
 uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
-uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pubs[2] {{ORB_ID(sensor_baro)}, {ORB_ID(sensor_baro)}};
+uORB::PublicationMulti<sensor_baro_s>			_sensor_baro_pub{ORB_ID(sensor_baro)};
 uORB::Publication<esc_status_s>			_esc_status_pub{ORB_ID(esc_status)};
 uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
 
@@ -121,20 +122,9 @@ enum SensorSource {
 	DIFF_PRESS	= 0b10000000000
 };
 
-//PX4Accelerometer *_px4_accel{nullptr};
-//PX4Barometer *_px4_baro{nullptr};
-//PX4Gyroscope *_px4_gyro{nullptr};
-//PX4Magnetometer *_px4_mag{nullptr};
-
-// simulated sensor instances
-static constexpr uint8_t ACCEL_COUNT_MAX = 3;
-PX4Accelerometer *_px4_accel[ACCEL_COUNT_MAX];
-
-static constexpr uint8_t GYRO_COUNT_MAX = 3;
-PX4Gyroscope *_px4_gyro[GYRO_COUNT_MAX];
-
-static constexpr uint8_t MAG_COUNT_MAX = 2;
-PX4Magnetometer *_px4_mag[MAG_COUNT_MAX];
+PX4Accelerometer *_px4_accel{nullptr};
+PX4Gyroscope *_px4_gyro{nullptr};
+PX4Magnetometer *_px4_mag{nullptr};
 
 hrt_abstime _last_heartbeat_check{0};
 
@@ -351,16 +341,9 @@ void task_main(int argc, char *argv[])
 	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
 	//uint64_t last_imu_update_timestamp = last_heartbeat_timestamp;
 
-	_px4_accel[0] = new PX4Accelerometer(1310988, ROTATION_NONE);
-	_px4_accel[1] = new PX4Accelerometer(1310996, ROTATION_NONE);
-	_px4_accel[2] = new PX4Accelerometer(1311004, ROTATION_NONE);
-
-	_px4_gyro[0] = new PX4Gyroscope(1310988, ROTATION_NONE);
-	_px4_gyro[1] = new PX4Gyroscope(1310996, ROTATION_NONE);
-	_px4_gyro[2] = new PX4Gyroscope(1311004, ROTATION_NONE);
-
-	_px4_mag[0] = new PX4Magnetometer(197388, ROTATION_NONE);
-	_px4_mag[1] = new PX4Magnetometer(197644, ROTATION_NONE);
+	_px4_accel = new PX4Accelerometer(1310988);
+	_px4_gyro = new PX4Gyroscope(1310988);
+	_px4_mag = new PX4Magnetometer(197388);
 
 	// Create a thread for sending data to the simulator.
 	if(!crossfire){
@@ -894,86 +877,51 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 
 	// gyro
 	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
-		if (hil_sensor.id >= GYRO_COUNT_MAX) {
-			PX4_ERR("Number of simulated gyroscope %d out of range. Max: %d", hil_sensor.id, GYRO_COUNT_MAX);
-			return;
+		if (_px4_gyro == nullptr) {
+			// 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
+			_px4_gyro = new PX4Gyroscope(1310988);
 		}
 
-		if (hil_sensor.id == 0) {
-			// gyro 0 is simulated FIFO
-			static constexpr float GYRO_FIFO_SCALE = math::radians(2000.f / 32768.f);
-			static constexpr float GYRO_FIFO_RANGE = math::radians(2000.f);
+		if (_px4_gyro != nullptr) {
+			if (PX4_ISFINITE(temperature)) {
+				_px4_gyro->set_temperature(temperature);
+			}
 
-			_px4_gyro[hil_sensor.id]->set_scale(GYRO_FIFO_SCALE);
-			_px4_gyro[hil_sensor.id]->set_range(GYRO_FIFO_RANGE);
-			_px4_gyro[hil_sensor.id]->set_temperature(temperature);
-
-			// gyro 0 is simulated FIFO
-			gyro_fifo.samples = 1;
-			gyro_fifo.dt = gyro_accel_time - gyro_fifo.timestamp_sample;
-			gyro_fifo.timestamp_sample = gyro_accel_time;
-			gyro_fifo.x[0] = hil_sensor.xgyro / GYRO_FIFO_SCALE;
-			gyro_fifo.y[0] = hil_sensor.ygyro / GYRO_FIFO_SCALE;
-			gyro_fifo.z[0] = hil_sensor.zgyro / GYRO_FIFO_SCALE;
-
-			_px4_gyro[hil_sensor.id]->updateFIFO(gyro_fifo);
-		} else {
-			_px4_gyro[hil_sensor.id]->set_temperature(temperature);
-			_px4_gyro[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
+			_px4_gyro->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
 		}
-		//PX4_INFO("Value of gyro from hil sensor: %f, %f, %f", (double)hil_sensor.xgyro, (double)hil_sensor.ygyro, (double)hil_sensor.zgyro);
 	}
 
-	// // accelerometer
+	// accelerometer
 	if ((hil_sensor.fields_updated & SensorSource::ACCEL) == SensorSource::ACCEL) {
-		if (hil_sensor.id >= ACCEL_COUNT_MAX) {
-			PX4_ERR("Number of simulated accelerometer %d out of range. Max: %d", hil_sensor.id, ACCEL_COUNT_MAX);
-			return;
+		if (_px4_accel == nullptr) {
+			// 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
+			_px4_accel = new PX4Accelerometer(1310988);
 		}
 
-		if (hil_sensor.id == 0) {
-			// accel 0 is simulated FIFO
-			static constexpr float ACCEL_FIFO_SCALE = CONSTANTS_ONE_G / 2048.f;
-			static constexpr float ACCEL_FIFO_RANGE = 16.f * CONSTANTS_ONE_G;
+		if (_px4_accel != nullptr) {
+			if (PX4_ISFINITE(temperature)) {
+				_px4_accel->set_temperature(temperature);
+			}
 
-			_px4_accel[hil_sensor.id]->set_scale(ACCEL_FIFO_SCALE);
-			_px4_accel[hil_sensor.id]->set_range(ACCEL_FIFO_RANGE);
-			_px4_accel[hil_sensor.id]->set_temperature(temperature);
-
-			accel_fifo.samples = 1;
-			accel_fifo.dt = gyro_accel_time - accel_fifo.timestamp_sample;
-			accel_fifo.timestamp_sample = gyro_accel_time;
-			accel_fifo.x[0] = hil_sensor.xacc / ACCEL_FIFO_SCALE;
-			accel_fifo.y[0] = hil_sensor.yacc / ACCEL_FIFO_SCALE;
-			accel_fifo.z[0] = hil_sensor.zacc / ACCEL_FIFO_SCALE;
-
-			_px4_accel[hil_sensor.id]->updateFIFO(accel_fifo);
-		} else {
-			_px4_accel[hil_sensor.id]->set_temperature(temperature);
-			_px4_accel[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
+			_px4_accel->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
 		}
-		//PX4_INFO("Value of accel from hil sensor: %f, %f, %f", (double)hil_sensor.xacc, (double)hil_sensor.yacc, (double)hil_sensor.zacc);
 	}
+
 
 	// magnetometer
-	//if(!vio){
 	if ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG) {
-		// if (_px4_mag == nullptr) {
-		// 	// 197388: DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
-		// 	_px4_mag = new PX4Magnetometer(197388);
-		// }
+		if (_px4_mag == nullptr) {
+			// 197388: DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
+			_px4_mag = new PX4Magnetometer(197388);
+		}
 
-		// if (_px4_mag != nullptr) {
-		// 	if (PX4_ISFINITE(temperature)) {
-		// 		_px4_mag->set_temperature(temperature);
-		// 	}
+		if (_px4_mag != nullptr) {
+			if (PX4_ISFINITE(temperature)) {
+				_px4_mag->set_temperature(temperature);
+			}
 
-		// 	_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
-		// }
-	
-		_px4_mag[hil_sensor.id]->set_temperature(temperature);
-		_px4_mag[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
-		//PX4_INFO("Value of mag from hil sensor: %f, %f, %f", (double)hil_sensor.xmag, (double)hil_sensor.ymag, (double)hil_sensor.zmag);
+			_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
+		}
 	}
 
 	// baro
@@ -981,17 +929,12 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 		// publish
 		sensor_baro_s sensor_baro{};
 		sensor_baro.timestamp_sample = gyro_accel_time;
-		sensor_baro.pressure = hil_sensor.abs_pressure * 100.f; // hPa to Pa;
-		sensor_baro.temperature = hil_sensor.temperature;;
-
-		// publish 1st baro
 		sensor_baro.device_id = 6620172; // 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
+		sensor_baro.pressure = hil_sensor.abs_pressure * 100.0f; // hPa to Pa
+		sensor_baro.temperature = hil_sensor.temperature;
+		sensor_baro.error_count = 0;
 		sensor_baro.timestamp = hrt_absolute_time();
-		_sensor_baro_pubs[0].publish(sensor_baro);
-
-		sensor_baro.device_id = 6620428; // 6620428: DRV_BARO_DEVTYPE_BAROSIM, BUS: 2, ADDR: 4, TYPE: SIMULATION
-		sensor_baro.timestamp = hrt_absolute_time();
-		_sensor_baro_pubs[1].publish(sensor_baro);
+		_sensor_baro_pub.publish(sensor_baro);
 	}
 
 	// differential pressure
@@ -1000,8 +943,8 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 		report.timestamp_sample = gyro_accel_time;
 		report.device_id = 1377548; // 1377548: DRV_DIFF_PRESS_DEVTYPE_SIM, BUS: 1, ADDR: 5, TYPE: SIMULATION
 		report.temperature = hil_sensor.temperature;
+		report.differential_pressure_pa = hil_sensor.diff_pressure * 100.0f; // hPa to Pa
 		report.timestamp = hrt_absolute_time();
-		report.differential_pressure_pa = hil_sensor.diff_pressure * 100.0f; // convert from millibar to bar;
 		_differential_pressure_pub.publish(report);
 	}
 
@@ -1010,10 +953,13 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 		battery_status_s hil_battery_status{};
 
 		hil_battery_status.timestamp = gyro_accel_time;
-		hil_battery_status.voltage_v = 11.5f;
-		hil_battery_status.voltage_filtered_v = 11.5f;
+		hil_battery_status.voltage_v = 16.0f;
+		hil_battery_status.voltage_filtered_v = 16.0f;
 		hil_battery_status.current_a = 10.0f;
 		hil_battery_status.discharged_mah = -1.0f;
+		hil_battery_status.connected = true;
+		hil_battery_status.remaining = 0.70;
+		hil_battery_status.time_remaining_s = NAN;
 
 		_battery_pub.publish(hil_battery_status);
 	}
@@ -1025,38 +971,89 @@ uint64_t first_gps_report_timestamp = 0;
 void
 handle_message_hil_gps_dsp(mavlink_message_t *msg)
 {
-	mavlink_hil_gps_t gps;
-	mavlink_msg_hil_gps_decode(msg, &gps);
+	mavlink_hil_gps_t hil_gps;
+	mavlink_msg_hil_gps_decode(msg, &hil_gps);
 
-	sensor_gps_s hil_gps{};
-	const uint64_t timestamp = hrt_absolute_time();
+	sensor_gps_s gps{};
 
-	hil_gps.timestamp_time_relative = 0;
-	hil_gps.time_utc_usec = gps.time_usec;
+	device::Device::DeviceId device_id;
+	device_id.devid_s.bus_type = device::Device::DeviceBusType::DeviceBusType_MAVLINK;
+	device_id.devid_s.bus = 1;
+	device_id.devid_s.address = msg->sysid;
+	device_id.devid_s.devtype = DRV_GPS_DEVTYPE_SIM;
 
-	hil_gps.timestamp = timestamp;
-	hil_gps.lat = gps.lat;
-	hil_gps.lon = gps.lon;
-	hil_gps.alt = gps.alt;
-	hil_gps.eph = (float)gps.eph * 1e-2f; // from cm to m
-	hil_gps.epv = (float)gps.epv * 1e-2f; // from cm to m
+	gps.device_id = device_id.devid;
 
-	hil_gps.s_variance_m_s = 0.1f;
+	gps.lat = hil_gps.lat;
+	gps.lon = hil_gps.lon;
+	gps.alt = hil_gps.alt;
+	gps.alt_ellipsoid = hil_gps.alt;
 
-	hil_gps.vel_m_s = (float)gps.vel * 1e-2f; // from cm/s to m/s
-	hil_gps.vel_n_m_s = gps.vn * 1e-2f; // from cm to m
-	hil_gps.vel_e_m_s = gps.ve * 1e-2f; // from cm to m
-	hil_gps.vel_d_m_s = gps.vd * 1e-2f; // from cm to m
-	hil_gps.vel_ned_valid = true;
-	hil_gps.cog_rad = ((gps.cog == 65535) ? NAN : wrap_2pi(math::radians(gps.cog * 1e-2f)));
+	gps.s_variance_m_s = 0.25f;
+	gps.c_variance_rad = 0.5f;
+	gps.fix_type = hil_gps.fix_type;
 
-	hil_gps.fix_type = gps.fix_type;
-	hil_gps.satellites_used = gps.satellites_visible;  //TODO: rename mavlink_hil_gps_t sats visible to used?
+	gps.eph = (float)hil_gps.eph * 1e-2f; // cm -> m
+	gps.epv = (float)hil_gps.epv * 1e-2f; // cm -> m
 
-	hil_gps.heading = NAN;
-	hil_gps.heading_offset = NAN;
+	gps.hdop = 0; // TODO
+	gps.vdop = 0; // TODO
 
-	_gps_pub.publish(hil_gps);
+	gps.noise_per_ms = 0;
+	gps.automatic_gain_control = 0;
+	gps.jamming_indicator = 0;
+	gps.jamming_state = 0;
+	gps.spoofing_state = 0;
+
+	gps.vel_m_s = (float)(hil_gps.vel) / 100.0f; // cm/s -> m/s
+	gps.vel_n_m_s = (float)(hil_gps.vn) / 100.0f; // cm/s -> m/s
+	gps.vel_e_m_s = (float)(hil_gps.ve) / 100.0f; // cm/s -> m/s
+	gps.vel_d_m_s = (float)(hil_gps.vd) / 100.0f; // cm/s -> m/s
+	gps.cog_rad = ((hil_gps.cog == 65535) ? (float)NAN : matrix::wrap_2pi(math::radians(
+				hil_gps.cog * 1e-2f))); // cdeg -> rad
+	gps.vel_ned_valid = true;
+
+	gps.timestamp_time_relative = 0;
+	gps.time_utc_usec = hil_gps.time_usec;
+
+	gps.satellites_used = hil_gps.satellites_visible;
+
+	gps.heading = NAN;
+	gps.heading_offset = NAN;
+
+	gps.timestamp = hrt_absolute_time();
+
+	_sensor_gps_pub.publish(gps);
+
+	// sensor_gps_s hil_gps{};
+	// const uint64_t timestamp = hrt_absolute_time();
+
+	// hil_gps.timestamp_time_relative = 0;
+	// hil_gps.time_utc_usec = gps.time_usec;
+
+	// hil_gps.timestamp = timestamp;
+	// hil_gps.lat = gps.lat;
+	// hil_gps.lon = gps.lon;
+	// hil_gps.alt = gps.alt;
+	// hil_gps.eph = (float)gps.eph * 1e-2f; // from cm to m
+	// hil_gps.epv = (float)gps.epv * 1e-2f; // from cm to m
+
+	// hil_gps.s_variance_m_s = 0.1f;
+
+	// hil_gps.vel_m_s = (float)gps.vel * 1e-2f; // from cm/s to m/s
+	// hil_gps.vel_n_m_s = gps.vn * 1e-2f; // from cm to m
+	// hil_gps.vel_e_m_s = gps.ve * 1e-2f; // from cm to m
+	// hil_gps.vel_d_m_s = gps.vd * 1e-2f; // from cm to m
+	// hil_gps.vel_ned_valid = true;
+	// hil_gps.cog_rad = ((gps.cog == 65535) ? NAN : wrap_2pi(math::radians(gps.cog * 1e-2f)));
+
+	// hil_gps.fix_type = gps.fix_type;
+	// hil_gps.satellites_used = gps.satellites_visible;  //TODO: rename mavlink_hil_gps_t sats visible to used?
+
+	// hil_gps.heading = NAN;
+	// hil_gps.heading_offset = NAN;
+
+	// _gps_pub.publish(hil_gps);
 }
 
 }
