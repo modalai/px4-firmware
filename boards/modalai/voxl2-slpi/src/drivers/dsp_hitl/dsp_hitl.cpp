@@ -108,6 +108,8 @@ uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap
 uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
 uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pubs[2] {{ORB_ID(sensor_baro)}, {ORB_ID(sensor_baro)}};
 uORB::Publication<esc_status_s>			_esc_status_pub{ORB_ID(esc_status)};
+uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
+
 int32_t _output_functions[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS] {};
 
 // hil_sensor and hil_state_quaternion
@@ -170,6 +172,7 @@ vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
 radio_status_s _rstatus {};
+battery_status_s _battery_status{};
 
 sensor_accel_fifo_s accel_fifo{};
 sensor_gyro_fifo_s gyro_fifo{};
@@ -209,7 +212,7 @@ void
 handle_message_dsp(mavlink_message_t *msg)
 {
 	//PX4_INFO("msg ID: %d", msg->msgid);
-	// PX4_ERR("msg ID: %d", msg->msgid);s
+	// PX4_ERR("msg ID: %d", msg->msgid);
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_HIL_SENSOR:
 		handle_message_hil_sensor_dsp(msg);
@@ -361,7 +364,7 @@ void task_main(int argc, char *argv[])
 
 	// Create a thread for sending data to the simulator.
 	if(!crossfire){
-		pthread_t sender_thread;s
+		pthread_t sender_thread;
 		pthread_attr_t sender_thread_attr;
 		pthread_attr_init(&sender_thread_attr);
 		pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
@@ -371,9 +374,6 @@ void task_main(int argc, char *argv[])
 
 	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
 	PX4_INFO("Got %d from orb_subscribe", _vehicle_status_sub);
-
-	bool vehicle_updated = false;
-	(void) orb_check(_vehicle_status_sub, &vehicle_updated);
 
 	while (!_task_should_exit){
 
@@ -419,7 +419,11 @@ void task_main(int argc, char *argv[])
 			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
 			(void) writeResponse(&hb_newBuf, hb_newBufLen);
 			last_heartbeat_timestamp = timestamp;
-		} else if (vehicle_updated){
+		}
+
+		bool vehicle_updated = false;
+		(void) orb_check(_vehicle_status_sub, &vehicle_updated);
+		if (vehicle_updated){
 			// PX4_INFO("Value of updated vehicle status: %d", vehicle_updated);
 			orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
 		}
@@ -439,7 +443,7 @@ void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
 
 	const bool armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 	int max_esc_index = 0;
-
+	_battery_status_sub.update(&_battery_status);
 	for (int i = 0; i < max_esc_count; i++) {
 		if (_output_functions[i] != 0) {
 			max_esc_index = i;
@@ -448,11 +452,11 @@ void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
 		esc_status.esc[i].actuator_function = _output_functions[i]; // TODO: this should be in pwm_sim...
 		esc_status.esc[i].timestamp = esc_status.timestamp;
 		esc_status.esc[i].esc_errorcount = 0; // TODO
-		//esc_status.esc[i].esc_voltage = _battery_status.voltage_v;
+		esc_status.esc[i].esc_voltage = _battery_status.voltage_v;
 		esc_status.esc[i].esc_current = armed ? 1.0f + math::abs_t(hil_act_control.controls[i]) * 15.0f :
 						0.0f; // TODO: magic number
 		esc_status.esc[i].esc_rpm = hil_act_control.controls[i] * 6000;  // TODO: magic number
-		//esc_status.esc[i].esc_temperature = 20.0 + math::abs_t(hil_act_control.controls[i]) * 40.0;
+		esc_status.esc[i].esc_temperature = 20.0 + math::abs_t((double)hil_act_control.controls[i]) * 40.0;
 	}
 
 	esc_status.esc_count = max_esc_index + 1;
@@ -755,6 +759,7 @@ void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg)
 		for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
 			msg->controls[i] = _actuator_outputs.output[i];
 		}
+		//PX4_INFO("Value of actuator data: %f, %f, %f, %f", (double)msg->controls[0], (double)msg->controls[1], (double)msg->controls[2], (double)msg->controls[3]);
 	}
 
 	msg->mode = mode_flag_custom;
@@ -916,6 +921,7 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 			_px4_gyro[hil_sensor.id]->set_temperature(temperature);
 			_px4_gyro[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
 		}
+		//PX4_INFO("Value of gyro from hil sensor: %f, %f, %f", (double)hil_sensor.xgyro, (double)hil_sensor.ygyro, (double)hil_sensor.zgyro);
 	}
 
 	// // accelerometer
@@ -946,6 +952,7 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 			_px4_accel[hil_sensor.id]->set_temperature(temperature);
 			_px4_accel[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
 		}
+		//PX4_INFO("Value of accel from hil sensor: %f, %f, %f", (double)hil_sensor.xacc, (double)hil_sensor.yacc, (double)hil_sensor.zacc);
 	}
 
 	// magnetometer
@@ -966,6 +973,7 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 	
 		_px4_mag[hil_sensor.id]->set_temperature(temperature);
 		_px4_mag[hil_sensor.id]->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
+		//PX4_INFO("Value of mag from hil sensor: %f, %f, %f", (double)hil_sensor.xmag, (double)hil_sensor.ymag, (double)hil_sensor.zmag);
 	}
 
 	// baro
@@ -998,17 +1006,17 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 	}
 
 	// battery status
-	// {
-	// 	battery_status_s hil_battery_status{};
+	{
+		battery_status_s hil_battery_status{};
 
-	// 	hil_battery_status.timestamp = gyro_accel_time;
-	// 	hil_battery_status.voltage_v = 11.5f;
-	// 	hil_battery_status.voltage_filtered_v = 11.5f;
-	// 	hil_battery_status.current_a = 10.0f;
-	// 	hil_battery_status.discharged_mah = -1.0f;
+		hil_battery_status.timestamp = gyro_accel_time;
+		hil_battery_status.voltage_v = 11.5f;
+		hil_battery_status.voltage_filtered_v = 11.5f;
+		hil_battery_status.current_a = 10.0f;
+		hil_battery_status.discharged_mah = -1.0f;
 
-	// 	_battery_pub.publish(hil_battery_status);
-	// }
+		_battery_pub.publish(hil_battery_status);
+	}
 }
 
 uint64_t first_gps_msg_timestamp = 0;
