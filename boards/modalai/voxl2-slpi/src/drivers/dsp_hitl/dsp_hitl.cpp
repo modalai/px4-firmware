@@ -362,7 +362,7 @@ void task_main(int argc, char *argv[])
 	}
 
 	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
-	//uint64_t last_imu_update_timestamp = last_heartbeat_timestamp;
+	uint64_t last_imu_update_timestamp = last_heartbeat_timestamp;
 
 	_px4_accel = new PX4Accelerometer(1310988);
 	_px4_gyro = new PX4Gyroscope(1310988);
@@ -389,16 +389,16 @@ void task_main(int argc, char *argv[])
 		uint64_t timestamp = hrt_absolute_time();
 
 		// Send out sensor messages every 10ms
-		// if (got_first_sensor_msg) {
-		// 	uint64_t delta_time = timestamp - last_imu_update_timestamp;
-		// 	if (delta_time > 15000) {
-		// 		PX4_ERR("Sending updates at %llu, delta %llu", timestamp, delta_time);
-		// 	}
-		// 	uint64_t _px4_gyro_accel_timestamp = hrt_absolute_time();
-		// 	_px4_gyro->update(_px4_gyro_accel_timestamp, x_gyro, y_gyro, z_gyro);
-		// 	_px4_accel->update(_px4_gyro_accel_timestamp, x_accel, y_accel, z_accel);
-		// 	last_imu_update_timestamp = timestamp;
-		// }
+		if (got_first_sensor_msg) {
+			uint64_t delta_time = timestamp - last_imu_update_timestamp;
+			if (delta_time > 15000) {
+				PX4_ERR("Sending updates at %llu, delta %llu", timestamp, delta_time);
+			}
+			uint64_t _px4_gyro_accel_timestamp = hrt_absolute_time();
+			_px4_gyro->update(_px4_gyro_accel_timestamp, x_gyro, y_gyro, z_gyro);
+			_px4_accel->update(_px4_gyro_accel_timestamp, x_accel, y_accel, z_accel);
+			last_imu_update_timestamp = timestamp;
+		}
 
 		// Check for incoming messages from the simulator
 		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
@@ -909,8 +909,11 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 			if (PX4_ISFINITE(temperature)) {
 				_px4_gyro->set_temperature(temperature);
 			}
+			x_gyro = hil_sensor.xgyro;
+			y_gyro = hil_sensor.ygyro;
+			z_gyro = hil_sensor.zgyro;
 
-			_px4_gyro->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
+			//_px4_gyro->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
 		}
 	}
 
@@ -926,7 +929,11 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 				_px4_accel->set_temperature(temperature);
 			}
 
-			_px4_accel->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
+			x_accel = hil_sensor.xacc;
+			y_accel = hil_sensor.yacc;
+			z_accel = hil_sensor.zacc;
+
+			//_px4_accel->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
 		}
 	}
 
