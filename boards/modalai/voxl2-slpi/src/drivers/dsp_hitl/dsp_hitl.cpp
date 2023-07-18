@@ -259,6 +259,10 @@ void send_actuator_data(){
 	//PX4_INFO("Got %d from orb_subscribe", _actuator_outputs_sub);
 	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
 	//PX4_INFO("Got %d from orb_subscribe", _vehicle_control_mode_sub_);
+	int previous_timestamp = 0;
+	int previous_uorb_timestamp = 0;
+	int differential = 0;
+	bool first_sent = false;
 
 	while (true){
 
@@ -277,24 +281,43 @@ void send_actuator_data(){
 		if(actuator_updated){
 			orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
 			px4_lockstep_wait_for_components();
-
 			if (_actuator_outputs.timestamp > 0) {
 				mavlink_hil_actuator_controls_t hil_act_control;
 				actuator_controls_from_outputs_dsp(&hil_act_control);
 
 				mavlink_message_t message{};
 				mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
-
+				//differential = _actuator_outputs.timestamp - previous_timestamp;
+				//PX4_INFO("Value of internal diff differential: %i", _actuator_outputs.timestamp - previous_timestamp);
+				//PX4_INFO("Sending from actuator updated: %i", _actuator_outputs.timestamp - previous_uorb_timestamp);
+				previous_timestamp = _actuator_outputs.timestamp;
+				previous_uorb_timestamp = _actuator_outputs.timestamp;
 				uint8_t  newBuf[512];
 				uint16_t newBufLen = 0;
 				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
 				int writeRetval = writeResponse(&newBuf, newBufLen);
 				PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
-
+				first_sent = true;
 				send_esc_telemetry_dsp(hil_act_control);
 			}
-		}
+		} else if(!actuator_updated && first_sent && differential > 4000){
+			mavlink_hil_actuator_controls_t hil_act_control;
+			actuator_controls_from_outputs_dsp(&hil_act_control);
+			previous_timestamp = hrt_absolute_time();
 
+			mavlink_message_t message{};
+			mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
+			uint8_t  newBuf[512];
+			uint16_t newBufLen = 0;
+			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
+			int writeRetval = writeResponse(&newBuf, newBufLen);
+			//PX4_INFO("Sending from NOT UPDTE AND TIMEOUT: %i", differential);
+
+			PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
+			send_esc_telemetry_dsp(hil_act_control);
+		}
+		differential = hrt_absolute_time() - previous_timestamp;
+		
 		//uint64_t elapsed_time = hrt_absolute_time() - timestamp;
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
 		//if (elapsed_time < 5000) usleep(5000 - elapsed_time);
