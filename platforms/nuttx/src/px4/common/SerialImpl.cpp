@@ -1,7 +1,39 @@
+/****************************************************************************
+ *
+ *   Copyright (C) 2023 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
 
 #include <SerialImpl.hpp>
 #include <string.h> // strncpy
-#include <termios.h> // strncpy
+#include <termios.h>
 #include <px4_log.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -24,6 +56,7 @@ SerialImpl::SerialImpl(const char *port, uint32_t baudrate, ByteSize bytesize, P
 	if (port) {
 		strncpy(_port, port, sizeof(_port) - 1);
 		_port[sizeof(_port) - 1] = '\0';
+
 	} else {
 		_port[0] = 0;
 	}
@@ -37,9 +70,31 @@ SerialImpl::~SerialImpl()
 	}
 }
 
-bool SerialImpl::configure() {
+bool SerialImpl::validateBaudrate(uint32_t baudrate)
+{
+	if ((baudrate == 9600) ||
+	    (baudrate == 19200) ||
+	    (baudrate == 38400) ||
+	    (baudrate == 57600) ||
+	    (baudrate == 115200) ||
+	    (baudrate == 230400) ||
+	    (baudrate == 460800) ||
+	    (baudrate == 921600)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool SerialImpl::configure()
+{
 	/* process baud rate */
 	int speed;
+
+	if (! validateBaudrate(_baudrate)) {
+		PX4_ERR("ERR: unknown baudrate: %lu", _baudrate);
+		return false;
+	}
 
 	switch (_baudrate) {
 	case 9600:   speed = B9600;   break;
@@ -72,6 +127,7 @@ bool SerialImpl::configure() {
 	}
 
 	struct termios uart_config;
+
 	int termios_state;
 
 	/* fill the struct for the new configuration */
@@ -148,7 +204,7 @@ bool SerialImpl::open()
 
 	// Configure the serial port if a baudrate has been configured
 	if (_baudrate) {
-		if ( ! configure()) {
+		if (! configure()) {
 			PX4_ERR("failed to configure %s err: %d", _port, errno);
 			return false;
 		}
@@ -220,7 +276,8 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 		fds[0].events = POLLIN;
 
 		hrt_abstime remaining_time = timeout_us - hrt_elapsed_time(&start_time_us);
-		if (remaining_time <= 0) break;
+
+		if (remaining_time <= 0) { break; }
 
 		int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), remaining_time);
 
@@ -293,6 +350,11 @@ uint32_t SerialImpl::getBaudrate() const
 
 bool SerialImpl::setBaudrate(uint32_t baudrate)
 {
+	if (! validateBaudrate(baudrate)) {
+		PX4_ERR("ERR: invalid baudrate: %lu", baudrate);
+		return false;
+	}
+
 	// check if already configured
 	if ((baudrate == _baudrate) && _open) {
 		return true;
@@ -315,11 +377,7 @@ ByteSize SerialImpl::getBytesize() const
 
 bool SerialImpl::setBytesize(ByteSize bytesize)
 {
-	if (bytesize != ByteSize::EightBits) {
-		return false;
-	}
-
-	return true;
+	return bytesize == ByteSize::EightBits;
 }
 
 Parity SerialImpl::getParity() const
@@ -329,11 +387,7 @@ Parity SerialImpl::getParity() const
 
 bool SerialImpl::setParity(Parity parity)
 {
-	if (parity != Parity::None) {
-		return false;
-	}
-
-	return true;
+	return parity == Parity::None;
 }
 
 StopBits SerialImpl::getStopbits() const
@@ -343,11 +397,7 @@ StopBits SerialImpl::getStopbits() const
 
 bool SerialImpl::setStopbits(StopBits stopbits)
 {
-	if (stopbits != StopBits::One) {
-		return false;
-	}
-
-	return true;
+	return stopbits == StopBits::One;
 }
 
 FlowControl SerialImpl::getFlowcontrol() const
@@ -357,11 +407,7 @@ FlowControl SerialImpl::getFlowcontrol() const
 
 bool SerialImpl::setFlowcontrol(FlowControl flowcontrol)
 {
-	if (flowcontrol != FlowControl::Disabled) {
-		return false;
-	}
-
-	return true;
+	return flowcontrol == FlowControl::Disabled;
 }
 
 } // namespace device
