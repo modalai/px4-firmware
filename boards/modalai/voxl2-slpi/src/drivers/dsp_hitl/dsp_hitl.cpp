@@ -60,8 +60,6 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/telemetry_status.h>
 #include <uORB/topics/vehicle_odometry.h>
-#include <uORB/topics/input_rc.h>
-#include <uORB/topics/radio_status.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/esc_status.h>
 
@@ -91,25 +89,20 @@ static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
-bool vio = false;
 bool debug = false;
-bool crossfire = false;
-bool radio_once = false;
-bool rc_once = false;
 std::string port = "2";
 int baudrate = 921600;
 const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
 
-uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
+uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
 uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
-uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
 uORB::PublicationMulti<sensor_baro_s>			_sensor_baro_pub{ORB_ID(sensor_baro)};
-uORB::Publication<esc_status_s>			_esc_status_pub{ORB_ID(esc_status)};
-uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
+uORB::Publication<esc_status_s>					_esc_status_pub{ORB_ID(esc_status)};
+uORB::Subscription 								_battery_status_sub{ORB_ID(battery_status)};
 
 int32_t _output_functions[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS] {};
 
@@ -126,24 +119,6 @@ PX4Accelerometer *_px4_accel{nullptr};
 PX4Gyroscope *_px4_gyro{nullptr};
 PX4Magnetometer *_px4_mag{nullptr};
 
-hrt_abstime _last_heartbeat_check{0};
-
-hrt_abstime _heartbeat_type_antenna_tracker{0};
-hrt_abstime _heartbeat_type_gcs{0};
-hrt_abstime _heartbeat_type_onboard_controller{0};
-hrt_abstime _heartbeat_type_gimbal{0};
-hrt_abstime _heartbeat_type_adsb{0};
-hrt_abstime _heartbeat_type_camera{0};
-
-hrt_abstime _heartbeat_component_telemetry_radio{0};
-hrt_abstime _heartbeat_component_log{0};
-hrt_abstime _heartbeat_component_osd{0};
-hrt_abstime _heartbeat_component_obstacle_avoidance{0};
-hrt_abstime _heartbeat_component_visual_inertial_odometry{0};
-hrt_abstime _heartbeat_component_pairing_manager{0};
-hrt_abstime _heartbeat_component_udp_bridge{0};
-hrt_abstime _heartbeat_component_uart_bridge{0};
-
 bool got_first_sensor_msg = false;
 float x_accel = 0;
 float y_accel = 0;
@@ -154,14 +129,10 @@ float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
 
 bool _use_software_mav_throttling{false};
-bool _radio_status_available{false};
-bool _radio_status_critical{false};
-float _radio_status_mult{1.0f};
 
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
-radio_status_s _rstatus {};
 battery_status_s _battery_status{};
 
 sensor_accel_fifo_s accel_fifo{};
@@ -189,8 +160,6 @@ void handle_message_hil_sensor_dsp(mavlink_message_t *msg);
 void handle_message_hil_gps_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
-void handle_message_rc_channels_override_dsp(mavlink_message_t *msg);
-void handle_message_radio_status_dsp(mavlink_message_t *msg);
 void handle_message_command_long_dsp(mavlink_message_t *msg);
 
 void CheckHeartbeats(const hrt_abstime &t, bool force);
@@ -201,48 +170,30 @@ void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control);
 void
 handle_message_dsp(mavlink_message_t *msg)
 {
-	//PX4_INFO("msg ID: %d", msg->msgid);
-	// PX4_ERR("msg ID: %d", msg->msgid);
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_HIL_SENSOR:
 		handle_message_hil_sensor_dsp(msg);
-		//PX4_INFO("MAVLINK HIL SENSOR");
 		break;
 	case MAVLINK_MSG_ID_HIL_GPS:
-		if(!vio){
-			handle_message_hil_gps_dsp(msg);
-			//PX4_INFO("MAVLINK HIL GPS");
-			break;
-		} else {
-			break;
-		}
-	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
-		if(vio){
-			handle_message_vision_position_estimate_dsp(msg);
-			break;
-		}
-	case MAVLINK_MSG_ID_ODOMETRY:
-		if(vio){
-			handle_message_odometry_dsp(msg);
-			break;
-		}
-	case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
-		handle_message_rc_channels_override_dsp(msg);
+		handle_message_hil_gps_dsp(msg);
 		break;
-	case MAVLINK_MSG_ID_RADIO_STATUS:
-		handle_message_radio_status_dsp(msg);
+	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
+		handle_message_vision_position_estimate_dsp(msg);
+		break;
+	case MAVLINK_MSG_ID_ODOMETRY:
+		handle_message_odometry_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
-		//PX4_INFO("Heartbeat msg received");
+		PX4_DEBUG("Heartbeat msg received");
 		break;
 	case MAVLINK_MSG_ID_SYSTEM_TIME:
-		// PX4_INFO("MAVLINK SYSTEM TIME");
+		PX4_DEBUG("MAVLINK SYSTEM TIME");
 		break;
 	default:
-		//PX4_ERR("Unknown msg ID: %d", msg->msgid);
+		PX4_DEBUG("Unknown msg ID: %d", msg->msgid);
 		break;
 	}
 }
@@ -319,9 +270,6 @@ void task_main(int argc, char *argv[])
 	const char *myoptarg = nullptr;
 	while ((ch = px4_getopt(argc, argv, "vsdcp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
-		case 'v':
-			vio = true;
-			break;
 		case 's':
 			_use_software_mav_throttling = true;
 			break;
@@ -333,9 +281,6 @@ void task_main(int argc, char *argv[])
 			break;
 		case 'b':
 			baudrate = atoi(myoptarg);
-			break;
-		case 'c':
-			crossfire = true;
 			break;
 		default:
 			break;
@@ -357,14 +302,12 @@ void task_main(int argc, char *argv[])
 	_px4_mag = new PX4Magnetometer(197388);
 
 	// Create a thread for sending data to the simulator.
-	if(!crossfire){
-		pthread_t sender_thread;
-		pthread_attr_t sender_thread_attr;
-		pthread_attr_init(&sender_thread_attr);
-		pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
-		pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
-		pthread_attr_destroy(&sender_thread_attr);
-	}
+	pthread_t sender_thread;
+	pthread_attr_t sender_thread_attr;
+	pthread_attr_init(&sender_thread_attr);
+	pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
+	pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
+	pthread_attr_destroy(&sender_thread_attr);
 
 	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
 	PX4_INFO("Got %d from orb_subscribe", _vehicle_status_sub);
@@ -483,120 +426,6 @@ handle_message_command_long_dsp(mavlink_message_t *msg)
 	acknewBufLen = mavlink_msg_to_send_buffer(acknewBuf, &ack_message);
 	int writeRetval = writeResponse(&acknewBuf, acknewBufLen);
 	PX4_INFO("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
-}
-
-void
-handle_message_radio_status_dsp(mavlink_message_t *msg)
-{
-	/* telemetry status supported only on first ORB_MULTI_MAX_INSTANCES mavlink channels */
-	if (MAVLINK_COMM_0 < (mavlink_channel_t)ORB_MULTI_MAX_INSTANCES) {
-		mavlink_radio_status_t rstatus;
-		mavlink_msg_radio_status_decode(msg, &rstatus);
-
-		radio_status_s status{};
-
-		status.timestamp = hrt_absolute_time();
-		status.rssi = rstatus.rssi;
-		status.remote_rssi = rstatus.remrssi;
-		status.txbuf = rstatus.txbuf;
-		status.noise = rstatus.noise;
-		status.remote_noise = rstatus.remnoise;
-		status.rxerrors = rstatus.rxerrors;
-		status.fix = rstatus.fixed;
-
-		if(debug){
-			PX4_INFO("Value of radio status timestamp: %d", status.timestamp);
-			PX4_INFO("Value of radio status rssi: %d", status.rssi);
-			PX4_INFO("Value of radio status remote_rssi: %d", status.remote_rssi);
-			PX4_INFO("Value of radio status txbuf: %d", status.txbuf);
-			PX4_INFO("Value of radio status noise: %d", status.noise);
-			PX4_INFO("Value of radio status remote_noise: %d", status.remote_noise);
-			PX4_INFO("Value of radio status rxerrors: %d", status.rxerrors);
-			PX4_INFO("Value of radio status fix: %d", status.fix);
-		} else if(!debug && !radio_once){
-			PX4_INFO("Value of radio status timestamp: %d", status.timestamp);
-			PX4_INFO("Value of radio status rssi: %d", status.rssi);
-			PX4_INFO("Value of radio status remote_rssi: %d", status.remote_rssi);
-			PX4_INFO("Value of radio status txbuf: %d", status.txbuf);
-			PX4_INFO("Value of radio status noise: %d", status.noise);
-			PX4_INFO("Value of radio status remote_noise: %d", status.remote_noise);
-			PX4_INFO("Value of radio status rxerrors: %d", status.rxerrors);
-			PX4_INFO("Value of radio status fix: %d", status.fix);
-			radio_once = true;
-		}
-	}
-}
-
-void
-handle_message_rc_channels_override_dsp(mavlink_message_t *msg)
-{
-	mavlink_rc_channels_override_t man;
-	mavlink_msg_rc_channels_override_decode(msg, &man);
-
-	// Check target
-	if (man.target_system != 0) {
-		return;
-	}
-
-	// fill uORB message
-	input_rc_s rc{};
-
-	// metadata
-	rc.timestamp = hrt_absolute_time();
-	rc.timestamp_last_signal = rc.timestamp;
-	rc.rssi = RC_INPUT_RSSI_MAX;
-	rc.rc_failsafe = false;
-	rc.rc_lost = false;
-	rc.rc_lost_frame_count = 0;
-	rc.rc_total_frame_count = 1;
-	rc.rc_ppm_frame_length = 0;
-	rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
-
-	// channels
-	rc.values[0] = man.chan1_raw;
-	rc.values[1] = man.chan2_raw;
-	rc.values[2] = man.chan3_raw;
-	rc.values[3] = man.chan4_raw;
-	rc.values[4] = man.chan5_raw;
-	rc.values[5] = man.chan6_raw;
-	rc.values[6] = man.chan7_raw;
-	rc.values[7] = man.chan8_raw;
-	rc.values[8] = man.chan9_raw;
-	rc.values[9] = man.chan10_raw;
-	rc.values[10] = man.chan11_raw;
-	rc.values[11] = man.chan12_raw;
-	rc.values[12] = man.chan13_raw;
-	rc.values[13] = man.chan14_raw;
-	rc.values[14] = man.chan15_raw;
-	rc.values[15] = man.chan16_raw;
-	rc.values[16] = man.chan17_raw;
-	rc.values[17] = man.chan18_raw;
-
-	// check how many channels are valid
-	for (int i = 17; i >= 0; i--) {
-		const bool ignore_max = rc.values[i] == UINT16_MAX; // ignore any channel with value UINT16_MAX
-		const bool ignore_zero = (i > 7) && (rc.values[i] == 0); // ignore channel 8-18 if value is 0
-
-		if (ignore_max || ignore_zero) {
-			// set all ignored values to zero
-			rc.values[i] = 0;
-
-		} else {
-			// first channel to not ignore -> set count considering zero-based index
-			rc.channel_count = i + 1;
-			break;
-		}
-	}
-
-	// publish uORB message
-	_rc_pub.publish(rc);
-
-	if(debug){
-		PX4_INFO("RC Message received");
-	} else if(!debug && !rc_once){
-		PX4_INFO("RC Message received (not in debug mode - enable to see when all rc's come in)");
-		rc_once = true;
-	}
 }
 
 void
@@ -1010,8 +839,6 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 			x_gyro = hil_sensor.xgyro;
 			y_gyro = hil_sensor.ygyro;
 			z_gyro = hil_sensor.zgyro;
-
-			//_px4_gyro->update(gyro_accel_time, hil_sensor.xgyro, hil_sensor.ygyro, hil_sensor.zgyro);
 		}
 	}
 
@@ -1030,8 +857,6 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 			x_accel = hil_sensor.xacc;
 			y_accel = hil_sensor.yacc;
 			z_accel = hil_sensor.zacc;
-
-			//_px4_accel->update(gyro_accel_time, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
 		}
 	}
 
@@ -1093,9 +918,6 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 	}
 }
 
-uint64_t first_gps_msg_timestamp = 0;
-uint64_t first_gps_report_timestamp = 0;
-
 void
 handle_message_hil_gps_dsp(mavlink_message_t *msg)
 {
@@ -1152,36 +974,6 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	gps.timestamp = hrt_absolute_time();
 
 	_sensor_gps_pub.publish(gps);
-
-	// sensor_gps_s hil_gps{};
-	// const uint64_t timestamp = hrt_absolute_time();
-
-	// hil_gps.timestamp_time_relative = 0;
-	// hil_gps.time_utc_usec = gps.time_usec;
-
-	// hil_gps.timestamp = timestamp;
-	// hil_gps.lat = gps.lat;
-	// hil_gps.lon = gps.lon;
-	// hil_gps.alt = gps.alt;
-	// hil_gps.eph = (float)gps.eph * 1e-2f; // from cm to m
-	// hil_gps.epv = (float)gps.epv * 1e-2f; // from cm to m
-
-	// hil_gps.s_variance_m_s = 0.1f;
-
-	// hil_gps.vel_m_s = (float)gps.vel * 1e-2f; // from cm/s to m/s
-	// hil_gps.vel_n_m_s = gps.vn * 1e-2f; // from cm to m
-	// hil_gps.vel_e_m_s = gps.ve * 1e-2f; // from cm to m
-	// hil_gps.vel_d_m_s = gps.vd * 1e-2f; // from cm to m
-	// hil_gps.vel_ned_valid = true;
-	// hil_gps.cog_rad = ((gps.cog == 65535) ? NAN : wrap_2pi(math::radians(gps.cog * 1e-2f)));
-
-	// hil_gps.fix_type = gps.fix_type;
-	// hil_gps.satellites_used = gps.satellites_visible;  //TODO: rename mavlink_hil_gps_t sats visible to used?
-
-	// hil_gps.heading = NAN;
-	// hil_gps.heading_offset = NAN;
-
-	// _gps_pub.publish(hil_gps);
 }
 
 }

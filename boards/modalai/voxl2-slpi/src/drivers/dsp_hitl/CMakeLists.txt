@@ -16,21 +16,14 @@
 #
 ############################################################################
 
-message(STATUS "Mavlink include directory: ${PX4_SOURCE_DIR}/../build/modalai_voxl2_default/mavlink/standard")
+message(STATUS "Mavlink include directory: ${PX4_SOURCE_DIR}/../build/modalai_voxl2_default/mavlink/common")
 
 px4_add_module(
 	MODULE drivers__modalai__dsp_hitl
 	MAIN dsp_hitl
-	COMPILE_FLAGS
-		-Wno-cast-align # TODO: fix and enable
-		-Wno-address-of-packed-member # TODO: fix in c_library_v2
 	INCLUDES
 		${PX4_SOURCE_DIR}/src/drivers/dsp_hitl
-		${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink
-		${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/development
 		${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/common
-		${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/standard
-		/usr/include/arpa
 	SRCS
 		dsp_hitl.cpp
 	DEPENDS
