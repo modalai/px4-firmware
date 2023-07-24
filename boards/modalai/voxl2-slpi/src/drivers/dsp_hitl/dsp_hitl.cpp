@@ -127,8 +127,13 @@ float x_gyro = 0;
 float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
-
 bool _use_software_mav_throttling{false};
+
+int heartbeat_counter = 0;
+int imu_counter = 0;
+int hil_sensor_counter = 0;
+int vision_msg_counter = 0;
+int gps_counter = 0;
 
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
@@ -162,7 +167,6 @@ void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
 void handle_message_command_long_dsp(mavlink_message_t *msg);
 
-void CheckHeartbeats(const hrt_abstime &t, bool force);
 void handle_message_dsp(mavlink_message_t *msg);
 void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
 void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control);
@@ -329,6 +333,7 @@ void task_main(int argc, char *argv[])
 			_px4_gyro->update(_px4_gyro_accel_timestamp, x_gyro, y_gyro, z_gyro);
 			_px4_accel->update(_px4_gyro_accel_timestamp, x_accel, y_accel, z_accel);
 			last_imu_update_timestamp = timestamp;
+			imu_counter++;
 		}
 
 		// Check for incoming messages from the simulator
@@ -356,6 +361,7 @@ void task_main(int argc, char *argv[])
 			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
 			(void) writeResponse(&hb_newBuf, hb_newBufLen);
 			last_heartbeat_timestamp = timestamp;
+			heartbeat_counter++;
 		}
 
 		bool vehicle_updated = false;
@@ -464,6 +470,7 @@ handle_message_vision_position_estimate_dsp(mavlink_message_t *msg)
 	odom.timestamp = hrt_absolute_time();
 
 	_visual_odometry_pub.publish(odom);
+	vision_msg_counter++;
 }
 
 void
@@ -797,10 +804,21 @@ int info()
 	return 0;
 }
 
-void
-usage()
+void usage()
 {
-	PX4_INFO("Usage: dsp_hitl {start|info|stop}");
+	PX4_INFO("Usage: dsp_hitl {start|info|status|stop}");
+}
+
+int get_status()
+{
+	PX4_INFO("Status of IMU_Data counter: %i", imu_counter);
+	PX4_INFO("Value of current accel x, y, z data: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
+	PX4_INFO("Value of current gyro x, y, z data: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
+	PX4_INFO("Value of HIL_Sensor counter: %i", hil_sensor_counter);
+	PX4_INFO("Value of Heartbeat counter: %i", heartbeat_counter);
+	PX4_INFO("Value of Vision data counter: %i", vision_msg_counter);
+	PX4_INFO("Value of GPS Data counter: %i", gps_counter);
+	return 0;
 }
 
 uint64_t first_sensor_msg_timestamp = 0;
@@ -916,6 +934,7 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 
 		_battery_pub.publish(hil_battery_status);
 	}
+	hil_sensor_counter++;
 }
 
 void
@@ -974,6 +993,7 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	gps.timestamp = hrt_absolute_time();
 
 	_sensor_gps_pub.publish(gps);
+	gps_counter++;
 }
 
 }
@@ -999,6 +1019,10 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	else if (!strcmp(verb, "info")) {
 		return dsp_hitl::info();
+	}
+
+	else if(!strcmp(verb, "status")){
+		return dsp_hitl::get_status();
 	}
 
 	else {
