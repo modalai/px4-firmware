@@ -3,17 +3,6 @@
 # (px4-alias.sh is expected to be in the PATH)
 . px4-alias.sh
 
-echo -e "\n*************************"
-echo "GPS: $GPS"
-echo "RC: $RC"
-echo "OSD: $OSD"
-echo "EXTRA STEPS:"
-for i in "${EXTRA_STEPS[@]}"
-do
-	echo -e "\t$i"
-done
-echo -e "*************************\n"
-
 # In order to just exit after starting the uorb / muorb modules define
 # the environment variable MINIMAL_PX4. (e.g. export MINIMAL_PX4=1)
 # This is useful for testing / debug where you may want to start drivers
