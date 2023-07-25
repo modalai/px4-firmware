@@ -2502,11 +2502,7 @@ Commander *Commander::instantiate(int argc, char *argv[])
 	Commander *instance = new Commander();
 
 	if (instance) {
-#ifndef __PX4_QURT
 		if (argc >= 2 && !strcmp(argv[1], "-h")) {
-#else
-		if (argc >= 1 && !strcmp(argv[0], "-h")) {
-#endif
 			instance->enable_hil();
 		}
 	}

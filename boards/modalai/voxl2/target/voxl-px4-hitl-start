@@ -3,15 +3,6 @@
 # (px4-alias.sh is expected to be in the PATH)
 . px4-alias.sh
 
-# In order to just exit after starting the uorb / muorb modules define
-# the environment variable MINIMAL_PX4. (e.g. export MINIMAL_PX4=1)
-# This is useful for testing / debug where you may want to start drivers
-# and modules manually from the px4 command shell
-if [ ! -z $MINIMAL_PX4 ]; then
-    /bin/echo "Running minimal script"
-    exit 0
-fi
-
 # Figure out what platform we are running on.
 PLATFORM=`/usr/bin/voxl-platform 2> /dev/null`
 RETURNCODE=$?
@@ -43,10 +34,14 @@ fi
 # any possible race conditions.
 /bin/sleep 1
 
-param select /data/px4/param/hitl_parameters
-
-# Load in all of the parameters that have been saved in the file
-param load
+if [ ! -f /data/px4/param/hitl_parameters ]; then
+   echo "[INFO] Setting default parameters for PX4 on voxl"
+    . /etc/modalai/voxl-px4-hitl-set-default-parameters.config
+   /bin/sync
+else
+    param select /data/px4/param/hitl_parameters
+    param load
+fi
 
 # Start logging and use timestamps for log files when possible.
 # Add the "-e" option to start logging immediately. Default is
@@ -97,4 +92,3 @@ mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
 /bin/sleep 1
 
 mavlink boot_complete
-
