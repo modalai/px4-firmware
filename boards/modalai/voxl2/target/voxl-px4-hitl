@@ -1,16 +1,5 @@
 #!/bin/bash
 
-CONFIG_FILE="/etc/modalai/voxl-px4-hitl.conf"
-
-# Try to source configuration variables from a file.
-# This will override anything already set in the environment.
-if [ -f "$CONFIG_FILE" ]; then
-    echo "[INFO] Reading from $CONFIG_FILE"
-    source $CONFIG_FILE
-else
-    echo "[INFO] $CONFIG_FILE not found, using defaults"
-fi
-
 # Make sure that the SLPI DSP test signature is there otherwise px4 cannot run
 # on the DSP
 if /bin/ls /usr/lib/rfsa/adsp/testsig-*.so &> /dev/null; then
@@ -30,23 +19,14 @@ fi
 
 print_usage() {
     echo -e "\nUsage: voxl-px4-hitl"
-    echo "                [-c delete configuration file and exit]"
-    echo "                [-d start px4 in daemon mode]"
     echo "                [-h (show help)]"
 
     exit 1
 }
 
-while getopts "cdhz" flag
+while getopts "h" flag
 do
     case "${flag}" in
-        c)
-            echo "[INFO] Wiping old config file"
-            if [ -f "$CONFIG_FILE" ]; then
-                rm -rf ${CONFIG_FILE}
-            fi
-            exit 0
-            ;;
         h)
             print_usage
             ;;
