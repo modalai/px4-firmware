@@ -65,7 +65,6 @@ public:
 	ssize_t write(const void *buffer, size_t buffer_size);
 
 	const char *getPort() const;
-	bool setPort(const char *port);
 
 	uint32_t getBaudrate() const;
 	bool setBaudrate(uint32_t baudrate);
@@ -85,9 +84,6 @@ public:
 private:
 
 	int _serial_fd{-1};
-
-	size_t _bytes_read{0};
-	size_t _bytes_written{0};
 
 	bool _open{false};
 
