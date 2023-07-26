@@ -185,7 +185,7 @@ static px4_task_t px4_task_spawn_internal(const char *name, int priority, px4_ma
 			break;
 		}
 	}
-	PX4_INFO("Size of argc: %i", taskmap[task_index].argc);
+
 	taskmap[task_index].main_entry = main_entry;
 
 	if ((priority > 255) || (priority < 0)) {
