@@ -39,10 +39,6 @@
 
 #include <drivers/drv_hrt.h>
 #include <pthread.h>
-#include <stdio.h>
-#include <string.h>
-#include <string>
-
 #include "hrt_work.h"
 
 #define PX4_TASK_STACK_SIZE 8192
