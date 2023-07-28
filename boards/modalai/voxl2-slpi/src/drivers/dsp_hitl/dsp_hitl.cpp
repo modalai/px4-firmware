@@ -76,7 +76,6 @@
 #include <unistd.h>
 
 #define ASYNC_UART_READ_WAIT_US 2000
-#define RC_INPUT_RSSI_MAX	100
 
 extern "C" { __EXPORT int dsp_hitl_main(int argc, char *argv[]); }
 
@@ -152,7 +151,7 @@ int writeResponse(void *buf, size_t len);
 
 int start(int argc, char *argv[]);
 int stop();
-int info();
+int get_status();
 bool isOpen() { return _uart_fd >= 0; };
 
 void usage();
@@ -797,13 +796,6 @@ int stop()
 	return 0;
 }
 
-int info()
-{
-	PX4_INFO("running: %s", _is_running ? "yes" : "no");
-
-	return 0;
-}
-
 void usage()
 {
 	PX4_INFO("Usage: dsp_hitl {start|info|status|stop}");
@@ -811,6 +803,7 @@ void usage()
 
 int get_status()
 {
+	PX4_INFO("Running: %s", _is_running ? "yes" : "no");
 	PX4_INFO("Status of IMU_Data counter: %i", imu_counter);
 	PX4_INFO("Value of current accel x, y, z data: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
 	PX4_INFO("Value of current gyro x, y, z data: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
@@ -1015,10 +1008,6 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	else if (!strcmp(verb, "stop")) {
 		return dsp_hitl::stop();
-	}
-
-	else if (!strcmp(verb, "info")) {
-		return dsp_hitl::info();
 	}
 
 	else if(!strcmp(verb, "status")){
