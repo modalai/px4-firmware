@@ -387,18 +387,23 @@ void RCUpdate::Run()
 	/* read low-level values from FMU or IO RC inputs (PPM, Spektrum, S.Bus) */
 	uint32_t rc_update_count = 0;
 	input_rc_s input_rc;
-	static uint32_t debug_decimator = 0;
+	// static uint32_t debug_decimator = 0;
 
 	// Clear out any stale queued updates
 	while (_input_rc_sub.update(&input_rc)) {
 		rc_update_count++;
 	}
 
-	debug_decimator++;
-	if (debug_decimator == 100) {
-		debug_decimator = 0;
-		PX4_INFO("There were %u queued input_rc messages", rc_update_count);
-	}
+	// debug_decimator++;
+	// if ((debug_decimator == 100) || (rc_update_count > 1)) {
+	// 	debug_decimator = 0;
+	// 	PX4_INFO("There were %u queued input_rc messages", rc_update_count);
+	// }
+
+#ifdef __PX4_QURT
+	hrt_abstime local_time = hrt_absolute_time();
+	PX4_INFO("Got input_rc with timestamp %llu at local time %llu", input_rc.timestamp, local_time);
+#endif
 
 	if (rc_update_count) {
 		// warn if the channel count is changing (possibly indication of error)
