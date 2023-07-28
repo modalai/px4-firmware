@@ -385,10 +385,22 @@ void RCUpdate::Run()
 	rc_parameter_map_poll();
 
 	/* read low-level values from FMU or IO RC inputs (PPM, Spektrum, S.Bus) */
+	uint32_t rc_update_count = 0;
 	input_rc_s input_rc;
+	static uint32_t debug_decimator = 0;
 
-	if (_input_rc_sub.update(&input_rc)) {
+	// Clear out any stale queued updates
+	while (_input_rc_sub.update(&input_rc)) {
+		rc_update_count++;
+	}
 
+	debug_decimator++;
+	if (debug_decimator == 100) {
+		debug_decimator = 0;
+		PX4_INFO("There were %u queued input_rc messages", rc_update_count);
+	}
+
+	if (rc_update_count) {
 		// warn if the channel count is changing (possibly indication of error)
 		if (!input_rc.rc_lost) {
 			if ((_channel_count_previous != input_rc.channel_count)
