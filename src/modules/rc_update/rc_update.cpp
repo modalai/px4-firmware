@@ -390,7 +390,7 @@ void RCUpdate::Run()
 	// static uint32_t debug_decimator = 0;
 
 	// Clear out any stale queued updates
-	while (_input_rc_sub.update(&input_rc)) {
+	if (_input_rc_sub.update(&input_rc)) {
 		rc_update_count++;
 	}
 

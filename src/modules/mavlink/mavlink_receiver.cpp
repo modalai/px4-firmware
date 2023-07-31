@@ -1971,8 +1971,6 @@ MavlinkReceiver::handle_message_rc_channels_override(mavlink_message_t *msg)
 	rc.rc_total_frame_count = 1;
 	rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
 
-	PX4_INFO("Got RC Override message at %lu", rc.timestamp);
-
 	// channels
 	rc.values[0] = man.chan1_raw;
 	rc.values[1] = man.chan2_raw;
@@ -1992,6 +1990,9 @@ MavlinkReceiver::handle_message_rc_channels_override(mavlink_message_t *msg)
 	rc.values[15] = man.chan16_raw;
 	rc.values[16] = man.chan17_raw;
 	rc.values[17] = man.chan18_raw;
+
+	uint64_t *remote_timestamp = (uint64_t*) &man.chan1_raw;
+	PX4_INFO("Got RC Override message at %lu. Remote timestamp %lu", rc.timestamp, *remote_timestamp);
 
 #if defined(ATL_MANTIS_RC_INPUT_HACKS)
 
