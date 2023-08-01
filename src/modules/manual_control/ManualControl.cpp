@@ -146,7 +146,9 @@ void ManualControl::Run()
 		manual_control_setpoint_s manual_control_input;
 
 		bool got_update = false;
-		while ((got_update = _manual_control_setpoint_subs[i].update(&manual_control_input))) {}
+		while (_manual_control_setpoint_subs[i].update(&manual_control_input)) {
+			got_update = true;
+		}
 
 		if (got_update) {
 			_selector.updateWithNewInputSample(now, manual_control_input, i);
