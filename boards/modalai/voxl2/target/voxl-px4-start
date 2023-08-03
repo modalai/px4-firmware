@@ -122,25 +122,27 @@ qshell modal_io start
 /bin/sleep 1
 
 # RC driver
-if [ "$RC" == "FAKE_RC_INPUT" ]; then
-    /bin/echo "Starting fake RC driver"
-    qshell rc_controller start
-elif [ "$RC" == "CRSF_RAW" ]; then
-    /bin/echo "Starting CRSF RC driver"
-    qshell crsf_rc start -d 7
-elif [ "$RC" == "CRSF_MAV" ]; then
-    /bin/echo "Starting TBS crossfire RC - MAV Mode"
-    qshell mavlink_rc_in start -m -p 7 -b 115200
-elif [ "$RC" == "SPEKTRUM" ]; then
-    /bin/echo "Starting Spektrum RC"
-	# On M0052 the RC driver runs on the apps processor
-	if [ $PLATFORM = "M0052" ]; then
-        rc_input start -d /dev/ttyHS1
-	# On M0054 and M0104 the RC driver runs on SLPI DSP
-	else
-        qshell spektrum_rc start
-	fi
-fi
+#if [ "$RC" == "FAKE_RC_INPUT" ]; then
+#    /bin/echo "Starting fake RC driver"
+#    qshell rc_controller start
+#elif [ "$RC" == "CRSF_RAW" ]; then
+#    /bin/echo "Starting CRSF RC driver"
+#    qshell crsf_rc start -d 7
+#elif [ "$RC" == "CRSF_MAV" ]; then
+#    /bin/echo "Starting TBS crossfire RC - MAV Mode"
+#    qshell mavlink_rc_in start -m -p 7 -b 115200
+#elif [ "$RC" == "SPEKTRUM" ]; then
+#    /bin/echo "Starting Spektrum RC"
+#	# On M0052 the RC driver runs on the apps processor
+#	if [ $PLATFORM = "M0052" ]; then
+#        rc_input start -d /dev/ttyHS1
+#
+#	else
+#        qshell spektrum_rc start
+#	fi
+#fi
+
+qshell lightware_laser_serial start -d 7
 
 /bin/sleep 1
 
@@ -162,7 +164,7 @@ qshell mc_autotune_attitude_control start
 qshell land_detector start multicopter
 qshell manual_control start
 qshell control_allocator start
-qshell rc_update start
+# qshell rc_update start
 qshell commander start
 qshell param_set_selector start
 
