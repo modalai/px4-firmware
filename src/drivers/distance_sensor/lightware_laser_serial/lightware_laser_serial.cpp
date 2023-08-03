@@ -37,6 +37,10 @@
 #include <fcntl.h>
 #include <termios.h>
 
+#ifdef __PX4_QURT
+#include <drivers/device/qurt/uart.h>
+#endif
+
 /* Configuration Constants */
 #define LW_TAKE_RANGE_REG		'd'
 
@@ -148,7 +152,11 @@ int LightwareLaserSerial::measure()
 {
 	// Send the command to begin a measurement.
 	char cmd = LW_TAKE_RANGE_REG;
+#ifdef __PX4_QURT
+	int ret = qurt_uart_write(_fd, (const char *) &cmd, 1);
+#else
 	int ret = ::write(_fd, &cmd, 1);
+#endif
 
 	if (ret != sizeof(cmd)) {
 		perf_count(_comms_errors);
@@ -172,7 +180,15 @@ int LightwareLaserSerial::collect()
 
 	/* read from the sensor (uart buffer) */
 	const hrt_abstime timestamp_sample = hrt_absolute_time();
+#ifdef __PX4_QURT
+#define ASYNC_UART_READ_WAIT_US 2000
+	// The UART read on SLPI is via an asynchronous service so specify a timeout
+	// for the return. The driver will poll periodically until the read comes in
+	// so this may block for a while. However, it will timeout if no read comes in.
+	int ret = qurt_uart_read(_fd, &readbuf[0], readlen, ASYNC_UART_READ_WAIT_US);
+#else
 	int ret = ::read(_fd, &readbuf[0], readlen);
+#endif
 
 	if (ret < 0) {
 		PX4_DEBUG("read err: %d", ret);
@@ -257,14 +273,34 @@ void LightwareLaserSerial::Run()
 {
 	/* fds initialized? */
 	if (_fd < 0) {
+
+		int32_t hw_model = 0;
+
+		param_get(param_find("SENS_EN_SF0X"), &hw_model);
+
 		/* open fd */
+#ifdef __PX4_QURT
+		unsigned speed;
+
+		if (hw_model >= 5) {
+			speed = 115200;
+		} else {
+			speed = 9600;
+		}
+
+		PX4_INFO("Attempting to open port %s at speed %u", _port, speed);
+
+		_fd = qurt_uart_open(_port, speed);
+#else
 		_fd = ::open(_port, O_RDWR | O_NOCTTY | O_NONBLOCK);
+#endif
 
 		if (_fd < 0) {
 			PX4_ERR("open failed (%i)", errno);
 			return;
 		}
 
+#ifndef __PX4_QURT
 		struct termios uart_config;
 
 		int termios_state;
@@ -279,10 +315,6 @@ void LightwareLaserSerial::Run()
 		uart_config.c_cflag &= ~(CSTOPB | PARENB);
 
 		/* if distance sensor model is SF11/C, then set baudrate 115200, else 9600 */
-		int32_t hw_model = 0;
-
-		param_get(param_find("SENS_EN_SF0X"), &hw_model);
-
 		unsigned speed;
 
 		if (hw_model >= 5) {
@@ -304,11 +336,16 @@ void LightwareLaserSerial::Run()
 		if ((termios_state = tcsetattr(_fd, TCSANOW, &uart_config)) < 0) {
 			PX4_ERR("baud %d ATTR", termios_state);
 		}
+#endif
 
 		// LW20: Enable serial mode by sending some characters
 		if (hw_model == 8) {
 			const char *data = "www\r\n";
+#ifdef __PX4_QURT
+			(void) qurt_uart_write(_fd, data, strlen(data));
+#else
 			(void)!::write(_fd, &data, strlen(data));
+#endif
 		}
 	}
 
