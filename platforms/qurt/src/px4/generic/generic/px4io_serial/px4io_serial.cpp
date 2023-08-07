@@ -108,7 +108,40 @@ ArchPX4IOSerial::ioctl(unsigned operation, unsigned &arg)
 	return -1;
 }
 
-static void px4io_dump_string(uint8_t *data, int num) {
+static void px4io_dump_read_string(uint8_t *data, int num) {
+
+	// Skip acks
+	if (num == 4) return;
+
+	int reg_count = data[0];
+	int page_num = data[2];
+	int offset_num = data[3];
+
+	PX4_INFO("PX4IO read %d registers from page %d, offset %d", reg_count, page_num, offset_num);
+
+	int dump_count = reg_count;
+	uint16_t* d = (uint16_t*) &data[4];
+	while (dump_count >= 8) {
+		PX4_INFO("   0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+				 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
+		d += 8;
+		dump_count -= 8;
+	}
+	if (dump_count) {
+		char dump_string[128];
+		dump_string[0] = 0;
+		strcat(dump_string, "  ");
+		char number_string[16];
+		for (int i = 0; i < dump_count; i++) {
+			number_string[0] = 0;
+			sprintf(number_string, " 0x%.4x", d[i]);
+			strcat(dump_string, number_string);
+		}
+		PX4_INFO("%s", dump_string);
+	}
+}
+
+static void px4io_dump_write_string(uint8_t *data, int num) {
 
 	// Skip acks
 	if (num == 4) return;
@@ -146,7 +179,7 @@ static void px4io_dump_string(uint8_t *data, int num) {
 	} else {
 		// This is a read
 
-		PX4_INFO("PX4IO Read %d registers from page %d, offset %d", reg_count, page_num, offset_num);
+		// PX4_INFO("PX4IO Read %d registers from page %d, offset %d", reg_count, page_num, offset_num);
 	}
 }
 
@@ -164,8 +197,8 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 
 	(void) qurt_uart_write(uart_fd, (const char*) _packet, packet_size);
 
-	PX4_INFO("Writing %d bytes to PX4IO", packet_size);
-	px4io_dump_string((uint8_t*) _packet, packet_size);
+	// PX4_INFO("Writing %d bytes to PX4IO", packet_size);
+	px4io_dump_write_string((uint8_t*) _packet, packet_size);
 
 	usleep(100);
 
