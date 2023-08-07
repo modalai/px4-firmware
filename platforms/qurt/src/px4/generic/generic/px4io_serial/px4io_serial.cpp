@@ -209,7 +209,7 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
     	ret = qurt_uart_read(uart_fd, (char*) _packet, packet_size, ASYNC_UART_READ_WAIT_US);
 		if (ret) {
 			PX4_INFO("Read %d bytes from PX4IO", ret);
-			// px4io_dump_string((uint8_t*) _packet, ret);
+			px4io_dump_read_string((uint8_t*) _packet, ret);
 
 			/* Check CRC */
 			uint8_t crc = _packet->crc;
