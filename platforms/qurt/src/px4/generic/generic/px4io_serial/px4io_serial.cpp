@@ -109,25 +109,44 @@ ArchPX4IOSerial::ioctl(unsigned operation, unsigned &arg)
 }
 
 static void px4io_dump_string(uint8_t *data, int num) {
-	int dump_count = num;
-	uint8_t* d = data;
-	while (dump_count >= 8) {
-		PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
-				 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
-		d += 8;
-		dump_count -= 8;
-	}
-	if (dump_count) {
-		char dump_string[64];
-		dump_string[0] = 0;
-		strcat(dump_string, "  ");
-		char number_string[8];
-		for (int i = 0; i < dump_count; i++) {
-			number_string[0] = 0;
-			sprintf(number_string, " 0x%.2x", d[i]);
-			strcat(dump_string, number_string);
+
+	// Skip acks
+	if (num == 4) return;
+
+	int reg_count = data[0];
+	int page_num = data[2];
+	int offset_num = data[3];
+
+	if (data[0] & 0x40) {
+		// This is a write
+
+		
+		PX4_INFO("PX4IO Write %d registers at page %d, offset %d", reg_count, page_num, offset_num);
+
+		int dump_count = (reg_count & 0xBF); // Clear write flag;
+		uint16_t* d = (uint16_t*) &data[4];
+		while (dump_count >= 8) {
+			PX4_INFO("   0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+					 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
+			d += 8;
+			dump_count -= 8;
 		}
-		PX4_INFO("%s", dump_string);
+		if (dump_count) {
+			char dump_string[128];
+			dump_string[0] = 0;
+			strcat(dump_string, "  ");
+			char number_string[16];
+			for (int i = 0; i < dump_count; i++) {
+				number_string[0] = 0;
+				sprintf(number_string, " 0x%.4x", d[i]);
+				strcat(dump_string, number_string);
+			}
+			PX4_INFO("%s", dump_string);
+		}
+	} else {
+		// This is a read
+
+		PX4_INFO("PX4IO Read %d registers from page %d, offset %d", reg_count, page_num, offset_num);
 	}
 }
 
@@ -157,7 +176,7 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
     	ret = qurt_uart_read(uart_fd, (char*) _packet, packet_size, ASYNC_UART_READ_WAIT_US);
 		if (ret) {
 			PX4_INFO("Read %d bytes from PX4IO", ret);
-			px4io_dump_string((uint8_t*) _packet, ret);
+			// px4io_dump_string((uint8_t*) _packet, ret);
 
 			/* Check CRC */
 			uint8_t crc = _packet->crc;
