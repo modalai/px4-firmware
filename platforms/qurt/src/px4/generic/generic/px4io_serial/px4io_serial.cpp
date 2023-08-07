@@ -122,6 +122,28 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 
 	(void) qurt_uart_write(uart_fd, (const char*) _packet, packet_size);
 
+	PX4_INFO("Writing %d bytes to PX4IO", packet_size);
+	int dump_count = packet_size;
+	uint8_t* d = (uint8_t*) _packet;
+	while (dump_count >= 8) {
+		PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
+				 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
+		d += 8;
+		dump_count -= 8;
+	}
+	if (dump_count) {
+		char dump_string[64];
+		dump_string[0] = 0;
+		strcat(dump_string, "  ");
+		char number_string[8];
+		for (int i = 0; i < dump_count; i++) {
+			number_string[0] = 0;
+			sprintf(number_string, " 0x%2x", d[i]);
+			strcat(dump_string, number_string);
+		}
+		PX4_INFO("%s", dump_string);
+	}
+
 	usleep(100);
 
     // The UART read on SLPI is via an asynchronous service so specify a timeout
@@ -130,7 +152,7 @@ ArchPX4IOSerial::_bus_exchange(IOPacket *_packet)
 	while (read_retries) {
     	ret = qurt_uart_read(uart_fd, (char*) _packet, packet_size, ASYNC_UART_READ_WAIT_US);
 		if (ret) {
-			// PX4_INFO("Read %d bytes", ret);
+			PX4_INFO("Read %d bytes from PX4IO", ret);
 
 			/* Check CRC */
 			uint8_t crc = _packet->crc;
