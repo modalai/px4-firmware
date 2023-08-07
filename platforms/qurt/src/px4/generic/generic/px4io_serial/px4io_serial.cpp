@@ -113,7 +113,7 @@ static void px4io_dump_read_string(uint8_t *data, int num) {
 	// Skip acks
 	if (num == 4) return;
 
-	int reg_count = data[0];
+	int reg_count = data[0] & PKT_COUNT_MASK;
 	int page_num = data[2];
 	int offset_num = data[3];
 
@@ -146,17 +146,17 @@ static void px4io_dump_write_string(uint8_t *data, int num) {
 	// Skip acks
 	if (num == 4) return;
 
-	int reg_count = data[0];
+	int reg_count = data[0] & PKT_COUNT_MASK;
 	int page_num = data[2];
 	int offset_num = data[3];
 
-	if (data[0] & 0x40) {
+	if (data[0] & PKT_CODE_WRITE) {
 		// This is a write
 
 		
 		PX4_INFO("PX4IO Write %d registers at page %d, offset %d", reg_count, page_num, offset_num);
 
-		int dump_count = (reg_count & 0xBF); // Clear write flag;
+		int dump_count = reg_count;
 		uint16_t* d = (uint16_t*) &data[4];
 		while (dump_count >= 8) {
 			PX4_INFO("   0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
