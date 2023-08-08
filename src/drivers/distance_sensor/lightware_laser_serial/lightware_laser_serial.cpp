@@ -204,7 +204,11 @@ int LightwareLaserSerial::collect()
 		}
 
 	} else if (ret == 0) {
+#ifdef __PX4_QURT
+		return -20;
+#else
 		return -EAGAIN;
+#endif
 	}
 
 	_last_read = hrt_absolute_time();
