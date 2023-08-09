@@ -186,6 +186,12 @@ int LightwareLaserSerial::collect()
 	// for the return. The driver will poll periodically until the read comes in
 	// so this may block for a while. However, it will timeout if no read comes in.
 	int ret = qurt_uart_read(_fd, &readbuf[0], readlen, ASYNC_UART_READ_WAIT_US);
+	int read_retries = 2;
+	while ((! ret) && (read_retries)){
+		ret = qurt_uart_read(_fd, &readbuf[0], readlen, ASYNC_UART_READ_WAIT_US);
+		usleep(100);
+		read_retries--;
+	}
 #else
 	int ret = ::read(_fd, &readbuf[0], readlen);
 #endif
@@ -210,6 +216,10 @@ int LightwareLaserSerial::collect()
 		return -EAGAIN;
 #endif
 	}
+
+	PX4_INFO("*** %d bytes, %d retries, 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
+			 ret, (2 - read_retries), readbuf[0], readbuf[1], readbuf[2], readbuf[3], readbuf[4],
+			 readbuf[5], readbuf[6], readbuf[7], readbuf[8], readbuf[9]);
 
 	_last_read = hrt_absolute_time();
 
