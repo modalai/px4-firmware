@@ -20,6 +20,8 @@ echo -e "*************************\n"
 # and modules manually from the px4 command shell
 if [ ! -z $MINIMAL_PX4 ]; then
     /bin/echo "Running minimal script"
+	param select /data/px4/param/parameters
+	param load
     exit 0
 fi
 

@@ -33,10 +33,12 @@
 
 
 #include <px4_log.h>
-#include <modules/px4iofirmware/protocol.h>
 #include <drivers/device/qurt/uart.h>
 #include <drivers/drv_hrt.h>
 #include <uORB/topics/input_rc.h>
+#include <lib/parameters/param.h>
+
+#include "protocol.h"
 
 #define ASYNC_UART_READ_WAIT_US 2000
 
@@ -63,9 +65,7 @@ int dsp_sbus_bus_exchange(IOPacket *_packet)
 	while (read_retries) {
     	ret = qurt_uart_read(dsp_sbus_uart_fd, (char*) _packet, packet_size, ASYNC_UART_READ_WAIT_US);
 		if (ret) {
-			PX4_INFO("Read %d bytes. 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x", ret,
-					 ((uint8_t*) _packet)[0], ((uint8_t*) _packet)[1], ((uint8_t*) _packet)[2],
-					 ((uint8_t*) _packet)[3], ((uint8_t*) _packet)[4], ((uint8_t*) _packet)[5]);
+			PX4_INFO("Read %d bytes", ret);
 
 			/* Check CRC */
 			uint8_t crc = _packet->crc;
@@ -93,6 +93,44 @@ int dsp_sbus_bus_exchange(IOPacket *_packet)
 	return 0;
 }
 
+int dsp_sbus_io_reg_set(uint8_t page, uint8_t offset, uint16_t *values, unsigned num_values)
+{
+	/* range check the transfer */
+	// if (num_values > ((_max_transfer) / sizeof(*values))) {
+	// 	PX4_ERR("io_reg_get: too many registers (%u, max %u)", num_values, _max_transfer / 2);
+	// 	return -1;
+	// }
+
+	// int ret = _interface->read((page << 8) | offset, reinterpret_cast<void *>(values), num_values);
+	int ret = 0;
+
+	dsp_sbus_packet.count_code = num_values | PKT_CODE_WRITE;
+	dsp_sbus_packet.page = page;
+	dsp_sbus_packet.offset = offset;
+	memcpy((void*) &dsp_sbus_packet.regs[0], (void*) values, (2 * num_values));
+
+	for (unsigned i = num_values; i < PKT_MAX_REGS; i++) {
+		dsp_sbus_packet.regs[i] = 0x55aa;
+	}
+
+	dsp_sbus_packet.crc = 0;
+	dsp_sbus_packet.crc = crc_packet(&dsp_sbus_packet);
+
+	ret = dsp_sbus_bus_exchange(&dsp_sbus_packet);
+
+	if (ret != 0) {
+		PX4_ERR("px4io io_reg_set(%hhu,%hhu,%u): data error %d", page, offset, num_values, ret);
+		return -1;
+	}
+
+	return ret;
+}
+
+uint32_t dsp_sbus_io_reg_set(uint8_t page, uint8_t offset, uint16_t value)
+{
+	return dsp_sbus_io_reg_set(page, offset, &value, 1);
+}
+
 int dsp_sbus_io_reg_get(uint8_t page, uint8_t offset, uint16_t *values, unsigned num_values)
 {
 	/* range check the transfer */
@@ -118,7 +156,7 @@ int dsp_sbus_io_reg_get(uint8_t page, uint8_t offset, uint16_t *values, unsigned
 		return -1;
 	}
 
-	*values = dsp_sbus_packet.regs[0];
+	memcpy(values, &dsp_sbus_packet.regs[0], num_values * 2);
 
 	return OK;
 }
@@ -133,6 +171,21 @@ uint32_t dsp_sbus_io_reg_get(uint8_t page, uint8_t offset)
 	}
 
 	return value;
+}
+
+int dsp_sbus_io_reg_modify(uint8_t page, uint8_t offset, uint16_t clearbits, uint16_t setbits)
+{
+	uint16_t value = 0;
+	int ret = dsp_sbus_io_reg_get(page, offset, &value, 1);
+
+	if (ret != OK) {
+		return ret;
+	}
+
+	value &= ~clearbits;
+	value |= setbits;
+
+	return dsp_sbus_io_reg_set(page, offset, value);
 }
 
 int dsp_sbus_detect()
@@ -159,6 +212,194 @@ int dsp_sbus_detect()
 	}
 
 	PX4_INFO("dsp_sbus found");
+
+	return 0;
+}
+
+int dsp_sbus_io_set_rc_config()
+{
+	unsigned offset = 0;
+	int input_map[input_rc_s::RC_INPUT_MAX_CHANNELS];
+	int32_t ichan;
+	int ret = OK;
+
+	/*
+	 * Generate the input channel -> control channel mapping table;
+	 * assign RC_MAP_ROLL/PITCH/YAW/THROTTLE to the canonical
+	 * controls.
+	 */
+
+	/* fill the mapping with an error condition triggering value */
+	for (unsigned i = 0; i < input_rc_s::RC_INPUT_MAX_CHANNELS; i++) {
+		input_map[i] = UINT8_MAX;
+	}
+
+	/*
+	 * NOTE: The indices for mapped channels are 1-based
+	 *       for compatibility reasons with existing
+	 *       autopilots / GCS'.
+	 */
+
+	/* ROLL */
+	param_get(param_find("RC_MAP_ROLL"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 0;
+	}
+
+	/* PITCH */
+	param_get(param_find("RC_MAP_PITCH"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 1;
+	}
+
+	/* YAW */
+	param_get(param_find("RC_MAP_YAW"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 2;
+	}
+
+	/* THROTTLE */
+	param_get(param_find("RC_MAP_THROTTLE"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 3;
+	}
+
+	/* FLAPS */
+	param_get(param_find("RC_MAP_FLAPS"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 4;
+	}
+
+	/* AUX 1*/
+	param_get(param_find("RC_MAP_AUX1"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 5;
+	}
+
+	/* AUX 2*/
+	param_get(param_find("RC_MAP_AUX2"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 6;
+	}
+
+	/* AUX 3*/
+	param_get(param_find("RC_MAP_AUX3"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		input_map[ichan - 1] = 7;
+	}
+
+	/* MAIN MODE SWITCH */
+	param_get(param_find("RC_MAP_MODE_SW"), &ichan);
+
+	if ((ichan > 0) && (ichan <= (int)input_rc_s::RC_INPUT_MAX_CHANNELS)) {
+		/* use out of normal bounds index to indicate special channel */
+		input_map[ichan - 1] = PX4IO_P_RC_CONFIG_ASSIGNMENT_MODESWITCH;
+	}
+
+	/*
+	 * Iterate all possible RC inputs.
+	 */
+	for (unsigned i = 0; i < input_rc_s::RC_INPUT_MAX_CHANNELS; i++) {
+		uint16_t regs[PX4IO_P_RC_CONFIG_STRIDE];
+		char pname[16];
+		float fval;
+
+		/*
+		 * RC params are floats, but do only
+		 * contain integer values. Do not scale
+		 * or cast them, let the auto-typeconversion
+		 * do its job here.
+		 * Channels: 500 - 2500
+		 * Inverted flag: -1 (inverted) or 1 (normal)
+		 */
+
+		sprintf(pname, "RC%u_MIN", i + 1);
+		param_get(param_find(pname), &fval);
+		regs[PX4IO_P_RC_CONFIG_MIN] = fval;
+
+		sprintf(pname, "RC%u_TRIM", i + 1);
+		param_get(param_find(pname), &fval);
+		regs[PX4IO_P_RC_CONFIG_CENTER] = fval;
+
+		sprintf(pname, "RC%u_MAX", i + 1);
+		param_get(param_find(pname), &fval);
+		regs[PX4IO_P_RC_CONFIG_MAX] = fval;
+
+		sprintf(pname, "RC%u_DZ", i + 1);
+		param_get(param_find(pname), &fval);
+		regs[PX4IO_P_RC_CONFIG_DEADZONE] = fval;
+
+		regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = input_map[i];
+
+		regs[PX4IO_P_RC_CONFIG_OPTIONS] = PX4IO_P_RC_CONFIG_OPTIONS_ENABLED;
+		sprintf(pname, "RC%u_REV", i + 1);
+		param_get(param_find(pname), &fval);
+
+		/*
+		 * This has been taken for the sake of compatibility
+		 * with APM's setup / mission planner: normal: 1,
+		 * inverted: -1
+		 */
+		if (fval < 0) {
+			regs[PX4IO_P_RC_CONFIG_OPTIONS] |= PX4IO_P_RC_CONFIG_OPTIONS_REVERSE;
+		}
+
+		PX4_INFO("RC %u config: 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+				 i + 1, regs[0], regs[1], regs[2], regs[3], regs[4], regs[5]);
+
+		/* send channel config to IO */
+		ret = dsp_sbus_io_reg_set(PX4IO_PAGE_RC_CONFIG, offset, regs, PX4IO_P_RC_CONFIG_STRIDE);
+
+		if (ret != OK) {
+			PX4_ERR("rc config upload failed");
+			break;
+		}
+
+		/* check the IO initialisation flag */
+		if (!(dsp_sbus_io_reg_get(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_FLAGS) & PX4IO_P_STATUS_FLAGS_INIT_OK)) {
+			PX4_ERR("config for RC%u rejected by IO", i + 1);
+			break;
+		}
+
+		offset += PX4IO_P_RC_CONFIG_STRIDE;
+	}
+
+	return ret;
+}
+
+int dsp_sbus_configure() {
+	
+	dsp_sbus_io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING, PX4IO_P_SETUP_ARMING_TERMINATION_FAILSAFE);
+	
+	// uint16_t status_config = PX4IO_P_STATUS_FLAGS_RC_OK | PX4IO_P_STATUS_FLAGS_RC_SBUS | PX4IO_P_STATUS_FLAGS_ARM_SYNC | PX4IO_P_STATUS_FLAGS_INIT_OK;
+	// status_config |= PX4IO_P_STATUS_FLAGS_SAFETY_OFF;
+	// 
+	// dsp_sbus_io_reg_set(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_FLAGS, status_config);
+	// 
+	// dsp_sbus_io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_FEATURES, (PX4IO_P_SETUP_FEATURES_SBUS1_OUT | PX4IO_P_SETUP_FEATURES_SBUS2_OUT), 0);
+	// 
+	// dsp_sbus_io_reg_set(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_ALARMS, 0x0000);
+
+	// dsp_sbus_io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_FORCE_SAFETY_OFF, PX4IO_FORCE_SAFETY_MAGIC);
+	// 
+	// 
+	// /* dis-arm IO before touching anything */
+	// dsp_sbus_io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING,
+	// 	      PX4IO_P_SETUP_ARMING_FMU_ARMED |
+	// 	      PX4IO_P_SETUP_ARMING_INAIR_RESTART_OK |
+	// 	      PX4IO_P_SETUP_ARMING_MANUAL_OVERRIDE_OK |
+	// 	      PX4IO_P_SETUP_ARMING_ALWAYS_PWM_ENABLE |
+	// 	      PX4IO_P_SETUP_ARMING_LOCKDOWN, 0);
+
+	(void) dsp_sbus_io_set_rc_config();
 
 	return 0;
 }
@@ -199,12 +440,15 @@ int dsp_sbus_start() {
 		PX4_ERR("Failed to read RC registers");
 	} else {
 		PX4_INFO("Successfully read RC registers");
+		PX4_INFO("Prolog: 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+				 rc_regs[0], rc_regs[1], rc_regs[2], rc_regs[3], rc_regs[4], rc_regs[5]);
 	}
 
 	uint32_t channel_count = rc_regs[PX4IO_P_RAW_RC_COUNT];
 
 	/* limit the channel count */
 	if (channel_count > input_rc_s::RC_INPUT_MAX_CHANNELS) {
+		PX4_INFO("Got %u for channel count. Limiting to 18", channel_count);
 		channel_count = input_rc_s::RC_INPUT_MAX_CHANNELS;
 	}
 
@@ -245,7 +489,7 @@ int dsp_sbus_start() {
 	/* last thing set are the actual channel values as 16 bit values */
 	for (unsigned i = 0; i < channel_count; i++) {
 		rc_val.values[i] = rc_regs[prolog + i];
-		PX4_INFO("RC channel %u: %u", i, rc_val.values[i]);
+		PX4_INFO("RC channel %u: 0x%.4x", i, rc_val.values[i]);
 	}
 	
 	/* zero the remaining fields */
@@ -267,10 +511,25 @@ int dsp_sbus_start() {
 
 int dsp_sbus_main(int argc, char *argv[])
 {
-	if (dsp_sbus_detect() == 0) {
-		dsp_sbus_start();
+	int myoptind = 1;
+
+	if (argc <= 1) {
+		return -1;
+	}
+
+	const char *verb = argv[myoptind];
+
+	if (!strcmp(verb, "start")) {
+		return dsp_sbus_start();
+
+	} else if (!strcmp(verb, "detect")) {
+		return dsp_sbus_detect();
+
+	} else if (!strcmp(verb, "configure")) {
+		return dsp_sbus_configure();
+
 	} else {
-		PX4_INFO("dsp_sbus not detected");
+		return -1;
 	}
 
 	return 0;
