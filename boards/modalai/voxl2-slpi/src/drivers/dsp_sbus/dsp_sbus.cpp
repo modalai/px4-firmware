@@ -309,8 +309,8 @@ int dsp_sbus_io_set_rc_config()
 	 */
 	for (unsigned i = 0; i < input_rc_s::RC_INPUT_MAX_CHANNELS; i++) {
 		uint16_t regs[PX4IO_P_RC_CONFIG_STRIDE];
-		char pname[16];
-		float fval;
+		// char pname[16];
+		// float fval;
 
 		/*
 		 * RC params are floats, but do only
@@ -321,38 +321,78 @@ int dsp_sbus_io_set_rc_config()
 		 * Inverted flag: -1 (inverted) or 1 (normal)
 		 */
 
-		sprintf(pname, "RC%u_MIN", i + 1);
-		param_get(param_find(pname), &fval);
-		regs[PX4IO_P_RC_CONFIG_MIN] = fval;
+		// sprintf(pname, "RC%u_MIN", i + 1);
+		// param_get(param_find(pname), &fval);
 
-		sprintf(pname, "RC%u_TRIM", i + 1);
-		param_get(param_find(pname), &fval);
-		regs[PX4IO_P_RC_CONFIG_CENTER] = fval;
+		// sprintf(pname, "RC%u_TRIM", i + 1);
+		// param_get(param_find(pname), &fval);
 
-		sprintf(pname, "RC%u_MAX", i + 1);
-		param_get(param_find(pname), &fval);
-		regs[PX4IO_P_RC_CONFIG_MAX] = fval;
+		// sprintf(pname, "RC%u_MAX", i + 1);
+		// param_get(param_find(pname), &fval);
 
-		sprintf(pname, "RC%u_DZ", i + 1);
-		param_get(param_find(pname), &fval);
-		regs[PX4IO_P_RC_CONFIG_DEADZONE] = fval;
+		// sprintf(pname, "RC%u_DZ", i + 1);
+		// param_get(param_find(pname), &fval);
 
-		regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = input_map[i];
+		if (i < 4) {
+			regs[PX4IO_P_RC_CONFIG_MIN] = 1000;
+			regs[PX4IO_P_RC_CONFIG_CENTER] = 1500;
+			regs[PX4IO_P_RC_CONFIG_MAX] = 2000;
+			regs[PX4IO_P_RC_CONFIG_DEADZONE] = 10;
+			regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = i;
+			regs[PX4IO_P_RC_CONFIG_OPTIONS] = PX4IO_P_RC_CONFIG_OPTIONS_ENABLED;
+		} else {
+			regs[PX4IO_P_RC_CONFIG_MIN] = 1000;
+			regs[PX4IO_P_RC_CONFIG_CENTER] = 1500;
+			regs[PX4IO_P_RC_CONFIG_MAX] = 2000;
+			regs[PX4IO_P_RC_CONFIG_DEADZONE] = 10;
 
-		regs[PX4IO_P_RC_CONFIG_OPTIONS] = PX4IO_P_RC_CONFIG_OPTIONS_ENABLED;
-		sprintf(pname, "RC%u_REV", i + 1);
-		param_get(param_find(pname), &fval);
+			// // Try switches on 4 - 8
+			// if ((i > 3) && (i < 9)) {
+			// 	if (i == 8) regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = PX4IO_P_RC_CONFIG_ASSIGNMENT_MODESWITCH;
+			// 	else regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = i;
+			// 	regs[PX4IO_P_RC_CONFIG_OPTIONS] = PX4IO_P_RC_CONFIG_OPTIONS_ENABLED;
+			// } else {
+			// 	regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = UINT8_MAX;
+			// 	regs[PX4IO_P_RC_CONFIG_OPTIONS] = 0;
+			// }
+
+			// // Try switches on 9 - 13
+			// if ((i > 8) && (i < 14)) {
+			// 	if (i == 13) regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = PX4IO_P_RC_CONFIG_ASSIGNMENT_MODESWITCH;
+			// 	else regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = i - 5;
+			// 	regs[PX4IO_P_RC_CONFIG_OPTIONS] = PX4IO_P_RC_CONFIG_OPTIONS_ENABLED;
+			// } else {
+			// 	regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = UINT8_MAX;
+			// 	regs[PX4IO_P_RC_CONFIG_OPTIONS] = 0;
+			// }
+			
+			// Try switches on 13 - 17
+			if ((i > 12) && (i < 18)) {
+				if (i == 13) regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = PX4IO_P_RC_CONFIG_ASSIGNMENT_MODESWITCH;
+				else regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = i - 10;
+				regs[PX4IO_P_RC_CONFIG_OPTIONS] = PX4IO_P_RC_CONFIG_OPTIONS_ENABLED;
+			} else {
+				regs[PX4IO_P_RC_CONFIG_ASSIGNMENT] = UINT8_MAX;
+				regs[PX4IO_P_RC_CONFIG_OPTIONS] = 0;
+			}
+		}
+
+
+
+
+		// sprintf(pname, "RC%u_REV", i + 1);
+		// param_get(param_find(pname), 1);
 
 		/*
 		 * This has been taken for the sake of compatibility
 		 * with APM's setup / mission planner: normal: 1,
 		 * inverted: -1
 		 */
-		if (fval < 0) {
-			regs[PX4IO_P_RC_CONFIG_OPTIONS] |= PX4IO_P_RC_CONFIG_OPTIONS_REVERSE;
-		}
+		// if (fval < 0) {
+		// 	regs[PX4IO_P_RC_CONFIG_OPTIONS] |= PX4IO_P_RC_CONFIG_OPTIONS_REVERSE;
+		// }
 
-		PX4_INFO("RC %u config: 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+		PX4_INFO("RC %u config: %u %u %u %u 0x%.4x 0x%.4x",
 				 i + 1, regs[0], regs[1], regs[2], regs[3], regs[4], regs[5]);
 
 		/* send channel config to IO */
@@ -439,8 +479,8 @@ int dsp_sbus_start() {
 							sizeof(rc_regs) / sizeof(rc_regs[0])) != OK) {
 		PX4_ERR("Failed to read RC registers");
 	} else {
-		PX4_INFO("Successfully read RC registers");
-		PX4_INFO("Prolog: 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+		// PX4_INFO("Successfully read RC registers");
+		PX4_INFO("Prolog: %u 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
 				 rc_regs[0], rc_regs[1], rc_regs[2], rc_regs[3], rc_regs[4], rc_regs[5]);
 	}
 
@@ -453,7 +493,7 @@ int dsp_sbus_start() {
 	}
 
 	rc_val.channel_count = channel_count;
-	PX4_INFO("RC channel count: %u", rc_val.channel_count);
+	// PX4_INFO("RC channel count: %u", rc_val.channel_count);
 
 	rc_val.timestamp = hrt_absolute_time();
 	rc_val.rc_ppm_frame_length = rc_regs[PX4IO_P_RAW_RC_DATA];
@@ -489,7 +529,7 @@ int dsp_sbus_start() {
 	/* last thing set are the actual channel values as 16 bit values */
 	for (unsigned i = 0; i < channel_count; i++) {
 		rc_val.values[i] = rc_regs[prolog + i];
-		PX4_INFO("RC channel %u: 0x%.4x", i, rc_val.values[i]);
+		PX4_INFO("RC channel %u: %.4u", i, rc_val.values[i]);
 	}
 	
 	/* zero the remaining fields */
