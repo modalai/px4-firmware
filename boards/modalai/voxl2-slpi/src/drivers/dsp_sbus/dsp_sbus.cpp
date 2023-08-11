@@ -34,6 +34,7 @@
 
 #include <px4_log.h>
 #include <px4_platform_common/tasks.h>
+#include <uORB/PublicationMulti.hpp>
 #include <drivers/device/qurt/uart.h>
 #include <drivers/drv_hrt.h>
 #include <uORB/topics/input_rc.h>
@@ -56,6 +57,8 @@ bool _is_running = false;
 uint64_t _rc_last_valid;		///< last valid timestamp
 static px4_task_t _task_handle = -1;
 
+uORB::PublicationMulti<input_rc_s> _rc_pub{ORB_ID(input_rc)};
+
 int bus_exchange(IOPacket *packet)
 {
 	int ret = 0;
@@ -73,7 +76,7 @@ int bus_exchange(IOPacket *packet)
 	while (read_retries) {
     	ret = qurt_uart_read(_uart_fd, (char*) packet, packet_size, ASYNC_UART_READ_WAIT_US);
 		if (ret) {
-			PX4_INFO("Read %d bytes", ret);
+			// PX4_INFO("Read %d bytes", ret);
 
 			/* Check CRC */
 			uint8_t crc = packet->crc;
@@ -189,24 +192,28 @@ void dsp_sbus_task(int argc, char *argv[]) {
 	_is_running = true;
 
 	while (true) {
+
+		usleep(20000); // Update every 20ms
+
 		if (io_reg_get(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_FLAGS, &status_regs[0],
 								sizeof(status_regs) / sizeof(status_regs[0])) == OK) {
-			PX4_INFO("dsp_sbus status 0x%.4x", status_regs[0]);
-			PX4_INFO("dsp_sbus alarms 0x%.4x", status_regs[1]);
+			// PX4_INFO("dsp_sbus status 0x%.4x", status_regs[0]);
+			// PX4_INFO("dsp_sbus alarms 0x%.4x", status_regs[1]);
 		} else {
 			PX4_ERR("Failed to read status / alarm registers");
+			continue;
 		}
 
 		/* fetch values from IO */
 		if (!(status_regs[0] & PX4IO_P_STATUS_FLAGS_RC_OK)) {
 			PX4_INFO("RC lost status flag set");
 		} else {
-			PX4_INFO("RC lost status flag is not set");
+			// PX4_INFO("RC lost status flag is not set");
 		}
 
 		if (status_regs[0] & PX4IO_P_STATUS_FLAGS_RC_SBUS) {
 			rc_val.input_source = input_rc_s::RC_INPUT_SOURCE_PX4IO_SBUS;
-			PX4_INFO("Got valid SBUS");
+			// PX4_INFO("Got valid SBUS");
 		} else {
 			rc_val.input_source = input_rc_s::RC_INPUT_SOURCE_UNKNOWN;
 			PX4_INFO("SBUS not valid");
@@ -217,15 +224,15 @@ void dsp_sbus_task(int argc, char *argv[]) {
 			PX4_ERR("Failed to read RC registers");
 		} else {
 			// PX4_INFO("Successfully read RC registers");
-			PX4_INFO("Prolog: %u 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
-					 rc_regs[0], rc_regs[1], rc_regs[2], rc_regs[3], rc_regs[4], rc_regs[5]);
+			// PX4_INFO("Prolog: %u 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+			//		 rc_regs[0], rc_regs[1], rc_regs[2], rc_regs[3], rc_regs[4], rc_regs[5]);
 		}
 
 		channel_count = rc_regs[PX4IO_P_RAW_RC_COUNT];
 
 		/* limit the channel count */
 		if (channel_count > input_rc_s::RC_INPUT_MAX_CHANNELS) {
-			PX4_INFO("Got %u for channel count. Limiting to 18", channel_count);
+			// PX4_INFO("Got %u for channel count. Limiting to 18", channel_count);
 			channel_count = input_rc_s::RC_INPUT_MAX_CHANNELS;
 		}
 
@@ -266,7 +273,7 @@ void dsp_sbus_task(int argc, char *argv[]) {
 		/* last thing set are the actual channel values as 16 bit values */
 		for (unsigned i = 0; i < channel_count; i++) {
 			rc_val.values[i] = rc_regs[prolog + i];
-			PX4_INFO("RC channel %u: %.4u", i, rc_val.values[i]);
+			// PX4_INFO("RC channel %u: %.4u", i, rc_val.values[i]);
 		}
 		
 		/* zero the remaining fields */
@@ -283,7 +290,8 @@ void dsp_sbus_task(int argc, char *argv[]) {
 		// 	input_rc.rssi = rssi;
 		// }
 
-		usleep(2000000);
+		_rc_pub.publish(rc_val);
+
 	}
 }
 
