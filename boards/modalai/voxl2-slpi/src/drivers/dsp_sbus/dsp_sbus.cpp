@@ -32,8 +32,10 @@
  ****************************************************************************/
 
 
+#include <string>
 #include <px4_log.h>
 #include <px4_platform_common/tasks.h>
+#include <px4_platform_common/getopt.h>
 #include <uORB/PublicationMulti.hpp>
 #include <drivers/device/qurt/uart.h>
 #include <drivers/drv_hrt.h>
@@ -50,6 +52,7 @@ extern "C" { __EXPORT int dsp_sbus_main(int argc, char *argv[]); }
 namespace dsp_sbus
 {
 
+std::string _port = "7";
 int _uart_fd = -1;
 IOPacket _packet;
 bool _initialized = false;
@@ -156,16 +159,12 @@ int initialize()
 	}
 
 	if (_uart_fd < 0) {
-		// _uart_fd = qurt_uart_open("2", 1000000);
-		// _uart_fd = qurt_uart_open("7", 921600);
-		_uart_fd = qurt_uart_open("2", 921600);
+		_uart_fd = qurt_uart_open(_port.c_str(), 921600);
 	}
 
 	if (_uart_fd < 0) {
 		PX4_ERR("Open failed in %s", __FUNCTION__);
 		return -1;
-	} else {
-		PX4_INFO("dsp_sbus serial port fd %d", _uart_fd);
 	}
 
 	// Verify connectivity and version number
@@ -178,12 +177,10 @@ int initialize()
 
 	_initialized = true;
 
-	PX4_INFO("dsp_sbus driver initialized");
-
 	return 0;
 }
 
-void dsp_sbus_task(int argc, char *argv[]) {
+void dsp_sbus_task() {
 	
 	uint16_t status_regs[2] {};
 	input_rc_s	rc_val;
@@ -287,10 +284,27 @@ void dsp_sbus_task(int argc, char *argv[]) {
 	}
 }
 
-int start() {
+int start(int argc, char *argv[]) {
+
+	int ch;
+	int myoptind = 1;
+	const char *myoptarg = nullptr;
+
+	while ((ch = px4_getopt(argc, argv, "p:", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'p':
+			_port = myoptarg;
+			PX4_INFO("Setting port to %s", _port.c_str());
+			break;
+		default:
+			break;
+		}
+	}
+
 	if (! _initialized) {
-		PX4_ERR("Not initialized, cannot start");
-		return -1;
+		if (initialize()) {
+			return -1;
+		}
 	}
 
 	if (_is_running) {
@@ -303,7 +317,7 @@ int start() {
 					  SCHED_PRIORITY_DEFAULT,
 					  2000,
 					  (px4_main_t) &dsp_sbus_task,
-					  nullptr);
+					  (char *const *)argv);
 
 	if (_task_handle < 0) {
 		PX4_ERR("task start failed");
@@ -313,14 +327,31 @@ int start() {
 	return 0;
 }
 
+void
+usage()
+{
+	PX4_INFO("Usage: dsp_sbus start [options]");
+	PX4_INFO("Options: -p <number>    uart port number");
+}
+
 } // End namespance dsp_sbus
 
 int dsp_sbus_main(int argc, char *argv[])
 {
-	if (dsp_sbus::initialize()) {
-		// Failed to detect and initialize dsp_sbus
+	int myoptind = 1;
+
+	if (argc <= 1) {
+		dsp_sbus::usage();
+		return -1;
+	}
+
+	const char *verb = argv[myoptind];
+
+	if (!strcmp(verb, "start")) {
+		return dsp_sbus::start(argc - 1, argv + 1);
 	} else {
-		return dsp_sbus::start();
+		dsp_sbus::usage();
+		return -1;
 	}
 
 	return 0;
