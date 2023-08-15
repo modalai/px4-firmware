@@ -55,6 +55,8 @@ IOPacket _packet;
 bool _initialized = false;
 bool _is_running = false;
 uint64_t _rc_last_valid;		///< last valid timestamp
+uint16_t _rc_valid_update_count = 0;
+
 static px4_task_t _task_handle = -1;
 
 uORB::PublicationMulti<input_rc_s> _rc_pub{ORB_ID(input_rc)};
@@ -193,6 +195,7 @@ void dsp_sbus_task(int argc, char *argv[]) {
 
 	while (true) {
 
+		// usleep(200000); // Update every 200ms
 		usleep(20000); // Update every 20ms
 
 		if (io_reg_get(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_FLAGS, &status_regs[0],
@@ -207,8 +210,8 @@ void dsp_sbus_task(int argc, char *argv[]) {
 		/* fetch values from IO */
 		if (!(status_regs[0] & PX4IO_P_STATUS_FLAGS_RC_OK)) {
 			PX4_INFO("RC lost status flag set");
-		} else {
-			// PX4_INFO("RC lost status flag is not set");
+		// } else {
+		// 	PX4_INFO("RC lost status flag is not set");
 		}
 
 		if (status_regs[0] & PX4IO_P_STATUS_FLAGS_RC_SBUS) {
@@ -222,13 +225,25 @@ void dsp_sbus_task(int argc, char *argv[]) {
 		if (io_reg_get(PX4IO_PAGE_RAW_RC_INPUT, PX4IO_P_RAW_RC_COUNT, &rc_regs[0],
 								sizeof(rc_regs) / sizeof(rc_regs[0])) != OK) {
 			PX4_ERR("Failed to read RC registers");
-		} else {
-			// PX4_INFO("Successfully read RC registers");
-			// PX4_INFO("Prolog: %u 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
-			//		 rc_regs[0], rc_regs[1], rc_regs[2], rc_regs[3], rc_regs[4], rc_regs[5]);
+		// } else {
+		// 	PX4_INFO("Successfully read RC registers");
+		// 	PX4_INFO("Prolog: %u 0x%.4x 0x%.4x 0x%.4x 0x%.4x 0x%.4x",
+		// 			 rc_regs[0], rc_regs[1], rc_regs[2], rc_regs[3], rc_regs[4], rc_regs[5]);
 		}
 
 		channel_count = rc_regs[PX4IO_P_RAW_RC_COUNT];
+
+		// const uint16_t rc_valid_update_count = rc_regs[PX4IO_P_RAW_FRAME_COUNT];
+		// const bool rc_updated = (rc_valid_update_count != _rc_valid_update_count);
+		// 
+		// if (!rc_updated) {
+		// 	PX4_INFO("Didn't get an RC update indication. %u %u", rc_valid_update_count, _rc_valid_update_count);
+		// 	continue;
+		// }
+		// 
+		// _rc_valid_update_count = rc_valid_update_count;
+		// 
+		// PX4_INFO("Got an RC update indication");
 
 		/* limit the channel count */
 		if (channel_count > input_rc_s::RC_INPUT_MAX_CHANNELS) {
@@ -242,22 +257,8 @@ void dsp_sbus_task(int argc, char *argv[]) {
 		rc_val.timestamp = hrt_absolute_time();
 		rc_val.rc_ppm_frame_length = rc_regs[PX4IO_P_RAW_RC_DATA];
 		
-		// if (!_analog_rc_rssi_stable) {
-		// 	input_rc.rssi = regs[PX4IO_P_RAW_RC_NRSSI];
-		// 
-		// } else {
-		// 	float rssi_analog = ((_analog_rc_rssi_volt - 0.2f) / 3.0f) * 100.0f;
-		// 
-		// 	if (rssi_analog > 100.0f) {
-		// 		rssi_analog = 100.0f;
-		// 	}
-		// 
-		// 	if (rssi_analog < 0.0f) {
-		// 		rssi_analog = 0.0f;
-		// 	}
-		// 
-		// 	input_rc.rssi = rssi_analog;
-		// }
+		rc_val.rssi = rc_regs[PX4IO_P_RAW_RC_NRSSI];
+		rc_val.link_quality = rc_regs[PX4IO_P_RAW_RC_NRSSI];
 		
 		rc_val.rc_failsafe = (rc_regs[PX4IO_P_RAW_RC_FLAGS] & PX4IO_P_RAW_RC_FLAGS_FAILSAFE);
 		rc_val.rc_lost = !(rc_regs[PX4IO_P_RAW_RC_FLAGS] & PX4IO_P_RAW_RC_FLAGS_RC_OK);
@@ -280,15 +281,6 @@ void dsp_sbus_task(int argc, char *argv[]) {
 		for (unsigned i = channel_count; i < (sizeof(rc_val.values) / sizeof(rc_val.values[0])); i++) {
 			rc_val.values[i] = 0;
 		}
-		
-		// /* get RSSI from input channel */
-		// if (_rssi_pwm_chan > 0 && _rssi_pwm_chan <= input_rc_s::RC_INPUT_MAX_CHANNELS && _rssi_pwm_max - _rssi_pwm_min != 0) {
-		// 	int rssi = ((input_rc.values[_rssi_pwm_chan - 1] - _rssi_pwm_min) * 100) /
-		// 		   (_rssi_pwm_max - _rssi_pwm_min);
-		// 	rssi = rssi > 100 ? 100 : rssi;
-		// 	rssi = rssi < 0 ? 0 : rssi;
-		// 	input_rc.rssi = rssi;
-		// }
 
 		_rc_pub.publish(rc_val);
 
