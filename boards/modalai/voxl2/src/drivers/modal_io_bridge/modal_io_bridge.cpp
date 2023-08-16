@@ -42,6 +42,37 @@
 #include <lib/parameters/param.h>
 
 
+#include "modal_pipe_sink.h"
+
+#define SINK_PATH (MODAL_PIPE_DEFAULT_BASE_DIR "modal_io_bridge")
+#define READ_BUF_SIZE 1024
+#define PIPE_SIZE (64*1024)
+
+#include <limits.h>     // for PATH_MAX
+#include <sys/stat.h>   // for mkdir
+
+extern "C" { 
+int _mkdir_recursive(const char* dir)
+{
+    char tmp[PATH_MAX];
+    char* p = NULL;
+
+    snprintf(tmp, sizeof(tmp),"%s",dir);
+    for(p = tmp + 1; *p!=0; p++){
+        if(*p == '/'){
+            *p = 0;
+            if(mkdir(tmp, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) && errno!=EEXIST){
+                perror("ERROR calling mkdir");
+                printf("tried to make %s\n", tmp);
+                return -1;
+            }
+            *p = '/';
+        }
+    }
+    return 0;
+}
+}
+
 extern "C" { __EXPORT int modal_io_bridge_main(int argc, char *argv[]); }
 
 namespace modal_io_bridge
@@ -52,7 +83,20 @@ bool _is_running = false;
 
 static px4_task_t _task_handle = -1;
 
+uint8_t _data_buffer[READ_BUF_SIZE];
+bool _new_data = false;
+uint32_t _data_len = 0;
+
 uORB::Publication<modal_io_data_s> _data_pub{ORB_ID(modal_io_data)};
+
+static void simple_cb(int ch, char* data, int bytes, __attribute__((unused)) void* context) {
+	PX4_INFO("Received %d bytes on channel %d", bytes, ch);
+	memcpy(_data_buffer, (uint8_t*) data, bytes);
+	_data_len = bytes;
+	_new_data = true;
+	
+	return;
+}
 
 int initialize()
 {
@@ -60,6 +104,12 @@ int initialize()
 		// Already successfully initialized
 		return 0;
 	}
+
+	if (pipe_sink_create(0, SINK_PATH, SINK_FLAG_EN_SIMPLE_HELPER, PIPE_SIZE, READ_BUF_SIZE)) {
+		return -1;
+	}
+
+	pipe_sink_set_simple_cb(0, &simple_cb, NULL);
 
 	_initialized = true;
 
@@ -74,14 +124,17 @@ void modal_io_bridge_task() {
 
 	while (true) {
 
-		usleep(20000); // Update every 20ms
+		usleep(20000); // Poll every 20ms
 
-		memset(&io_data, 0, sizeof(modal_io_data_s));
+		if (_new_data) {
+			_new_data = false;
+			memset(&io_data, 0, sizeof(modal_io_data_s));
+			io_data.timestamp = hrt_absolute_time();
+			io_data.len = _data_len;
+			memcpy(io_data.data, _data_buffer, _data_len);
 
-		io_data.timestamp = hrt_absolute_time();
-
-		_data_pub.publish(io_data);
-
+			_data_pub.publish(io_data);
+		}
 	}
 }
 
