@@ -34,6 +34,8 @@
 px4_add_module(
 	MODULE drivers__modal_io_bridge
 	MAIN modal_io_bridge
+	INCLUDES .
 	SRCS
 		modal_io_bridge.cpp
+		../../lib/libmodal-pipe/library/src/sink.c
 	)
