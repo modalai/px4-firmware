@@ -33,6 +33,7 @@
 
 
 #include <string>
+#include <semaphore.h>
 #include <px4_log.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/getopt.h>
@@ -84,16 +85,20 @@ bool _is_running = false;
 static px4_task_t _task_handle = -1;
 
 uint8_t _data_buffer[READ_BUF_SIZE];
-bool _new_data = false;
 uint32_t _data_len = 0;
+
+px4_sem_t _new_data_sem;
 
 uORB::Publication<modal_io_data_s> _data_pub{ORB_ID(modal_io_data)};
 
 static void simple_cb(int ch, char* data, int bytes, __attribute__((unused)) void* context) {
+
 	PX4_INFO("Received %d bytes on channel %d", bytes, ch);
+
 	memcpy(_data_buffer, (uint8_t*) data, bytes);
 	_data_len = bytes;
-	_new_data = true;
+
+	px4_sem_post(&_new_data_sem);
 	
 	return;
 }
@@ -104,6 +109,8 @@ int initialize()
 		// Already successfully initialized
 		return 0;
 	}
+
+   (void) px4_sem_init(&_new_data_sem, 0, 0);
 
 	if (pipe_sink_create(0, SINK_PATH, SINK_FLAG_EN_SIMPLE_HELPER, PIPE_SIZE, READ_BUF_SIZE)) {
 		return -1;
@@ -122,19 +129,21 @@ void modal_io_bridge_task() {
 
 	_is_running = true;
 
+	PX4_INFO("Modal IO Bridge driver starting");
+
 	while (true) {
 
-		usleep(20000); // Poll every 20ms
+		do {} while (px4_sem_wait(&_new_data_sem) != 0);
 
-		if (_new_data) {
-			_new_data = false;
-			memset(&io_data, 0, sizeof(modal_io_data_s));
-			io_data.timestamp = hrt_absolute_time();
-			io_data.len = _data_len;
-			memcpy(io_data.data, _data_buffer, _data_len);
+		PX4_INFO("Publishing modal io data");
 
-			_data_pub.publish(io_data);
-		}
+		memset(&io_data, 0, sizeof(modal_io_data_s));
+
+		io_data.timestamp = hrt_absolute_time();
+		io_data.len = _data_len;
+		memcpy(io_data.data, _data_buffer, _data_len);
+
+		_data_pub.publish(io_data);
 	}
 }
 
