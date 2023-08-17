@@ -81,6 +81,7 @@ namespace modal_io_bridge
 
 bool _initialized = false;
 bool _is_running = false;
+bool _debug = false;
 
 static px4_task_t _task_handle = -1;
 
@@ -93,16 +94,22 @@ uORB::Publication<modal_io_data_s> _data_pub{ORB_ID(modal_io_data)};
 
 static void simple_cb(int ch, char* data, int bytes, __attribute__((unused)) void* context) {
 
-	memcpy(_data_buffer, (uint8_t*) data, bytes);
-	_data_len = bytes;
+	if (bytes) {
+		memcpy(_data_buffer, (uint8_t*) data, bytes);
+		_data_len = bytes;
 
-	PX4_INFO("Received %d bytes on channel %d", bytes, ch);
-	PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
-			 _data_buffer[0], _data_buffer[1], _data_buffer[2], _data_buffer[3],
-			 _data_buffer[4], _data_buffer[5], _data_buffer[6], _data_buffer[7]);
+		if (_debug) {
+			PX4_INFO("Received %d bytes on channel %d", bytes, ch);
+			PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
+					 _data_buffer[0], _data_buffer[1], _data_buffer[2], _data_buffer[3],
+					 _data_buffer[4], _data_buffer[5], _data_buffer[6], _data_buffer[7]);
+		}
 
-	px4_sem_post(&_new_data_sem);
-	
+		px4_sem_post(&_new_data_sem);
+	} else if (_debug) {
+		PX4_ERR("Got callback with zero data available");
+	}
+
 	return;
 }
 
@@ -138,19 +145,40 @@ void modal_io_bridge_task() {
 
 		do {} while (px4_sem_wait(&_new_data_sem) != 0);
 
-		PX4_INFO("Publishing modal io data");
+		if (_data_len) {
+			memset(&io_data, 0, sizeof(modal_io_data_s));
 
-		memset(&io_data, 0, sizeof(modal_io_data_s));
+			io_data.timestamp = hrt_absolute_time();
+			io_data.len = _data_len;
+			memcpy(io_data.data, _data_buffer, _data_len);
 
-		io_data.timestamp = hrt_absolute_time();
-		io_data.len = _data_len;
-		memcpy(io_data.data, _data_buffer, _data_len);
+			if (_debug) {
+				PX4_INFO("Publishing modal io data");
+			}
 
-		_data_pub.publish(io_data);
+			_data_pub.publish(io_data);
+		} else if (_debug) {
+			PX4_ERR("Got semaphore with zero data to be sent");
+		}
 	}
 }
 
 int start(int argc, char *argv[]) {
+
+	int ch;
+	int myoptind = 1;
+	const char *myoptarg = nullptr;
+
+	while ((ch = px4_getopt(argc, argv, "d", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'd':
+			_debug = true;
+			PX4_INFO("Setting debug flag to true");
+			break;
+		default:
+			break;
+		}
+	}
 
 	if (! _initialized) {
 		if (initialize()) {
