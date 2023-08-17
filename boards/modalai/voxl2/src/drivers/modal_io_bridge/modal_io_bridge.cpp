@@ -209,7 +209,8 @@ int start(int argc, char *argv[]) {
 void
 usage()
 {
-	PX4_INFO("Usage: modal_io_bridge start");
+	PX4_INFO("Usage: modal_io_bridge start [options]");
+	PX4_INFO("Options: -d    enable debug output");
 }
 
 } // End namespance modal_io_bridge
