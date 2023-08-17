@@ -93,10 +93,13 @@ uORB::Publication<modal_io_data_s> _data_pub{ORB_ID(modal_io_data)};
 
 static void simple_cb(int ch, char* data, int bytes, __attribute__((unused)) void* context) {
 
-	PX4_INFO("Received %d bytes on channel %d", bytes, ch);
-
 	memcpy(_data_buffer, (uint8_t*) data, bytes);
 	_data_len = bytes;
+
+	PX4_INFO("Received %d bytes on channel %d", bytes, ch);
+	PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
+			 _data_buffer[0], _data_buffer[1], _data_buffer[2], _data_buffer[3],
+			 _data_buffer[4], _data_buffer[5], _data_buffer[6], _data_buffer[7]);
 
 	px4_sem_post(&_new_data_sem);
 	
