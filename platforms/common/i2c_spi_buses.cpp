@@ -590,6 +590,8 @@ static void initializer_trampoline(void *argument)
 int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterator &iterator,
 				   void(*print_usage)(), instantiate_method instantiate)
 {
+	PX4_INFO("I2CSPIDriverBase::module_start");
+
 	if (iterator.configuredBusOption() == I2CSPIBusOption::All) {
 		PX4_ERR("need to specify a bus type");
 		print_usage();
@@ -598,7 +600,11 @@ int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterat
 
 	bool started = false;
 
+	PX4_INFO("I2CSPIDriverBase::module_start starting iterators");
+
 	while (iterator.next()) {
+		PX4_INFO("I2CSPIDriverBase::module_start iterator.next");
+
 		if (iterator.instance()) {
 			PX4_WARN("Already running on bus %i", iterator.bus());
 			continue;
@@ -622,10 +628,12 @@ int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterat
 		case BOARD_INVALID_BUS: device_id.devid_s.bus_type = device::Device::DeviceBusType_UNKNOWN; break;
 		}
 
-
+		PX4_INFO("Getting work queue config for device %u", device_id.devid);
 		const px4::wq_config_t &wq_config = px4::device_bus_to_wq(device_id.devid);
+		PX4_INFO("Got work queue config for %s", wq_config.name);
 		I2CSPIDriverConfig driver_config{cli, iterator, wq_config};
 		const int runtime_instance = iterator.runningInstancesCount();
+		PX4_INFO("Instances count %d", runtime_instance);
 		I2CSPIDriverInitializing initializer_data{driver_config, instantiate, runtime_instance};
 		// initialize the object and bus on the work queue thread - this will also probe for the device
 		px4::WorkItemSingleShot initializer(wq_config, initializer_trampoline, &initializer_data);
@@ -635,10 +643,12 @@ int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterat
 
 		if (!instance) {
 			PX4_DEBUG("instantiate failed (no device on bus %i (devid 0x%x)?)", iterator.bus(), iterator.devid());
+			PX4_ERR("instantiate failed (no device on bus %i (devid 0x%x)?)", iterator.bus(), iterator.devid());
 			continue;
 		}
 
 #if defined(CONFIG_I2C)
+		PX4_INFO("I2CSPIDriverBase::module_start iterator.next checking i2c address");
 
 		if (cli.i2c_address != 0 && instance->_i2c_address == 0) {
 			PX4_ERR("Bug: driver %s does not pass the I2C address to I2CSPIDriverBase", instance->ItemName());

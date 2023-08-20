@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+ *   Copyright (C) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,32 +31,13 @@
  *
  ****************************************************************************/
 
-/**
- * @file board_config.h
- *
- * VOXL2 internal definitions
- */
+#include <px4_platform_common/i2c.h>
+#include <px4_arch/i2c_hw_description.h>
+#include <drivers/drv_sensor.h>
 
-#pragma once
-
-#define BOARD_HAS_NO_RESET
-#define BOARD_HAS_NO_BOOTLOADER
-
-// Define this as empty since there are no I2C buses
-#define BOARD_I2C_BUS_CLOCK_INIT
-
-/*
- * I2C buses
- */
-#define CONFIG_I2C 1
-#define PX4_NUMBER_I2C_BUSES    4
-
-#include <system_config.h>
-#include <px4_platform_common/board_common.h>
-
-#define BOARD_OVERRIDE_UUID "MODALAIVOXL20000" // must be of length 16
-#define PX4_SOC_ARCH_ID PX4_SOC_ARCH_ID_VOXL2
-
-#define MODAL_IO_DEFAULT_PORT 	"2"
-
-
+constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {
+	initI2CBusExternal(0),
+	initI2CBusExternal(1),
+	initI2CBusExternal(2),
+	initI2CBusExternal(3)
+};

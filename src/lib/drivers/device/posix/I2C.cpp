@@ -62,6 +62,8 @@ I2C::I2C(uint8_t device_type, const char *name, const int bus, const uint16_t ad
 	_device_id.devid_s.bus_type = DeviceBusType_I2C;
 	_device_id.devid_s.bus = bus;
 	_device_id.devid_s.address = address;
+
+	PX4_INFO("*** I2C Device ID 0x%x %d", _device_id.devid, _device_id.devid);
 }
 
 I2C::I2C(const I2CSPIDriverConfig &config)
@@ -89,6 +91,7 @@ I2C::init()
 
 	if (_fd < 0) {
 		DEVICE_DEBUG("failed to init I2C");
+		PX4_ERR("failed to init I2C");
 		ret = -ENOENT;
 		goto out;
 	}
@@ -98,6 +101,7 @@ I2C::init()
 
 	if (ret != OK) {
 		DEVICE_DEBUG("probe failed");
+		PX4_ERR("probe failed");
 		goto out;
 	}
 

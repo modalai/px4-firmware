@@ -50,6 +50,12 @@ elseif(UNIX AND NOT APPLE) #TODO: add linux PX4 platform type
 		posix/I2C.cpp
 		posix/SPI.cpp
 	)
+elseif((${PX4_PLATFORM} MATCHES "posix"))
+	message(STATUS "*** Adding I2C for POSIX platform ***")
+	# Linux I2Cdev
+	list(APPEND SRCS_PLATFORM
+		posix/I2C.cpp
+	)
 endif()
 
 px4_add_library(drivers__device
