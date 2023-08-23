@@ -68,6 +68,17 @@ enum class LEDState : uint8_t {
 
 class GENERIC_CRC8
 {
+public:
+    GENERIC_CRC8() {};
+    uint8_t calc(const uint8_t *data, uint16_t len, uint8_t crc)
+    {
+        while (len--)
+        {
+            crc = crc8tab[crc ^ *data++];
+        }
+        return crc;
+    }
+
 private:
     uint8_t crc8tab[crclen] = {0, 213, 127, 170, 254, 43, 129, 84, 41, 252, 86, 131, 215, 2, 168, 125, 82, 135,
                         45, 248, 172, 121, 211, 6, 123, 174, 4, 209, 133, 80, 250, 47, 164, 113, 219, 14, 
@@ -83,30 +94,8 @@ private:
                         38, 91, 142, 36, 241, 165, 112, 218, 15, 32, 245, 95, 138, 222, 11, 161, 116, 9, 220,
                         118, 163, 247, 34, 136, 93, 214, 3, 169, 124, 40, 253, 87, 130, 255, 42, 128, 85, 1, 
                         212, 126, 171, 132, 81, 251, 46, 122, 175, 5, 208, 173, 120, 210, 7, 83, 134, 44, 249};
-    uint8_t crcpoly;
-
-public:
-    GENERIC_CRC8(uint8_t poly);
-    uint8_t calc(const uint8_t *data, uint16_t len, uint8_t crc = 0);
 };
 
- std::map<ControllerInput, std::string> ControllerInputMap{
-	{ControllerInput::DLEFT, "DLEFT"},
-	{ControllerInput::DRIGHT, "DRIGHT"},
-	{ControllerInput::DDOWN, "DDOWN"},
-	{ControllerInput::DUP, "DUP"},
-	{ControllerInput::BACK, "BACK"},
-	{ControllerInput::START, "START"},
-	{ControllerInput::Y, "Y"},
-	{ControllerInput::B, "B"},
-	{ControllerInput::A, "A"},
-	{ControllerInput::X, "X"},
-	{ControllerInput::STICK_RIGHT, "STICK_RIGHT"},
-	{ControllerInput::STICK_LEFT, "STICK_LEFT"},
-	{ControllerInput::BUMPER_RIGHT, "BUMPER_RIGHT"},
-	{ControllerInput::BUMPER_LEFT, "BUMPER_LEFT"},
-    {ControllerInput::DEFAULT, "Unkown"}
-};
 
 ControllerInput getKey(const std::map<ControllerInput, std::string>& map, const std::string& value) {
     for (const auto& pair : map) {
@@ -118,16 +107,4 @@ ControllerInput getKey(const std::map<ControllerInput, std::string>& map, const 
 }
 
 
-uint8_t GENERIC_CRC8::calc(const uint8_t *data, uint16_t len, uint8_t crc)
-{
-    while (len--)
-    {
-        crc = crc8tab[crc ^ *data++];
-    }
-    return crc;
-}
 
-GENERIC_CRC8::GENERIC_CRC8(uint8_t poly)
-{
-    crcpoly = poly;
-}
