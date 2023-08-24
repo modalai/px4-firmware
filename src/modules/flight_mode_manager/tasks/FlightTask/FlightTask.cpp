@@ -102,8 +102,8 @@ void FlightTask::_resetSetpoints()
 
 void FlightTask::_evaluateVehicleLocalPosition()
 {
-	_position.setAll(NAN);
-	_velocity.setAll(NAN);
+	_position.setZero();
+	_velocity.setZero();
 	_yaw = NAN;
 	_dist_to_bottom = NAN;
 
