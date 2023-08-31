@@ -664,8 +664,8 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		return false;
 	}
 
-	sp->lat = item.lat;
-	sp->lon = item.lon;
+	sp->lat = static_cast<double>(NAN);
+	sp->lon = static_cast<double>(NAN);
 	sp->alt = get_absolute_altitude_for_item(item);
 	sp->yaw = item.yaw;
 	sp->yaw_valid = PX4_ISFINITE(item.yaw);
