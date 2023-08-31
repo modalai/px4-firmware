@@ -616,6 +616,7 @@ trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const
 	} else {
 		// descend with land speed since we can't stop
 		failsafe_setpoint.acceleration[0] = failsafe_setpoint.acceleration[1] = 0.f;
+		failsafe_setpoint.acceleration[2] = .3f;
 		failsafe_setpoint.velocity[2] = _param_mpc_land_speed.get();
 
 		if (warn) {

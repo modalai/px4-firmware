@@ -128,6 +128,10 @@ float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
 bool _use_software_mav_throttling{false};
 
+int _vio_quality = -128;
+bool _vio_blowup = false;
+float _vio_offset = 0.0;
+
 int heartbeat_counter = 0;
 int imu_counter = 0;
 int hil_sensor_counter = 0;
@@ -178,12 +182,15 @@ handle_message_dsp(mavlink_message_t *msg)
 		handle_message_hil_sensor_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HIL_GPS:
-		handle_message_hil_gps_dsp(msg);
+		// PX4_INFO("Got MAVLINK_MSG_ID_HIL_GPS");
+		// handle_message_hil_gps_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
-		handle_message_vision_position_estimate_dsp(msg);
+		PX4_INFO("Skipping MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE");
+		// handle_message_vision_position_estimate_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_ODOMETRY:
+		// PX4_INFO("Got MAVLINK_MSG_ID_ODOMETRY");
 		handle_message_odometry_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
@@ -483,6 +490,14 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	uint64_t timestamp = hrt_absolute_time();
 	odom.timestamp_sample = timestamp;
 
+	if (_vio_blowup) {
+		_vio_offset += 0.25;
+		odom_in.x += _vio_offset;
+		odom_in.y += _vio_offset;
+		odom_in.z += _vio_offset;
+		odom_in.quality = 0;
+	}
+
 	const matrix::Vector3f odom_in_p(odom_in.x, odom_in.y, odom_in.z);
 
 	// position x/y/z (m)
@@ -657,7 +672,15 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	}
 
 	odom.reset_counter = odom_in.reset_counter;
-	odom.quality = odom_in.quality;
+
+	if ( ! _vio_blowup) {
+		if (_vio_quality != -128) {
+			odom.quality = _vio_quality;
+		} else {
+			odom.quality = odom_in.quality;
+		}
+		// PX4_INFO("Odometry quality: %d", odom.quality);
+	}
 
 	switch (odom_in.estimator_type) {
 	case MAV_ESTIMATOR_TYPE_UNKNOWN: // accept MAV_ESTIMATOR_TYPE_UNKNOWN for legacy support
@@ -1012,6 +1035,32 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	else if(!strcmp(verb, "status")){
 		return dsp_hitl::get_status();
+	}
+
+	else if(!strcmp(verb, "quality")) {
+		if (argc == 3) {
+			dsp_hitl::_vio_quality = atoi(argv[2]);
+			if (dsp_hitl::_vio_quality == -128) {
+				PX4_INFO("Disable VIO quality override");
+			} else {
+				PX4_INFO("Setting VIO quality override to %d", dsp_hitl::_vio_quality);
+			}
+		} else {
+			PX4_ERR("Need to provide a quality value between -127 and 127");
+		}
+		return 0;
+	}
+
+	else if(!strcmp(verb, "blowup")) {
+		// Toggle VIO blowup flag
+		if (dsp_hitl::_vio_blowup) {
+			dsp_hitl::_vio_blowup = false;
+		} else {
+			dsp_hitl::_vio_offset = 0.0;
+			dsp_hitl::_vio_blowup = true;
+		}
+
+		return 0;
 	}
 
 	else {

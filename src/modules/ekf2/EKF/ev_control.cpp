@@ -52,11 +52,19 @@ void Ekf::controlExternalVisionFusion()
 		// determine if we should use the horizontal position observations
 		bool quality_sufficient = (_params.ev_quality_minimum <= 0) || (ev_sample.quality >= _params.ev_quality_minimum);
 
+		// if (! quality_sufficient) {
+		// 	PX4_INFO("Got bad quality EV sample: %d", ev_sample.quality);
+		// }
+
 		const bool starting_conditions_passing = quality_sufficient
 				&& ((ev_sample.time_us - _ev_sample_prev.time_us) < EV_MAX_INTERVAL)
 				&& ((_params.ev_quality_minimum <= 0) || (_ev_sample_prev.quality >= _params.ev_quality_minimum)) // previous quality sufficient
 				&& ((_params.ev_quality_minimum <= 0) || (_ext_vision_buffer->get_newest().quality >= _params.ev_quality_minimum)) // newest quality sufficient
 				&& isNewestSampleRecent(_time_last_ext_vision_buffer_push, EV_MAX_INTERVAL);
+
+		// if ((quality_sufficient) && (! starting_conditions_passing)) {
+		// 	PX4_INFO("Starting conditions failed even though current quality is okay");
+		// }
 
 		controlEvYawFusion(ev_sample, starting_conditions_passing, ev_reset, quality_sufficient, _aid_src_ev_yaw);
 		controlEvVelFusion(ev_sample, starting_conditions_passing, ev_reset, quality_sufficient, _aid_src_ev_vel);
@@ -82,5 +90,6 @@ void Ekf::controlExternalVisionFusion()
 
 		_warning_events.flags.vision_data_stopped = true;
 		ECL_WARN("vision data stopped");
+		PX4_ERR("vision data stopped. Current time: %ull, last good sample time: %ull", hrt_abstime(), _ev_sample_prev.time_us);
 	}
 }

@@ -43,6 +43,9 @@ else
     param load
 fi
 
+param set SYS_HAS_GPS 0
+# param set EKF2_EV_QMIN 10
+
 # Start logging and use timestamps for log files when possible.
 # Add the "-e" option to start logging immediately. Default is
 # to log only when armed. Caution must be used with the "-e" option
@@ -51,6 +54,9 @@ fi
 logger start -e -t -b 200
 
 /bin/sleep 1
+
+# Use real RC driver
+qshell dsp_sbus start
 
 # Start all of the processing modules on DSP
 qshell sensors start -h
