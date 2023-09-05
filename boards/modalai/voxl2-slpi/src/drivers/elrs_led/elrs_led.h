@@ -37,24 +37,24 @@
 #define crclen 256
 #define CRSF_CRC_POLY 0xd5
 #define CRSF_FRAME_NOT_COUNTED_BYTES 2
-#define PWM_FRAME_SIZE 9
+#define PWM_FRAME_SIZE 7
 
-
-enum class ControllerInput : uint32_t {
+enum ControllerInput : uint32_t {
+	A = 0x01,
+	B = 0x02,
+	X = 0x04,
+	Y = 0x08,
+	WINDOW = 0x10,
+	STEAM = 0x20,
+	MENU = 0x40,
+	STICK_LEFT = 0x80,
+	STICK_RIGHT = 0x100,
+	BUMPER_LEFT = 0x200,
+	BUMPER_RIGHT = 0x400,
+	DUP = 0x800,
+	DDOWN = 0x1000,
 	DLEFT = 0x2000,
 	DRIGHT = 0x4000,
-	DDOWN = 0x1000,
-	DUP = 0x800,
-	BACK = 0x10,
-	START = 0x40,
-	Y = 0x08,
-	B = 0x02,
-	A = 0x01,
-	X = 0x04,
-	STICK_RIGHT = 0x100,
-	STICK_LEFT = 0x80,
-	BUMPER_RIGHT = 0x400,
-	BUMPER_LEFT = 0x200,
     DEFAULT = 0xFFFFFFFF
 };
 
