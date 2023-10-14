@@ -153,8 +153,8 @@ void task_main(int argc, char *argv[])
 		if (newbytes <= 0) {
 			if (print_msg) { PX4_INFO("Spektrum RC: Read no bytes from UART"); }
 
-		} else if (((newbytes != DSM_FRAME_SIZE) || ((rx_buf[1] & 0x0F) != 0x02)) && (! first_correct_frame_received)) {
-			PX4_ERR("Spektrum RC: Read something other than correct DSM frame on read. Got %d bytes. Protocol byte is 0x%.2x",
+		} else if (((newbytes != DSM_FRAME_SIZE) || (((rx_buf[1] & 0x0F) != 0x02) && ((rx_buf[1] & 0x0F) != 0x01))) && (! first_correct_frame_received)) {
+		                PX4_ERR("Spektrum RC: Got %d bytes. Protocol byte is 0x%.2x. No 1st Frame!",
 				newbytes, rx_buf[1]);
 
 		} else {
