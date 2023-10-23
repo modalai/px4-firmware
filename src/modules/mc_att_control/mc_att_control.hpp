@@ -146,6 +146,9 @@ private:
 		(ParamFloat<px4::params::MC_PITCHRATE_MAX>) _param_mc_pitchrate_max,
 		(ParamFloat<px4::params::MC_YAWRATE_MAX>)   _param_mc_yawrate_max,
 
+		(ParamFloat<px4::params::MC_MAX_FF_SPEED>) _param_mc_max_ff_speed,
+		(ParamFloat<px4::params::MC_FF_FACTOR>)    _param_mc_ff_factor,
+
 		/* Stabilized mode params */
 		(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) _param_mpc_man_tilt_max,    /**< maximum tilt allowed for manual flight */
 		(ParamFloat<px4::params::MPC_MAN_Y_MAX>)    _param_mpc_man_y_max,       /**< scaling factor from stick to yaw rate */

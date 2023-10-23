@@ -101,6 +101,10 @@ matrix::Vector3f AttitudeControl::update(const Quatf &q) const
 		rate_setpoint += q.inversed().dcm_z() * _yawspeed_setpoint;
 	}
 
+	//add in the roll and pitch feedforward setpoints
+	rate_setpoint(0) += _rollspeed_setpoint;
+	rate_setpoint(1) += _pitchspeed_setpoint;
+
 	// limit rates
 	for (int i = 0; i < 3; i++) {
 		rate_setpoint(i) = math::constrain(rate_setpoint(i), -_rate_limit(i), _rate_limit(i));

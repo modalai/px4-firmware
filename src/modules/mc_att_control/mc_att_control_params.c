@@ -158,3 +158,26 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_MAX, 200.0f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MC_MAN_TILT_TAU, 0.0f);
+
+/**
+ * Maximum Feedforward Speed
+ *
+ * Maximum feedforward speed for roll and pitch.  The feedforward speed is calculated from the derivative of the attitude setpoint.
+ *
+ * @unit deg/s
+ * @decimal 1
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_MAX_FF_SPEED, 0.0f);
+
+/**
+ * Feedforward Factor
+ *
+ * Feedforward use factor for roll and pitch.  1.0 is full feedforward and 0 is no feedforward.
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_FF_FACTOR, 0.0f);

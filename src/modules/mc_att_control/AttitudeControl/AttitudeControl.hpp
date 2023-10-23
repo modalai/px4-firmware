@@ -50,6 +50,8 @@
 
 #include <matrix/matrix/math.hpp>
 #include <mathlib/math/Limits.hpp>
+#include <drivers/drv_hrt.h>
+#include <px4_platform_common/log.h>
 
 class AttitudeControl
 {
@@ -70,6 +72,10 @@ public:
 	 */
 	void setRateLimit(const matrix::Vector3f &rate_limit) { _rate_limit = rate_limit; }
 
+	void setMaxFFSpeed(const float max_ff_speed) { _max_ff_speed = max_ff_speed; }
+
+	void setAttitudeFFFactor(const float attitude_ff_factor) { _attitude_ff_factor = attitude_ff_factor; }
+
 	/**
 	 * Set a new attitude setpoint replacing the one tracked before
 	 * @param qd desired vehicle attitude setpoint
@@ -77,6 +83,55 @@ public:
 	 */
 	void setAttitudeSetpoint(const matrix::Quatf &qd, const float yawspeed_setpoint)
 	{
+		_attitude_setpoint_q = qd;
+		_attitude_setpoint_q.normalize();
+		_yawspeed_setpoint = yawspeed_setpoint;
+	}
+
+	/**
+	 * Set a new attitude setpoint replacing the one tracked before
+	 * @param qd desired vehicle attitude setpoint
+	 * @param yawspeed_setpoint [rad/s] yaw feed forward angular rate in world frame
+	 * @param dt [s] time since last calculation of desired vehicle attitude setpoint
+	 */
+	void setAttitudeSetpointdt(const matrix::Quatf &qd, const float yawspeed_setpoint, const float dt)
+	{
+		if (_max_ff_speed > 0) {
+			// Parameters
+			const float max_time_diff = 0.1f;
+
+			hrt_abstime time_now = hrt_absolute_time();
+
+			// quaternion between current and last setpoint
+			matrix::Quatf q_diff = _attitude_setpoint_q.inversed() * qd;
+			q_diff.normalize();
+			q_diff.canonicalize();
+			
+			// PX4_ERR("q_diff: %f, %f, %f, %f", (double)q_diff(0), (double)q_diff(1), (double)q_diff(2), (double)q_diff(3));
+
+			float rollspeed_raw = 0;
+			float pitchspeed_raw = 0;
+
+			//only update the ff speeds if the time has been short
+			if ((time_now - _last_attitude_setpoint_time)*1e-6f < max_time_diff) {
+				rollspeed_raw = 2 * q_diff(1) / dt;
+				pitchspeed_raw = 2 * q_diff(2) / dt;
+			}			
+
+			//rollspeed and pitchspeed are already filtered MC_MAN_TILT_TAU > 0
+
+			_rollspeed_setpoint = math::constrain(rollspeed_raw, -_max_ff_speed, _max_ff_speed) * _attitude_ff_factor;
+			_pitchspeed_setpoint = math::constrain(pitchspeed_raw, -_max_ff_speed, _max_ff_speed) * _attitude_ff_factor;
+
+			// PX4_ERR("time diff: %f, %f, %f, %f, %f", (double)dt, (double)rollspeed_raw, (double)_rollspeed_setpoint, (double)pitchspeed_raw, (double)_pitchspeed_setpoint);
+
+			_last_attitude_setpoint_time = time_now;
+		}
+		else {
+			_rollspeed_setpoint = 0.0f;
+			_pitchspeed_setpoint = 0.0f;
+		}
+
 		_attitude_setpoint_q = qd;
 		_attitude_setpoint_q.normalize();
 		_yawspeed_setpoint = yawspeed_setpoint;
@@ -107,4 +162,12 @@ private:
 
 	matrix::Quatf _attitude_setpoint_q; ///< latest known attitude setpoint e.g. from position control
 	float _yawspeed_setpoint{0.f}; ///< latest known yawspeed feed-forward setpoint
+
+	float _rollspeed_setpoint{0.f}; ///< latest known rollspeed feed-forward setpoint
+	float _pitchspeed_setpoint{0.f}; ///< latest known pitchspeed feed-forward setpoint
+
+	float _max_ff_speed{0.f};
+	float _attitude_ff_factor{0.f};
+
+	hrt_abstime _last_attitude_setpoint_time{0};
 };

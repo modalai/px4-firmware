@@ -93,6 +93,9 @@ MulticopterAttitudeControl::parameters_updated()
 						radians(_param_mc_yawrate_max.get())));
 
 	_man_tilt_max = math::radians(_param_mpc_man_tilt_max.get());
+
+	_attitude_control.setMaxFFSpeed(radians(_param_mc_max_ff_speed.get()));
+	_attitude_control.setAttitudeFFFactor(_param_mc_ff_factor.get());
 }
 
 float
@@ -184,7 +187,7 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
 	// update attitude controller setpoint immediately
-	_attitude_control.setAttitudeSetpoint(q_sp, attitude_setpoint.yaw_sp_move_rate);
+	_attitude_control.setAttitudeSetpointdt(q_sp, attitude_setpoint.yaw_sp_move_rate, dt);
 	_thrust_setpoint_body = Vector3f(attitude_setpoint.thrust_body);
 	_last_attitude_setpoint = attitude_setpoint.timestamp;
 }
