@@ -217,6 +217,7 @@ private:
 	void UpdateRangeSample(ekf2_timestamps_s &ekf2_timestamps);
 #endif // CONFIG_EKF2_RANGE_FINDER
 	void UpdateSystemFlagsSample(ekf2_timestamps_s &ekf2_timestamps);
+	void UpdateResetOnClipping(ekf2_timestamps_s &ekf2_timestamps);
 
 	// Used to check, save and use learned accel/gyro/mag biases
 	struct InFlightCalibration {
@@ -580,6 +581,7 @@ private:
 		_param_ekf2_aid_mask,		///< bitmasked integer that selects which of the GPS and optical flow aiding sources will be used
 		(ParamExtInt<px4::params::EKF2_HGT_REF>) _param_ekf2_hgt_ref,    ///< selects the primary source for height data
 		(ParamExtInt<px4::params::EKF2_BARO_CTRL>) _param_ekf2_baro_ctrl,///< barometer control selection
+		(ParamExtInt<px4::params::EKF2_BOUNCE_FIX>) _param_ekf2_bounce_fix, ///< bounce fix
 		(ParamExtInt<px4::params::EKF2_GPS_CTRL>) _param_ekf2_gps_ctrl,  ///< GPS control selection
 
 		(ParamExtInt<px4::params::EKF2_NOAID_TOUT>)

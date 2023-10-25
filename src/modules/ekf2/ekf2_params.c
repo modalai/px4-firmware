@@ -1550,3 +1550,17 @@ PARAM_DEFINE_INT32(EKF2_SYNT_MAG_Z, 0);
  * @decimal 1
  */
 PARAM_DEFINE_FLOAT(EKF2_GSF_TAS, 15.0f);
+
+
+/**
+ * Enable bounce fix during landing.
+ *
+ * This feature attempts to improve an issue with sustained bounces that occur after landing on a hard surface due to accel clipping. 
+ * The feature sets the z velocity to zero within the EKF on detection of z accel clipping during a descent in altitude mode.  
+ * 
+ *
+ * @group EKF2
+ * @boolean
+ */
+PARAM_DEFINE_INT32(EKF2_BOUNCE_FIX, 0);
+

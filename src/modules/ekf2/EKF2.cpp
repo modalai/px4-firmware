@@ -112,6 +112,7 @@ EKF2::EKF2(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
 	_param_ekf2_req_vdrift(_params->req_vdrift),
 	_param_ekf2_hgt_ref(_params->height_sensor_ref),
 	_param_ekf2_baro_ctrl(_params->baro_ctrl),
+	_param_ekf2_bounce_fix(_params->bounce_fix),
 	_param_ekf2_gps_ctrl(_params->gnss_ctrl),
 	_param_ekf2_noaid_tout(_params->valid_timeout_max),
 #if defined(CONFIG_EKF2_RANGE_FINDER)
@@ -676,6 +677,9 @@ void EKF2::Run()
 		UpdateRangeSample(ekf2_timestamps);
 #endif // CONFIG_EKF2_RANGE_FINDER
 		UpdateSystemFlagsSample(ekf2_timestamps);
+		UpdateResetOnClipping(ekf2_timestamps);
+
+		
 
 		// run the EKF update and output
 		const hrt_abstime ekf_update_start = hrt_absolute_time();
@@ -2395,6 +2399,26 @@ void EKF2::UpdateRangeSample(ekf2_timestamps_s &ekf2_timestamps)
 	}
 }
 #endif // CONFIG_EKF2_RANGE_FINDER
+
+void EKF2::UpdateResetOnClipping(ekf2_timestamps_s &ekf2_timestamps) {
+	if (_param_ekf2_bounce_fix.get()) {
+		uORB::Subscription vehicle_status_sub{ORB_ID(vehicle_status)};
+		vehicle_status_s vehicle_status{};
+		vehicle_status_sub.copy(&vehicle_status);
+
+		if ((ekf2_timestamps.timestamp < vehicle_status.timestamp + 3_s)) {
+			if (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL) {
+				_ekf.setCanResetZVelOnClipping(true);
+			}
+			else {
+				_ekf.setCanResetZVelOnClipping(false);
+			}
+		}
+	}
+	else {
+		_ekf.setCanResetZVelOnClipping(false);
+	}
+}
 
 void EKF2::UpdateSystemFlagsSample(ekf2_timestamps_s &ekf2_timestamps)
 {

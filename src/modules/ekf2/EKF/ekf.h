@@ -506,6 +506,8 @@ public:
 	const auto &aid_src_aux_vel() const { return _aid_src_aux_vel; }
 #endif // CONFIG_EKF2_AUXVEL
 
+	void setCanResetZVelOnClipping(const bool val) { _can_reset_z_vel_on_clipping = val; } 
+
 private:
 
 	// set the internal states and status to their default value
@@ -729,6 +731,8 @@ private:
 	uint16_t _clip_counter{0};		///< counter that increments when clipping ad decrements when not
 
 	float _height_rate_lpf{0.0f};
+
+	bool _can_reset_z_vel_on_clipping{false};
 
 	// initialise filter states of both the delayed ekf and the real time complementary filter
 	bool initialiseFilter(void);
