@@ -90,11 +90,6 @@ static void aggregator_thread_func(void *ptr)
 	qurt_thread_exit(QURT_EOK);
 }
 
-static float px4muorb_get_cpu_load() {
-	return 0.1;
-}
-
-
 int16_t uORB::ProtobufChannel::topic_advertised(const char *messageName)
 {
 	if (_debug) { PX4_INFO("Advertising %s on remote side", messageName); }
@@ -485,4 +480,31 @@ int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 	}
 
 	return -1;
+}
+
+
+float px4muorb_get_cpu_load(void) {
+
+	// Default value to return if the SLPI code doesn't support
+	// queries for the CPU load
+	float cpu_load = 0.1f;
+
+	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
+
+	if (channel) {
+		// The method to get the CPU load from the SLPI image is to send
+		// in the special code string to the add_subscription call. If it
+		// isn't supported the only return values can be 0 or -1. If it is
+		// supported then it will be some positive integer.
+		int16_t int_cpu_load = channel->add_subscription("CPULOAD", 0);
+		if (int_cpu_load > 1) {
+			// Yay! CPU Load query is supported!
+			cpu_load = (float) int_cpu_load;
+		}
+
+	} else {
+		PX4_ERR("Null channel pointer in %s",  __FUNCTION__);
+	}
+
+	return cpu_load;
 }

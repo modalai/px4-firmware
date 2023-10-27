@@ -44,10 +44,6 @@ static constexpr unsigned STACK_LOW_WARNING_THRESHOLD = 300;
 static constexpr unsigned FDS_LOW_WARNING_THRESHOLD = 2; ///< if free file descriptors fall below this, print a warning
 #endif
 
-#ifdef __PX4_QURT
-extern float px4muorb_get_cpu_load();
-#endif
-
 using namespace time_literals;
 
 namespace load_mon

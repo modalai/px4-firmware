@@ -217,7 +217,7 @@ extern "C" {
 
 	int px4muorb_send_topic_data(const char *name, const uint8_t *data, int data_len_in_bytes) __EXPORT;
 
-	float px4muorb_get_cpu_load();
+	float px4muorb_get_cpu_load(void) __EXPORT;
 }
 
 #endif // _uORBProtobufChannel_hpp_
