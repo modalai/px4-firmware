@@ -90,6 +90,11 @@ static void aggregator_thread_func(void *ptr)
 	qurt_thread_exit(QURT_EOK);
 }
 
+static float px4muorb_get_cpu_load() {
+	return 0.1;
+}
+
+
 int16_t uORB::ProtobufChannel::topic_advertised(const char *messageName)
 {
 	if (_debug) { PX4_INFO("Advertising %s on remote side", messageName); }

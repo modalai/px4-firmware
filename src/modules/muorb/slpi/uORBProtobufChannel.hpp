@@ -216,6 +216,8 @@ extern "C" {
 	int px4muorb_remove_subscriber(const char *name) __EXPORT;
 
 	int px4muorb_send_topic_data(const char *name, const uint8_t *data, int data_len_in_bytes) __EXPORT;
+
+	float px4muorb_get_cpu_load();
 }
 
 #endif // _uORBProtobufChannel_hpp_

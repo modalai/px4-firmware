@@ -44,6 +44,10 @@ static constexpr unsigned STACK_LOW_WARNING_THRESHOLD = 300;
 static constexpr unsigned FDS_LOW_WARNING_THRESHOLD = 2; ///< if free file descriptors fall below this, print a warning
 #endif
 
+#ifdef __PX4_QURT
+extern float px4muorb_get_cpu_load();
+#endif
+
 using namespace time_literals;
 
 namespace load_mon
@@ -229,6 +233,9 @@ void LoadMon::cpuload()
 	struct mallinfo mem = mallinfo();
 	cpuload.ram_usage = (float)mem.uordblks / mem.arena;
 	cpuload.load = 1.f - interval_idletime / interval;
+#elif defined(__PX4_QURT)
+	cpuload.ram_usage = 0.0f;
+	cpuload.load = px4muorb_get_cpu_load();
 #endif
 	cpuload.timestamp = hrt_absolute_time();
 
