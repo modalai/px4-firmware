@@ -31,15 +31,12 @@
  *
  ****************************************************************************/
 
-// #include "common_rc.h"
 #include <lib/rc/common_rc.h>
 #include "ghst_rc.hpp"
-// #include "ghst.hpp"
 #include <lib/rc/ghst.hpp>
 
 #include <px4_log.h>
 
-// #include <poll.h>
 #include <drivers/device/qurt/uart.h>
 
 #include <termios.h>
@@ -52,7 +49,6 @@
 
 using namespace time_literals;
 
-// #define GHST_BAUDRATE 420000
 uint32_t GhstRc::baudrate = GHST_BAUDRATE;
 
 GhstRc::GhstRc(const char *device) :
@@ -126,8 +122,7 @@ int GhstRc::task_spawn(int argc, char *argv[])
 	return PX4_OK;
 }
 
-void
-GhstRc::fill_rc_in(uint16_t raw_rc_count_local,
+void GhstRc::fill_rc_in(uint16_t raw_rc_count_local,
 		    uint16_t raw_rc_values_local[GHST_MAX_NUM_CHANNELS],
 		    hrt_abstime now, bool frame_drop, bool failsafe,
 		    unsigned frame_drops, int rssi = -1)
@@ -158,34 +153,7 @@ GhstRc::fill_rc_in(uint16_t raw_rc_count_local,
 
 	/* fake rssi if no value was provided */
 	if (rssi == -1) {
-		// if ((_param_rc_rssi_pwm_chan.get() > 0) && (_param_rc_rssi_pwm_chan.get() < _rc_in.channel_count)) {
-		// 	const int32_t rssi_pwm_chan = _param_rc_rssi_pwm_chan.get();
-		// 	const int32_t rssi_pwm_min = _param_rc_rssi_pwm_min.get();
-		// 	const int32_t rssi_pwm_max = _param_rc_rssi_pwm_max.get();
-
-		// 	// get RSSI from input channel
-		// 	int rc_rssi = ((_rc_in.values[rssi_pwm_chan - 1] - rssi_pwm_min) * 100) / (rssi_pwm_max - rssi_pwm_min);
-		// 	_rc_in.rssi = math::constrain(rc_rssi, 0, 100);
-
-		// } else if (_analog_rc_rssi_stable) {
-		// 	// set RSSI if analog RSSI input is present
-		// 	float rssi_analog = ((_analog_rc_rssi_volt - 0.2f) / 3.0f) * 100.0f;
-
-		// 	if (rssi_analog > 100.0f) {
-		// 		rssi_analog = 100.0f;
-		// 	}
-
-		// 	if (rssi_analog < 0.0f) {
-		// 		rssi_analog = 0.0f;
-		// 	}
-
-		// 	_rc_in.rssi = rssi_analog;
-
-		// } else {
-		// 	_rc_in.rssi = 255;
-		// }
 		_rc_in.rssi = 255;
-
 	} else {
 		_rc_in.rssi = rssi;
 	}
@@ -204,7 +172,6 @@ void GhstRc::Run()
 {
 	if (should_exit()) {
 		ScheduleClear();
-		// ::close(_rc_fd);
 		_rc_fd = -1;
 		exit_and_cleanup();
 		return;
@@ -221,11 +188,11 @@ void GhstRc::Run()
 		if (_rc_fd >= 0) {
 			_is_singlewire = true;
 
-			PX4_INFO("GHST serial opened sucessfully");
+			// PX4_INFO("GHST serial opened successfully");
 
-			if (_is_singlewire) {
-				PX4_INFO("GHST serial is single wire. Telemetry disabled");
-			}
+			// if (_is_singlewire) {
+			// 	PX4_INFO("GHST serial is single wire. Telemetry disabled");
+			// }
 
 			// Configure serial port for GHST
 			ghst_config(_rc_fd);
@@ -241,11 +208,10 @@ void GhstRc::Run()
 	perf_count_interval(_cycle_interval_perf, time_now_us);
 
 	// Read all available data from the serial RC input UART
-	// int new_bytes = ::read(_rc_fd, &_rcs_buf[0], RC_MAX_BUFFER_SIZE);
 	int new_bytes = qurt_uart_read(_rc_fd, (char *) &_rcs_buf[0], RC_MAX_BUFFER_SIZE, 500);
 
 	if (new_bytes > 0) {
-		// PX4_INFO("READ %i bytes", new_bytes);
+		// PX4_INFO("READ %i bytes", new_bytes);	// Reads 14 bytes max when debugging
 		_bytes_rx += new_bytes;
 		int8_t ghst_rssi = -1;
 		bool rc_updated = ghst_parse(cycle_timestamp, &_rcs_buf[0], new_bytes, &_raw_rc_values[0], &ghst_rssi,
@@ -262,6 +228,7 @@ void GhstRc::Run()
 			// we have a new GHST frame. Publish it.
 			_rc_in.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_GHST;
 			fill_rc_in(_raw_rc_count, _raw_rc_values, cycle_timestamp, false, false, 0, ghst_rssi);
+			// PX4_INFO("RSSI: %i", ghst_rssi);
 			// PX4_INFO("RC FILLED IN: [ %u %u %u %u %u %u %u %u %u %u %u %u %u %u ]",
 			// 			_rc_in.values[0], _rc_in.values[1], _rc_in.values[2], _rc_in.values[3],
 			// 			_rc_in.values[4], _rc_in.values[5], _rc_in.values[6], _rc_in.values[7],
@@ -302,9 +269,6 @@ void GhstRc::Run()
 		_rc_in.rc_failsafe = 0;
 	}
 
-	_rc_in.channel_count = GHST_MAX_NUM_CHANNELS;
-	_rc_in.rssi = -1;
-	_rc_in.rc_ppm_frame_length = 0;
 	_rc_in.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_GHST;
 	_rc_in.timestamp = hrt_absolute_time();
 	_input_rc_pub.publish(_rc_in);
@@ -323,21 +287,10 @@ int GhstRc::print_status()
 
 	if (_is_singlewire) {
 		PX4_INFO("Telemetry disabled: Singlewire RC port");
-
 	} 
-	// else {
-		// PX4_INFO("Telemetry: %s", _param_rc_crsf_tel_en.get() ? "yes" : "no");
-	// }
 
 	perf_print_counter(_cycle_interval_perf);
 	perf_print_counter(_publish_interval_perf);
-
-	// PX4_INFO("Disposed bytes: %li",  _packet_parser_statistics.disposed_bytes);
-	// PX4_INFO("Valid known packet CRCs: %li",  _packet_parser_statistics.crcs_valid_known_packets);
-	// PX4_INFO("Valid unknown packet CRCs: %li",  _packet_parser_statistics.crcs_valid_unknown_packets);
-	// PX4_INFO("Invalid CRCs: %li",  _packet_parser_statistics.crcs_invalid);
-	// PX4_INFO("Invalid known packet sizes: %li",  _packet_parser_statistics.invalid_known_packet_sizes);
-	// PX4_INFO("Invalid unknown packet sizes: %li",  _packet_parser_statistics.invalid_unknown_packet_sizes);
 
 	return 0;
 }
@@ -356,7 +309,7 @@ int GhstRc::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-This module parses the GHST RC uplink protocol and generates GHST downlink telemetry data
+This module parses the GHST RC uplink protocol and can generate GHST downlink telemetry data
 
 )DESCR_STR");
 

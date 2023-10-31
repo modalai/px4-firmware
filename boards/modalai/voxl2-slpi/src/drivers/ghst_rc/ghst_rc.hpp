@@ -80,10 +80,6 @@ public:
 private:
 	void Run() override;
 
-	uORB::PublicationMulti<input_rc_s> _input_rc_pub{ORB_ID(input_rc)};
-
-	input_rc_s _input_rc{};
-
 	bool SendTelemetryBattery(const uint16_t voltage, const uint16_t current, const int fuel, const uint8_t remaining);
 
 	bool SendTelemetryGps(const int32_t latitude, const int32_t longitude, const uint16_t groundspeed,
@@ -94,6 +90,7 @@ private:
 	bool SendTelemetryFlightMode(const char *flight_mode);
 
 
+	uORB::PublicationMulti<input_rc_s> _input_rc_pub{ORB_ID(input_rc)};
 	input_rc_s	_rc_in{};
 	int _rc_fd{-1};
 	char _device[20] {}; ///< device / serial port path
@@ -123,7 +120,7 @@ private:
 	perf_counter_t	_publish_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": publish interval")};
 
 	// DEFINE_PARAMETERS(
-		// (ParamBool<px4::params::RC_CRSF_TEL_EN>) _param_rc_crsf_tel_en
+		// (ParamBool<px4::params::RC_GHST_TEL_EN>) _param_rc_ghst_tel_en
 	// )
 };
 
