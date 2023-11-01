@@ -36,11 +36,10 @@ px4_add_module(
 	COMPILE_FLAGS
 	INCLUDES
 	${PX4_SOURCE_DIR}/src/drivers/rc_input
+	${PX4_SOURCE_DIR}/src/lib/rc/spektrum_rssi.h
 	SRCS
 		ghst_rc.cpp
 		ghst_rc.hpp
-		spektrum_rssi.h
-
 	MODULE_CONFIG
 		module.yaml
 	DEPENDS

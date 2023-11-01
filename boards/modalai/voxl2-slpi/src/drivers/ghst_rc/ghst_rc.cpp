@@ -188,12 +188,6 @@ void GhstRc::Run()
 		if (_rc_fd >= 0) {
 			_is_singlewire = true;
 
-			// PX4_INFO("GHST serial opened successfully");
-
-			// if (_is_singlewire) {
-			// 	PX4_INFO("GHST serial is single wire. Telemetry disabled");
-			// }
-
 			// Configure serial port for GHST
 			ghst_config(_rc_fd);
 		}
@@ -263,6 +257,8 @@ void GhstRc::Run()
 	if (time_now_us - _rc_in.timestamp_last_signal > 50_ms) {
 		_rc_in.rc_lost = 1;
 		_rc_in.rc_failsafe = 1;
+		_rc_in.rssi_dbm = NAN;
+		_rc_in.link_quality = -1;
 
 	} else {
 		_rc_in.rc_lost = 0;

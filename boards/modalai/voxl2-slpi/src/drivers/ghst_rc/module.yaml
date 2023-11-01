@@ -9,14 +9,3 @@ serial_config:
         description_extended: |
             Ghost RC (GHST) driver.
 
-# parameters:
-#     - group: RC
-#       definitions:
-#         RC_CRSF_TEL_EN:
-#             description:
-#                 short: Crossfire RC telemetry enable
-#                 long: |
-#                     Crossfire telemetry enable
-
-#             type: boolean
-#             default: [0]
