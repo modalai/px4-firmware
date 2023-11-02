@@ -104,6 +104,11 @@ int ghst_config(int uart_fd)
 	t.c_cflag &= ~(CSTOPB | PARENB);
 	memset(prev_rc_vals, static_cast<int>(UINT16_MAX), sizeof(uint16_t) * GHST_MAX_NUM_CHANNELS);
 	ret_val = tcsetattr(uart_fd, TCSANOW, &t);
+#if defined (RC_SERIAL_SINGLEWIRE)
+	if (board_rc_singlewire(RC_SERIAL_PORT)){
+		ret_val = ioctl(uart_fd, TIOCSSINGLEWIRE, SER_SINGLEWIRE_ENABLED);
+	}
+#endif
 	return ret_val;
 #endif
 }
