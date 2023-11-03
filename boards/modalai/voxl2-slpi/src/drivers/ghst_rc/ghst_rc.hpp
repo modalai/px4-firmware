@@ -93,8 +93,8 @@ private:
 	uORB::PublicationMulti<input_rc_s> _input_rc_pub{ORB_ID(input_rc)};
 	input_rc_s	_rc_in{};
 	int _rc_fd{-1};
-	char _device[20] {}; ///< device / serial port path
-	bool _is_singlewire{false};
+	char _device[20] {}; // device / serial port path
+	bool _is_singlewire{true};
 
 	static constexpr size_t RC_MAX_BUFFER_SIZE{64};
 	uint8_t _rcs_buf[RC_MAX_BUFFER_SIZE] {};

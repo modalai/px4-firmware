@@ -205,30 +205,16 @@ void GhstRc::Run()
 	int new_bytes = qurt_uart_read(_rc_fd, (char *) &_rcs_buf[0], RC_MAX_BUFFER_SIZE, 500);
 
 	if (new_bytes > 0) {
-		// PX4_INFO("READ %i bytes", new_bytes);	// Reads 14 bytes max when debugging
 		_bytes_rx += new_bytes;
 		int8_t ghst_rssi = -1;
 		bool rc_updated = ghst_parse(cycle_timestamp, &_rcs_buf[0], new_bytes, &_raw_rc_values[0], &ghst_rssi,
 					&_raw_rc_count, GHST_MAX_NUM_CHANNELS);
-		// PX4_INFO("RC RAW: [ %u %u %u %u %u %u %u %u %u %u %u %u %u %u ]",
-		// 				_rcs_buf[0], _rcs_buf[1], _rcs_buf[2], _rcs_buf[3],
-		// 				_rcs_buf[4], _rcs_buf[5], _rcs_buf[6], _rcs_buf[7],
-		// 				_rcs_buf[8], _rcs_buf[9], _rcs_buf[10], _rcs_buf[11],
-		// 				_rcs_buf[12], _rcs_buf[13] 
-		// 				);
 
 		if (rc_updated) {
 			_last_packet_seen = time_now_us;
 			// we have a new GHST frame. Publish it.
 			_rc_in.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_GHST;
 			fill_rc_in(_raw_rc_count, _raw_rc_values, cycle_timestamp, false, false, 0, ghst_rssi);
-			// PX4_INFO("RSSI: %i", ghst_rssi);
-			// PX4_INFO("RC FILLED IN: [ %u %u %u %u %u %u %u %u %u %u %u %u %u %u ]",
-			// 			_rc_in.values[0], _rc_in.values[1], _rc_in.values[2], _rc_in.values[3],
-			// 			_rc_in.values[4], _rc_in.values[5], _rc_in.values[6], _rc_in.values[7],
-			// 			_rc_in.values[8], _rc_in.values[9], _rc_in.values[10], _rc_in.values[11],
-			// 			_rc_in.values[12], _rc_in.values[13] 
-			// 			);
 
 			// ghst telemetry works on fmu-v5
 			// on other Pixhawk (-related) boards we cannot write to the RC UART
@@ -283,7 +269,7 @@ int GhstRc::print_status()
 
 	if (_is_singlewire) {
 		PX4_INFO("Telemetry disabled: Singlewire RC port");
-	} 
+	}
 
 	perf_print_counter(_cycle_interval_perf);
 	perf_print_counter(_publish_interval_perf);
