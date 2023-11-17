@@ -172,7 +172,7 @@ private:
 		SCAN
 	} _rc_mode{RC_MODE::SCAN};
 
-	/* QUP7, VOXL2 J19, /dev/slpi-uart-7*/
+	/* QUP72, VOXL2 J18, /dev/slpi-uart-2*/
 	char 				_device[10]{VOXL2_IO_DEFAULT_PORT};
 	Voxl2IoSerial 		*_uart_port;
 	

@@ -38,7 +38,7 @@
 
 Voxl2IO::Voxl2IO() :
 	OutputModuleInterface(MODULE_NAME, px4::serial_port_to_wq(VOXL2_IO_DEFAULT_PORT)),
-	_mixing_output{"VOXL2_IO", VOXL2_IO_OUTPUT_CHANNELS, *this, MixingOutput::SchedulingPolicy::Auto, false, false},
+	_mixing_output{"VOXL2_IO", VOXL2_IO_OUTPUT_CHANNELS, *this, MixingOutput::SchedulingPolicy::Disabled, false, false},
 	_cycle_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": module cycle")},
 	_output_update_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": output update interval"))
 {
@@ -458,7 +458,7 @@ void Voxl2IO::Run()
 		}
 	}
 
-	/* Scan for RC mode	*/
+	/* Handle RC */
 	if (_rc_mode == RC_MODE::SCAN){
 		if (receive_sbus() == PX4_OK){
 			PX4_INFO("Found M0065 SBUS RC.");
