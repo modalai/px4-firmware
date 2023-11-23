@@ -36,6 +36,9 @@
 #include "MUORBTest.hpp"
 #include <string>
 
+#include <unistd.h>
+#include <dirent.h>
+
 #include <drivers/drv_hrt.h>
 #include <drivers/device/spi.h>
 #include <drivers/device/i2c.h>
@@ -321,6 +324,118 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		px4muorb_orb_initialized = true;
 
 		if (_px4_muorb_debug) { PX4_INFO("px4muorb_orb_initialize called"); }
+
+		// Test some file handling routines
+
+		// Show current working directory (This crashes)
+		// char buf[128];
+		// getcwd(buf,128);
+		// buf[80] = 0;
+		// PX4_INFO("CWD: %s", buf);
+
+		// List the contents of the current working directory
+		DIR *d;
+		struct dirent *dir;
+		d = opendir("/data/px4/param");
+		if (d) {
+			while ((dir = readdir(d)) != NULL) {
+				PX4_INFO("\t%s", dir->d_name);
+			}
+			closedir(d);
+		}
+
+		// Check for exitence of the test file (This crashes)
+		// if (access("/data/px4/param/hello.txt", F_OK) == 0) {
+		// 	// file exists
+		// 	PX4_INFO("File exists!!!");
+		// }
+
+		// Try to open a file for reading
+		FILE *fp = fopen("hello.txt", "r");
+		if (fp) {
+			PX4_INFO("fopen succeeded!");
+			fclose(fp);
+		} else {
+			PX4_ERR("fopen failed!");
+		}
+
+		// Try different open and read from the file
+	    int fd = open("hello.txt", O_RDONLY);
+	    if (fd == -1) {
+			PX4_ERR("RO open failed!");
+	    } else {
+			PX4_INFO("RO open succeeded!");
+		    char buf[128+1];
+		    ssize_t n = 0;
+		    while ((n = read(fd, buf, 128)) > 0) {
+		        buf[n] = '\0';
+				PX4_INFO("\t%s", buf);
+		    }
+
+		    close(fd);
+		}
+
+		// Test open with read write. Read contents then append string
+	    fd = open("hello.txt", O_RDWR);
+	    if (fd == -1) {
+			PX4_ERR("RW open failed!");
+	    } else {
+			PX4_INFO("RW open succeeded!");
+		    char buf[128+1];
+		    ssize_t n = 0;
+		    while ((n = read(fd, buf, 128)) > 0) {
+		        buf[n] = '\0';
+				PX4_INFO("\t%s", buf);
+		    }
+
+			write(fd, "tester", 7);
+
+		    close(fd);
+		}
+
+		// Test open with read write in params directory. Read contents then append string
+	    fd = open("/data/px4/param/hello.txt", O_RDWR);
+	    if (fd == -1) {
+			PX4_ERR("RW2 open failed!");
+	    } else {
+			PX4_INFO("RW2 open succeeded!");
+		    char buf[128+1];
+		    ssize_t n = 0;
+		    while ((n = read(fd, buf, 128)) > 0) {
+		        buf[n] = '\0';
+				PX4_INFO("\t%s", buf);
+		    }
+
+			write(fd, "tester", 7);
+
+		    close(fd);
+		}
+
+		// Test file create and write to it if successful
+	    fd = open("/data/px4/param/hello1.txt", O_CREAT);
+	    if (fd == -1) {
+			PX4_ERR("CREATE1 open failed!");
+	    } else {
+			PX4_INFO("CREATE1 open succeeded!");
+			write(fd, "tester", 7);
+		    close(fd);
+		}
+	    fd = open("hello1.txt", O_CREAT);
+	    if (fd == -1) {
+			PX4_ERR("CREATE2 open failed!");
+	    } else {
+			PX4_INFO("CREATE2 open succeeded!");
+			write(fd, "tester", 7);
+		    close(fd);
+		}
+	    fd = open("hello1.txt", O_CREAT | O_WRONLY);
+	    if (fd == -1) {
+			PX4_ERR("CREATE3 open failed!");
+	    } else {
+			PX4_INFO("CREATE3 open succeeded!");
+			write(fd, "tester", 7);
+		    close(fd);
+		}
 	}
 
 	return 0;

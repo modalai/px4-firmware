@@ -318,7 +318,7 @@ bool VehicleIMU::UpdateAccel()
 				}
 
 			} else {
-				PX4_ERR("%d - accel %" PRIu32 " timestamp error timestamp_sample: %" PRIu64 ", previous timestamp_sample: %" PRIu64,
+				PX4_ERR("%d - accel %" PRIu32 " timestamp error current: %" PRIu64 ", previous: %" PRIu64,
 					_instance, accel.device_id, accel.timestamp_sample, _accel_timestamp_sample_last);
 			}
 
@@ -417,10 +417,12 @@ bool VehicleIMU::UpdateGyro()
 	// integrate queued gyro
 	sensor_gyro_s gyro;
 
+	// while (_sensor_gyro_sub.update(&gyro)) {
 	if (_sensor_gyro_sub.update(&gyro)) {
 		if (_sensor_gyro_sub.get_last_generation() != _gyro_last_generation + 1) {
 			_data_gap = true;
 			perf_count(_gyro_generation_gap_perf);
+			PX4_ERR("Got gyro data gap");
 
 		} else {
 			// collect sample interval average for filters
@@ -447,7 +449,7 @@ bool VehicleIMU::UpdateGyro()
 				}
 
 			} else {
-				PX4_ERR("%d - gyro %" PRIu32 " timestamp error timestamp_sample: %" PRIu64 ", previous timestamp_sample: %" PRIu64,
+				PX4_ERR("%d - gyro %" PRIu32 " timestamp error current: %" PRIu64 ", previous: %" PRIu64,
 					_instance, gyro.device_id, gyro.timestamp_sample, _gyro_timestamp_sample_last);
 			}
 

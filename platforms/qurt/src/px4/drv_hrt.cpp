@@ -59,7 +59,7 @@ __EXPORT uint32_t latency_counters[LATENCY_BUCKET_COUNT + 1];
 static px4_sem_t 	_hrt_lock;
 static struct work_s	_hrt_work;
 
-static int32_t dsp_offset = 0;
+// static int32_t dsp_offset = 0;
 
 static void hrt_latency_update();
 
@@ -88,35 +88,44 @@ int px4_clock_settime(clockid_t clk_id, struct timespec *tp)
 
 int px4_clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
-	int rv = clock_gettime(clk_id, tp);
-	hrt_abstime temp_abstime = ts_to_abstime(tp);
-
-	if (dsp_offset < 0) {
-		hrt_abstime temp_offset = -dsp_offset;
-
-		if (temp_offset >= temp_abstime) { temp_abstime = 0; }
-
-		else { temp_abstime -= temp_offset; }
-
-	} else {
-		temp_abstime += (hrt_abstime) dsp_offset;
-	}
-
-	tp->tv_sec = temp_abstime / 1000000;
-	tp->tv_nsec = (temp_abstime % 1000000) * 1000;
-	return rv;
+	return clock_gettime(clk_id, tp);
+	// int rv = clock_gettime(clk_id, tp);
+	// hrt_abstime temp_abstime = ts_to_abstime(tp);
+	// 
+	// if (dsp_offset < 0) {
+	// 	hrt_abstime temp_offset = -dsp_offset;
+	// 
+	// 	if (temp_offset >= temp_abstime) { temp_abstime = 0; }
+	// 
+	// 	else { temp_abstime -= temp_offset; }
+	// 
+	// } else {
+	// 	temp_abstime += (hrt_abstime) dsp_offset;
+	// }
+	// 
+	// tp->tv_sec = temp_abstime / 1000000;
+	// tp->tv_nsec = (temp_abstime % 1000000) * 1000;
+	// return rv;
 }
+
+// static hrt_abstime last_time;
 
 hrt_abstime hrt_absolute_time()
 {
 	struct timespec ts;
 	px4_clock_gettime(CLOCK_MONOTONIC, &ts);
+	// hrt_abstime current_time = ts_to_abstime(&ts);
+	// if ((current_time + 1000) < last_time) {
+	// 	PX4_ERR("Time not monotonic! last: %llu current: %llu", last_time, current_time);
+	// }
+	// last_time = current_time;
+	// return current_time;
 	return ts_to_abstime(&ts);
 }
 
 int hrt_set_absolute_time_offset(int32_t time_diff_us)
 {
-	dsp_offset = time_diff_us;
+	// dsp_offset = time_diff_us;
 	return 0;
 }
 

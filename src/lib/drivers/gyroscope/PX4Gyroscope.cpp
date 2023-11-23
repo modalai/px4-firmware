@@ -111,6 +111,8 @@ void PX4Gyroscope::set_scale(float scale)
 	}
 }
 
+static hrt_abstime last_timestamp_sample;
+
 void PX4Gyroscope::update(const hrt_abstime &timestamp_sample, float x, float y, float z)
 {
 	// Apply rotation (before scaling)
@@ -132,6 +134,11 @@ void PX4Gyroscope::update(const hrt_abstime &timestamp_sample, float x, float y,
 	report.timestamp = hrt_absolute_time();
 
 	_sensor_pub.publish(report);
+
+	if (timestamp_sample <= last_timestamp_sample) {
+		PX4_ERR("Gyro sample timestamp not incrementing!!!");
+	}
+	last_timestamp_sample = timestamp_sample;
 }
 
 void PX4Gyroscope::updateFIFO(sensor_gyro_fifo_s &sample)
