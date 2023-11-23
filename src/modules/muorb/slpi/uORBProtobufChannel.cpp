@@ -37,6 +37,7 @@
 #include <string>
 
 #include <unistd.h>
+#include <stdio.h>
 #include <dirent.h>
 
 #include <drivers/drv_hrt.h>
@@ -435,6 +436,16 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 			PX4_INFO("CREATE3 open succeeded!");
 			write(fd, "tester", 7);
 		    close(fd);
+		}
+
+		fp = fopen("/data/px4/testfile.txt", "a");
+		if (fp == NULL) {
+			PX4_ERR("File create with fopen failed");
+		} else {
+			PX4_INFO("File created with fopen!");
+			int n = fwrite("TeSt", 4, 1, fp);
+			PX4_INFO("Wrote %d characters to the file", n);
+			fclose(fp);
 		}
 	}
 
