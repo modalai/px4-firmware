@@ -38,6 +38,8 @@ set(QURT_LAYER_SRCS
 	px4_qurt_impl.cpp
 	main.cpp
 	qurt_log.cpp
+	cpuload.cpp
+	print_load.cpp
 	)
 
 add_library(px4_layer

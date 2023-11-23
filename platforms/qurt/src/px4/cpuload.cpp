@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * Copyright (C) 2022 ModalAI, Inc. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,13 +30,36 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#include <px4_platform_common/defines.h>
 
-__BEGIN_DECLS
+/**
+ * @file cpuload.cpp
+ *
+ * Measurement of CPU load of each individual task.
+ *
+ * @author Lorenz Meier <lorenz@px4.io>
+ * @author Petri Tanskanen <petri.tanskanen@inf.ethz.ch>
+ */
+#include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/atomic.h>
+#include <px4_platform/cpuload.h>
 
-long PX4_TICKS_PER_SEC = 1000L;
-void fsync(int fd) { return; }
-uint32_t crc32part(const uint8_t *src, size_t len, uint32_t crc32val) { return 1; }
-int statfs(const char *path, struct statfs *buf) { return -1; }
+#include <drivers/drv_hrt.h>
 
-__END_DECLS
+#include <sys/time.h>
+
+static px4::atomic_int cpuload_monitor_all_count{0};
+
+void cpuload_monitor_start()
+{
+	cpuload_monitor_all_count.fetch_add(1);
+}
+
+void cpuload_monitor_stop()
+{
+	if (cpuload_monitor_all_count.fetch_sub(1) <= 1) {
+		// don't all the count to go negative
+		cpuload_monitor_all_count.store(0);
+	}
+}
+
+// TODO

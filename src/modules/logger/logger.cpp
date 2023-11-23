@@ -513,7 +513,11 @@ bool Logger::initialize_topics()
 			_mission_subscriptions[i].next_write_time = 0;
 		}
 
+#ifdef __PX4_QURT
+		int mkdir_ret = mkdir(const_cast<char*>(LOG_ROOT[(int)LogType::Mission]), S_IRWXU | S_IRWXG | S_IRWXO);
+#else
 		int mkdir_ret = mkdir(LOG_ROOT[(int)LogType::Mission], S_IRWXU | S_IRWXG | S_IRWXO);
+#endif
 
 		if (mkdir_ret != 0 && errno != EEXIST) {
 			PX4_ERR("failed creating log root dir: %s (%i)", LOG_ROOT[(int)LogType::Mission], errno);
@@ -568,7 +572,12 @@ void Logger::run()
 	PX4_INFO("logger started (mode=%s)", configured_backend_mode());
 
 	if (_writer.backend() & LogWriter::BackendFile) {
+
+#ifdef __PX4_QURT
+		int mkdir_ret = mkdir(const_cast<char*>(LOG_ROOT[(int)LogType::Full]), S_IRWXU | S_IRWXG | S_IRWXO);
+#else
 		int mkdir_ret = mkdir(LOG_ROOT[(int)LogType::Full], S_IRWXU | S_IRWXG | S_IRWXO);
+#endif
 
 		if (mkdir_ret == 0) {
 			PX4_INFO("log root dir created: %s", LOG_ROOT[(int)LogType::Full]);

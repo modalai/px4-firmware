@@ -33,5 +33,11 @@
 
 #pragma once
 
+#define CONFIG_FS_PROCFS_MAX_TASKS 64
+
 extern "C" float px4muorb_get_cpu_load(void);
+
+extern "C" void cpuload_monitor_start(void);
+extern "C" void cpuload_monitor_stop(void);
+
 

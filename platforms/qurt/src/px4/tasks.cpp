@@ -103,9 +103,11 @@ extern "C" {
 		return 0;
 	}
 
-	// Qurt only has one scheduling policy so this just returns a success
+	// Qurt only has one scheduling policy so these just return a success
 	int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy) { return 0; }
+	int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param *param)  { return 0; }
 
+	int pthread_cond_init(pthread_cond_t *cond, pthread_condattr_t *attr) { return 0; }
 }
 
 static void *entry_adapter(void *ptr)

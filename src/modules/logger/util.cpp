@@ -288,7 +288,11 @@ int remove_directory(const char *dir)
 	closedir(d);
 
 	if (!ret) {
+#ifdef __PX4_QURT
+		ret = rmdir(const_cast<char*>(dir));
+#else
 		ret = rmdir(dir);
+#endif
 	}
 
 	return ret;
