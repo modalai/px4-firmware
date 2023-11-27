@@ -574,7 +574,7 @@ void Logger::run()
 	if (_writer.backend() & LogWriter::BackendFile) {
 
 #ifdef __PX4_QURT
-		int mkdir_ret = mkdir(const_cast<char*>(LOG_ROOT[(int)LogType::Full]), S_IRWXU | S_IRWXG | S_IRWXO);
+		int mkdir_ret = mkdir(const_cast<char*>(LOG_ROOT[(int)LogType::Full]), 0777);
 #else
 		int mkdir_ret = mkdir(LOG_ROOT[(int)LogType::Full], S_IRWXU | S_IRWXG | S_IRWXO);
 #endif
