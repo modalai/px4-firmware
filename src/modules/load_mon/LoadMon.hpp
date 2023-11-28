@@ -45,6 +45,7 @@
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <px4_platform/cpuload.h>
 #include <uORB/Publication.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/cpuload.h>
 #include <uORB/topics/task_stack_info.h>
 
@@ -90,7 +91,8 @@ private:
 
 	uORB::Publication<task_stack_info_s> _task_stack_info_pub{ORB_ID(task_stack_info)};
 #endif
-	uORB::Publication<cpuload_s> _cpuload_pub {ORB_ID(cpuload)};
+	static constexpr int MAX_CPU_COUNT = 3;
+	uORB::PublicationMulti<cpuload_s> *_cpuload_pub[MAX_CPU_COUNT] {}; ///< uORB pub for cpu load
 
 #if defined(__PX4_LINUX)
 	FILE *_proc_fd = nullptr;
@@ -103,7 +105,6 @@ private:
 #endif
 
 	perf_counter_t _cycle_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
-
 	DEFINE_PARAMETERS(
 		(ParamBool<px4::params::SYS_STCK_EN>) _param_sys_stck_en
 	)

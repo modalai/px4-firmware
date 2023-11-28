@@ -100,7 +100,7 @@ if [ "$GPS" != "NONE" ]; then
 fi
 
 # Auto detect an ncp5623c i2c RGB LED. If one isn't connected this will
-# fail but not cause any harm. 
+# fail but not cause any harm.
 /bin/echo "Looking for ncp5623c RGB LED"
 qshell rgbled_ncp5623c start -X -b 1 -f 400 -a 56
 
@@ -205,6 +205,7 @@ qshell flight_mode_manager start
 # Start all of the processing modules on the applications processor
 dataman start
 navigator start
+load_mon start
 
 # This bridge allows raw data packets to be sent over UART to the ESC
 modal_io_bridge start
