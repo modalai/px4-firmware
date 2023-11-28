@@ -224,25 +224,21 @@ void LoadMon::cpuload()
 	}
 
 	cpuload.load = interval_spent_time / interval;
-	cpuload.timestamp = hrt_absolute_time();
 	strncpy(cpuload.platform, "POSIX", sizeof(cpuload.platform));
-	_cpuload_pub[0].publish(cpuload);
 #elif defined(__PX4_NUTTX)
 	// get ram usage
 	struct mallinfo mem = mallinfo();
 	cpuload.ram_usage = (float)mem.uordblks / mem.arena;
 	cpuload.load = 1.f - interval_idletime / interval;
-	cpuload.timestamp = hrt_absolute_time();
 	strncpy(cpuload.platform, "NUTTX", sizeof(cpuload.platform));
-	_cpuload_pub[1].publish(cpuload);
 #elif defined(__PX4_QURT)
 	cpuload.ram_usage = 0.0f;
 	cpuload.load = px4muorb_get_cpu_load();
-	cpuload.timestamp = hrt_absolute_time();
 	strncpy(cpuload.platform, "QURT", sizeof(cpuload.platform));
-	_cpuload_pub[2].publish(cpuload);
 #endif
+	cpuload.timestamp = hrt_absolute_time();
 
+	_cpuload_pub.publish(cpuload);
 
 	// store for next iteration
 #if defined(__PX4_LINUX)
