@@ -224,32 +224,23 @@ void LoadMon::cpuload()
 	}
 
 	cpuload.load = interval_spent_time / interval;
-	if(_cpuload_pub[0] == nullptr){
-		_cpuload_pub[0] = new uORB::PublicationMulti<cpuload_s> {ORB_ID(cpuload)};
-	}
 	cpuload.timestamp = hrt_absolute_time();
 	strncpy(cpuload.platform, "POSIX", sizeof(cpuload.platform));
-	_cpuload_pub[0]->publish(cpuload);
+	_cpuload_pub[0].publish(cpuload);
 #elif defined(__PX4_NUTTX)
 	// get ram usage
-	if(_cpuload_pub[1] == nullptr){
-		_cpuload_pub[1] = new uORB::PublicationMulti<cpuload_s> {ORB_ID(cpuload)};
-	}
 	struct mallinfo mem = mallinfo();
 	cpuload.ram_usage = (float)mem.uordblks / mem.arena;
 	cpuload.load = 1.f - interval_idletime / interval;
 	cpuload.timestamp = hrt_absolute_time();
 	strncpy(cpuload.platform, "NUTTX", sizeof(cpuload.platform));
-	_cpuload_pub[1]->publish(cpuload);
+	_cpuload_pub[1].publish(cpuload);
 #elif defined(__PX4_QURT)
-	if(_cpuload_pub[2] == nullptr){
-		_cpuload_pub[2] = new uORB::PublicationMulti<cpuload_s> {ORB_ID(cpuload)};
-	}
 	cpuload.ram_usage = 0.0f;
 	cpuload.load = px4muorb_get_cpu_load();
 	cpuload.timestamp = hrt_absolute_time();
 	strncpy(cpuload.platform, "QURT", sizeof(cpuload.platform));
-	_cpuload_pub[2]->publish(cpuload);
+	_cpuload_pub[2].publish(cpuload);
 #endif
 
 

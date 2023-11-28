@@ -92,7 +92,7 @@ private:
 	uORB::Publication<task_stack_info_s> _task_stack_info_pub{ORB_ID(task_stack_info)};
 #endif
 	static constexpr int MAX_CPU_COUNT = 3;
-	uORB::PublicationMulti<cpuload_s> *_cpuload_pub[MAX_CPU_COUNT] {}; ///< uORB pub for cpu load
+	uORB::PublicationMulti<cpuload_s> _cpuload_pub[MAX_CPU_COUNT] {{ORB_ID(cpuload)}, {ORB_ID(cpuload)}, {ORB_ID(cpuload)}};
 
 #if defined(__PX4_LINUX)
 	FILE *_proc_fd = nullptr;
