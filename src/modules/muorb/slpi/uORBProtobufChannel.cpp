@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <errno.h>
 
 #include <drivers/drv_hrt.h>
 #include <drivers/device/spi.h>
@@ -334,6 +335,8 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		// buf[80] = 0;
 		// PX4_INFO("CWD: %s", buf);
 
+		int errnum = 0;
+
 		// List the contents of the current working directory
 		DIR *d;
 		struct dirent *dir;
@@ -343,6 +346,10 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 				PX4_INFO("\t%s", dir->d_name);
 			}
 			closedir(d);
+		} else {
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("fopen failed! %d", errnum);
 		}
 
 		// Check for exitence of the test file (This crashes)
@@ -357,13 +364,17 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 			PX4_INFO("fopen succeeded!");
 			fclose(fp);
 		} else {
-			PX4_ERR("fopen failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("fopen failed! %d", errnum);
 		}
 
 		// Try different open and read from the file
 	    int fd = open("hello.txt", O_RDONLY);
 	    if (fd == -1) {
-			PX4_ERR("RO open failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("RO open failed! %d", errnum);
 	    } else {
 			PX4_INFO("RO open succeeded!");
 		    char buf[128+1];
@@ -379,7 +390,9 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		// Test open with read write. Read contents then append string
 	    fd = open("hello.txt", O_RDWR);
 	    if (fd == -1) {
-			PX4_ERR("RW open failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("RW open failed! %d", errnum);
 	    } else {
 			PX4_INFO("RW open succeeded!");
 		    char buf[128+1];
@@ -397,7 +410,9 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		// Test open with read write in params directory. Read contents then append string
 	    fd = open("/data/px4/param/hello.txt", O_RDWR);
 	    if (fd == -1) {
-			PX4_ERR("RW2 open failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("RW2 open failed! %d", errnum);
 	    } else {
 			PX4_INFO("RW2 open succeeded!");
 		    char buf[128+1];
@@ -413,9 +428,11 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		}
 
 		// Test file create and write to it if successful
-	    fd = open("/data/px4/param/hello1.txt", O_CREAT);
+	    fd = open("/data/px4/hello1.txt", O_CREAT);
 	    if (fd == -1) {
-			PX4_ERR("CREATE1 open failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("CREATE1 open failed! %d", errnum);
 	    } else {
 			PX4_INFO("CREATE1 open succeeded!");
 			write(fd, "tester", 7);
@@ -423,15 +440,19 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 		}
 	    fd = open("hello1.txt", O_CREAT);
 	    if (fd == -1) {
-			PX4_ERR("CREATE2 open failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("CREATE2 open failed! %d", errnum);
 	    } else {
 			PX4_INFO("CREATE2 open succeeded!");
 			write(fd, "tester", 7);
 		    close(fd);
 		}
-	    fd = open("hello1.txt", O_CREAT | O_WRONLY);
+	    fd = open("/data/px4/hello1.txt", O_CREAT | O_WRONLY);
 	    if (fd == -1) {
-			PX4_ERR("CREATE3 open failed!");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("CREATE3 open failed! %d", errnum);
 	    } else {
 			PX4_INFO("CREATE3 open succeeded!");
 			write(fd, "tester", 7);
@@ -440,7 +461,9 @@ int px4muorb_orb_initialize(fc_func_ptrs *func_ptrs, int32_t clock_offset_us)
 
 		fp = fopen("/data/px4/testfile.txt", "a");
 		if (fp == NULL) {
-			PX4_ERR("File create with fopen failed");
+			errnum = errno;
+			perror("[-] ");
+			PX4_ERR("File create with fopen failed %d", errnum);
 		} else {
 			PX4_INFO("File created with fopen!");
 			int n = fwrite("TeSt", 4, 1, fp);
