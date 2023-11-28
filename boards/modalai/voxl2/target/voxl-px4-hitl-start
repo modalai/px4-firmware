@@ -48,7 +48,9 @@ fi
 # to log only when armed. Caution must be used with the "-e" option
 # because if power is removed without stopping the logger gracefully then
 # the log file may be corrupted.
-logger start -e -t -b 200
+# logger start -e -t -b 200
+
+qshell logger start
 
 /bin/sleep 1
 
