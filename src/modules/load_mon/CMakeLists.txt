@@ -30,6 +30,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
+
+if ((${PX4_BOARD_NAME} MATCHES "MODALAI_VOXL2"))
+	add_definitions(-D__MULTICORE)
+endif()
+
 px4_add_module(
 	MODULE modules__load_mon
 	MAIN load_mon

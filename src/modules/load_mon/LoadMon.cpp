@@ -224,6 +224,33 @@ void LoadMon::cpuload()
 	}
 
 	cpuload.load = interval_spent_time / interval;
+#if defined(__MULTICORE)
+    FILE *stat_file = fopen("/proc/stat", "r");
+    if (!stat_file) {
+		PX4_ERR("Failed to open /proc/stat");
+		cpuload.multicore_load = -1;
+    } else {
+		double total, idle{0};
+		char cpu_line[256];
+		fgets(cpu_line, sizeof(line), stat_file);
+
+		// Assuming the first line in /proc/stat is the line with overall CPU usage
+		char *token = strtok(cpu_line, " ");
+		double total_time = 0;
+		for (int i = 0; i < 10; ++i) {
+			token = strtok(NULL, " ");
+		 	total_time += atof(token);
+			if(i == 3){
+				idle = atof(token);
+			}
+		}
+
+		total = total_time;
+		fclose(stat_file);
+		float total_usage = (total - idle) / total * 100.0;
+		cpuload.multicore_load = total_usage;
+	}
+#endif
 	strncpy(cpuload.platform, "POSIX", sizeof(cpuload.platform));
 #elif defined(__PX4_NUTTX)
 	// get ram usage
