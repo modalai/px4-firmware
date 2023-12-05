@@ -223,12 +223,12 @@ void LoadMon::cpuload()
 		cpuload.ram_usage = -1;
 	}
 
-	cpuload.load = interval_spent_time / interval;
+	cpuload.process_load = interval_spent_time / interval;
 #if defined(__MULTICORE)
     FILE *stat_file = fopen("/proc/stat", "r");
     if (!stat_file) {
 		PX4_ERR("Failed to open /proc/stat");
-		cpuload.multicore_load = -1;
+		cpuload.system_load = -1;
     } else {
 		double total, idle{0};
 		char cpu_line[256];
@@ -248,7 +248,7 @@ void LoadMon::cpuload()
 		total = total_time;
 		fclose(stat_file);
 		float total_usage = (total - idle) / total * 100.0;
-		cpuload.multicore_load = total_usage;
+		cpuload.system_load = total_usage;
 	}
 #endif
 	strncpy(cpuload.platform, "POSIX", sizeof(cpuload.platform));
@@ -256,11 +256,11 @@ void LoadMon::cpuload()
 	// get ram usage
 	struct mallinfo mem = mallinfo();
 	cpuload.ram_usage = (float)mem.uordblks / mem.arena;
-	cpuload.load = 1.f - interval_idletime / interval;
+	cpuload.process_load = 1.f - interval_idletime / interval;
 	strncpy(cpuload.platform, "NUTTX", sizeof(cpuload.platform));
 #elif defined(__PX4_QURT)
 	cpuload.ram_usage = 0.0f;
-	cpuload.load = px4muorb_get_cpu_load() / 100.0f;
+	cpuload.process_load = px4muorb_get_cpu_load() / 100.0f;
 	strncpy(cpuload.platform, "QURT", sizeof(cpuload.platform));
 #endif
 	cpuload.timestamp = hrt_absolute_time();
