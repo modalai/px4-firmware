@@ -214,12 +214,18 @@ int32_t qc_esc_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int1
 				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
 				  uint8_t *out, uint16_t out_size);
 
-// Create a packet for sending closed-loop RPM command and LED command to 4 ESCs, also request feedback from one ESC (with id=fb_id)
+// Create a packet for sending (32766 max RPM) closed-loop RPM command and LED command to 4 ESCs, also request feedback from one ESC (with id=fb_id)
 // Return value is the length of generated packet (if positive), otherwise error code
 int32_t qc_esc_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
 				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
 				     int32_t fb_id, uint8_t *out, uint16_t out_size);
 
+
+// Create a packet for sending extended range (65530 max RPM) closed-loop RPM command and LED command to 4 ESCs, also request feedback from one ESC (with id=fb_id)
+// Return value is the length of generated packet (if positive), otherwise error code
+int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rpm2, int32_t rpm3,
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+				     int32_t fb_id, uint8_t *out, uint16_t out_size);
 
 //-------------------------------------------------------------------------
 // Below are functions for processing incoming packets

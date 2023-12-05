@@ -149,7 +149,7 @@ private:
 	} voxl_esc_params_t;
 
 	struct EscChan {
-		int16_t		rate_req;
+		int32_t		rate_req;
 		uint8_t		state;
 		uint16_t	rate_meas;
 		uint8_t		power_applied;
@@ -194,6 +194,11 @@ private:
 
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};
+
+	bool _need_version_info{true};
+	QC_ESC_VERSION_INFO _version_info[4];
+	bool version_info_updated();
+	bool extended_rpm_cmd();
 
 	voxl_esc_params_t	_parameters;
 	int			update_params();

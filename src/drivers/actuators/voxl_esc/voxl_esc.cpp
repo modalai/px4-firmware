@@ -104,6 +104,11 @@ int VoxlEsc::init()
 
 	_uart_port = new VoxlEscSerial();
 	memset(&_esc_chans, 0x00, sizeof(_esc_chans));
+	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; ++esc_id){
+		_version_info[esc_id].sw_version = UINT16_MAX;
+		_version_info[esc_id].hw_version = UINT16_MAX;
+		_version_info[esc_id].id = esc_id;
+	}
 
 	//get_instance()->ScheduleOnInterval(10000); //100hz
 
@@ -265,6 +270,20 @@ int VoxlEsc::flush_uart_rx()
 	return 0;
 }
 
+bool VoxlEsc::version_info_updated(){
+	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; ++esc_id){
+		if (_version_info[esc_id].sw_version == UINT16_MAX) return false;
+	}
+	return true;
+}
+
+bool VoxlEsc::extended_rpm_cmd(){
+	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; ++esc_id){
+		if (_version_info[esc_id].sw_version < 39) return false;
+	}
+	return true;
+}
+
 int VoxlEsc::read_response(Command *out_cmd)
 {
 	px4_usleep(_current_cmd.resp_delay_us);
@@ -302,7 +321,7 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 			uint8_t packet_size = qc_esc_packet_get_size(&_fb_packet);
 
 			if (packet_type == ESC_PACKET_TYPE_FB_RESPONSE && packet_size == sizeof(QC_ESC_FB_RESPONSE_V2)) {
-				//PX4_INFO("Got feedback V2 packet!");
+				PX4_INFO("Got feedback V2 packet!");
 				QC_ESC_FB_RESPONSE_V2 fb;
 				memcpy(&fb, _fb_packet.buffer, packet_size);
 
@@ -373,6 +392,14 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 			else if (packet_type == ESC_PACKET_TYPE_VERSION_RESPONSE && packet_size == sizeof(QC_ESC_VERSION_INFO)) {
 				QC_ESC_VERSION_INFO ver;
 				memcpy(&ver, _fb_packet.buffer, packet_size);
+				if (_need_version_info){
+					memcpy(&_version_info[ver.id], &ver, sizeof(QC_ESC_VERSION_INFO));
+					if (version_info_updated()){
+						// PX4_INFO("Got all ESC Version info!");
+						_need_version_info = false;
+					}
+					break;
+				}				
 				PX4_INFO("ESC ID: %i", ver.id);
 				PX4_INFO("HW Version: %i", ver.hw_version);
 				PX4_INFO("SW Version: %i", ver.sw_version);
@@ -417,11 +444,11 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 			switch (ret) {
 			case ESC_ERROR_BAD_CHECKSUM:
 				_rx_crc_error_count++;
-				//PX4_INFO("BAD ESC packet checksum");
+				PX4_INFO("BAD ESC packet checksum");
 				break;
 
 			case ESC_ERROR_BAD_LENGTH:
-				//PX4_INFO("BAD ESC packet length");
+				PX4_INFO("BAD ESC packet length");
 				break;
 			}
 		}
@@ -1038,6 +1065,12 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			_esc_chans[i].rate_req = 0;
 
 		} else {
+			if (extended_rpm_cmd()) {
+				if (outputs[i] > 65530) outputs[i] = 65530;
+			} else {
+				if (outputs[i] > 32766) outputs[i] = 32766;
+			}
+
 			if (!_turtle_mode_en) {
 				_esc_chans[i].rate_req = outputs[i] * _output_map[i].direction;
 
@@ -1047,20 +1080,55 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			}
 		}
 	}
+	
+	// if(_outputs_on){
+	// 	PX4_INFO("Rates Requested:");
+	// 	PX4_INFO("\tESC #0: %i\tLED#0: %i",_esc_chans[0].rate_req, _esc_chans[0].led);
+	// 	PX4_INFO("\tESC #1: %i\tLED#1: %i",_esc_chans[1].rate_req, _esc_chans[1].led);
+	// 	PX4_INFO("\tESC #2: %i\tLED#2: %i",_esc_chans[2].rate_req, _esc_chans[2].led);
+	// 	PX4_INFO("\tESC #3: %i\tLED#3: %i",_esc_chans[3].rate_req, _esc_chans[3].led);
+	// }
 
 	Command cmd;
-	cmd.len = qc_esc_create_rpm_packet4_fb(_esc_chans[0].rate_req,
-					       _esc_chans[1].rate_req,
-					       _esc_chans[2].rate_req,
-					       _esc_chans[3].rate_req,
-					       _esc_chans[0].led,
-					       _esc_chans[1].led,
-					       _esc_chans[2].led,
-					       _esc_chans[3].led,
-					       _fb_idx,
-					       cmd.buf,
-					       sizeof(cmd.buf));
+	if (extended_rpm_cmd()) {
+		// PX4_INFO("Mixer outputs");
+		// PX4_INFO_RAW("[%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
+		// 			outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5], 
+		// 			outputs[6], outputs[7], outputs[8], outputs[9], outputs[10], outputs[11], 
+		// 			outputs[12], outputs[13], outputs[14], outputs[15]
+		// 			);
+		cmd.len = qc_esc_create_rpm_div2_packet4_fb(_esc_chans[0].rate_req,
+					_esc_chans[1].rate_req,
+					_esc_chans[2].rate_req,
+					_esc_chans[3].rate_req,
+					_esc_chans[0].led,
+					_esc_chans[1].led,
+					_esc_chans[2].led,
+					_esc_chans[3].led,
+					_fb_idx,
+					cmd.buf,
+					sizeof(cmd.buf));
 
+	} else { 
+		cmd.len = qc_esc_create_rpm_packet4_fb((int16_t)_esc_chans[0].rate_req,
+					(int16_t)_esc_chans[1].rate_req,
+					(int16_t)_esc_chans[2].rate_req,
+					(int16_t)_esc_chans[3].rate_req,
+					_esc_chans[0].led,
+					_esc_chans[1].led,
+					_esc_chans[2].led,
+					_esc_chans[3].led,
+					_fb_idx,
+					cmd.buf,
+					sizeof(cmd.buf));
+	}
+
+	// PX4_INFO_RAW("%u:[%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]\n",
+	// 	cmd.len, cmd.buf[0], cmd.buf[1], cmd.buf[2], cmd.buf[+3], cmd.buf[4], cmd.buf[5], 
+	// 	cmd.buf[6], cmd.buf[7], cmd.buf[8], cmd.buf[+9], cmd.buf[10], cmd.buf[11], 
+	// 	cmd.buf[12], cmd.buf[13], cmd.buf[14], cmd.buf[15], cmd.buf[16], cmd.buf[17], 
+	// 	cmd.buf[18], cmd.buf[19], cmd.buf[20], cmd.buf[21], cmd.buf[22]
+	// 	);
 
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
 		PX4_ERR("Failed to send packet");
@@ -1145,6 +1213,19 @@ void VoxlEsc::Run()
 		} else {
 			PX4_ERR("Failed openening device");
 			return;
+		}
+	}
+
+	/* Get ESC FW version info */
+	if (_need_version_info){
+		for (uint8_t esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; ++esc_id){
+			Command cmd;
+			cmd.len = qc_esc_create_version_request_packet(esc_id, cmd.buf, sizeof(cmd.buf));
+			if (_uart_port->uart_write(cmd.buf, cmd.len) == cmd.len) {
+				if (read_response(&_current_cmd) != 0) PX4_ERR("Failed to parse version request response packet!");
+			} else {
+				PX4_ERR("Failed to send version request packet!");
+			}
 		}
 	}
 
