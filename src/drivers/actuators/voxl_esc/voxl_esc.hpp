@@ -125,6 +125,8 @@ private:
 	static constexpr uint32_t VOXL_ESC_MODE_TURTLE_AUX1 = 1;
 	static constexpr uint32_t VOXL_ESC_MODE_TURTLE_AUX2 = 2;
 
+	static constexpr uint16_t VOXL_ESC_EXT_RPM = 39;
+
 	//static constexpr uint16_t max_pwm(uint16_t pwm) { return math::min(pwm, VOXL_ESC_PWM_MAX); }
 	//static constexpr uint16_t max_rpm(uint16_t rpm) { return math::min(rpm, VOXL_ESC_RPM_MAX); }
 
@@ -195,10 +197,10 @@ private:
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};
 
+	bool _extended_rpm{false};
 	bool _need_version_info{true};
 	QC_ESC_VERSION_INFO _version_info[4];
-	bool version_info_updated();
-	bool extended_rpm_cmd();
+	bool check_versions_updated();
 
 	voxl_esc_params_t	_parameters;
 	int			update_params();
