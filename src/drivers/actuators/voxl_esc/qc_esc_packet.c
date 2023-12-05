@@ -132,7 +132,7 @@ int32_t qc_esc_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, i
 				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
 				     int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
-	uint16_t data[5];
+	int16_t data[5];
 	uint16_t leds = 0;
 
 	if (fb_id != -1) { fb_id = fb_id % 4; }
@@ -157,7 +157,7 @@ int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rp
 				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, 
 					 int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
-	uint16_t data[5];
+	int16_t data[5];
 	uint16_t leds = 0;
 	
 	if (fb_id != -1) { fb_id = fb_id % 4; }
