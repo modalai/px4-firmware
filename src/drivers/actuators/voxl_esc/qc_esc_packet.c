@@ -180,11 +180,6 @@ int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rp
 
 	if (fb_id == 2) { data[2] |= 0x0001; } if (fb_id == 3) { data[3] |= 0x0001; }
 
-	// PX4_INFO_RAW("DATA[0]: %i:%i", rpm0, data[0]);
-	// PX4_INFO_RAW("DATA[1]: %i:%i", rpm1, data[1]);
-	// PX4_INFO_RAW("DATA[2]: %i:%i", rpm2, data[2]);
-	// PX4_INFO_RAW("DATA[3]: %i:%i", rpm3, data[3]);
-	// PX4_INFO_RAW("LEDs: %i", data[4]);
 	return qc_esc_create_packet(ESC_PACKET_TYPE_RPM_DIV2_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
 }
 
