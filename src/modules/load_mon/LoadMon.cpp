@@ -225,11 +225,11 @@ void LoadMon::cpuload()
 
 	cpuload.process_load = interval_spent_time / interval;
 
-    FILE *stat_file = fopen("/proc/stat", "r");
-    if (!stat_file) {
+	FILE *stat_file = fopen("/proc/stat", "r");
+	if (!stat_file) {
 		PX4_ERR("Failed to open /proc/stat");
 		cpuload.system_load = -1;
-    } else {
+	} else {
 		double total, idle{0};
 		char cpu_line[256];
 		fgets(cpu_line, sizeof(line), stat_file);
@@ -239,7 +239,7 @@ void LoadMon::cpuload()
 		double total_time = 0;
 		for (int i = 0; i < 10; ++i) {
 			token = strtok(NULL, " ");
-		 	total_time += atof(token);
+			total_time += atof(token);
 			if(i == 3){
 				idle = atof(token);
 			}
