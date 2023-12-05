@@ -247,7 +247,7 @@ void LoadMon::cpuload()
 
 		total = total_time;
 		fclose(stat_file);
-		float total_usage = (total - idle) / total * 100.0;
+		float total_usage = (total - idle) / total;
 		cpuload.system_load = total_usage;
 	}
 #endif
