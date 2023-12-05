@@ -244,7 +244,6 @@ void LoadMon::cpuload()
 				total_time += atof(token);
 				if (i == 3) {
 					idle = atof(token);
-					PX4_INFO("%f", idle);
 				}
 				i++;
 			}	
