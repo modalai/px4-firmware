@@ -103,7 +103,6 @@ private:
 	hrt_abstime _last_idle_time_sample{0};
 #endif
 
-
 	perf_counter_t _cycle_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 
 	DEFINE_PARAMETERS(
