@@ -237,12 +237,17 @@ void LoadMon::cpuload()
 		// Assuming the first line in /proc/stat is the line with overall CPU usage
 		char *token = strtok(cpu_line, " ");
 		double total_time = 0;
-		for (int i = 0; i < 10; ++i) {
+		int i = 0;
+		while (token != NULL) {
 			token = strtok(NULL, " ");
-			total_time += atof(token);
-			if(i == 3){
-				idle = atof(token);
-			}
+			if (token != NULL) {
+				total_time += atof(token);
+				if (i == 3) {
+					idle = atof(token);
+					PX4_INFO("%f", idle);
+				}
+				i++;
+			}	
 		}
 
 		total = total_time;
