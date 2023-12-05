@@ -157,7 +157,7 @@ int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rp
 				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, 
 					 int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
-	int32_t data[5];
+	uint16_t data[5];
 	uint16_t leds = 0;
 	
 	if (fb_id != -1) { fb_id = fb_id % 4; }
@@ -167,10 +167,10 @@ int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rp
 	leds |= ((uint16_t)(led2 & 0b00000111)) << 6;
 	leds |= ((uint16_t)(led3 & 0b00000111)) << 9;
 
-	data[0] = (int32_t)(((double)rpm0 / 4) * 2);
-	data[1] = (int32_t)(((double)rpm1 / 4) * 2);
-	data[2] = (int32_t)(((double)rpm2 / 4) * 2);
-	data[3] = (int32_t)(((double)rpm3 / 4) * 2);
+	data[0] = (uint16_t)(((double)rpm0 / 4) * 2);
+	data[1] = (uint16_t)(((double)rpm1 / 4) * 2);
+	data[2] = (uint16_t)(((double)rpm2 / 4) * 2);
+	data[3] = (uint16_t)(((double)rpm3 / 4) * 2);
 	data[4]= leds;
 
 	//least significant bit is used for feedback request
@@ -185,7 +185,7 @@ int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rp
 	// PX4_INFO_RAW("DATA[2]: %i:%i", rpm2, data[2]);
 	// PX4_INFO_RAW("DATA[3]: %i:%i", rpm3, data[3]);
 	// PX4_INFO_RAW("LEDs: %i", data[4]);
-	return qc_esc_create_packet(ESC_PACKET_TYPE_RPM_DIV2_CMD, (uint8_t *) & (data[0]), 20, out, out_size);
+	return qc_esc_create_packet(ESC_PACKET_TYPE_RPM_DIV2_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
 }
 
 int32_t qc_esc_create_packet(uint8_t type, uint8_t *data, uint16_t size, uint8_t *out, uint16_t out_size)
