@@ -37,8 +37,6 @@
 #include "qc_esc_packet.h"
 #include "qc_esc_packet_types.h"
 
-#include <px4_log.h>
-
 #include <string.h>
 
 int32_t qc_esc_create_version_request_packet(uint8_t id, uint8_t *out, uint16_t out_size)
@@ -121,66 +119,50 @@ int32_t qc_esc_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2, i
 }
 
 
-int32_t qc_esc_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
+int32_t qc_esc_create_rpm_packet4(int32_t rpm0, int32_t rpm1, int32_t rpm2, int32_t rpm3,
 				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
-				  uint8_t *out, uint16_t out_size)
+				  uint8_t *out, uint16_t out_size, uint8_t ext_rpm)
 {
-	return qc_esc_create_rpm_packet4_fb(rpm0, rpm1, rpm2, rpm3, led0, led1, led2, led3, -1, out, out_size);
+	return qc_esc_create_rpm_packet4_fb(rpm0, rpm1, rpm2, rpm3, led0, led1, led2, led3, -1, out, out_size, ext_rpm);
 }
 
-int32_t qc_esc_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
+int32_t qc_esc_create_rpm_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rpm2, int32_t rpm3,
 				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
-				     int32_t fb_id, uint8_t *out, uint16_t out_size)
+				     int32_t fb_id, uint8_t *out, uint16_t out_size, uint8_t ext_rpm)
 {
 	int16_t data[5];
 	uint16_t leds = 0;
-
-	if (fb_id != -1) { fb_id = fb_id % 4; }
-
-	//least significant bit is used for feedback request
-	rpm0 &= ~(0x0001); rpm1 &= ~(0x0001); rpm2 &= ~(0x0001); rpm3 &= ~(0x0001);
-
-	if (fb_id == 0) { rpm0 |= 0x0001; } if (fb_id == 1) { rpm1 |= 0x0001; }
-
-	if (fb_id == 2) { rpm2 |= 0x0001; } if (fb_id == 3) { rpm3 |= 0x0001; }
-
-	leds |=             led0 & 0b00000111;
-	leds |= (led1 & 0b00000111)  << 3;
-	leds |= ((uint16_t)(led2 & 0b00000111)) << 6;
-	leds |= ((uint16_t)(led3 & 0b00000111)) << 9;
-
-	data[0] = rpm0; data[1] = rpm1; data[2] = rpm2; data[3] = rpm3; data[4] = leds;
-	return qc_esc_create_packet(ESC_PACKET_TYPE_RPM_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
-}
-
-int32_t qc_esc_create_rpm_div2_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rpm2, int32_t rpm3,
-				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, 
-					 int32_t fb_id, uint8_t *out, uint16_t out_size)
-{
-	int16_t data[5];
-	uint16_t leds = 0;
+	uint8_t cmd = ESC_PACKET_TYPE_RPM_CMD;
 	
+	// Limit RPMs to prevent overflow when converting to int16_t
+	if (rpm0 > UINT16_MAX) { rpm0 = UINT16_MAX-5; } if (rpm1 > UINT16_MAX) { rpm1 = UINT16_MAX-5; }
+	if (rpm2 > UINT16_MAX) { rpm2 = UINT16_MAX-5; } if (rpm3 > UINT16_MAX) { rpm3 = UINT16_MAX-5; }
+
 	if (fb_id != -1) { fb_id = fb_id % 4; }
 
-	leds |=             led0 & 0b00000111;
+	leds |= led0 & 0b00000111;
 	leds |= (led1 & 0b00000111)  << 3;
 	leds |= ((uint16_t)(led2 & 0b00000111)) << 6;
 	leds |= ((uint16_t)(led3 & 0b00000111)) << 9;
 
-	data[0] = (uint16_t)(((double)rpm0 / 4) * 2);
-	data[1] = (uint16_t)(((double)rpm1 / 4) * 2);
-	data[2] = (uint16_t)(((double)rpm2 / 4) * 2);
-	data[3] = (uint16_t)(((double)rpm3 / 4) * 2);
-	data[4]= leds;
+	if (ext_rpm > 0){
+		cmd = ESC_PACKET_TYPE_RPM_DIV2_CMD;
+		data[0] = (int16_t)(((double)rpm0 / 4) * 2);
+		data[1] = (int16_t)(((double)rpm1 / 4) * 2);
+		data[2] = (int16_t)(((double)rpm2 / 4) * 2);
+		data[3] = (int16_t)(((double)rpm3 / 4) * 2);
+		data[4]= leds;
+	} else {
+		data[0] = rpm0; data[1] = rpm1; data[2] = rpm2; data[3] = rpm3; data[4] = leds;
+	}
 
 	//least significant bit is used for feedback request
 	data[0] &= ~(0x0001); data[1] &= ~(0x0001); data[2] &= ~(0x0001); data[3] &= ~(0x0001);
 
 	if (fb_id == 0) { data[0] |= 0x0001; } if (fb_id == 1) { data[1] |= 0x0001; }
-
 	if (fb_id == 2) { data[2] |= 0x0001; } if (fb_id == 3) { data[3] |= 0x0001; }
 
-	return qc_esc_create_packet(ESC_PACKET_TYPE_RPM_DIV2_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
+	return qc_esc_create_packet(cmd, (uint8_t *) & (data[0]), 10, out, out_size);
 }
 
 int32_t qc_esc_create_packet(uint8_t type, uint8_t *data, uint16_t size, uint8_t *out, uint16_t out_size)

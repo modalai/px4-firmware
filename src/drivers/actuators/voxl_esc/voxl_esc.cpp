@@ -676,7 +676,8 @@ int VoxlEsc::custom_command(int argc, char *argv[])
 							       0,
 							       id_fb,
 							       cmd.buf,
-							       sizeof(cmd.buf));
+							       sizeof(cmd.buf),
+								   get_instance()->_extended_rpm);
 
 			cmd.response        = true;
 			cmd.repeats         = repeat_count;
@@ -1080,32 +1081,18 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	
 
 	Command cmd;
-	if (_extended_rpm) {
-		cmd.len = qc_esc_create_rpm_div2_packet4_fb(_esc_chans[0].rate_req,
-					_esc_chans[1].rate_req,
-					_esc_chans[2].rate_req,
-					_esc_chans[3].rate_req,
-					_esc_chans[0].led,
-					_esc_chans[1].led,
-					_esc_chans[2].led,
-					_esc_chans[3].led,
-					_fb_idx,
-					cmd.buf,
-					sizeof(cmd.buf));
-
-	} else { 
-		cmd.len = qc_esc_create_rpm_packet4_fb((int16_t)_esc_chans[0].rate_req,
-					(int16_t)_esc_chans[1].rate_req,
-					(int16_t)_esc_chans[2].rate_req,
-					(int16_t)_esc_chans[3].rate_req,
-					_esc_chans[0].led,
-					_esc_chans[1].led,
-					_esc_chans[2].led,
-					_esc_chans[3].led,
-					_fb_idx,
-					cmd.buf,
-					sizeof(cmd.buf));
-	}
+	cmd.len = qc_esc_create_rpm_packet4_fb(_esc_chans[0].rate_req,
+			_esc_chans[1].rate_req,
+			_esc_chans[2].rate_req,
+			_esc_chans[3].rate_req,
+			_esc_chans[0].led,
+			_esc_chans[1].led,
+			_esc_chans[2].led,
+			_esc_chans[3].led,
+			_fb_idx,
+			cmd.buf,
+			sizeof(cmd.buf),
+			_extended_rpm);
 
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
 		PX4_ERR("Failed to send packet");
