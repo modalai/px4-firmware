@@ -441,11 +441,11 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 			switch (ret) {
 			case ESC_ERROR_BAD_CHECKSUM:
 				_rx_crc_error_count++;
-				PX4_INFO("BAD ESC packet checksum");
+				// PX4_INFO("BAD ESC packet checksum");
 				break;
 
 			case ESC_ERROR_BAD_LENGTH:
-				PX4_INFO("BAD ESC packet length");
+				// PX4_INFO("BAD ESC packet length");
 				break;
 			}
 		}
