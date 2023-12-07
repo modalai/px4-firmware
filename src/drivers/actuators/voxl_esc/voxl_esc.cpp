@@ -1064,9 +1064,9 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 
 		} else {
 			if (_extended_rpm) {
-				if (outputs[i] > VOXL_ESC_EXT_RPM_MAX) outputs[i] = VOXL_ESC_EXT_RPM_MAX;
+				if (outputs[i] > VOXL_ESC_RPM_MAX_EXT) outputs[i] = VOXL_ESC_RPM_MAX_EXT;
 			} else {
-				if (outputs[i] > VOXL_ESC_STD_RPM_MAX) outputs[i] = VOXL_ESC_STD_RPM_MAX;
+				if (outputs[i] > VOXL_ESC_RPM_MAX) outputs[i] = VOXL_ESC_RPM_MAX;
 			}
 			if (!_turtle_mode_en) {
 				_esc_chans[i].rate_req = outputs[i] * _output_map[i].direction;

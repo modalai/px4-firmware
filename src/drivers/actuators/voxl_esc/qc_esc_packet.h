@@ -52,6 +52,11 @@ extern "C" {
 #define QC_ESC_LED_GREEN_ON 2
 #define QC_ESC_LED_BLUE_ON  4
 
+// Define RPM command max and min values
+#define ESC_RPM_MAX INT16_MAX-1			//  32k
+#define ESC_RPM_MIN INT16_MIN+1			// -32k
+#define ESC_RPM_MAX_EXT UINT16_MAX-5	//  65k
+#define ESC_RPM_MIN_EXT -UINT16_MAX+5	// -65k
 
 // Header of the packet. Each packet must start with this header
 #define ESC_PACKET_HEADER    0xAF

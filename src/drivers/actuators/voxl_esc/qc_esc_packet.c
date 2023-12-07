@@ -133,10 +133,14 @@ int32_t qc_esc_create_rpm_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rpm2, i
 	int16_t data[5];
 	uint16_t leds = 0;
 	uint8_t cmd = ESC_PACKET_TYPE_RPM_CMD;
-	
+	int32_t max = ext_rpm > 0 ? ESC_RPM_MAX_EXT : ESC_RPM_MAX;
+	int32_t min = ext_rpm > 0 ? ESC_RPM_MIN_EXT : ESC_RPM_MIN;
+
 	// Limit RPMs to prevent overflow when converting to int16_t
-	if (rpm0 > UINT16_MAX) { rpm0 = UINT16_MAX-5; } if (rpm1 > UINT16_MAX) { rpm1 = UINT16_MAX-5; }
-	if (rpm2 > UINT16_MAX) { rpm2 = UINT16_MAX-5; } if (rpm3 > UINT16_MAX) { rpm3 = UINT16_MAX-5; }
+	if (rpm0 > max) { rpm0 = max; } if (rpm0 < min) { rpm0 = min; }
+	if (rpm1 > max) { rpm1 = max; } if (rpm1 < min) { rpm1 = min; }
+	if (rpm2 > max) { rpm2 = max; } if (rpm2 < min) { rpm2 = min; }
+	if (rpm3 > max) { rpm3 = max; } if (rpm3 < min) { rpm3 = min; }
 
 	if (fb_id != -1) { fb_id = fb_id % 4; }
 
@@ -147,10 +151,10 @@ int32_t qc_esc_create_rpm_packet4_fb(int32_t rpm0, int32_t rpm1, int32_t rpm2, i
 
 	if (ext_rpm > 0){
 		cmd = ESC_PACKET_TYPE_RPM_DIV2_CMD;
-		data[0] = (int16_t)(((double)rpm0 / 4) * 2);
-		data[1] = (int16_t)(((double)rpm1 / 4) * 2);
-		data[2] = (int16_t)(((double)rpm2 / 4) * 2);
-		data[3] = (int16_t)(((double)rpm3 / 4) * 2);
+		data[0] = ((rpm0 / 4) * 2);
+		data[1] = ((rpm1 / 4) * 2);
+		data[2] = ((rpm2 / 4) * 2);
+		data[3] = ((rpm3 / 4) * 2);
 		data[4]= leds;
 	} else {
 		data[0] = rpm0; data[1] = rpm1; data[2] = rpm2; data[3] = rpm3; data[4] = leds;
