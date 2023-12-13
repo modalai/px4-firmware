@@ -1,0 +1,6 @@
+menuconfig MODULES_GLOBAL_ORIGIN
+	bool "global_origin"
+	default n
+	---help---
+		Automatically set global origin and initial position
+
