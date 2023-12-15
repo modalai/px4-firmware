@@ -1143,6 +1143,10 @@ GPS::run()
 		} else {
 			px4_usleep(500000);
 		}
+
+		// If we get here then we failed to initialize a GPS
+		PX4_ERR("Failed to setup a GPS receiver");
+		break;
 	}
 
 	PX4_INFO("exiting");
