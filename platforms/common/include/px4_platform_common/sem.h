@@ -92,7 +92,13 @@ __BEGIN_DECLS
 #define px4_sem_init		sem_init
 #define px4_sem_setprotocol	sem_setprotocol
 #define px4_sem_wait		sem_wait
+
+#if defined(__PX4_QURT)
+__EXPORT int		px4_sem_trywait(px4_sem_t *sem);
+#else
 #define px4_sem_trywait		sem_trywait
+#endif
+
 #define px4_sem_post		sem_post
 #define px4_sem_getvalue	sem_getvalue
 #define px4_sem_destroy		sem_destroy

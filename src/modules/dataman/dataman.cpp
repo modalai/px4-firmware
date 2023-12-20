@@ -190,7 +190,8 @@ static perf_counter_t _dm_read_perf{nullptr};
 static perf_counter_t _dm_write_perf{nullptr};
 
 /* The data manager store file handle and file name */
-static const char *default_device_path = PX4_STORAGEDIR "/dataman";
+// static const char *default_device_path = PX4_STORAGEDIR "/dataman";
+static const char *default_device_path = "/data/px4/dataman";
 static char *k_data_manager_device_path = nullptr;
 
 static enum {
@@ -1241,6 +1242,8 @@ dataman_main(int argc, char *argv[])
 		}
 
 		start();
+
+		px4_usleep(5000);
 
 		if (!is_running()) {
 			PX4_ERR("dataman start failed");
