@@ -76,19 +76,6 @@ int Voxl2IO::init()
 		}
 	}
 
-	// /* Verify connectivity and protocol version number */
-	// if (get_version_info() < 0) {
-	// 	PX4_ERR("Failed to detect voxl2_io protocol version.");
-	// 	return PX4_ERROR;
-	// } else {
-	// 	if (_version_info.sw_version == VOXL2_IO_SW_PROTOCOL_VERSION && _version_info.hw_version == VOXL2_IO_HW_PROTOCOL_VERSION){
-	// 		PX4_INFO("Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
-	// 	} else {
-	// 		PX4_ERR("Detected incorrect M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
-	// 		return PX4_ERROR;
-	// 	}
-	// }
-
 	/* Getting initial parameter values */
 	ret = update_params();
 
