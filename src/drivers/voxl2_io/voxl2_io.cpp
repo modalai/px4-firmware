@@ -585,18 +585,14 @@ void Voxl2IO::Run()
 
 	perf_begin(_cycle_perf);
 
-	/* Verify connectivity */
-	if (_need_version_info && get_version_info() < 0) {
-		PX4_ERR("Failed to detect voxl2_io protocol version.");
-	} 
-
 	/* Verify protocol version info */
 	if (_need_version_info){
-		if(_version_info.sw_version == VOXL2_IO_SW_PROTOCOL_VERSION && _version_info.hw_version == VOXL2_IO_HW_PROTOCOL_VERSION){
+		if (get_version_info() < 0) PX4_ERR("Failed to detect voxl2_io protocol version.");
+		if (_version_info.sw_version == VOXL2_IO_SW_PROTOCOL_VERSION && _version_info.hw_version == VOXL2_IO_HW_PROTOCOL_VERSION){
 			_need_version_info = false;
 			PX4_INFO("Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
-		} else if (_protocol_read_retries > 0) {
-			PX4_ERR("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, --_protocol_read_retries);
+		} else if (_protocol_read_retries > 0) {	// If Voxl2 IO gets powered up late, the initial values read are sometimes garbage
+			PX4_ERR("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries--);
 			return;
 		} else {
 			PX4_ERR("Retries exhausted, exiting now.");
@@ -604,19 +600,6 @@ void Voxl2IO::Run()
 			return;
 		}
 	}
-
-	// Infinite loop version.. will remove soon.. still validating 
-	// if (_need_version_info){
-	// 	if(_version_info.sw_version == VOXL2_IO_SW_PROTOCOL_VERSION && _version_info.hw_version == VOXL2_IO_HW_PROTOCOL_VERSION){
-	// 		_need_version_info = false;
-	// 		PX4_INFO("Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
-	// 	} else {
-	// 		PX4_ERR("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying...", _version_info.sw_version, _version_info.hw_version);
-	// 		return;
-	// 	} 
-	// 	_protocol_read_retries--;
-	// }
-
 
 	/* Handle RC */
 	if (_rc_mode == RC_MODE::SCAN){
