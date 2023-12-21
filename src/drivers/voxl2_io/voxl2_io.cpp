@@ -252,7 +252,7 @@ int Voxl2IO::get_version_info()
 		/* We didn't get a response from Voxl2 IO board, try again... */
 		} else {
 			read_retries--;
-			PX4_ERR("Failed to receive version info, %i retries left...", read_retries);
+			if (_debug) PX4_INFO("Failed to receive version info, %i retries left...", read_retries);
 			if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
 				PX4_ERR("Failed to send version info packet");
 			} else {
@@ -576,10 +576,10 @@ void Voxl2IO::Run()
 			_need_version_info = false;
 			PX4_INFO("Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
 		} else if (_protocol_read_retries > 0) {	// If Voxl2 IO gets powered up late, the initial values read are sometimes garbage
-			PX4_ERR("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries--);
+			if (_debug) PX4_INFO("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries--);
 			return;
 		} else {
-			PX4_ERR("Retries exhausted, exiting now.");
+			if (_debug) PX4_INFO("Retries exhausted, exiting now.");
 			request_stop();
 			return;
 		}
