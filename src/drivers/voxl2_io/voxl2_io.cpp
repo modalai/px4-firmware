@@ -186,10 +186,7 @@ int Voxl2IO::get_version_info()
 
 	/* Read response, wait 500ms */
 	while(read_retries){
-		hrt_abstime now = hrt_absolute_time();
-		while (hrt_elapsed_time(&now) < 500000){
-			continue;
-		}
+		px4_usleep(500000);
 		memset(&_read_buf, 0x00, READ_BUF_SIZE);
 		res = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
 
