@@ -190,6 +190,10 @@ handle_message_dsp(mavlink_message_t *msg)
 	case MAVLINK_MSG_ID_ODOMETRY:
 		handle_message_odometry_dsp(msg);
 		break;
+	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
+		PX4_INFO("Received distance sensor message");
+		handle_message_distance_sensor_dsp(msg);
+		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long_dsp(msg);
 		break;
@@ -198,10 +202,6 @@ handle_message_dsp(mavlink_message_t *msg)
 		break;
 	case MAVLINK_MSG_ID_SYSTEM_TIME:
 		PX4_DEBUG("MAVLINK SYSTEM TIME");
-		break;
-	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
-		PX4_INFO("Received distance sensor message");
-		handle_message_distance_sensor_dsp(msg);
 		break;
 	default:
 		PX4_DEBUG("Unknown msg ID: %d", msg->msgid);
