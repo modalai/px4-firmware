@@ -191,7 +191,6 @@ handle_message_dsp(mavlink_message_t *msg)
 		handle_message_odometry_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
-		PX4_INFO("Received distance sensor message");
 		handle_message_distance_sensor_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
