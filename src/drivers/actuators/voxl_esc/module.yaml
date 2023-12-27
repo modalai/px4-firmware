@@ -23,7 +23,7 @@ actuator_output:
     - param_prefix: VOXL_ESC
       group_label: 'ESCs'
       channel_label: 'ESC'
-      num_channels: 4
+      num_channels: 8
 
 parameters:
     - group: ModalAI Custom Configuration

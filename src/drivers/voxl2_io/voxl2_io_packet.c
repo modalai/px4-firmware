@@ -75,21 +75,21 @@ int32_t voxl2_io_create_set_id_packet(uint8_t id, uint8_t *out, uint16_t out_siz
 	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_SET_ID_CMD, (uint8_t *)&id, 1, out, out_size);
 }
 
-int32_t voxl2_io_create_pwm_packet4(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3,
-				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_pwm_packet4(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3, int16_t pwm4, int16_t pwm5, int16_t pwm6, int16_t pwm7,
+						uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				  uint8_t *out, uint16_t out_size)
 {
-	return voxl2_io_create_pwm_packet4_fb(pwm0, pwm1, pwm2, pwm3, led0, led1, led2, led3, -1, out, out_size);
+	return voxl2_io_create_pwm_packet4_fb(pwm0, pwm1, pwm2, pwm3, pwm4, pwm5, pwm6, pwm7, led0, led1, led2, led3, led4, led5, led6, led7, -1, out, out_size);
 }
 
-int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3,
-				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3, int16_t pwm4, int16_t pwm5, int16_t pwm6, int16_t pwm7,
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				     int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
-	uint16_t data[5];
+	uint16_t data[9];
 	uint16_t leds = 0;
 
-	if (fb_id != -1) { fb_id = fb_id % 4; }
+	if (fb_id != -1) { fb_id = fb_id % 8; }
 
 	//limit the pwm commands
 
@@ -101,38 +101,50 @@ int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2,
 
 	if (pwm3 > 800) { pwm3 = 800; } if (pwm3 < -800) { pwm3 = -800; }
 
-	//least significant bit is used for feedback request
-	pwm0 &= ~(0x0001); pwm1 &= ~(0x0001); pwm2 &= ~(0x0001); pwm3 &= ~(0x0001);
+	if (pwm4 > 800) { pwm4 = 800; } if (pwm4 < -800) { pwm4 = -800; }
+
+	if (pwm5 > 800) { pwm5 = 800; } if (pwm5 < -800) { pwm5 = -800; }
+
+	if (pwm6 > 800) { pwm6 = 800; } if (pwm6 < -800) { pwm6 = -800; }
+
+	if (pwm7 > 800) { pwm7 = 800; } if (pwm7 < -800) { pwm7 = -800; }
+
+  //least significant bit is used for feedback request
+	pwm0 &= ~(0x0001); pwm1 &= ~(0x0001); pwm2 &= ~(0x0001); pwm3 &= ~(0x0001); pwm4 &= ~(0x0001); pwm5 &= ~(0x0001); pwm6 &= ~(0x0001); pwm7 &= ~(0x0001);
 
 	if (fb_id == 0) { pwm0 |= 0x0001; } if (fb_id == 1) { pwm1 |= 0x0001; }
 
 	if (fb_id == 2) { pwm2 |= 0x0001; } if (fb_id == 3) { pwm3 |= 0x0001; }
 
+	if (fb_id == 4) { pwm4 |= 0x0001; } if (fb_id == 5) { pwm5 |= 0x0001; }
+
+	if (fb_id == 6) { pwm6 |= 0x0001; } if (fb_id == 7) { pwm7 |= 0x0001; }
+	
 	leds |=             led0 & 0b00000111;
 	leds |= (led1 & 0b00000111)  << 3;
 	leds |= ((uint16_t)(led2 & 0b00000111)) << 6;
 	leds |= ((uint16_t)(led3 & 0b00000111)) << 9;
 
-	data[0] = pwm0; data[1] = pwm1; data[2] = pwm2; data[3] = pwm3; data[4] = leds;
-	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_PWM_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
+	data[0] = pwm0; data[1] = pwm1; data[2] = pwm2; data[3] = pwm3; data[4] = pwm4; data[5] = pwm5; data[6] = pwm6, data[7] = pwm7; data[8] = leds;
+	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_PWM_CMD, (uint8_t *) & (data[0]), 14, out, out_size);
 }
 
 
-int32_t voxl2_io_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
-				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3, int16_t rpm4, int16_t rpm5, int16_t rpm6, int16_t rpm7,
+				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				  uint8_t *out, uint16_t out_size)
 {
-	return voxl2_io_create_rpm_packet4_fb(rpm0, rpm1, rpm2, rpm3, led0, led1, led2, led3, -1, out, out_size);
+	return voxl2_io_create_rpm_packet4_fb(rpm0, rpm1, rpm2, rpm3, rpm4, rpm5, rpm6, rpm7, led0, led1, led2, led3, led4, led5, led6, led7, -1, out, out_size);
 }
 
-int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
-				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3, int16_t rpm4, int16_t rpm5, int16_t rpm6, int16_t rpm7,
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				     int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
-	uint16_t data[5];
+	uint16_t data[9];
 	uint16_t leds = 0;
 
-	if (fb_id != -1) { fb_id = fb_id % 4; }
+	if (fb_id != -1) { fb_id = fb_id % 8; }
 
 	//least significant bit is used for feedback request
 	rpm0 &= ~(0x0001); rpm1 &= ~(0x0001); rpm2 &= ~(0x0001); rpm3 &= ~(0x0001);
@@ -146,8 +158,8 @@ int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2,
 	leds |= ((uint16_t)(led2 & 0b00000111)) << 6;
 	leds |= ((uint16_t)(led3 & 0b00000111)) << 9;
 
-	data[0] = rpm0; data[1] = rpm1; data[2] = rpm2; data[3] = rpm3; data[4] = leds;
-	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_RPM_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
+	data[0] = rpm0; data[1] = rpm1; data[2] = rpm2; data[3] = rpm3; data[4] = rpm4; data[5] = rpm5; data[6]=rpm6; data[7] = rpm7; data[8] = leds;
+	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_RPM_CMD, (uint8_t *) & (data[0]), 14, out, out_size);
 }
 
 int32_t voxl2_io_create_packet(uint8_t type, uint8_t *data, uint16_t size, uint8_t *out, uint16_t out_size)
@@ -171,9 +183,6 @@ int32_t voxl2_io_create_packet(uint8_t type, uint8_t *data, uint16_t size, uint8
 
 	return packet_size;
 }
-
-
-
 
 //feed in a character and see if we got a complete packet
 int16_t   voxl2_io_packet_process_char(uint8_t c, VOXL2_IOPacket *packet)

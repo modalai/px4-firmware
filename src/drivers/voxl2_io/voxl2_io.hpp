@@ -121,7 +121,7 @@ private:
 	static constexpr uint32_t VOXL2_IO_BOARD_CONFIG_SIZE = 4;	// PWM_MIN, PWM_MAX, 4 bytes
 	static constexpr uint32_t VOXL2_IO_ESC_CAL_SIZE = 1;		
 	static constexpr uint32_t VOXL2_IO_DEFAULT_BAUD = 921600;
-	static constexpr uint16_t VOXL2_IO_OUTPUT_CHANNELS = 4;
+	static constexpr uint16_t VOXL2_IO_OUTPUT_CHANNELS = 8;
 	static constexpr uint16_t VOXL2_IO_OUTPUT_DISABLED = 0;
 
 	static constexpr uint32_t VOXL2_IO_WRITE_WAIT_US = 200;
@@ -160,7 +160,7 @@ private:
 		int32_t		pwm_failsafe{VOXL2_IO_DEFAULT_FAILSAFE};
 		int32_t 	param_rc_input_proto{0};
 		int32_t		param_rc_rssi_pwm_chan{0};
-		int32_t		function_map[VOXL2_IO_OUTPUT_CHANNELS] {0, 0, 0, 0};
+		int32_t		function_map[VOXL2_IO_OUTPUT_CHANNELS] {0, 0, 0, 0, 0, 0, 0, 0};
 		int32_t		verbose_logging{0};
 	} voxl2_io_params_t;
 	voxl2_io_params_t	_parameters;
@@ -202,7 +202,7 @@ private:
 
 	bool		_pwm_on{false};
 	int32_t		_pwm_fullscale{0};
-	int16_t 	_pwm_values[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+	int16_t 	_pwm_values[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 	bool		_outputs_disabled{false};
 
 	perf_counter_t		_cycle_perf;
