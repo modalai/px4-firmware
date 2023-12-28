@@ -86,9 +86,9 @@ int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2,
 				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				     int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
-	uint16_t data[9];
+	uint16_t data[10];
 	uint16_t leds = 0;
-	uint16_t input_size = sizeof(data);
+	uint16_t input_size = sizeof(data) - 1;
 
 	if (fb_id != -1) { fb_id = fb_id % 8; }
 
@@ -126,7 +126,7 @@ int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2,
 	leds |= ((uint16_t)(led2 & 0b00000111)) << 6;
 	leds |= ((uint16_t)(led3 & 0b00000111)) << 9;
 
-	data[0] = pwm0; data[1] = pwm1; data[2] = pwm2; data[3] = pwm3; data[4] = pwm4; data[5] = pwm5; data[6] = pwm6, data[7] = pwm7; data[8] = leds;
+	data[0] = pwm0; data[1] = pwm1; data[2] = pwm2; data[3] = pwm3; data[4] = pwm4; data[5] = pwm5; data[6] = pwm6, data[7] = pwm7; data[8] = data[9] = 0;
 	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_PWM_CMD, (uint8_t *) & (data[0]), input_size, out, out_size);
 }
 
