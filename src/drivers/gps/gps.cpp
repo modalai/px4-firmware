@@ -41,14 +41,7 @@
 #include <nuttx/arch.h>
 #endif
 
-#ifndef __PX4_QURT
 #include <poll.h>
-#endif
-
-#ifdef __PX4_QURT
-#include <drivers/device/qurt/uart.h>
-#endif
-
 #include <termios.h>
 #include <cstring>
 
@@ -61,6 +54,7 @@
 #include <px4_platform_common/cli.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/module.h>
+#include <px4_platform_common/px4_serial.h>
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
@@ -408,12 +402,7 @@ int GPS::callback(GPSCallbackType type, void *data1, int data2, void *user)
 
 	case GPSCallbackType::writeDeviceData:
 		gps->dumpGpsData((uint8_t *)data1, (size_t)data2, gps_dump_comm_mode_t::Full, true);
-
-#ifdef __PX4_QURT
-	    return qurt_uart_write(gps->_serial_fd, (const char*) data1, (size_t) data2);
-#else
-		return ::write(gps->_serial_fd, data1, (size_t)data2);
-#endif
+		return px4_serial_write(gps->_serial_fd, data1, (size_t)data2);
 
 	case GPSCallbackType::setBaudrate:
 		return gps->setBaudrate(data2);
@@ -460,10 +449,6 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 {
 	handleInjectDataTopic();
 
-#if !defined(__PX4_QURT)
-
-	/* For non QURT, use the usual polling. */
-
 	//Poll only for the serial data. In the same thread we also need to handle orb messages,
 	//so ideally we would poll on both, the serial fd and orb subscription. Unfortunately the
 	//two pollings use different underlying mechanisms (at least under posix), which makes this
@@ -505,7 +490,7 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 			px4_usleep(sleeptime);
 #endif
 
-			ret = ::read(_serial_fd, buf, buf_length);
+			ret = px4_serial_read(_serial_fd, buf, buf_length);
 
 			if (ret > 0) {
 				_num_bytes_read += ret;
@@ -517,24 +502,6 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 	}
 
 	return ret;
-
-#else
-	hrt_abstime now = hrt_absolute_time();
-	int bytes_read = 0;
-
-	while (hrt_elapsed_time(&now) < (hrt_abstime)(timeout * 1000)) {
-	    // The UART read on SLPI is via an asynchronous service so specify a timeout
-	    // for the return. The driver will poll periodically until the read comes in
-	    // so this may block for a while. However, it will timeout if no read comes in.
-	    bytes_read = qurt_uart_read(_serial_fd, (char*) buf, buf_length, 2000);
-		if (bytes_read > 0) {
-			_num_bytes_read += bytes_read;
-			break;
-		}
-	}
-
-	return bytes_read;
-#endif
 }
 
 void GPS::handleInjectDataTopic()
@@ -599,19 +566,14 @@ bool GPS::injectData(uint8_t *data, size_t len)
 {
 	dumpGpsData(data, len, gps_dump_comm_mode_t::Full, true);
 
-#ifdef __PX4_QURT
-	size_t written = qurt_uart_write(_serial_fd, (const char*) data, len);
-#else
-	size_t written = ::write(_serial_fd, data, len);
+	size_t written = px4_serial_write(_serial_fd, data, len);
 	::fsync(_serial_fd);
-#endif
 
 	return written == len;
 }
 
 int GPS::setBaudrate(unsigned baud)
 {
-#ifndef __PX4_QURT
 	/* process baud rate */
 	int speed;
 
@@ -702,12 +664,6 @@ int GPS::setBaudrate(unsigned baud)
 		GPS_ERR("ERR: %d (tcsetattr)", termios_state);
 		return -1;
 	}
-#else
-	if (qurt_uart_open(_port, baud) < 0) {
-		PX4_ERR("GPS: failed to set baud rate %u on serial port", baud);
-		return -1;
-	}
-#endif
 
 	return 0;
 }
@@ -869,17 +825,8 @@ GPS::run()
 		}
 
 		if (_serial_fd < 0) {
-#ifdef __PX4_QURT
-			if (_configured_baudrate) {
-				_serial_fd = qurt_uart_open(_port, _configured_baudrate);
-			} else {
-				// Qurt needs a valid baud rate to successfully open a port
-				_serial_fd = qurt_uart_open(_port, 9600);
-			}
-#else
 			/* open the serial port */
-			_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
-#endif
+			_serial_fd = px4_serial_open(_port, O_RDWR | O_NOCTTY);
 
 			if (_serial_fd < 0) {
 				PX4_ERR("failed to open %s err: %d", _port, errno);
@@ -1100,9 +1047,7 @@ GPS::run()
 		}
 
 		if (_serial_fd >= 0) {
-#ifndef __PX4_QURT
-			::close(_serial_fd);
-#endif
+			px4_serial_close(_serial_fd);
 			_serial_fd = -1;
 		}
 
@@ -1485,11 +1430,7 @@ GPS *GPS::instantiate(int argc, char *argv[])
 
 GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 {
-#ifdef __PX4_QURT
-	const char *device_name = "6";
-#else
 	const char *device_name = nullptr;
-#endif
 	const char *device_name_secondary = nullptr;
 	int baudrate_main = 0;
 	int baudrate_secondary = 0;
@@ -1596,11 +1537,7 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 
 	GPS *gps = nullptr;
 	if (instance == Instance::Main) {
-#ifdef __PX4_QURT
-		if (device_name) {
-#else
-		if (device_name && (access(device_name, R_OK|W_OK) == 0)) {
-#endif
+		if (device_name && (px4_serial_access(device_name, R_OK|W_OK) == 0)) {
 			gps = new GPS(device_name, mode, interface, instance, baudrate_main);
 
 		} else {
