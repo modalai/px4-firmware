@@ -46,6 +46,7 @@ struct termios {
   tcflag_t c_lflag;
   cc_t c_line;
   cc_t c_cc[NCCS];
+  speed_t c_speed;
 };
 
 #ifdef __cplusplus
