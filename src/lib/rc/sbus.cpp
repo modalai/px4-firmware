@@ -51,6 +51,7 @@
 #include "common_rc.h"
 #include <drivers/drv_hrt.h>
 #include <lib/mathlib/mathlib.h>
+#include <px4_platform_common/px4_serial.h>
 
 using namespace time_literals;
 
@@ -139,7 +140,7 @@ sbus_decode(uint64_t frame_time, uint8_t *frame, uint16_t *values, uint16_t *num
 int
 sbus_init(const char *device, bool singlewire)
 {
-	int sbus_fd = open(device, O_RDWR | O_NONBLOCK);
+	int sbus_fd = px4_serial_open(device, O_RDWR | O_NONBLOCK);
 
 	int ret = sbus_config(sbus_fd, singlewire);
 
@@ -155,7 +156,6 @@ int
 sbus_config(int sbus_fd, bool singlewire)
 {
 	int ret = -1;
-#if not defined(__PX4_QURT)
 #if defined(__PX4_LINUX)
 
 	struct termios2 tio = {};
@@ -215,7 +215,6 @@ sbus_config(int sbus_fd, bool singlewire)
 	partial_frame_count = 0;
 	last_rx_time = hrt_absolute_time();
 	sbus_frame_drops = 0;
-#endif
 	return ret;
 }
 

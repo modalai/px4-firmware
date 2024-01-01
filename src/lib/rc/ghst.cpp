@@ -92,9 +92,6 @@ static bool ghst_parse_buffer(uint16_t *values, int8_t *rssi, uint16_t *num_valu
 
 int ghst_config(int uart_fd)
 {
-#if defined(__PX4_QURT)
-	return 0;
-#else
 	struct termios t;
 	int ret_val;
 
@@ -108,7 +105,6 @@ int ghst_config(int uart_fd)
 	ioctl(uart_fd, TIOCSSINGLEWIRE, SER_SINGLEWIRE_ENABLED);
 #endif
 	return ret_val;
-#endif
 }
 
 /**

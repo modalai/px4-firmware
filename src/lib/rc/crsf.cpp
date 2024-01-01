@@ -144,9 +144,6 @@ uint8_t crsf_frame_CRC(const crsf_frame_t &frame);
 int
 crsf_config(int uart_fd)
 {
-#if defined(__PX4_QURT)
-	return 0;
-#else
 	struct termios t;
 
 	/* no parity, one stop bit */
@@ -154,7 +151,6 @@ crsf_config(int uart_fd)
 	cfsetspeed(&t, CRSF_BAUDRATE);
 	t.c_cflag &= ~(CSTOPB | PARENB);
 	return tcsetattr(uart_fd, TCSANOW, &t);
-#endif
 }
 
 /**

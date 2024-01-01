@@ -37,6 +37,7 @@
 #include <uORB/topics/vehicle_command_ack.h>
 
 #include <termios.h>
+#include <px4_platform_common/px4_serial.h>
 
 using namespace time_literals;
 
@@ -431,7 +432,7 @@ void RCInput::Run()
 		// read all available data from the serial RC input UART
 
 		// read all available data from the serial RC input UART
-		int newBytes = ::read(_rcs_fd, &_rcs_buf[0], RC_MAX_BUFFER_SIZE);
+		int newBytes = px4_serial_read(_rcs_fd, &_rcs_buf[0], RC_MAX_BUFFER_SIZE);
 
 		if (newBytes > 0) {
 			_bytes_rx += newBytes;

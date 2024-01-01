@@ -50,19 +50,12 @@
 #include "drv_rc_input.h"
 #include <drivers/drv_hrt.h>
 
-#ifdef __PX4_QURT
-#include <drivers/device/qurt/uart.h>
-#endif
-
 #include <uORB/uORB.h>
 #include <uORB/topics/input_rc.h>
+#include <px4_platform_common/px4_serial.h>
 
 // Snapdraogon: use J12 (next to J13, power module side)
-#ifdef __PX4_QURT
 #define SPEKTRUM_UART_DEVICE_PATH "7"
-#else
-#define SPEKTRUM_UART_DEVICE_PATH "/dev/tty-3"
-#endif
 
 #define UNUSED(x) (void)(x)
 
@@ -140,15 +133,7 @@ void task_main(int argc, char *argv[])
 
 		loop_counter++;
 
-#ifdef __PX4_QURT
-#define ASYNC_UART_READ_WAIT_US 2000
-		// The UART read on SLPI is via an asynchronous service so specify a timeout
-		// for the return. The driver will poll periodically until the read comes in
-		// so this may block for a while. However, it will timeout if no read comes in.
-		newbytes =  qurt_uart_read(uart_fd, (char *) &rx_buf[0], sizeof(rx_buf), ASYNC_UART_READ_WAIT_US);
-#else
-		newbytes = read(uart_fd, &rx_buf[0], sizeof(rx_buf));
-#endif
+		newbytes = px4_serial_read(uart_fd, &rx_buf[0], sizeof(rx_buf));
 
 		uint8_t protocol_version = rx_buf[1] & 0x0F;
 		if (newbytes <= 0) {

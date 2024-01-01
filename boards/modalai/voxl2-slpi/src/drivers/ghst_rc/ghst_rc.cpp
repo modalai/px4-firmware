@@ -37,7 +37,7 @@
 
 #include <px4_log.h>
 
-#include <drivers/device/qurt/uart.h>
+#include <px4_platform_common/px4_serial.h>
 
 #include <termios.h>
 #include <fcntl.h>
@@ -178,7 +178,7 @@ void GhstRc::Run()
 	}
 
 	if (_rc_fd < 0) {
-		_rc_fd = qurt_uart_open(_device, baudrate);
+		_rc_fd = px4_serial_open(_device, O_RDWR | O_NONBLOCK);
 
 		if (_rc_fd < 0) {
 			PX4_ERR("Error opening port: %s", _device);
@@ -202,7 +202,7 @@ void GhstRc::Run()
 	perf_count_interval(_cycle_interval_perf, time_now_us);
 
 	// Read all available data from the serial RC input UART
-	int new_bytes = qurt_uart_read(_rc_fd, (char *) &_rcs_buf[0], RC_MAX_BUFFER_SIZE, 500);
+	int new_bytes = px4_serial_read(_rc_fd, (char *) &_rcs_buf[0], RC_MAX_BUFFER_SIZE);
 
 	if (new_bytes > 0) {
 		_bytes_rx += new_bytes;

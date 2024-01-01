@@ -161,6 +161,11 @@ int cfsetspeed(struct termios *termios_p, speed_t speed)
 	case B3000000:
 		termios_p->c_speed = 3000000;
 		break;
+	// This is not POSIX compliant but is NuttX compliant
+	// and so needs to be supported here
+	case 420000:
+		termios_p->c_speed = speed;
+		break;
 	default:
 		return -1;
 	}

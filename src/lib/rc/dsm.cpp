@@ -43,10 +43,7 @@
 #include <board_config.h>
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/log.h>
-
-#ifdef __PX4_QURT
-#include <drivers/device/qurt/uart.h>
-#endif
+#include <px4_platform_common/px4_serial.h>
 
 #include <fcntl.h>
 #include <math.h>
@@ -450,15 +447,13 @@ int dsm_config(int fd)
 
 	int ret = -1;
 	if (fd >= 0) {
-#if not defined(__PX4_QURT)
 		struct termios t;
 
 		/* 115200bps, no parity, one stop bit */
 		tcgetattr(fd, &t);
-		cfsetspeed(&t, 115200);
+		cfsetspeed(&t, B115200);
 		t.c_cflag &= ~(CSTOPB | PARENB);
 		tcsetattr(fd, TCSANOW, &t);
-#endif
 
 		/* initialise the decoder */
 		dsm_partial_frame_count = 0;
@@ -497,11 +492,7 @@ void dsm_proto_init()
 int dsm_init(const char *device)
 {
 	if (dsm_fd < 0) {
-#ifdef __PX4_QURT
-		dsm_fd = qurt_uart_open(device, 115200);
-#else
-		dsm_fd = open(device, O_RDWR | O_NONBLOCK);
-#endif
+		dsm_fd = px4_serial_open(device, O_RDWR | O_NONBLOCK);
 	}
 
 	dsm_proto_init();
@@ -524,9 +515,7 @@ void dsm_deinit()
 #endif
 
 	if (dsm_fd >= 0) {
-#ifndef __PX4_QURT
-		close(dsm_fd);
-#endif
+		px4_serial_close(dsm_fd);
 	}
 
 	dsm_fd = -1;
@@ -783,12 +772,7 @@ bool dsm_input(int fd, uint16_t *values, uint16_t *num_values, bool *dsm_11_bit,
 	 * Fetch bytes, but no more than we would need to complete
 	 * a complete frame.
 	 */
-#ifdef __PX4_QURT
-	#define ASYNC_UART_READ_WAIT_US 500
-	int ret = qurt_uart_read(fd, (char*) &dsm_buf[0], sizeof(dsm_buf) / sizeof(dsm_buf[0]), ASYNC_UART_READ_WAIT_US);
-#else
-	int ret = read(fd, &dsm_buf[0], sizeof(dsm_buf) / sizeof(dsm_buf[0]));
-#endif
+	int ret = px4_serial_read(fd, &dsm_buf[0], sizeof(dsm_buf) / sizeof(dsm_buf[0]));
 
 	/* if the read failed for any reason, just give up here */
 	if (ret < 1) {
