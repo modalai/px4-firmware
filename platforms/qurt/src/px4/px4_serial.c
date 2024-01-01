@@ -163,7 +163,8 @@ int cfsetspeed(struct termios *termios_p, speed_t speed)
 		break;
 	// This is not POSIX compliant but is NuttX compliant
 	// and so needs to be supported here.
-	case 2000000: // voxl-esc baud rate
+	case 2000000: // voxl_esc baud rate
+	case 921600: // voxl2_io baud rate
 	case 420000: // crsf baud rate
 		termios_p->c_speed = speed;
 		break;
