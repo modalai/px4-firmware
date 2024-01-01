@@ -39,7 +39,6 @@
 #include <termios.h>
 
 #ifdef __PX4_QURT
-#include <drivers/device/qurt/uart.h>
 #define FAR
 #endif
 
@@ -60,10 +59,8 @@ public:
 private:
 	int			_uart_fd = -1;
 
-#if ! defined(__PX4_QURT)
 	struct termios		_orig_cfg;
 	struct termios		_cfg;
-#endif
 
 	int   _speed = -1;
 };
