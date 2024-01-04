@@ -576,7 +576,8 @@ void Voxl2IO::Run()
 			_need_version_info = false;
 			PX4_INFO("Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
 		} else if (_protocol_read_retries > 0) {	// If Voxl2 IO gets powered up late, the initial values read are sometimes garbage
-			if (_debug) PX4_INFO("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries--);
+			if (_debug) PX4_INFO("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries);
+			_protocol_read_retries--;
 			return;
 		} else {
 			if (_debug) PX4_INFO("Retries exhausted, exiting now.");
