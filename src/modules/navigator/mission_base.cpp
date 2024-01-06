@@ -92,7 +92,8 @@ MissionBase::updateDatamanCache()
 		int32_t start_index = _mission.current_seq;
 		int32_t end_index = start_index + _dataman_cache_size_signed;
 
-		end_index = math::max(math::min(end_index, static_cast<int32_t>(_mission.count)), INT32_C(0));
+		// end_index = math::max(math::min(end_index, static_cast<int32_t>(_mission.count)), INT32_C(0));
+		end_index = math::max(math::min(end_index, static_cast<int32_t>(_mission.count)), (int32_t) 0);
 
 		for (int32_t index = start_index; index != end_index; index += math::signNoZero(_dataman_cache_size_signed)) {
 
@@ -118,7 +119,7 @@ void MissionBase::updateMavlinkMission()
 
 				if (new_mission.current_seq < 0) {
 					new_mission.current_seq = math::max(math::min(_mission.current_seq, static_cast<int32_t>(new_mission.count) - 1),
-									    INT32_C(0));
+									    (int32_t) 0);
 				}
 
 				_mission = new_mission;
