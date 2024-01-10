@@ -44,6 +44,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#include <px4_log.h>
 #include <px4_platform_common/time.h>
 #include <queue.h>
 

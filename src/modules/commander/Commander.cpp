@@ -2581,6 +2581,9 @@ void Commander::dataLinkCheck()
 				}
 
 				_datalink_last_heartbeat_onboard_controller = telemetry.timestamp;
+
+				const hrt_abstime now = hrt_absolute_time();
+				PX4_INFO("Got OBC heartbeat timestamp %llu at time %llu", telemetry.timestamp, now);
 			}
 
 			if (telemetry.heartbeat_type_parachute) {
@@ -2650,6 +2653,8 @@ void Commander::dataLinkCheck()
 	if ((_datalink_last_heartbeat_onboard_controller > 0)
 	    && (hrt_elapsed_time(&_datalink_last_heartbeat_onboard_controller) > (_param_com_obc_loss_t.get() * 1_s))
 	    && !_onboard_controller_lost) {
+
+		PX4_INFO("Last obc hearbeat elapsed time: %llu", hrt_elapsed_time(&_datalink_last_heartbeat_onboard_controller));
 
 		mavlink_log_critical(&_mavlink_log_pub, "Connection to mission computer lost\t");
 		events::send(events::ID("commander_mission_comp_lost"), events::Log::Critical, "Connection to mission computer lost");
