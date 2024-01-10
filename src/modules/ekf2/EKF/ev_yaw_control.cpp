@@ -44,6 +44,7 @@ void Ekf::controlEvYawFusion(const extVisionSample &ev_sample, const bool common
 	static constexpr const char *AID_SRC_NAME = "EV yaw";
 
 	resetEstimatorAidStatus(aid_src);
+
 	aid_src.timestamp_sample = ev_sample.time_us;
 	aid_src.observation = getEulerYaw(ev_sample.quat);
 	aid_src.observation_variance = math::max(ev_sample.orientation_var(2), _params.ev_att_noise, sq(0.01f));

@@ -443,6 +443,16 @@ void EKF2::Run()
 				}
 			}
 		}
+
+		// if mag is being used we must convert ev data to NED
+		int32_t has_mag = 0;
+		int32_t mag_used = 0;
+		param_get(param_find("SYS_HAS_MAG"), &has_mag);
+		param_get(param_find("EKF2_MAG_TYPE"), &mag_used);
+		mag_used = has_mag && (mag_used == 5);
+		if (_ekf.enable_NED_convert(mag_used))
+			_preflt_checker.reset();
+
 	}
 
 	if (!_callback_registered) {
@@ -463,6 +473,7 @@ void EKF2::Run()
 		}
 	}
 
+	// enable vio missions using the takeoff point as the HOME position in global NED space
 	if (_vehicle_command_sub.updated()) {
 		vehicle_command_s vehicle_command;
 
@@ -475,14 +486,26 @@ void EKF2::Run()
 				if (_ekf.setEkfGlobalOrigin(latitude, longitude, altitude)) {
 					// Validate the ekf origin status.
 					uint64_t origin_time {};
-					_ekf.getEkfGlobalOrigin(origin_time, latitude, longitude, altitude);
-					PX4_INFO("%d - New NED origin (LLA): %3.10f, %3.10f, %4.3f\n",
-						 _instance, latitude, longitude, static_cast<double>(altitude));
+					bool rtn = _ekf.getEkfGlobalOrigin(origin_time, latitude, longitude, altitude);
+					PX4_INFO("%d %d - New NED origin (LLA): %3.10f, %3.10f, %4.3f\n",
+						 rtn, _instance, latitude, longitude, static_cast<double>(altitude));
 
 				} else {
 					PX4_ERR("%d - Failed to set new NED origin (LLA): %3.10f, %3.10f, %4.3f\n",
 						_instance, latitude, longitude, static_cast<double>(altitude));
 				}
+
+				PX4_WARN("Reset global YAW for new origin!");
+				// TODO fix EV yaw value as it becomes used as global not local.
+				if (vehicle_command.param4 < -10)
+				{
+					PX4_WARN("Attempting to reset EKF global Yaw rotation to %f", (double)vehicle_command.param4);
+					_ekf.avg_mag_heading = vehicle_command.param4;   // TODO make get/setter for this attribute
+				}
+
+				_ekf.forceResetQuatStateYaw();
+				// TODO fix EV yaw value as it becomes used as global not local.
+
 			}
 		}
 	}

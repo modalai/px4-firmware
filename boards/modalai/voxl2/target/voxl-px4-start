@@ -81,6 +81,7 @@ fi
 # Start Invensense ICP 101xx barometer built on to VOXL 2
 qshell icp101xx start -I -b 5
 
+
 # Auto detect the magnetometer. If one or both of these devices
 # are not connected it will fail but not cause any harm.
 /bin/echo "Looking for qmc5883l magnetometer"
