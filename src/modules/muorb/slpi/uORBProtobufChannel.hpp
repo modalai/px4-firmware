@@ -39,6 +39,7 @@
 #include <map>
 #include <pthread.h>
 #include <termios.h>
+#include <px4_platform_common/log.h>
 
 #include "uORB/uORBCommunicator.hpp"
 #include "mUORBAggregator.hpp"
@@ -154,11 +155,28 @@ public:
 
 	bool DebugEnabled()	{ return _debug; }
 
-	void SendAggregateData()
+	void SendAggregateData(hrt_abstime timeout)
 	{
-		pthread_mutex_lock(&_tx_mutex);
-		_Aggregator.SendData();
-		pthread_mutex_unlock(&_tx_mutex);
+		const hrt_abstime last = _Aggregator.GetLastSendTime();
+		if (hrt_elapsed_time(&last) > timeout) {
+			int ret = pthread_mutex_trylock(&_tx_mutex);
+			if (ret == EBUSY) {
+				// We couldn't get the lock so count a blocked access
+				_blocked_access++;
+			} else {
+				// We got the lock so send data and then unlock it
+				_unblocked_access++;
+				_Aggregator.SendData();
+				pthread_mutex_unlock(&_tx_mutex);
+			}
+		} else {
+			_skipped_timeouts++;
+		}
+	}
+
+	void Status()
+	{
+		PX4_INFO("blocked: %u, unblocked: %u, skipped: %u", _blocked_access, _unblocked_access, _skipped_timeouts);
 	}
 
 private:
@@ -172,6 +190,9 @@ private:
 	static pthread_mutex_t                      _tx_mutex;
 	static pthread_mutex_t                      _rx_mutex;
 	static bool                                 _debug;
+	static uint32_t                             _blocked_access;
+	static uint32_t                             _unblocked_access;
+	static uint32_t                             _skipped_timeouts;
 
 	/**
 	 * Class Members

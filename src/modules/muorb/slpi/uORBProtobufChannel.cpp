@@ -42,10 +42,10 @@
 #include <drivers/device/qurt/uart.h>
 #include <pthread.h>
 #include <px4_platform_common/tasks.h>
-#include <px4_platform_common/log.h>
 #include <lib/parameters/param.h>
 #include <px4_platform_common/px4_work_queue/WorkQueueManager.hpp>
 #include <qurt.h>
+#include <drivers/drv_hrt.h>
 
 #include "hrt_work.h"
 
@@ -61,6 +61,10 @@ mUORB::Aggregator uORB::ProtobufChannel::_Aggregator;
 std::map<std::string, int> uORB::ProtobufChannel::_AppsSubscriberCache;
 pthread_mutex_t uORB::ProtobufChannel::_rx_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uORB::ProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+uint32_t uORB::ProtobufChannel::_blocked_access = 0;
+uint32_t uORB::ProtobufChannel::_unblocked_access = 0;
+uint32_t uORB::ProtobufChannel::_skipped_timeouts = 0;
 
 bool uORB::ProtobufChannel::_debug = false;
 bool _px4_muorb_debug = false;
@@ -80,11 +84,21 @@ static void aggregator_thread_func(void *ptr)
 
 	uORB::ProtobufChannel *muorb = uORB::ProtobufChannel::GetInstance();
 
+	uint32_t loop_counter = 0;
+	const uint64_t SEND_TIMEOUT = 5000;
+
 	while (true) {
 		// Check for timeout. Send buffer if timeout happened.
-		muorb->SendAggregateData();
+		muorb->SendAggregateData(SEND_TIMEOUT);
 
-		qurt_timer_sleep(2000);
+		qurt_timer_sleep(SEND_TIMEOUT);
+
+		loop_counter++;
+
+		if (loop_counter == (2000000 / SEND_TIMEOUT)) {
+			loop_counter = 0;
+			muorb->Status();
+		}
 	}
 
 	qurt_thread_exit(QURT_EOK);

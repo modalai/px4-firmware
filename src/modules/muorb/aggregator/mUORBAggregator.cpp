@@ -76,6 +76,7 @@ int16_t mUORB::Aggregator::SendData()
 	if (sendFunc) {
 		if (aggregationEnabled) {
 			if (bufferWriteIndex) {
+				_last_send_time = hrt_absolute_time();
 				rc = sendFunc(topicName.c_str(), buffer[bufferId], bufferWriteIndex);
 				MoveToNextBuffer();
 			}
