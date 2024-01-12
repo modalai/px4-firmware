@@ -36,7 +36,6 @@
 #include "MUORBTest.hpp"
 #include <string>
 
-#include <drivers/drv_hrt.h>
 #include <drivers/device/spi.h>
 #include <drivers/device/i2c.h>
 #include <drivers/device/qurt/uart.h>
@@ -65,6 +64,14 @@ pthread_mutex_t uORB::ProtobufChannel::_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
 uint32_t uORB::ProtobufChannel::_blocked_access = 0;
 uint32_t uORB::ProtobufChannel::_unblocked_access = 0;
 uint32_t uORB::ProtobufChannel::_skipped_timeouts = 0;
+uint32_t uORB::ProtobufChannel::_total_bytes_sent = 0;
+uint32_t uORB::ProtobufChannel::_bytes_sent_since_last_status_check = 0;
+uint32_t uORB::ProtobufChannel::_total_bytes_received = 0;
+uint32_t uORB::ProtobufChannel::_bytes_received_since_last_status_check = 0;
+
+char uORB::ProtobufChannel::_last_received_topic_name[128];
+
+hrt_abstime uORB::ProtobufChannel::_last_status_check_time = 0;
 
 bool uORB::ProtobufChannel::_debug = false;
 bool _px4_muorb_debug = false;
@@ -85,7 +92,7 @@ static void aggregator_thread_func(void *ptr)
 	uORB::ProtobufChannel *muorb = uORB::ProtobufChannel::GetInstance();
 
 	uint32_t loop_counter = 0;
-	const uint64_t SEND_TIMEOUT = 5000;
+	const uint64_t SEND_TIMEOUT = 5000; // 5 ms
 
 	while (true) {
 		// Check for timeout. Send buffer if timeout happened.
@@ -163,6 +170,9 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 	// sure that we do not call PX4_INFO, PX4_ERR, etc. That would cause an
 	// infinite loop!
 	bool is_not_slpi_log = true;
+
+	_total_bytes_sent += length;
+	_bytes_sent_since_last_status_check += length;
 
 	if ((strcmp(messageName, "slpi_debug") == 0) || (strcmp(messageName, "slpi_error") == 0)) {
 		is_not_slpi_log = false;
@@ -478,6 +488,8 @@ int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
 
 	if (channel) {
+		channel->UpdateRxStatistics(data_len_in_bytes, topic_name);
+
 		uORBCommunicator::IChannelRxHandler *rxHandler = channel->GetRxHandler();
 
 		if (rxHandler) {

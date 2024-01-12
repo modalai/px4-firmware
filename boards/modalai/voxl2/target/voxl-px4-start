@@ -67,7 +67,7 @@ param load
 # to log only when armed. Caution must be used with the "-e" option
 # because if power is removed without stopping the logger gracefully then
 # the log file may be corrupted.
-logger start -t
+# logger start -t
 
 # IMU (accelerometer / gyroscope)
 if [ "$PLATFORM" == "M0104" ]; then
@@ -200,20 +200,22 @@ if [ "$RC" != "EXTERNAL" ]; then
 fi
 
 qshell commander start
+qshell commander mode auto:loiter
 
 # This is needed for altitude and position hold modes
-qshell flight_mode_manager start
+# flight_mode_manager start
+# qshell flight_mode_manager start
 
 # Start all of the processing modules on the applications processor
-dataman start
-navigator start
-load_mon start
+# dataman start
+# navigator start
+# load_mon start
 
 # This bridge allows raw data packets to be sent over UART to the ESC
-modal_io_bridge start
+# modal_io_bridge start
 
 # Start microdds_client for ros2 offboard messages from agent over localhost
-microdds_client start -t udp -h 127.0.0.1 -p 8888
+# microdds_client start -t udp -h 127.0.0.1 -p 8888
 
 # On M0052 there is only one IMU. So, PX4 needs to
 # publish IMU samples externally for VIO to use.
@@ -222,19 +224,19 @@ if [ $PLATFORM = "M0052" ]; then
 fi
 
 # start the onboard fast link to connect to voxl-mavlink-server
-mavlink start -x -u 14556 -o 14557 -r 100000 -n lo -m onboard
+# mavlink start -x -u 14556 -o 14557 -r 100000 -n lo -m onboard
 
 # slow down some of the fastest streams
-mavlink stream -u 14556 -s HIGHRES_IMU -r 10
-mavlink stream -u 14556 -s ATTITUDE -r 10
-mavlink stream -u 14556 -s ATTITUDE_QUATERNION -r 10
-mavlink stream -u 14556 -s GLOBAL_POSITION_INT -r 30
-mavlink stream -u 14556 -s SCALED_PRESSURE -r 10
+# mavlink stream -u 14556 -s HIGHRES_IMU -r 10
+# mavlink stream -u 14556 -s ATTITUDE -r 10
+# mavlink stream -u 14556 -s ATTITUDE_QUATERNION -r 10
+# mavlink stream -u 14556 -s GLOBAL_POSITION_INT -r 30
+# mavlink stream -u 14556 -s SCALED_PRESSURE -r 10
 
 # start the slow normal mode for voxl-mavlink-server to forward to GCS
-mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
+# mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
 
-mavlink boot_complete
+# mavlink boot_complete
 
 # Optional MSP OSD driver for DJI goggles
 # This is only supported on M0054 (with M0125 accessory board)

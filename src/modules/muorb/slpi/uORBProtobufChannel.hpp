@@ -40,6 +40,7 @@
 #include <pthread.h>
 #include <termios.h>
 #include <px4_platform_common/log.h>
+#include <drivers/drv_hrt.h>
 
 #include "uORB/uORBCommunicator.hpp"
 #include "mUORBAggregator.hpp"
@@ -177,6 +178,33 @@ public:
 	void Status()
 	{
 		PX4_INFO("blocked: %u, unblocked: %u, skipped: %u", _blocked_access, _unblocked_access, _skipped_timeouts);
+		PX4_INFO("total bytes sent: %u, total bytes received: %u", _total_bytes_sent, _total_bytes_received);
+		PX4_INFO("sent since last status: %u, received since last status: %u", _bytes_sent_since_last_status_check, _bytes_received_since_last_status_check);
+
+		hrt_abstime elapsed = hrt_elapsed_time(&_last_status_check_time);
+		double seconds = (double) elapsed / 1000000.0;
+		double sent_kbps = ((double) _bytes_sent_since_last_status_check / seconds) / 1000.0;
+		double rxed_kbps = ((double) _bytes_received_since_last_status_check / seconds) / 1000.0;
+
+		PX4_INFO("Current tx rate: %.2f kbps, rx rate %.2f kbps", sent_kbps, rxed_kbps);
+		if (_last_received_topic_name[0])
+		{
+			PX4_INFO("Last received topic name: %s", _last_received_topic_name);
+		}
+
+		_bytes_sent_since_last_status_check = 0;
+		_bytes_received_since_last_status_check = 0;
+		_last_status_check_time = hrt_absolute_time();
+	}
+
+	void UpdateRxStatistics(uint32_t cnt, const char *topic)
+	{
+		_total_bytes_received += cnt;
+		_bytes_received_since_last_status_check += cnt;
+		if (topic)
+		{
+			strncpy(_last_received_topic_name, topic, 127);
+		}
 	}
 
 private:
@@ -193,6 +221,12 @@ private:
 	static uint32_t                             _blocked_access;
 	static uint32_t                             _unblocked_access;
 	static uint32_t                             _skipped_timeouts;
+	static uint32_t                             _total_bytes_sent;
+	static uint32_t                             _bytes_sent_since_last_status_check;
+	static uint32_t                             _total_bytes_received;
+	static uint32_t                             _bytes_received_since_last_status_check;
+	static char                                 _last_received_topic_name[128];
+	static hrt_abstime                          _last_status_check_time;
 
 	/**
 	 * Class Members

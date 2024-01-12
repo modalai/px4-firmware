@@ -305,6 +305,7 @@ uORB::DeviceNode::publish(const orb_metadata *meta, orb_advert_t handle, const v
 	}
 
 #ifdef CONFIG_ORB_COMMUNICATOR
+
 	/*
 	 * if the write is successful, send the data over the Multi-ORB link
 	 */
