@@ -39,6 +39,7 @@
 #include <map>
 #include <pthread.h>
 #include <termios.h>
+#include <drivers/drv_hrt.h>
 
 #include "uORB/uORBCommunicator.hpp"
 #include "mUORBAggregator.hpp"
@@ -154,12 +155,7 @@ public:
 
 	bool DebugEnabled()	{ return _debug; }
 
-	void SendAggregateData()
-	{
-		pthread_mutex_lock(&_tx_mutex);
-		_Aggregator.SendData();
-		pthread_mutex_unlock(&_tx_mutex);
-	}
+	void SendAggregateData(hrt_abstime timeout);
 
 private:
 	/**

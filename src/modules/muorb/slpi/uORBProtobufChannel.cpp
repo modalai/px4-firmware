@@ -36,7 +36,6 @@
 #include "MUORBTest.hpp"
 #include <string>
 
-#include <drivers/drv_hrt.h>
 #include <drivers/device/spi.h>
 #include <drivers/device/i2c.h>
 #include <drivers/device/qurt/uart.h>
@@ -80,11 +79,13 @@ static void aggregator_thread_func(void *ptr)
 
 	uORB::ProtobufChannel *muorb = uORB::ProtobufChannel::GetInstance();
 
+	const uint64_t SEND_TIMEOUT = 3000; // 3 ms
+
 	while (true) {
 		// Check for timeout. Send buffer if timeout happened.
-		muorb->SendAggregateData();
+		muorb->SendAggregateData(SEND_TIMEOUT);
 
-		qurt_timer_sleep(2000);
+		qurt_timer_sleep(SEND_TIMEOUT);
 	}
 
 	qurt_thread_exit(QURT_EOK);
@@ -197,6 +198,20 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 	}
 
 	return -1;
+}
+
+void uORB::ProtobufChannel::SendAggregateData(hrt_abstime timeout)
+{
+	const hrt_abstime last = _Aggregator.GetLastSendTime();
+
+	// The aggregator buffer will get sent out whenever it fills up. If that
+	// hasn't happened for awhile then just send what we have now to avoid
+	// large periods of time with no topic data
+	if (hrt_elapsed_time(&last) > timeout) {
+		pthread_mutex_lock(&_tx_mutex);
+		_Aggregator.SendData();
+		pthread_mutex_unlock(&_tx_mutex);
+	}
 }
 
 static void *test_runner(void *)
