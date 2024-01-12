@@ -57,16 +57,22 @@
 // Debug flag
 static bool debug = false;
 
+#ifdef SEND_PARAM_RESPONSES
 #define TIMEOUT_WAIT 1000
 #define TIMEOUT_COUNT 50
+#else
+#define TIMEOUT_WAIT 5000
+#endif
 
 // Advertisement handles
 static orb_advert_t param_set_value_req_h = nullptr;
 static orb_advert_t param_reset_req_h     = nullptr;
 
+#ifdef SEND_PARAM_RESPONSES
 // Subscription file descriptors
 static int param_set_rsp_fd   = PX4_ERROR;
 static int param_reset_rsp_fd = PX4_ERROR;
+#endif
 
 static px4_task_t   sync_thread_tid;
 static const char  *sync_thread_name = "server_sync_thread";
@@ -157,16 +163,18 @@ static int param_sync_thread(int argc, char *argv[])
 	// Check for muORB initialization with get_uorb_communicator
 	while (uORB::Manager::get_instance()->get_uorb_communicator() == nullptr) { usleep(100); }
 
+#ifdef SEND_PARAM_RESPONSES
 	orb_advert_t param_set_used_rsp_h  = nullptr;
 	orb_advert_t param_set_value_rsp_h = nullptr;
+	struct parameter_server_set_used_response_s  u_rsp;
+	struct parameter_server_set_value_response_s v_rsp;
+#endif
 
 	int parameter_server_set_used_fd  = orb_subscribe(ORB_ID(parameter_server_set_used_request));
 	int parameter_server_set_value_fd = orb_subscribe(ORB_ID(parameter_server_set_value_request));
 
 	struct parameter_server_set_used_request_s   u_req;
-	struct parameter_server_set_used_response_s  u_rsp;
 	struct parameter_server_set_value_request_s  v_req;
-	struct parameter_server_set_value_response_s v_rsp;
 
 	px4_pollfd_struct_t fds[2] = { { .fd = parameter_server_set_used_fd,  .events = POLLIN },
 		{ .fd = parameter_server_set_value_fd, .events = POLLIN }
@@ -184,6 +192,7 @@ static int param_sync_thread(int argc, char *argv[])
 
 			(void) param_find(u_req.parameter_name);
 
+#ifdef SEND_PARAM_RESPONSES
 			u_rsp.timestamp = hrt_absolute_time();
 
 			if (param_set_used_rsp_h == nullptr) {
@@ -192,7 +201,7 @@ static int param_sync_thread(int argc, char *argv[])
 			} else {
 				orb_publish(ORB_ID(parameter_server_set_used_response), param_set_used_rsp_h, &u_rsp);
 			}
-
+#endif
 		} else if (fds[1].revents & POLLIN) {
 			orb_copy(ORB_ID(parameter_server_set_value_request), parameter_server_set_value_fd, &v_req);
 			PX4_DEBUG("Got parameter_server_set_value_request for %s", v_req.parameter_name);
@@ -217,6 +226,7 @@ static int param_sync_thread(int argc, char *argv[])
 				break;
 			}
 
+#ifdef SEND_PARAM_RESPONSES
 			v_rsp.timestamp = hrt_absolute_time();
 
 			if (param_set_value_rsp_h == nullptr) {
@@ -225,6 +235,7 @@ static int param_sync_thread(int argc, char *argv[])
 			} else {
 				orb_publish(ORB_ID(parameter_server_set_value_response), param_set_value_rsp_h, &v_rsp);
 			}
+#endif
 
 			save_calibration_parameter_to_file(v_req.parameter_name, param_type(param), value);
 		}
@@ -281,6 +292,7 @@ void param_server_set(param_t param, const void *val, bool from_file)
 		save_calibration_parameter_to_file(req.parameter_name, param_type(param), value);
 	}
 
+#ifdef SEND_PARAM_RESPONSES
 	if (param_set_rsp_fd == PX4_ERROR) {
 		if (debug) { PX4_INFO("Subscribing to parameter_client_set_value_response"); }
 
@@ -293,6 +305,7 @@ void param_server_set(param_t param, const void *val, bool from_file)
 			if (debug) { PX4_INFO("Subscription to parameter_client_set_value_response succeeded"); }
 		}
 	}
+#endif
 
 	if (send_request) {
 		if (debug) { PX4_INFO("Sending param set request to client for %s", req.parameter_name); }
@@ -303,6 +316,7 @@ void param_server_set(param_t param, const void *val, bool from_file)
 
 		orb_publish(ORB_ID(parameter_client_set_value_request), param_set_value_req_h, &req);
 
+#ifdef SEND_PARAM_RESPONSES
 		// Wait for response
 		bool updated = false;
 
@@ -330,6 +344,9 @@ void param_server_set(param_t param, const void *val, bool from_file)
 		if (! count) {
 			PX4_ERR("Timeout waiting for parameter_client_set_value_response for %s", req.parameter_name);
 		}
+#else
+	usleep(TIMEOUT_WAIT);
+#endif
 	}
 }
 
@@ -348,6 +365,7 @@ static void param_server_reset_internal(param_t param, bool reset_all)
 		req.parameter_name[16] = 0;
 	}
 
+#ifdef SEND_PARAM_RESPONSES
 	if (param_reset_rsp_fd == PX4_ERROR) {
 		if (debug) { PX4_INFO("Subscribing to parameter_client_reset_response"); }
 
@@ -360,6 +378,7 @@ static void param_server_reset_internal(param_t param, bool reset_all)
 			if (debug) { PX4_INFO("Subscription to parameter_client_reset_response succeeded"); }
 		}
 	}
+#endif
 
 	if (debug) { PX4_INFO("Sending param reset request to client"); }
 
@@ -369,6 +388,7 @@ static void param_server_reset_internal(param_t param, bool reset_all)
 
 	orb_publish(ORB_ID(parameter_client_reset_request), param_reset_req_h, &req);
 
+#ifdef SEND_PARAM_RESPONSES
 	// Wait for response
 	if (debug) { PX4_INFO("Waiting for parameter_client_reset_response"); }
 
@@ -395,6 +415,9 @@ static void param_server_reset_internal(param_t param, bool reset_all)
 	if (! count) {
 		PX4_ERR("Timeout waiting for parameter_client_reset_response");
 	}
+#else
+	usleep(TIMEOUT_WAIT);
+#endif
 }
 
 void param_server_reset(param_t param)
