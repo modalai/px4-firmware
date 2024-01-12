@@ -161,6 +161,8 @@ public:
 		pthread_mutex_unlock(&_tx_mutex);
 	}
 
+	void PrintStatus();
+
 private:
 	/**
 	 * Data Members

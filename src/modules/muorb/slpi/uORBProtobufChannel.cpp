@@ -199,6 +199,11 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 	return -1;
 }
 
+void uORB::ProtobufChannel::PrintStatus()
+{
+	PX4_INFO("SLPI MUORB STATUS");
+}
+
 static void *test_runner(void *)
 {
 	if (_px4_muorb_debug) { PX4_INFO("test_runner called"); }

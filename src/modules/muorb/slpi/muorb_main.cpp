@@ -32,37 +32,21 @@
  ****************************************************************************/
 
 #include <string.h>
-#include "uORBAppsProtobufChannel.hpp"
-#include "uORB/uORBManager.hpp"
+#include "uORBProtobufChannel.hpp"
 
 extern "C" {
 	__EXPORT int muorb_main(int argc, char *argv[]);
-	__EXPORT int muorb_init();
 }
-
-static bool enable_debug = false;
 
 int
 muorb_main(int argc, char *argv[])
 {
-	PX4_INFO("apps muorb_main called");
+	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
 
-	// return muorb_init();
+	if (channel) {
+		channel->PrintStatus();
+	}
+
 	return 0;
 }
 
-int
-muorb_init()
-{
-	uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
-
-	PX4_INFO("Got muorb init command");
-
-	if (channel && channel->Initialize(enable_debug)) {
-		uORB::Manager::get_instance()->set_uorb_communicator(channel);
-
-		if (channel->Test()) { return OK; }
-	}
-
-	return -EINVAL;
-}
