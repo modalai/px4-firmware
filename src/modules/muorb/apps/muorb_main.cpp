@@ -45,9 +45,12 @@ static bool enable_debug = false;
 int
 muorb_main(int argc, char *argv[])
 {
-	PX4_INFO("apps muorb_main called");
+	uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
 
-	// return muorb_init();
+	if (channel) {
+		channel->PrintStatus();
+	}
+
 	return 0;
 }
 
