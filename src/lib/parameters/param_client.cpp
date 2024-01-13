@@ -96,10 +96,15 @@ static int param_sync_thread(int argc, char *argv[])
 
 	PX4_INFO("Starting param sync THREAD");
 
+	px4_pollfd_struct_t fds[2] = { { .fd = param_set_req_fd,  .events = POLLIN },
+		{ .fd = param_reset_req_fd, .events = POLLIN }
+	};
+
 	bool updated = false;
 
 	while (true) {
-		usleep(5000);
+		px4_poll(fds, 2, -1);
+
 		(void) orb_check(param_set_req_fd, &updated);
 
 	 	while (updated) {

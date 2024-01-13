@@ -182,10 +182,14 @@ static int param_sync_thread(int argc, char *argv[])
 
 	PX4_INFO("Starting param sync THREAD");
 
-	while (true) {
-		px4_poll(fds, 2, 1000);
+	bool updated = false;
 
-		if (fds[0].revents & POLLIN) {
+	while (true) {
+		px4_poll(fds, 2, -1);
+
+		(void) orb_check(parameter_server_set_used_fd, &updated);
+
+	 	if (updated) {
 			orb_copy(ORB_ID(parameter_server_set_used_request), parameter_server_set_used_fd, &u_req);
 
 			if (debug) { PX4_INFO("Got parameter_server_set_used_request for %s", u_req.parameter_name); }
@@ -202,9 +206,15 @@ static int param_sync_thread(int argc, char *argv[])
 				orb_publish(ORB_ID(parameter_server_set_used_response), param_set_used_rsp_h, &u_rsp);
 			}
 #endif
-		} else if (fds[1].revents & POLLIN) {
+		}
+
+		(void) orb_check(parameter_server_set_used_fd, &updated);
+
+	 	if (updated) {
 			orb_copy(ORB_ID(parameter_server_set_value_request), parameter_server_set_value_fd, &v_req);
-			PX4_DEBUG("Got parameter_server_set_value_request for %s", v_req.parameter_name);
+
+			if (debug) { PX4_INFO("Got parameter_server_set_value_request for %s", v_req.parameter_name); }
+
 			param_t param = param_find(v_req.parameter_name);
 			param_value_u value;
 			value.i = 0;
