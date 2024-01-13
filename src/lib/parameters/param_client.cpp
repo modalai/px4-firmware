@@ -99,10 +99,10 @@ static int param_sync_thread(int argc, char *argv[])
 	bool updated = false;
 
 	while (true) {
-		usleep(10000);
+		usleep(5000);
 		(void) orb_check(param_set_req_fd, &updated);
 
-		if (updated) {
+	 	while (updated) {
 			orb_copy(ORB_ID(parameter_client_set_value_request), param_set_req_fd, &s_req);
 
 			if (debug) { PX4_INFO("Got parameter_client_set_value_request for %s", s_req.parameter_name); }
@@ -134,11 +134,12 @@ static int param_sync_thread(int argc, char *argv[])
 				orb_publish(ORB_ID(parameter_client_set_value_response), param_set_rsp_h, &s_rsp);
 			}
 #endif
+			(void) orb_check(param_set_req_fd, &updated);
 		}
 
 		(void) orb_check(param_reset_req_fd, &updated);
 
-		if (updated) {
+		while (updated) {
 			orb_copy(ORB_ID(parameter_client_reset_request), param_reset_req_fd, &r_req);
 
 			if (debug) { PX4_INFO("Got parameter_client_reset_request"); }
@@ -161,6 +162,7 @@ static int param_sync_thread(int argc, char *argv[])
 				orb_publish(ORB_ID(parameter_client_reset_response), param_reset_rsp_h, &r_rsp);
 			}
 #endif
+			(void) orb_check(param_reset_req_fd, &updated);
 		}
 	}
 
