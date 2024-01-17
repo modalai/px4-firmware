@@ -1418,14 +1418,14 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			if (!gps_enabled && ev_enabled >= 9)
 			{
 				if (!(mission_item->yaw >=0 && mission_item->yaw < (float)(2 * M_PI_PRECISE))) {
-					mission_item->yaw = -99.0;
+					mission_item->yaw = FP_ZERO;
 				}
 
 				PX4_WARN("GPS DISABLED, Using Takeoff as HOME:");
 				PX4_WARN("lat: %f lon: %f alt: %f yaw: %f (%f)",
 						mission_item->lat,
 						mission_item->lon,
-						(double)mission_item->altitude,
+						0.0,
 						(double)mission_item->yaw,
 						(double)mavlink_mission_item->param4);
 				events::send(events::ID("mavlink_mission_nav_takeoff"), events::Log::Error,
@@ -1437,7 +1437,7 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 				vcmd.param4 = mission_item->yaw; // YAW TBD need a user friendly solution to set this
 				vcmd.param5 = (double)mission_item->lat;
 				vcmd.param6 = (double)mission_item->lon;
-				vcmd.param7 = (float)mission_item->altitude;
+				vcmd.param7 = 0.0f;
 				vcmd.command = vehicle_command_s::VEHICLE_CMD_SET_GPS_GLOBAL_ORIGIN;
 				vcmd.target_system = _mavlink->get_system_id();
 				vcmd.target_component = MAV_COMP_ID_ALL;

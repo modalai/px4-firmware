@@ -48,23 +48,25 @@ void Ekf::get_NED_heading(float mag_value)
 {
     // if MAG is turned on, we need to realign the EV space from FRD to NED
     // So wait until  a R_toEarth is established by MAG
-    static int16_t sample_size = 10;
+    static int16_t sample_size = 42;
     static int16_t sample_ctn = 0;
 
     if (sample_ctn < sample_size)
     {
-            sample_ctn++;
             avg_mag_heading += mag_value;
+            sample_ctn++;
 
-            if (sample_ctn == sample_size)
+            if (sample_ctn >= sample_size)
             {
-                    avg_mag_heading /= sample_size;
+                    avg_mag_heading /= (sample_size-1);
                     stopMagFusion();
                 	resetQuatStateYaw(avg_mag_heading, 0);
                     has_ev_heading_ned = true;
 
-                    PX4_ERR("GLOBAL R to Earth: %f (%d)", (double) avg_mag_heading * 180.0 / 3.141, sample_ctn );
+                    PX4_ERR("====> GLOBAL R to Earth: %f (%d)", (double) avg_mag_heading * 180.0 / 3.141, sample_ctn );
             }
+//            else
+//            		PX4_ERR("Mag %f (%d)", (double) mag_value * 180.0 / 3.141, sample_ctn );
     }
 }
 

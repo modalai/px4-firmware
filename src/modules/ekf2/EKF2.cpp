@@ -497,14 +497,13 @@ void EKF2::Run()
 
 				PX4_WARN("Reset global YAW for new origin!");
 				// TODO fix EV yaw value as it becomes used as global not local.
-				if (vehicle_command.param4 < -10)
+				if (vehicle_command.param4 <= FP_ZERO)
 				{
 					PX4_WARN("Attempting to reset EKF global Yaw rotation to %f", (double)vehicle_command.param4);
 					_ekf.avg_mag_heading = vehicle_command.param4;   // TODO make get/setter for this attribute
+					_ekf.forceResetQuatStateYaw();
+	//				 TODO fix EV yaw value as it becomes used as global not local.
 				}
-
-				_ekf.forceResetQuatStateYaw();
-				// TODO fix EV yaw value as it becomes used as global not local.
 
 			}
 		}
