@@ -198,26 +198,26 @@ int32_t voxl2_io_create_set_id_packet(uint8_t id, uint8_t *out, uint16_t out_siz
 
 // Create a packet for sending open-loop command and LED command to 4 ESCs without requesting any feedback
 // Return value is the length of generated packet (if positive), otherwise error code
-int32_t voxl2_io_create_pwm_packet4(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3,
-				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_pwm_packet4(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3, int16_t pwm4, int16_t pwm5, int16_t pwm6, int16_t pwm7,
+				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				  uint8_t *out, uint16_t out_size);
 
 // Create a packet for sending open-loop command and LED command to 4 ESCs, also request feedback from one ESC (with id=fb_id)
 // Return value is the length of generated packet (if positive), otherwise error code
-int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3,
-				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3, int16_t pwm4, int16_t pwm5, int16_t pwm6, int16_t pwm7,
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				     int32_t fb_id, uint8_t *out, uint16_t out_size);
 
 // Create a packet for sending closed-loop RPM command and LED command to 4 ESCs without requesting any feedback
 // Return value is the length of generated packet (if positive), otherwise error code
-int32_t voxl2_io_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
-				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3, int16_t rpm4, int16_t rpm5, int16_t rpm6, int16_t rpm7,
+				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7,
 				  uint8_t *out, uint16_t out_size);
 
 // Create a packet for sending closed-loop RPM command and LED command to 4 ESCs, also request feedback from one ESC (with id=fb_id)
 // Return value is the length of generated packet (if positive), otherwise error code
-int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
-				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3, int16_t rpm4, int16_t rpm5, int16_t rpm6, int16_t rpm7,
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4, uint8_t led5, uint8_t led6, uint8_t led7, 
 				     int32_t fb_id, uint8_t *out, uint16_t out_size);
 
 

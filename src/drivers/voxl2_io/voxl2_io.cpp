@@ -133,6 +133,10 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 	param_get(param_find("VOXL2_IO_FUNC2"),  &params->function_map[1]);
 	param_get(param_find("VOXL2_IO_FUNC3"),  &params->function_map[2]);
 	param_get(param_find("VOXL2_IO_FUNC4"),  &params->function_map[3]);
+	param_get(param_find("VOXL2_IO_FUNC5"),  &params->function_map[4]);
+	param_get(param_find("VOXL2_IO_FUNC6"),  &params->function_map[5]);
+	param_get(param_find("VOXL2_IO_FUNC7"),  &params->function_map[6]);
+	param_get(param_find("VOXL2_IO_FUNC8"),  &params->function_map[7]);
 	
 	/* Validate PWM min and max values */
 	if (params->pwm_min > params->pwm_max){
@@ -280,8 +284,8 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	
 	//in Run() we call _mixing_output.update(), which calls MixingOutput::limitAndUpdateOutputs which calls _interface.updateOutputs (this function)
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
-	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	uint8_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
+	uint8_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 	int32_t _fb_idx = -1;
 
 	if (num_outputs != VOXL2_IO_OUTPUT_CHANNELS) {
@@ -307,8 +311,8 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	}
 
 	Command cmd;
-	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
-					       				   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
+	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3], _rate_req[4], _rate_req[5], _rate_req[6], _rate_req[7],
+					       				   _led_req[0], _led_req[1], _led_req[2], _led_req[3], _led_req[4], _led_req[5], _led_req[6], _led_req[7],
 					       				   _fb_idx, cmd.buf, sizeof(cmd.buf));
 	if (_pwm_on && _debug){
 		PX4_INFO("Mixer outputs");
@@ -318,7 +322,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 					outputs[12], outputs[13], outputs[14], outputs[15], outputs[16], outputs[17]
 					);
 
-		// Debug messages for PWM 400Hz values sent to M0065  
+		// Debug messages for PWM 400Hz values sent to M0065 
 		uint16_t tics_1 = (_parameters.pwm_min +  (_pwm_fullscale * ((double)outputs[0]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
 		PX4_INFO("\tPWM CH1: %hu::%uus::%u tics", outputs[0], tics_1/24, tics_1);
 		uint16_t tics_2 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[1]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
@@ -723,13 +727,13 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 
 bool Voxl2IO::stop_all_pwms()
 {
-	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	int16_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
+	int16_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 	uint8_t _fb_idx = 0;
 
 	Command cmd;
-	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
-										   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
+	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3], _rate_req[4], _rate_req[5], _rate_req[6], _rate_req[7],
+										   _led_req[0], _led_req[1], _led_req[2], _led_req[3], _led_req[4], _led_req[5], _led_req[6], _led_req[7],
 									       _fb_idx, cmd.buf, sizeof(cmd.buf));
 
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -781,11 +785,11 @@ int Voxl2IO::calibrate_escs(){
 
 	/* PWM MAX 3 seconds */
 	PX4_INFO("Writing PWM MAX for 3 seconds!");
-	int16_t max_pwm[4]{VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX};
-	if (_debug) PX4_INFO("%i %i %i %i", max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3]);
-	int16_t led_cmd[4]{0,0,0,0};
-	cmd.len = voxl2_io_create_pwm_packet4_fb(max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3],
-					       				   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
+	int16_t max_pwm[8]{VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX};
+	// if (_debug) PX4_INFO("%i %i %i %i %i %i %i %i", max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3], max_pwm[4], max_pwm[5], max_pwm[6], max_pwm[7]);
+	int16_t led_cmd[8]{0,0,0,0,0,0,0,0};
+	cmd.len = voxl2_io_create_pwm_packet4_fb(max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3], max_pwm[4], max_pwm[5], max_pwm[6], max_pwm[7],
+					       				   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3], led_cmd[4], led_cmd[5], led_cmd[6], led_cmd[7],
 					       				   fb_idx, cmd.buf, sizeof(cmd.buf));
 	
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -803,10 +807,10 @@ int Voxl2IO::calibrate_escs(){
 
 	/* PWM MIN 4 seconds */
 	PX4_INFO("Writing PWM MIN for 4 seconds!");
-	int16_t min_pwm[4]{VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN};
-	if (_debug) PX4_INFO("%i %i %i %i", min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3]);
-	cmd.len = voxl2_io_create_pwm_packet4_fb(min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3],
-										   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
+	int16_t min_pwm[8]{VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN};
+	// if (_debug) PX4_INFO("%i %i %i %i %i %i %i %i", min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3], min_pwm[4], min_pwm[4], min_pwm[5], min_pwm[6], min_pwm[7]);
+	cmd.len = voxl2_io_create_pwm_packet4_fb(min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3], min_pwm[4], min_pwm[5], min_pwm[6], min_pwm[7],
+										   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3], led_cmd[4], led_cmd[5], led_cmd[6], led_cmd[7],
 					 				       fb_idx, cmd.buf, sizeof(cmd.buf));
 	
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -931,7 +935,7 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 		PX4_INFO("Rate: %i", rate);
 		if (output_channel < VOXL2_IO_OUTPUT_CHANNELS) {
 			PX4_INFO("Request PWM for Output Channel: %i - PWM: %i", output_channel, rate);
-			int16_t rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+			int16_t rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 			uint8_t id_fb = 0;
 
 			if (output_channel == 0xFF) {  //WARNING: this condition is not possible due to check 'if (esc_id < MODAL_IO_OUTPUT_CHANNELS)'.
@@ -939,14 +943,18 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 				rate_req[1] = rate;
 				rate_req[2] = rate;
 				rate_req[3] = rate;
+				rate_req[4] = rate;
+				rate_req[5] = rate;
+				rate_req[6] = rate;
+				rate_req[7] = rate;
 
 			} else {
 				rate_req[output_channel] = rate;
 				id_fb = output_channel;
 			}
 
-			cmd.len = voxl2_io_create_pwm_packet4_fb(rate_req[0], rate_req[1], rate_req[2], rate_req[3],
-							       				   0, 0, 0, 0,
+			cmd.len = voxl2_io_create_pwm_packet4_fb(rate_req[0], rate_req[1], rate_req[2], rate_req[3], rate_req[4], rate_req[5], rate_req[6], rate_req[7],
+							       				   0, 0, 0, 0, 0, 0, 0, 0,
 							       				   id_fb, cmd.buf, sizeof(cmd.buf));
 
 			cmd.response        = false;
@@ -966,7 +974,7 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 				get_instance()->_packets_sent++;
 			}
 		} else {
-			print_usage("Invalid Output Channel, use 0-3");
+			print_usage("Invalid Output Channel, use 0-7");
 			return 0;
 		}
 	}
@@ -993,7 +1001,11 @@ int Voxl2IO::print_status()
 	PX4_INFO("Params: VOXL2_IO_FUNC2: %" PRId32, _parameters.function_map[1]);
 	PX4_INFO("Params: VOXL2_IO_FUNC3: %" PRId32, _parameters.function_map[2]);
 	PX4_INFO("Params: VOXL2_IO_FUNC4: %" PRId32, _parameters.function_map[3]);
-
+	PX4_INFO("Params: VOXL2_IO_FUNC5: %" PRId32, _parameters.function_map[4]);
+	PX4_INFO("Params: VOXL2_IO_FUNC6: %" PRId32, _parameters.function_map[5]);
+	PX4_INFO("Params: VOXL2_IO_FUNC7: %" PRId32, _parameters.function_map[6]);
+	PX4_INFO("Params: VOXL2_IO_FUNC8: %" PRId32, _parameters.function_map[7]);
+	
 	perf_print_counter(_cycle_perf);
 	perf_print_counter(_output_update_perf);
 	PX4_INFO("");
