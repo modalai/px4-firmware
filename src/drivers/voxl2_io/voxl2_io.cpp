@@ -166,23 +166,23 @@ void Voxl2IO::update_pwm_config()
 
 int Voxl2IO::get_version_info()
 {
+	if(!_need_version_info) return 0;
 	int res = 0 ;
 	int read_retries = 100;
 	Command cmd;	
 
-	if(!_need_version_info) return 0;
-
-	/* Request protocol version info from M0065 */
+	/*Request protocol version info from M0065, wait 1ms, read response */
 	cmd.len = voxl2_io_create_version_request_packet(0, cmd.buf, VOXL2_IO_VERSION_INFO_SIZE);
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("Failed to send version info packet");
-	} else {
-		_bytes_sent+=cmd.len;
-		_packets_sent++;
-	}
-
-	/* Read response, wait 1ms */
 	while(read_retries){
+		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+			PX4_ERR("Failed to send version info packet");
+		} else {
+			_bytes_sent+=cmd.len;
+			_packets_sent++;
+		}
+
+		px4_usleep(1000); //sleep for 1ms
+		
 		res = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
 		if (res > 0) {
 			if (parse_response(_read_buf,res) < 0){ 
@@ -190,15 +190,7 @@ int Voxl2IO::get_version_info()
 			}
 		} 
 		
-		if (!_need_version_info){ break;}
-		
-		px4_usleep(1000); //sleep for 1ms
-		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-			PX4_ERR("Failed to send version info packet");
-		} else {
-			_bytes_sent+=cmd.len;
-			_packets_sent++;
-		}
+		if (!_need_version_info){break;}
 	}
 
 	/* Failed to read version info in alloted time */
@@ -668,8 +660,8 @@ bool Voxl2IO::stop_all_pwms()
 
 	Command cmd;
 	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
-										   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
-									       _fb_idx, cmd.buf, sizeof(cmd.buf));
+											_led_req[0], _led_req[1], _led_req[2], _led_req[3],
+											_fb_idx, cmd.buf, sizeof(cmd.buf));
 
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
 		PX4_ERR("Failed to send packet");
@@ -722,8 +714,8 @@ int Voxl2IO::calibrate_escs(){
 	if (_debug) PX4_INFO("%i %i %i %i", max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3]);
 	int16_t led_cmd[4]{0,0,0,0};
 	cmd.len = voxl2_io_create_pwm_packet4_fb(max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3],
-					       				   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
-					       				   fb_idx, cmd.buf, sizeof(cmd.buf));
+											led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
+											fb_idx, cmd.buf, sizeof(cmd.buf));
 	
 	/* Send PWM max every 1ms for 3 seconds */
 	hrt_abstime start = hrt_absolute_time();
@@ -741,8 +733,8 @@ int Voxl2IO::calibrate_escs(){
 	int16_t min_pwm[4]{VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN};
 	if (_debug) PX4_INFO("%i %i %i %i", min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3]);
 	cmd.len = voxl2_io_create_pwm_packet4_fb(min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3],
-										   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
-					 				       fb_idx, cmd.buf, sizeof(cmd.buf));
+											led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
+					 						fb_idx, cmd.buf, sizeof(cmd.buf));
 	
 	/* Send PWM min every 1ms for 4 seconds */
 	start = hrt_absolute_time();
