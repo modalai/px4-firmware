@@ -701,10 +701,11 @@ int Voxl2IO::calibrate_escs(){
 	_outputs_disabled = true;
 
 	Command cmd;
+	uint8_t data = 0;
 	int32_t fb_idx = -1;
-	uint8_t data[VOXL2_IO_ESC_CAL_SIZE]{0};
-	cmd.len = voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_TUNE_CONFIG, data, VOXL2_IO_ESC_CAL_SIZE, cmd.buf, sizeof(cmd.buf));
 
+	/* Some legacy M0065 FW requires that we send this command in order to write PWM outputs to 0 (required to start cal process) */
+	cmd.len = voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_TUNE_CONFIG, &data, VOXL2_IO_ESC_CAL_SIZE, cmd.buf, sizeof(cmd.buf));
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
 		PX4_ERR("ESC Calibration failed: Failed to send PWM OFF packet");
 		_outputs_disabled = false;
@@ -712,13 +713,10 @@ int Voxl2IO::calibrate_escs(){
 	}
 
 	/* Give user 10 seconds to plug in PWM cable for ESCs */
-	PX4_INFO("Disconnected and reconnect your ESCs! (Calibration will start in ~10 seconds)");
-	hrt_abstime start_cal = hrt_absolute_time();
-	while (hrt_elapsed_time(&start_cal) < 10000000){
-		continue;
-	}
+	PX4_INFO("Connect your ESCs! (Calibration will start in ~10 seconds)");
+	px4_usleep(10000000);
 
-	/* PWM MAX 3 seconds */
+	/* PWM MAX */
 	PX4_INFO("Writing PWM MAX for 3 seconds!");
 	int16_t max_pwm[4]{VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX};
 	if (_debug) PX4_INFO("%i %i %i %i", max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3]);
@@ -727,20 +725,18 @@ int Voxl2IO::calibrate_escs(){
 					       				   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
 					       				   fb_idx, cmd.buf, sizeof(cmd.buf));
 	
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("ESC Calibration failed: Failed to send PWM MAX packet");
-		_outputs_disabled = false;
-		return -1;
-	} else {
-		cmd.clear();
+	/* Send PWM max every 1ms for 3 seconds */
+	hrt_abstime start = hrt_absolute_time();
+	while (hrt_elapsed_time(&start) < 3000000){
+		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+			PX4_ERR("ESC Calibration failed: Failed to send PWM MAX packet");
+			_outputs_disabled = false;
+			return -1;
+		}
+		px4_usleep(1000);
 	}
 
-	hrt_abstime start_pwm_max = hrt_absolute_time();
-	while (hrt_elapsed_time(&start_pwm_max) < 3000000){
-		continue;
-	}
-
-	/* PWM MIN 4 seconds */
+	/* PWM MIN */
 	PX4_INFO("Writing PWM MIN for 4 seconds!");
 	int16_t min_pwm[4]{VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN};
 	if (_debug) PX4_INFO("%i %i %i %i", min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3]);
@@ -748,19 +744,18 @@ int Voxl2IO::calibrate_escs(){
 										   led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
 					 				       fb_idx, cmd.buf, sizeof(cmd.buf));
 	
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("ESC Calibration failed: Failed to send PWM MIN packet");
-		_outputs_disabled = false;
-		return -1;
-	}
-
-	hrt_abstime start_pwm_min = hrt_absolute_time();
-	while (hrt_elapsed_time(&start_pwm_min) < 4000000){
-		continue;
+	/* Send PWM min every 1ms for 4 seconds */
+	start = hrt_absolute_time();
+	while (hrt_elapsed_time(&start) < 4000000){
+		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+			PX4_ERR("ESC Calibration failed: Failed to send PWM MIN packet");
+			_outputs_disabled = false;
+			return -1;
+		}
+		px4_usleep(1000);
 	}
 
 	PX4_INFO("ESC Calibration complete");
-
 	_outputs_disabled = false;
 	return 0;
 }
