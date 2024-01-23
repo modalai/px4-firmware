@@ -130,7 +130,7 @@ void task_main(int argc, char *argv[])
 	uint16_t raw_rc_count = 0;
 	uint32_t loop_counter = 0;
 	bool     print_msg = false;
-	bool     first_correct_frame_received = false;
+	// bool     first_correct_frame_received = false;
 	int      newbytes = 0;
 
 	// Main loop
@@ -150,20 +150,21 @@ void task_main(int argc, char *argv[])
 		newbytes = read(uart_fd, &rx_buf[0], sizeof(rx_buf));
 #endif
 
-		uint8_t protocol_version = rx_buf[1] & 0x0F;
+		// uint8_t protocol_version = rx_buf[1] & 0x0F;
 		if (newbytes <= 0) {
 			if (print_msg) { PX4_INFO("Spektrum RC: Read no bytes from UART"); }
 
-		} else if (((newbytes != DSM_FRAME_SIZE) ||
-					((protocol_version != 0x02) && (protocol_version != 0x01))) &&
-				   (! first_correct_frame_received)) {
+		} else if (newbytes != DSM_FRAME_SIZE) {
+//		} else if (((newbytes != DSM_FRAME_SIZE) ||
+//					((protocol_version != 0x02) && (protocol_version != 0x01) && (protocol_version != 0x00))) &&
+//				   (! first_correct_frame_received)) {
 			PX4_ERR("Spektrum RC: Invalid DSM frame. %d bytes. Protocol byte 0x%.2x",
 				newbytes, rx_buf[1]);
 
 		} else {
-			if (print_msg) { PX4_INFO("Spektrum RC: Read %d bytes from UART", newbytes); }
+			if (print_msg) { PX4_INFO("Spektrum RC: %d bytes from UART, protocol byte 0x%.2x", newbytes, rx_buf[1]); }
 
-			first_correct_frame_received = true;
+			// first_correct_frame_received = true;
 
 			const hrt_abstime now = hrt_absolute_time();
 
@@ -195,7 +196,7 @@ void task_main(int argc, char *argv[])
 			}
 
 			if (print_msg) {
-				PX4_INFO("0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
+				PX4_INFO("0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
 					 rx_buf[0],
 					 rx_buf[1],
 					 rx_buf[2],
@@ -203,7 +204,8 @@ void task_main(int argc, char *argv[])
 					 rx_buf[4],
 					 rx_buf[5],
 					 rx_buf[6],
-					 rx_buf[7],
+					 rx_buf[7]);
+				PX4_INFO("0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
 					 rx_buf[8],
 					 rx_buf[9],
 					 rx_buf[10],
