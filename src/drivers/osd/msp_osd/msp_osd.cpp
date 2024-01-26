@@ -127,6 +127,7 @@ MspOsd::MspOsd(const char *device) :
 
 MspOsd::~MspOsd()
 {
+	if(_msp_fd) close(_msp_fd);
 }
 
 bool MspOsd::init()
@@ -136,8 +137,11 @@ bool MspOsd::init()
 	return true;
 }
 
+
 void MspOsd::SendConfig()
 {
+	PX4_INFO("Sending config full OSD config");
+
 	msp_osd_config_t msp_osd_config;
 
 	msp_osd_config.units = 0;
@@ -270,137 +274,68 @@ void MspOsd::Run()
 		return;
 	}
 
-	// update display message
+	// this->_msp.mspProcessCmds();
+	
+	// MSP_FC_VARIANT #1
 	{
-		vehicle_status_s vehicle_status{};
-		_vehicle_status_sub.copy(&vehicle_status);
-
-		vehicle_attitude_s vehicle_attitude{};
-		_vehicle_attitude_sub.copy(&vehicle_attitude);
-
-		log_message_s log_message{};
-		_log_message_sub.copy(&log_message);
-
-		const auto display_message = msp_osd::construct_display_message(
-						     vehicle_status,
-						     vehicle_attitude,
-						     log_message,
-						     _param_osd_log_level.get(),
-						     _display);
-		this->Send(MSP_NAME, &display_message);
+		// if(_msp.variant == 0){
+			// PX4_INFO("");
+			// PX4_INFO("Sending FC VARIANT");
+			const auto msg = msp_osd::construct_FC_VARIANT();
+			this->Send(MSP_FC_VARIANT, &msg);
+		// }
 	}
 
-	// MSP_FC_VARIANT
+	// MSP_STATUS #2 
 	{
-		const auto msg = msp_osd::construct_FC_VARIANT();
-		this->Send(MSP_FC_VARIANT, &msg);
+		// if(_msp.status == 0){
+			// PX4_INFO("");
+			// PX4_INFO("Sending MSP STATUS");
+			vehicle_status_s vehicle_status{};
+			_vehicle_status_sub.copy(&vehicle_status);
+	
+			const auto msg = msp_osd::construct_STATUS_HDZ(vehicle_status);
+			this->Send(MSP_STATUS, &msg);
+		// }
 	}
 
-	// MSP_STATUS
+	// MSP RC #3
 	{
-		vehicle_status_s vehicle_status{};
-		_vehicle_status_sub.copy(&vehicle_status);
+		// if(_msp.rc == 0){
+			// PX4_INFO("");
+			// PX4_INFO("Sending RC");
+			input_rc_s input_rc{};
+			_input_rc_sub.copy(&input_rc);
 
-		const auto msg = msp_osd::construct_STATUS(vehicle_status);
-		this->Send(MSP_STATUS, &msg);
+			const auto msg = msp_osd::construct_RC(input_rc);
+			this->Send(MSP_RC, &msg);
+		// }
 	}
 
-	// MSP_ANALOG
+	// MSP GET OSD CANVAS #4 
 	{
-		battery_status_s battery_status{};
-		_battery_status_sub.copy(&battery_status);
-
-		input_rc_s input_rc{};
-		_input_rc_sub.copy(&input_rc);
-
-		const auto msg = msp_osd::construct_ANALOG(
-					 battery_status,
-					 input_rc);
-		this->Send(MSP_ANALOG, &msg);
+		// if(_msp.osd_canvas == 0){
+			// PX4_INFO("");
+			// PX4_INFO("Sending OSD CANVAS");
+			const auto msg = msp_osd::construct_OSD_Canvas();
+			this->Send(MSP_SET_OSD_CANVAS, &msg);
+		// }
 	}
 
-	// MSP_BATTERY_STATE
+	// MSP VTX CONFIG #5
 	{
-		battery_status_s battery_status{};
-		_battery_status_sub.copy(&battery_status);
-
-		const auto msg = msp_osd::construct_BATTERY_STATE(battery_status);
-		this->Send(MSP_BATTERY_STATE, &msg);
+		// if(_msp.vtx_config == 0){
+			// PX4_INFO("");
+			// PX4_INFO("Sending VTX CONFIG");
+			const auto msg = msp_osd::construct_VTX_CONFIG();
+			this->Send(MSP_VTX_CONFIG, &msg);
+			_msp.vtx_config = 1;
+		// }
 	}
 
-	// MSP_RAW_GPS
-	{
-		sensor_gps_s vehicle_gps_position{};
-		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
-
-		airspeed_validated_s airspeed_validated{};
-		_airspeed_validated_sub.copy(&airspeed_validated);
-
-		const auto msg = msp_osd::construct_RAW_GPS(
-					 vehicle_gps_position,
-					 airspeed_validated);
-		this->Send(MSP_RAW_GPS, &msg);
-	}
-
-	// MSP_COMP_GPS
-	{
-		// update heartbeat
-		_heartbeat = !_heartbeat;
-
-		home_position_s home_position{};
-		_home_position_sub.copy(&home_position);
-
-		estimator_status_s estimator_status{};
-		_estimator_status_sub.copy(&estimator_status);
-
-		vehicle_global_position_s vehicle_global_position{};
-		_vehicle_global_position_sub.copy(&vehicle_global_position);
-
-		// construct and send message
-		const auto msg = msp_osd::construct_COMP_GPS(
-					 home_position,
-					 estimator_status,
-					 vehicle_global_position,
-					 _heartbeat);
-		this->Send(MSP_COMP_GPS, &msg);
-	}
-
-	// MSP_ATTITUDE
-	{
-		vehicle_attitude_s vehicle_attitude{};
-		_vehicle_attitude_sub.copy(&vehicle_attitude);
-
-		const auto msg = msp_osd::construct_ATTITUDE(vehicle_attitude);
-		this->Send(MSP_ATTITUDE, &msg);
-	}
-
-	// MSP_ALTITUDE
-	{
-		sensor_gps_s vehicle_gps_position{};
-		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
-
-		estimator_status_s estimator_status{};
-		_estimator_status_sub.copy(&estimator_status);
-
-		vehicle_local_position_s vehicle_local_position{};
-		_vehicle_local_position_sub.copy(&vehicle_local_position);
-
-		// construct and send message
-		const auto msg = msp_osd::construct_ALTITUDE(
-					 vehicle_gps_position,
-					 estimator_status,
-					 vehicle_local_position);
-		this->Send(MSP_ALTITUDE, &msg);
-	}
-
-	// MSP_MOTOR_TELEMETRY
-	{
-		const auto msg = msp_osd::construct_ESC_SENSOR_DATA();
-		this->Send(MSP_ESC_SENSOR_DATA, &msg);
-	}
-
-	// send full configuration
-	SendConfig();
+	_msp.mspProcessCmds();
+	px4_usleep(250000);	//sleep 250ms, cmds are sent at 8Hz
+	// px4_usleep(125000);	//sleep 125ms, cmds are sent at 8Hz
 }
 
 void MspOsd::Send(const unsigned int message_type, const void *payload)
@@ -487,6 +422,12 @@ int MspOsd::print_status()
 	PX4_INFO("\tscroll rate: %d", static_cast<int>(_param_osd_scroll_rate.get()));
 	PX4_INFO("\tsuccessful sends: %lu", _performance_data.successful_sends);
 	PX4_INFO("\tunsuccessful sends: %lu", _performance_data.unsuccessful_sends);
+	PX4_INFO("\t\tFC Variant: %i", get_instance()->_msp.variant);
+	PX4_INFO("\t\tStatus:     %i", get_instance()->_msp.status);
+	PX4_INFO("\t\tRC:         %i", get_instance()->_msp.rc);
+	PX4_INFO("\t\tOSD Canvas: %i", get_instance()->_msp.osd_canvas);
+	PX4_INFO("\t\tVTX Config: %i", get_instance()->_msp.vtx_config);
+	PX4_INFO("\t\tUnknwn Cmd: %i", get_instance()->_msp.unknown_cmd);
 
 	// print current display string
 	char msg[FULL_MSG_BUFFER];
@@ -497,7 +438,59 @@ int MspOsd::print_status()
 }
 
 int MspOsd::custom_command(int argc, char *argv[])
-{
+{	
+	int myoptind = 0;
+	int ch;
+	int row{0};
+	int col{0};
+	const char *myoptarg = nullptr;
+	const char *verb = argv[argc - 1];
+	PX4_INFO("Executing the following command: %s", verb);
+
+	if (!is_running()) {
+		PX4_INFO("Not running");
+		return -1;
+	}
+
+	while ((ch = px4_getopt(argc, argv, "r:c:", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'r':
+			// 15 max?
+			row = atoi(myoptarg);
+			PX4_INFO("Got Row: %i", row);
+			break;
+
+		case 'c':
+			// 14 max?
+			col = atoi(myoptarg);
+			PX4_INFO("Got Col: %i", col);
+			break;
+
+		default:
+			print_usage("Unknown command, parsing flags");
+			return 0;
+		}
+	}
+
+	if(!strcmp(verb,"write")){
+		// MSP SEND WRITE COMMAND
+		PX4_INFO("");
+		PX4_INFO("Sending WRITE STRING CMD");
+		char line[28] = "                           "; // 27 char max
+		line[col] = '.';
+		const auto msg = msp_osd::construct_OSD_write(col, row, line);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+	
+		// Sleep 1ms
+		px4_usleep(1000);
+
+		// MSP SEND DRAW COMMAND
+		PX4_INFO("");
+		PX4_INFO("Sending DRAW CMD");
+		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+	}
+
 	return 0;
 }
 

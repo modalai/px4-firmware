@@ -459,4 +459,77 @@ msp_esc_sensor_data_dji_t construct_ESC_SENSOR_DATA()
 	return esc_sensor_data;
 }
 
+
+// New code for HDZero VTX
+
+msp_VTX_config_t construct_VTX_CONFIG(){
+	msp_VTX_config_t vtx_config {0};
+
+	vtx_config.protocol = 5; 		// MSP
+	vtx_config.band 	= 5; 		// BAND 5
+	vtx_config.channel 	= 1; 		// CHANNEL 1
+	// vtx_config.channel 	= 2; 		// CHANNEL 2
+	vtx_config.power 	= 1; 		// POWER LEVEL 1 -> 25mW
+	vtx_config.pit	 	= 0; 		// PIT MODE OFF
+	vtx_config.freq 	= 0x161A;	// 5865 MHz
+
+	return vtx_config;
+}
+
+msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status){
+	msp_status_HDZ_t status_HDZ = {0};
+
+	if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
+		status_HDZ.armed = 0x01;
+	}
+
+	status_HDZ.arming_disable_flags_count = 1;
+	status_HDZ.arming_disable_flags  = !(vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
+	return status_HDZ;
+}
+
+msp_rc_t construct_RC(const input_rc_s &input_rc){
+	msp_rc_t msp_rc{0};
+	
+	for (int i=0; i < MSP_MAX_SUPPORTED_CHANNELS; ++i){
+		msp_rc.channelValue[i] = input_rc.values[i];
+	}
+	return msp_rc;
+}
+
+msp_osd_canvas_t construct_OSD_Canvas(){
+	msp_osd_canvas_t msp_canvas{0};
+
+	msp_canvas.h_max = HD_HMAX;
+	msp_canvas.v_max = HD_VMAX;
+
+	// msp_canvas.h_max = SD_HMAX;
+	// msp_canvas.v_max = SD_VMAX;
+
+	return msp_canvas;
+}
+
+msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string)
+{
+	msp_osd_dp_cmd_t msp_osd_dp_cmd;
+
+    int len = strlen(string);
+    if (len >= MSP_OSD_MAX_STRING_LENGTH) {
+        len = MSP_OSD_MAX_STRING_LENGTH;
+    }
+
+	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
+	msp_osd_dp_cmd.row = row;
+	msp_osd_dp_cmd.col = col;
+	// msp_osd_dp_cmd.fontType = DISPLAYPORT_MSP_ATTR_BLINK;
+	msp_osd_dp_cmd.fontType = 0;
+    memcpy(msp_osd_dp_cmd.msg, string, len);
+
+    return msp_osd_dp_cmd;
+}
+
+displayportMspCommand_e construct_OSD_draw(){
+	return MSP_DP_DRAW_SCREEN;
+}
+
 } // namespace msp_osd

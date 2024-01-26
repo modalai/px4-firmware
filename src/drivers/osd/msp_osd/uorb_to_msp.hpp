@@ -109,4 +109,23 @@ msp_altitude_t construct_ALTITUDE(const sensor_gps_s &vehicle_gps_position,
 // construct an MSP_ESC_SENSOR_DATA struct
 msp_esc_sensor_data_dji_t construct_ESC_SENSOR_DATA();
 
+/****** UPDATES TO WORK WITH HDZERO FREESTYLE V2 VTX ******/
+// Construct a MSP_VTX_CONFIG struct
+msp_VTX_config_t construct_VTX_CONFIG();
+
+// Construct a HDZero STATUS struct
+msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status);
+
+// Construct a HDZero RC struct
+msp_rc_t construct_RC(const input_rc_s &input_rc);
+
+// Construct a HDZero canvas size reply struct
+msp_osd_canvas_t construct_OSD_Canvas();
+
+// Construct a HDZero OSD write struct given a string
+msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string);
+
+// Construct a HDZero OSD draw command
+displayportMspCommand_e construct_OSD_draw();
+
 } // namespace msp_osd
