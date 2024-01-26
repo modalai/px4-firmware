@@ -267,6 +267,12 @@ void MspOsd::Run()
 		_msp = MspV1(_msp_fd);
 
 		_is_initialized = true;
+		
+		// Clear old info on OSD
+		PX4_INFO("");
+		PX4_INFO("Sending CLEAR CMD");
+		const auto msg = msp_osd::construct_OSD_clear();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
 	}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
@@ -276,6 +282,31 @@ void MspOsd::Run()
 
 	// this->_msp.mspProcessCmds();
 	
+	// Construct display message...
+	// FLIGHT MODE | ARMING | HEADING 
+	{
+		vehicle_status_s vehicle_status{};
+		_vehicle_status_sub.copy(&vehicle_status);
+
+		vehicle_attitude_s vehicle_attitude{};
+		_vehicle_attitude_sub.copy(&vehicle_attitude);
+
+		log_message_s log_message{};
+		_log_message_sub.copy(&log_message);
+		const auto display_msg = msp_osd::construct_display_message( vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
+		const auto msg = msp_osd::construct_OSD_write(19, 0, display_msg.craft_name, sizeof(display_msg.craft_name));
+		this->Send(MSP_CMD_DISPLAYPORT, &msg);
+
+		// Sleep 1ms
+		px4_usleep(1000);
+
+		// MSP SEND DRAW COMMAND
+		// PX4_INFO("");
+		// PX4_INFO("Sending DRAW CMD");
+		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+	}
+
 	// MSP_FC_VARIANT #1
 	{
 		// if(_msp.variant == 0){
@@ -455,14 +486,28 @@ int MspOsd::custom_command(int argc, char *argv[])
 	while ((ch = px4_getopt(argc, argv, "r:c:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'r':
-			// 15 max?
+			// 0 min, 17 max, TRUNCATES MSG
 			row = atoi(myoptarg);
+			if (row < 0){
+				row = 0;
+			}
+			if (row > 17){
+				row = 17;
+			}
+
 			PX4_INFO("Got Row: %i", row);
 			break;
 
 		case 'c':
-			// 14 max?
+			// 0 min, 49 max, TRUNCATES MSG
 			col = atoi(myoptarg);
+			if (col < 0){
+				col = 0;
+			}
+			if (col > 49){
+				col = 49;
+			}
+
 			PX4_INFO("Got Col: %i", col);
 			break;
 
@@ -472,13 +517,15 @@ int MspOsd::custom_command(int argc, char *argv[])
 		}
 	}
 
+	// Write string
 	if(!strcmp(verb,"write")){
 		// MSP SEND WRITE COMMAND
 		PX4_INFO("");
 		PX4_INFO("Sending WRITE STRING CMD");
-		char line[28] = "                           "; // 27 char max
-		line[col] = '.';
-		const auto msg = msp_osd::construct_OSD_write(col, row, line);
+		char line[3];	// 27 char max
+		line[0] = 0x90; // Battery FULL symbol
+		line[1] = 0; 
+		const auto msg = msp_osd::construct_OSD_write(col, row, line, 2);
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
 	
 		// Sleep 1ms
@@ -489,6 +536,52 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+	}
+
+	// Write string
+	if(!strcmp(verb,"write2")){
+		// MSP SEND WRITE COMMAND
+		PX4_INFO("");
+		PX4_INFO("Sending WRITE STRING CMD");
+		char line[3]; // 27 char max
+		line[0] = 0x90; 
+		line[1] = 0x90; 
+		line[2] = 0;
+		const auto msg = msp_osd::construct_OSD_write(col, row, line, 3);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+	
+		// Sleep 1ms
+		px4_usleep(1000);
+
+		// MSP SEND DRAW COMMAND
+		PX4_INFO("");
+		PX4_INFO("Sending DRAW CMD");
+		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+	}
+
+	// Clear OSD
+	if(!strcmp(verb,"clear")){
+		PX4_INFO("");
+		PX4_INFO("Sending CLEAR CMD");
+		const auto msg = msp_osd::construct_OSD_clear();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+	}
+
+	// Release OSD
+	if(!strcmp(verb,"release")){
+		PX4_INFO("");
+		PX4_INFO("Sending CLEAR CMD");
+		const auto msg = msp_osd::construct_OSD_release();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+	}
+
+	// Config OSD
+	if(!strcmp(verb,"config")){
+		PX4_INFO("");
+		PX4_INFO("Sending CLEAR CMD");
+		const auto msg = msp_osd::construct_OSD_config();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
 	}
 
 	return 0;

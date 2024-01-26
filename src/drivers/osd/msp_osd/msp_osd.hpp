@@ -59,6 +59,7 @@
 #include "MspV1.hpp"
 #include "MessageDisplay/MessageDisplay.hpp"
 #include "uorb_to_msp.hpp"
+#include "msp_osd_symbols.h"
 
 using namespace time_literals;
 

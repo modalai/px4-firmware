@@ -525,13 +525,14 @@ displayportMspCommand_e construct_OSD_clear(){
 }
 
 // Construct a HDZero OSD write command
-msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string)
+msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t len)
 {
 	msp_osd_dp_cmd_t msp_osd_dp_cmd;
 
-    int len = strlen(string);
-    if (len >= MSP_OSD_MAX_STRING_LENGTH) {
-        len = MSP_OSD_MAX_STRING_LENGTH;
+    int write_len = strlen(string);
+	// PX4_INFO("String Length: %i\tBuffer Length: %i", write_len, len);
+    if (write_len >= MSP_OSD_MAX_STRING_LENGTH) {
+        write_len = MSP_OSD_MAX_STRING_LENGTH;
     }
 
 	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
@@ -539,9 +540,16 @@ msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *strin
 	msp_osd_dp_cmd.col = col;
 	// msp_osd_dp_cmd.fontType = DISPLAYPORT_MSP_ATTR_BLINK;
 	msp_osd_dp_cmd.fontType = 0;
-    memcpy(msp_osd_dp_cmd.msg, string, len);
+	memcpy(msp_osd_dp_cmd.msg, string, write_len);
+	
+	// Set unused buffer to null terminator or else we get random characters/symbols
+	for (int i=write_len;i<(int)sizeof(msp_osd_dp_cmd.msg);++i){
+		msp_osd_dp_cmd.msg[i] = 0;
+	}
+	
+	// PX4_INFO("%s", msp_osd_dp_cmd.msg);
 
-    return msp_osd_dp_cmd;
+	return msp_osd_dp_cmd;
 }
 
 // Construct a HDZero OSD draw command

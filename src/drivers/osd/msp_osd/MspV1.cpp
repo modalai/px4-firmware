@@ -82,7 +82,7 @@ const msp_message_descriptor_t msp_message_descriptors[MSP_DESCRIPTOR_COUNT] = {
 	{MSP_SET_OSD_CANVAS, true, sizeof(msp_osd_canvas_t)},
 	{MSP_FC_VARIANT, true, sizeof(msp_fc_variant_t)},
 	{MSP_VTX_CONFIG, true, sizeof(msp_VTX_config_t)},
-	{MSP_CMD_DISPLAYPORT, true, sizeof(msp_osd_dp_cmd_t)},
+	{MSP_CMD_DISPLAYPORT, false, sizeof(msp_osd_dp_cmd_t)},
 };
 
 #define MSP_FRAME_START_SIZE 5
@@ -104,19 +104,19 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 		return false;
 	}
 
+	// need to handle different size Displayport commands
 	if (!desc->fixed_size) {
-		return false;
-	}
-
-	payload_size = desc->message_size;
-
-	uint8_t subcmd_packet[1];
-	if (message_id ==  MSP_CMD_DISPLAYPORT){
-		memcpy(subcmd_packet, payload, 1);
-		if (subcmd_packet[0] == 4){
-			PX4_INFO("MSPv1 SENDING DRAW CMD");
-			payload_size = 1;
+		if (desc->message_id ==  MSP_CMD_DISPLAYPORT){
+			uint8_t subcmd[1]{0};
+			memcpy(subcmd, payload, 1);
+			if (subcmd[0] == MSP_DP_DRAW_SCREEN){
+				payload_size = 1;
+			} else {
+				payload_size = desc->message_size;
+			}
 		} 
+	} else {
+		payload_size = desc->message_size;
 	}
 
 	uint8_t packet[MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE];
@@ -140,16 +140,17 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 	packet[MSP_FRAME_START_SIZE + payload_size] = crc;
 
 	int packet_size =  MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE;
-	// PX4_INFO("Packet size: %i",packet_size);
-    // char ascii_string[packet_size * 3];
-    // int ascii_string_index = 0;
+	// if (desc->message_id ==  MSP_CMD_DISPLAYPORT){
+	// 	PX4_INFO("Packet size: %i",packet_size);
+	// 	char ascii_string[packet_size * 3];
+	// 	int ascii_string_index = 0;
+	// 	for (int i = 0; i < packet_size; ++i) {
+	// 		ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", packet[i]);
+	// 	}
+	// 	ascii_string[ascii_string_index - 1] = '\0';
+	// 	PX4_INFO("[ %s ]", ascii_string);
+	// }
 
-    // for (int i = 0; i < packet_size; ++i) {
-        // ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", packet[i]);
-    // }
-
-    // ascii_string[ascii_string_index - 1] = '\0';
-    // PX4_INFO("[ %s ]", ascii_string);0, READ_BUF_SIZE);
 	return  write(_fd, packet, packet_size) == packet_size;
 }
 
@@ -176,18 +177,16 @@ int MspV1::processReadBuffer(int size){
 			// Find location of header in read buffer
 			got_packet = 1;
 			header_index = i;
+
 			// PX4_INFO("Found Packet header! Header index = %u", _msp_packet.index+header_index);
 			// Accumulate ASCII values into a string
-			char ascii_string[18]; // Assuming each ASCII value is represented by 3 characters (e.g., "65 ")
-			int ascii_string_index = 0;
-		
-			for (int j = 0; j < 18; ++j) {
-				ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", _msp_packet.buffer[_msp_packet.index + header_index + j]);
-			}
-		
+			// char ascii_string[18]; // Assuming each ASCII value is represented by 3 characters (e.g., "65 ")
+			// int ascii_string_index = 0;
+			// for (int j = 0; j < 18; ++j) {
+				// ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", _msp_packet.buffer[_msp_packet.index + header_index + j]);
+			// }
 			// Remove the trailing space
-			ascii_string[ascii_string_index - 1] = '\0';
-		
+			// ascii_string[ascii_string_index - 1] = '\0';
 			// PX4_INFO("[ %s ]", ascii_string);
 			break;
 		}
@@ -274,7 +273,7 @@ int MspV1::mspProcessCmds()
 			// this->Send(MSP_VTX_CONFIG, &msg);
 			break;
 		default: 
-			PX4_ERR("UNKNOWN COMMAND: %02x\n", _msp_packet.message_id);
+			PX4_WARN("UNKNOWN COMMAND: %02x\n", _msp_packet.message_id);
 			this->unknown_cmd++;
 			break;
 		}
