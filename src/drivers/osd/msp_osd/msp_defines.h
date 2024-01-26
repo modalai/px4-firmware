@@ -905,14 +905,22 @@ typedef enum {
     MSP_DP_CLEAR_SCREEN = 2,    // Clear the display
     MSP_DP_WRITE_STRING = 3,    // Write a string at given coordinates
     MSP_DP_DRAW_SCREEN = 4,     // Trigger a screen draw
-    MSP_DP_OPTIONS = 5,         // CONFIG COMMAND -Not used by Betaflight. Reserved by Ardupilot and INAV // CONFIG COMM
+    MSP_DP_CONFIG = 5,          // CONFIG COMMAND -Not used by Betaflight, used by Ardupilot and INAV // CONFIG COMM
     MSP_DP_SYS = 6,             // Display system element displayportSystemElement_e at given coordinates
     MSP_DP_COUNT,
-} displayportMspCommand_e;
+} __attribute__((packed)) displayportMspCommand_e ;
+
+typedef enum {
+    SD_3016,
+    HD_5018,
+    HD_3016,
+    HD_5320,
+} resolutionType_e;
 
 // MSP_CMD_DISPLAYPORT config 
 struct msp_osd_dp_config_t {
-	displayportMspCommand_e  subcmd;
+	// displayportMspCommand_e  subcmd;
+	uint8_t subcmd;
 	uint8_t fontType;
 	uint8_t resolution;
 } __attribute__((packed));

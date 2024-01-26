@@ -509,6 +509,22 @@ msp_osd_canvas_t construct_OSD_Canvas(){
 	return msp_canvas;
 }
 
+// Construct a HDZero OSD heartbeat command
+displayportMspCommand_e construct_OSD_heartbeat(){
+	return MSP_DP_HEARTBEAT;
+}
+
+// Construct a HDZero OSD release command
+displayportMspCommand_e construct_OSD_release(){
+	return MSP_DP_RELEASE;
+}
+
+// Construct a HDZero OSD clear command
+displayportMspCommand_e construct_OSD_clear(){
+	return MSP_DP_CLEAR_SCREEN;
+}
+
+// Construct a HDZero OSD write command
 msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string)
 {
 	msp_osd_dp_cmd_t msp_osd_dp_cmd;
@@ -528,8 +544,20 @@ msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *strin
     return msp_osd_dp_cmd;
 }
 
+// Construct a HDZero OSD draw command
 displayportMspCommand_e construct_OSD_draw(){
 	return MSP_DP_DRAW_SCREEN;
+}
+
+// Construct a HDZero OSD config command
+msp_osd_dp_config_t construct_OSD_config(){
+	msp_osd_dp_config_t msp_osd_dp_config;
+
+	msp_osd_dp_config.subcmd     = MSP_DP_CONFIG;
+	msp_osd_dp_config.fontType   = 0;
+	msp_osd_dp_config.resolution = resolutionType_e::HD_5018;
+	
+	return msp_osd_dp_config;
 }
 
 } // namespace msp_osd

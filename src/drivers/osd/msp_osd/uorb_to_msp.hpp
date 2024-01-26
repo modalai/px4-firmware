@@ -122,10 +122,22 @@ msp_rc_t construct_RC(const input_rc_s &input_rc);
 // Construct a HDZero canvas size reply struct
 msp_osd_canvas_t construct_OSD_Canvas();
 
+// Construct a HDZero OSD heartbeat command
+displayportMspCommand_e construct_OSD_heartbeat();
+
+// Construct a HDZero OSD release command
+displayportMspCommand_e construct_OSD_release();
+
+// Construct a HDZero OSD clear command
+displayportMspCommand_e construct_OSD_clear();
+
 // Construct a HDZero OSD write struct given a string
 msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string);
 
 // Construct a HDZero OSD draw command
 displayportMspCommand_e construct_OSD_draw();
+
+// Construct a HDZero OSD config command
+displayportMspCommand_e construct_OSD_config();
 
 } // namespace msp_osd
