@@ -497,7 +497,7 @@ msp_rc_t construct_RC(const input_rc_s &input_rc){
 	return msp_rc;
 }
 
-msp_osd_canvas_t construct_OSD_Canvas(){
+msp_osd_canvas_t construct_OSD_canvas(){
 	msp_osd_canvas_t msp_canvas{0};
 
 	msp_canvas.h_max = HD_HMAX;
@@ -524,32 +524,52 @@ displayportMspCommand_e construct_OSD_clear(){
 	return MSP_DP_CLEAR_SCREEN;
 }
 
-// Construct a HDZero OSD write command
-msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t len)
+// Construct a HDZero OSD write command into an output buffer given location, string, and # bytes to write 
+uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t *output, uint8_t len)
 {
 	msp_osd_dp_cmd_t msp_osd_dp_cmd;
+	// int str_len = 0;
+	int str_len = strlen(string);
+	// Find length of string in input (may not be whole array)
+	// for (size_t i=0;i<strlen(string);++i){
+	// 	if(string[i] == '\0') break;
+	// 	str_len++;
+	// }
 
-    int write_len = strlen(string);
-	// PX4_INFO("String Length: %i\tBuffer Length: %i", write_len, len);
-    if (write_len >= MSP_OSD_MAX_STRING_LENGTH) {
-        write_len = MSP_OSD_MAX_STRING_LENGTH;
+	// PX4_INFO("String Length: %i\tBuffer Length: %lu\tOutput Buffer Length: %u", str_len, strlen(string), len);
+	// PX4_INFO("%s", string);
+    if (str_len > MSP_OSD_MAX_STRING_LENGTH) {
+		PX4_WARN("String Length too long, setting to MSP_OSD_MAX_STRING_LENGTH: %i", MSP_OSD_MAX_STRING_LENGTH);
+        str_len = MSP_OSD_MAX_STRING_LENGTH;
     }
+	
+	// Set buffer to 0 or else we get unwanted symbols (HDZero OSD writes the whole buffer, not just the msg)
+	// uint8_t msg[sizeof(msp_osd_dp_cmd_t) + str_len];
+	// memset(msg, 0, sizeof(msg));	
+
+	// if (sizeof(msp_osd_dp_cmd_t) + str_len < len){
+	// 	PX4_WARN("Output buffer too small! Random symbols may appear on OSD.");
+	// };
 
 	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
 	msp_osd_dp_cmd.row = row;
 	msp_osd_dp_cmd.col = col;
-	// msp_osd_dp_cmd.fontType = DISPLAYPORT_MSP_ATTR_BLINK;
 	msp_osd_dp_cmd.fontType = 0;
-	memcpy(msp_osd_dp_cmd.msg, string, write_len);
-	
-	// Set unused buffer to null terminator or else we get random characters/symbols
-	for (int i=write_len;i<(int)sizeof(msp_osd_dp_cmd.msg);++i){
-		msp_osd_dp_cmd.msg[i] = 0;
-	}
-	
-	// PX4_INFO("%s", msp_osd_dp_cmd.msg);
 
-	return msp_osd_dp_cmd;
+	memcpy(output, &msp_osd_dp_cmd, sizeof(msp_osd_dp_cmd));
+	memcpy(output+MSP_OSD_DP_WRITE_PAYLOAD, string, str_len);
+
+	// Debug message 
+	// char ascii_string[len * 3];
+	// int ascii_string_index = 0;
+	// for (int i = 0; i < len; ++i) {
+	// 	ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", output[i]);
+	// }
+	// ascii_string[ascii_string_index - 1] = '\0';
+	// PX4_INFO("[ %s ]", ascii_string);
+	// PX4_INFO("%s", output);
+
+	return 0;
 }
 
 // Construct a HDZero OSD draw command
@@ -558,12 +578,12 @@ displayportMspCommand_e construct_OSD_draw(){
 }
 
 // Construct a HDZero OSD config command
-msp_osd_dp_config_t construct_OSD_config(){
+msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType){
 	msp_osd_dp_config_t msp_osd_dp_config;
 
 	msp_osd_dp_config.subcmd     = MSP_DP_CONFIG;
-	msp_osd_dp_config.fontType   = 0;
-	msp_osd_dp_config.resolution = resolutionType_e::HD_5018;
+	msp_osd_dp_config.fontType   = fontType;
+	msp_osd_dp_config.resolution = resolution;
 	
 	return msp_osd_dp_config;
 }

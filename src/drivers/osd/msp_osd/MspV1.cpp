@@ -99,7 +99,7 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 			break;
 		}
 	}
-
+	
 	if (!desc) {
 		return false;
 	}
@@ -109,8 +109,18 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 		if (desc->message_id ==  MSP_CMD_DISPLAYPORT){
 			uint8_t subcmd[1]{0};
 			memcpy(subcmd, payload, 1);
+			// PX4_INFO("DP SUBCMD: %u", subcmd[0]);
 			if (subcmd[0] == MSP_DP_DRAW_SCREEN){
 				payload_size = 1;
+			} else if(subcmd[0] == MSP_DP_WRITE_STRING){	// Case when we write string.. payload size may vary 
+				payload_size+=sizeof(msp_osd_dp_cmd_t);
+				char dp_payload[sizeof(msp_osd_dp_cmd_t)+MSP_OSD_MAX_STRING_LENGTH];
+				memcpy(dp_payload, payload, sizeof(dp_payload));
+				// Find length of string in input (may not be whole array)
+				for (int i=0;i<MSP_OSD_MAX_STRING_LENGTH;++i){
+					if(dp_payload[MSP_OSD_DP_WRITE_PAYLOAD + i] == '\0') break;
+					payload_size++;
+				}
 			} else {
 				payload_size = desc->message_size;
 			}
@@ -124,7 +134,7 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 
 	packet[0] = '$';
 	packet[1] = 'M';
-	// packet[2] = '<';
+	// packet[2] = '<';	// Need to find way to determine vtx type or pass this in maybe?
 	packet[2] = '>';	// HDZero VTX firmware only supports 'replies'...
 	packet[3] = payload_size;
 	packet[4] = message_id;
@@ -140,7 +150,9 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 	packet[MSP_FRAME_START_SIZE + payload_size] = crc;
 
 	int packet_size =  MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE;
+	// Debug messages below
 	// if (desc->message_id ==  MSP_CMD_DISPLAYPORT){
+	// 	PX4_INFO("Payload size: %i",payload_size);
 	// 	PX4_INFO("Packet size: %i",packet_size);
 	// 	char ascii_string[packet_size * 3];
 	// 	int ascii_string_index = 0;
@@ -156,8 +168,8 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 
 #define MSP_FRAME_MSG_ID   4 
 #define MSP_FRAME_MSG_SIZE 3 
+// DO WE EVEN NEED TO READ IF WE ALREADY KNOW WHAT THE VTX WILL BE SENDING?? (IT'S THE SAME 4 CMDS OVER AND OVER FOR HDZERO FREESTYLE V2)
 int MspV1::Read(){
-	// PX4_WARN("READING BYTES FROM UART");
 	_msp_packet.index = 0;
 	return read(_fd, _msp_packet.buffer, sizeof(_msp_packet.buffer));
 }
@@ -262,7 +274,7 @@ int MspV1::mspProcessCmds()
 			// PX4_WARN("OSD CANVAS request");
 			this->osd_canvas = 1;
 			// PX4_INFO("Sending OSD CANVAS\n");
-			// const auto msg = msp_osd::construct_OSD_Canvas();
+			// const auto msg = msp_osd::construct_OSD_canvas();
 			// this->Send(MSP_SET_OSD_CANVAS, &msg);
 			break;    
 		case MSP_VTX_CONFIG:

@@ -173,6 +173,10 @@ private:
 
 	// metadata
 	char _device[64] {};
+	uint8_t fontType{0};
+	resolutionType_e resolution{HD_5018};
+	uint8_t row_max[4]{15,17,15,19};
+	uint8_t column_max[4]{29,49,29,52};
 	PerformanceData _performance_data{};
 };
 

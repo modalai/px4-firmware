@@ -121,7 +121,7 @@ msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status);
 msp_rc_t construct_RC(const input_rc_s &input_rc);
 
 // Construct a HDZero canvas size reply struct
-msp_osd_canvas_t construct_OSD_Canvas();
+msp_osd_canvas_t construct_OSD_canvas();
 
 // Construct a HDZero OSD heartbeat command
 displayportMspCommand_e construct_OSD_heartbeat();
@@ -133,12 +133,12 @@ displayportMspCommand_e construct_OSD_release();
 displayportMspCommand_e construct_OSD_clear();
 
 // Construct a HDZero OSD write struct given a string
-msp_osd_dp_cmd_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t len);
+uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t *output, uint8_t len);
 
 // Construct a HDZero OSD draw command
 displayportMspCommand_e construct_OSD_draw();
 
 // Construct a HDZero OSD config command
-msp_osd_dp_config_t construct_OSD_config();
+msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType);
 
 } // namespace msp_osd

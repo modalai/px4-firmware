@@ -268,11 +268,35 @@ void MspOsd::Run()
 
 		_is_initialized = true;
 		
+		px4_usleep(10000); // sleep 10ms
+
 		// Clear old info on OSD
 		PX4_INFO("");
 		PX4_INFO("Sending CLEAR CMD");
-		const auto msg = msp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		const auto clear_osd_msg = msp_osd::construct_OSD_clear();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg);
+		px4_usleep(10000); // sleep 10ms
+
+		// Send VTX Config
+		PX4_INFO("");
+		PX4_INFO("Sending VTX CONFIG");
+		const auto vtx_config_msg = msp_osd::construct_VTX_CONFIG();
+		this->Send(MSP_VTX_CONFIG, &vtx_config_msg);
+		px4_usleep(10000); // sleep 10ms
+
+		// Send OSD resolution, font 
+		PX4_INFO("");
+		PX4_INFO("Sending OSD CONFIG");
+		const auto osd_config_msg = msp_osd::construct_OSD_config(this->resolution, this->fontType);
+		this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg);
+		px4_usleep(10000); // sleep 10ms
+	
+		// Send OSD Canvas size
+		PX4_INFO("");
+		PX4_INFO("Sending OSD CANVAS");
+		const auto osd_canvas_msg = msp_osd::construct_OSD_canvas();
+		this->Send(MSP_SET_OSD_CANVAS, &osd_canvas_msg);
+		px4_usleep(10000); // sleep 10ms
 	}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
@@ -280,8 +304,6 @@ void MspOsd::Run()
 		return;
 	}
 
-	// this->_msp.mspProcessCmds();
-	
 	// Construct display message...
 	// FLIGHT MODE | ARMING | HEADING 
 	{
@@ -294,15 +316,14 @@ void MspOsd::Run()
 		log_message_s log_message{};
 		_log_message_sub.copy(&log_message);
 		const auto display_msg = msp_osd::construct_display_message( vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
-		const auto msg = msp_osd::construct_OSD_write(19, 0, display_msg.craft_name, sizeof(display_msg.craft_name));
-		this->Send(MSP_CMD_DISPLAYPORT, &msg);
+		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1];	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
+		memset(output, 0, sizeof(output));
+		msp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &output);
 
 		// Sleep 1ms
 		px4_usleep(1000);
 
-		// MSP SEND DRAW COMMAND
-		// PX4_INFO("");
-		// PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
 	}
@@ -343,30 +364,7 @@ void MspOsd::Run()
 		// }
 	}
 
-	// MSP GET OSD CANVAS #4 
-	{
-		// if(_msp.osd_canvas == 0){
-			// PX4_INFO("");
-			// PX4_INFO("Sending OSD CANVAS");
-			const auto msg = msp_osd::construct_OSD_Canvas();
-			this->Send(MSP_SET_OSD_CANVAS, &msg);
-		// }
-	}
-
-	// MSP VTX CONFIG #5
-	{
-		// if(_msp.vtx_config == 0){
-			// PX4_INFO("");
-			// PX4_INFO("Sending VTX CONFIG");
-			const auto msg = msp_osd::construct_VTX_CONFIG();
-			this->Send(MSP_VTX_CONFIG, &msg);
-			_msp.vtx_config = 1;
-		// }
-	}
-
 	_msp.mspProcessCmds();
-	px4_usleep(250000);	//sleep 250ms, cmds are sent at 8Hz
-	// px4_usleep(125000);	//sleep 125ms, cmds are sent at 8Hz
 }
 
 void MspOsd::Send(const unsigned int message_type, const void *payload)
@@ -474,6 +472,9 @@ int MspOsd::custom_command(int argc, char *argv[])
 	int ch;
 	int row{0};
 	int col{0};
+	int cmd_fontType{0};
+	int cmd_resolution{0};
+	const char* resolutions[4] = {"SD_3016", "HD_5018", "HD_3016", "HD_5320"};
 	const char *myoptarg = nullptr;
 	const char *verb = argv[argc - 1];
 	PX4_INFO("Executing the following command: %s", verb);
@@ -483,32 +484,42 @@ int MspOsd::custom_command(int argc, char *argv[])
 		return -1;
 	}
 
-	while ((ch = px4_getopt(argc, argv, "r:c:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "l:c:f:r:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
-		case 'r':
-			// 0 min, 17 max, TRUNCATES MSG
-			row = atoi(myoptarg);
-			if (row < 0){
-				row = 0;
-			}
-			if (row > 17){
-				row = 17;
-			}
+		case 'l':	// row == line
+			row = atoi(myoptarg); // 0 min, 17 max, TRUNCATES MSG
+			// This limiting logic should probably be handled on a per resolution basis.. this is for HD_5018
+			if (row < 0) row = 0;
+			if (row > 17) row = 17;
 
 			PX4_INFO("Got Row: %i", row);
 			break;
 
 		case 'c':
-			// 0 min, 49 max, TRUNCATES MSG
-			col = atoi(myoptarg);
-			if (col < 0){
-				col = 0;
-			}
-			if (col > 49){
-				col = 49;
-			}
+			col = atoi(myoptarg);	// 0 min, 49 max, TRUNCATES MSG
+			// This limiting logic should probably be handled on a per resolution basis.. this is for HD_5018
+			if (col < 0) col = 0;
+			if (col > 49) col = 49;
 
 			PX4_INFO("Got Col: %i", col);
+			break;
+
+		case 'f':
+			cmd_fontType = atoi(myoptarg);
+			if (cmd_fontType < 0 || cmd_fontType > 3){
+				print_usage("Invalid resolution, must be 0-3.");
+				return 0;
+			}
+			PX4_INFO("Got fontType: %i", cmd_fontType);
+			break;
+
+		case 'r':
+			cmd_resolution = atoi(myoptarg);
+			if (cmd_resolution < 0 || cmd_resolution > 3){
+				print_usage("Invalid resolution, must be 0-3.");
+				return 0;
+			}
+			PX4_INFO("Got Resolution: %s", resolutions[cmd_resolution]);
 			break;
 
 		default:
@@ -519,45 +530,45 @@ int MspOsd::custom_command(int argc, char *argv[])
 
 	// Write string
 	if(!strcmp(verb,"write")){
-		// MSP SEND WRITE COMMAND
 		PX4_INFO("");
 		PX4_INFO("Sending WRITE STRING CMD");
-		char line[3];	// 27 char max
+		char line[2];	// 30 char max
 		line[0] = 0x90; // Battery FULL symbol
 		line[1] = 0; 
-		const auto msg = msp_osd::construct_OSD_write(col, row, line, 2);
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
+		msp_osd::construct_OSD_write(col, row, line, output, sizeof(output));
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
 	
 		// Sleep 1ms
 		px4_usleep(1000);
 
-		// MSP SEND DRAW COMMAND
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+		return 0;
 	}
 
 	// Write string
 	if(!strcmp(verb,"write2")){
-		// MSP SEND WRITE COMMAND
 		PX4_INFO("");
-		PX4_INFO("Sending WRITE STRING CMD");
-		char line[3]; // 27 char max
-		line[0] = 0x90; 
+		PX4_INFO("Sending WRITE2 STRING CMD");
+		char line[3]; 	// 30 char max
+		line[0] = 0x90; // Battery FULL symbol.. for testing
 		line[1] = 0x90; 
 		line[2] = 0;
-		const auto msg = msp_osd::construct_OSD_write(col, row, line, 3);
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
+		msp_osd::construct_OSD_write(col, row, line, output, sizeof(output));
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
 	
 		// Sleep 1ms
 		px4_usleep(1000);
 
-		// MSP SEND DRAW COMMAND
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+		return 0;
 	}
 
 	// Clear OSD
@@ -566,24 +577,39 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("Sending CLEAR CMD");
 		const auto msg = msp_osd::construct_OSD_clear();
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		return 0;
 	}
 
-	// Release OSD
+	// Release OSD .. does this do anything?
 	if(!strcmp(verb,"release")){
 		PX4_INFO("");
-		PX4_INFO("Sending CLEAR CMD");
+		PX4_INFO("Sending RELEASE CMD");
 		const auto msg = msp_osd::construct_OSD_release();
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		return 0;
 	}
 
-	// Config OSD
-	if(!strcmp(verb,"config")){
+	// Config OSD resolution, font 
+	if(!strcmp(verb,"osd_config")){
 		PX4_INFO("");
-		PX4_INFO("Sending CLEAR CMD");
-		const auto msg = msp_osd::construct_OSD_config();
+		PX4_INFO("Sending OSD CONFIG CMD");
+		const auto msg = msp_osd::construct_OSD_config((resolutionType_e)cmd_resolution, cmd_fontType);
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		get_instance()->resolution = (resolutionType_e)cmd_resolution;
+		get_instance()->fontType = cmd_fontType;
+		return 0;
 	}
 
+	// Config OSD Canvas size .. does this do anything?
+	if(!strcmp(verb,"osd_canvas")){
+		PX4_INFO("");
+		PX4_INFO("Sending OSD CANVAS CMD");
+		const auto msg = msp_osd::construct_OSD_canvas();
+		get_instance()->Send(MSP_SET_OSD_CANVAS, &msg);
+		return 0;
+	}
+
+	PX4_WARN("Unknown command: %s", verb);
 	return 0;
 }
 

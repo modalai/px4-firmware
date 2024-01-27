@@ -911,7 +911,7 @@ typedef enum {
 } __attribute__((packed)) displayportMspCommand_e ;
 
 typedef enum {
-    SD_3016,
+    SD_3016,	// OSD width x height
     HD_5018,
     HD_3016,
     HD_5320,
@@ -927,15 +927,15 @@ struct msp_osd_dp_config_t {
 
 #define MSP_OSD_MAX_STRING_LENGTH 30 // FIXME move these
 #define DISPLAYPORT_MSP_ATTR_BLINK   (1UL << (6)) // Device local blink
-
+#define MSP_OSD_DP_WRITE_PAYLOAD 4
 // MSP_CMD_DISPLAYPORT write/draw command 
-struct msp_osd_dp_cmd_t {
+struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
 	// displayportMspCommand_e  subcmd;
 	uint8_t subcmd;
 	uint8_t row;	
 	uint8_t col;	
 	uint8_t fontType;	
-	uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
+	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
 } __attribute__((packed));
 
 
