@@ -738,7 +738,11 @@ Commander::handle_command(const vehicle_command_s &cmd)
 			uint8_t desired_nav_state = vehicle_status_s::NAVIGATION_STATE_MAX;
 			transition_result_t main_ret = TRANSITION_NOT_CHANGED;
 
+			PX4_INFO("Commander got VEHICLE_CMD_DO_SET_MODE");
+
 			if (base_mode & VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED) {
+				PX4_INFO("Commander has VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED. custom main mode is %u", custom_main_mode);
+
 				/* use autopilot-specific mode */
 				if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_MANUAL) {
 					desired_nav_state = vehicle_status_s::NAVIGATION_STATE_MANUAL;
@@ -800,6 +804,8 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					desired_nav_state = vehicle_status_s::NAVIGATION_STATE_STAB;
 
 				} else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_OFFBOARD) {
+					PX4_INFO("Command mode is PX4_CUSTOM_MAIN_MODE_OFFBOARD");
+
 					desired_nav_state = vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
 				}
 
@@ -824,6 +830,8 @@ Commander::handle_command(const vehicle_command_s &cmd)
 			if (desired_nav_state != vehicle_status_s::NAVIGATION_STATE_MAX) {
 				if (_user_mode_intention.change(desired_nav_state)) {
 					main_ret = TRANSITION_CHANGED;
+
+					PX4_INFO("Change successful");
 
 				} else {
 					if (cmd.from_external && cmd.source_component == 190) { // MAV_COMP_ID_MISSIONPLANNER

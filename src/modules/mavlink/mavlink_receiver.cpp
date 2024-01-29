@@ -853,6 +853,9 @@ MavlinkReceiver::handle_message_set_mode(mavlink_message_t *msg)
 	vcmd.param2 = (float)custom_mode.main_mode;
 	vcmd.param3 = (float)custom_mode.sub_mode;
 
+	PX4_INFO("Mavlink got set mode. param2 is %f. Values: %u, %u, %u, %u", (double) vcmd.param2,
+			custom_mode.data, custom_mode.reserved, custom_mode.main_mode, custom_mode.sub_mode);
+
 	vcmd.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
 	vcmd.target_system = new_mode.target_system;
 	vcmd.target_component = MAV_COMP_ID_ALL;
