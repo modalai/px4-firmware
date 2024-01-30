@@ -933,7 +933,7 @@ struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable siz
 	uint8_t subcmd;
 	uint8_t row;	
 	uint8_t col;	
-	uint8_t fontType;	
+	uint8_t attr{0};	
 	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
 } __attribute__((packed));
 

@@ -133,7 +133,7 @@ displayportMspCommand_e construct_OSD_release();
 displayportMspCommand_e construct_OSD_clear();
 
 // Construct a HDZero OSD write struct given a string
-uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t *output, uint8_t len);
+uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len);
 
 // Construct a HDZero OSD draw command
 displayportMspCommand_e construct_OSD_draw();

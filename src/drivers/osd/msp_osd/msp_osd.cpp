@@ -299,6 +299,14 @@ void MspOsd::Run()
 		return;
 	}
 
+	// Heartbeat
+	{
+		// PX4_INFO("");
+		// PX4_INFO("Sending HEARTBEAT");
+		const auto heartbeat_msg = msp_osd::construct_OSD_heartbeat();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &heartbeat_msg);
+	}
+
 	// Clear screen
 	{
 		// PX4_INFO("");
@@ -321,7 +329,7 @@ void MspOsd::Run()
 		const auto display_msg = msp_osd::construct_display_message( vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
 		memset(output, 0, sizeof(output));
-		msp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
+		msp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, false, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
 		this->Send(MSP_CMD_DISPLAYPORT, &output);
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 		this->Send(MSP_CMD_DISPLAYPORT, &draw);
@@ -526,7 +534,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		line[0] = 0x90; // Battery FULL symbol
 		line[1] = 0; 
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
-		msp_osd::construct_OSD_write(col, row, line, output, sizeof(output));
+		msp_osd::construct_OSD_write(col, row, false, line, output, sizeof(output));
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
@@ -549,7 +557,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		const char* const_cmd_string = cmd_string;
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + strlen(const_cmd_string)+1]{0};
 		PX4_INFO("Output String: %s\tSize of output: %lu", const_cmd_string, sizeof(output));
-		msp_osd::construct_OSD_write(col, row, const_cmd_string, output, sizeof(output));
+		msp_osd::construct_OSD_write(col, row, false, const_cmd_string, output, sizeof(output));
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");

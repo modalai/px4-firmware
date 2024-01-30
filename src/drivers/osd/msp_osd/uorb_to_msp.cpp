@@ -535,7 +535,7 @@ displayportMspCommand_e construct_OSD_clear(){
 }
 
 // Construct a HDZero OSD write command into an output buffer given location, string, and # bytes to write 
-uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t *output, uint8_t len)
+uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len)
 {
 	msp_osd_dp_cmd_t msp_osd_dp_cmd;
 	int str_len = strlen(string);
@@ -551,8 +551,7 @@ uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_
 	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
 	msp_osd_dp_cmd.row = row;
 	msp_osd_dp_cmd.col = col;
-	msp_osd_dp_cmd.fontType = 0;
-
+	msp_osd_dp_cmd.attr = blink ? msp_osd_dp_cmd.attr | DISPLAYPORT_MSP_ATTR_BLINK : 0;
 	memcpy(output, &msp_osd_dp_cmd, sizeof(msp_osd_dp_cmd));
 	memcpy(output+MSP_OSD_DP_WRITE_PAYLOAD, string, str_len);
 
