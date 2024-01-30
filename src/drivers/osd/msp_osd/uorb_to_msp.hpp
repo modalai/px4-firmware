@@ -121,7 +121,7 @@ msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status);
 msp_rc_t construct_RC(const input_rc_s &input_rc);
 
 // Construct a HDZero canvas size reply struct
-msp_osd_canvas_t construct_OSD_canvas();
+msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col);
 
 // Construct a HDZero OSD heartbeat command
 displayportMspCommand_e construct_OSD_heartbeat();

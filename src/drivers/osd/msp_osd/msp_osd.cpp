@@ -290,7 +290,7 @@ void MspOsd::Run()
 		// Send OSD Canvas size
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CANVAS");
-		const auto osd_canvas_msg = msp_osd::construct_OSD_canvas();
+		const auto osd_canvas_msg = msp_osd::construct_OSD_canvas(row_max[resolution], column_max[resolution]);
 		this->Send(MSP_SET_OSD_CANVAS, &osd_canvas_msg);
 	}
 
@@ -591,7 +591,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 	if(!strcmp(verb,"osd_canvas")){
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CANVAS CMD");
-		const auto msg = msp_osd::construct_OSD_canvas();
+		const auto msg = msp_osd::construct_OSD_canvas(get_instance()->row_max[get_instance()->resolution], get_instance()->column_max[get_instance()->resolution]);
 		get_instance()->Send(MSP_SET_OSD_CANVAS, &msg);
 		return 0;
 	}
@@ -625,9 +625,9 @@ $ msp_osd
 	PRINT_MODULE_USAGE_PARAM_STRING('d', "/dev/ttyHS1", "/dev/ttyHS1", "UART port", false);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("clear", "DisplayPort command: Clear the OSD.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("release", "DisplayPort command: Clears the display and allows local rendering on the display device based on telemetry information etc.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("write", "DisplayPort command: Write string to OSD at given location");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("write_string", "DisplayPort command: Write string to OSD at given location");
 	PRINT_MODULE_USAGE_PARAM_INT('l', 0, 0, get_instance()->row_max[get_instance()->resolution], "Line/Row to write the string on", false);
-	PRINT_MODULE_USAGE_PARAM_INT('c', 0, 0, get_instance()->column_max[get_instance()->resolution], "Column to write the string on", false);	PRINT_MODULE_USAGE_COMMAND_DESCR("release", "Clears the display and allows local rendering on the display device based on telemetry information etc.");
+	PRINT_MODULE_USAGE_PARAM_INT('c', 0, 0, get_instance()->column_max[get_instance()->resolution], "Column to write the string on", false);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("osd_config", "DisplayPort command: Set OSD font type and resolution.");
 	PRINT_MODULE_USAGE_PARAM_INT('r', 0, 0, 3, "Resolution to set OSD to.", false);
 	PRINT_MODULE_USAGE_PARAM_INT('f', 0, 0, sizeof(get_instance()->resolution)-1, "Font type to use for OSD.", false);

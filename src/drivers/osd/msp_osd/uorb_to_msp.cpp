@@ -500,12 +500,17 @@ msp_rc_t construct_RC(const input_rc_s &input_rc){
 	return msp_rc;
 }
 
-msp_osd_canvas_t construct_OSD_canvas(){
+msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
 	msp_osd_canvas_t msp_canvas{0};
 
 	// HD
-	msp_canvas.row_max = HD_ROW_MAX;
-	msp_canvas.col_max = HD_COL_MAX;
+	if (row > 49) row = 49;
+	if (col > 17) col = 17;
+	msp_canvas.row_max = row;
+	msp_canvas.col_max = col;
+
+	// msp_canvas.row_max = HD_ROW_MAX;
+	// msp_canvas.col_max = HD_COL_MAX;
 
 	// SD
 	// msp_canvas.row_max = SD_COL_MAX;
