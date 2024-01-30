@@ -268,40 +268,43 @@ void MspOsd::Run()
 
 		_is_initialized = true;
 		
-		px4_usleep(10000); // sleep 10ms
 
 		// Clear old info on OSD
 		PX4_INFO("");
 		PX4_INFO("Sending CLEAR CMD");
 		const auto clear_osd_msg = msp_osd::construct_OSD_clear();
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg);
-		px4_usleep(10000); // sleep 10ms
 
 		// Send VTX Config
 		PX4_INFO("");
 		PX4_INFO("Sending VTX CONFIG");
-		const auto vtx_config_msg = msp_osd::construct_VTX_CONFIG();
+		const auto vtx_config_msg = msp_osd::construct_vtx_config();
 		this->Send(MSP_VTX_CONFIG, &vtx_config_msg);
-		px4_usleep(10000); // sleep 10ms
 
 		// Send OSD resolution, font 
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CONFIG");
 		const auto osd_config_msg = msp_osd::construct_OSD_config(this->resolution, this->fontType);
 		this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg);
-		px4_usleep(10000); // sleep 10ms
 	
 		// Send OSD Canvas size
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CANVAS");
 		const auto osd_canvas_msg = msp_osd::construct_OSD_canvas();
 		this->Send(MSP_SET_OSD_CANVAS, &osd_canvas_msg);
-		px4_usleep(10000); // sleep 10ms
 	}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
 	if (_param_osd_symbols.get() == 0) {
 		return;
+	}
+
+	// Clear screen
+	{
+		// PX4_INFO("");
+		// PX4_INFO("Sending CLEAR CMD");
+		const auto clear_osd_msg = msp_osd::construct_OSD_clear();
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg);
 	}
 
 	// Construct display message...
@@ -316,55 +319,41 @@ void MspOsd::Run()
 		log_message_s log_message{};
 		_log_message_sub.copy(&log_message);
 		const auto display_msg = msp_osd::construct_display_message( vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
-		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1];	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
+		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
 		memset(output, 0, sizeof(output));
 		msp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
 		this->Send(MSP_CMD_DISPLAYPORT, &output);
-
-		// Sleep 1ms
-		px4_usleep(1000);
-
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+		this->Send(MSP_CMD_DISPLAYPORT, &draw);
 	}
 
 	// MSP_FC_VARIANT #1
 	{
-		// if(_msp.variant == 0){
-			// PX4_INFO("");
-			// PX4_INFO("Sending FC VARIANT");
-			const auto msg = msp_osd::construct_FC_VARIANT();
-			this->Send(MSP_FC_VARIANT, &msg);
-		// }
+		// PX4_INFO("");
+		// PX4_INFO("Sending FC VARIANT");
+		const auto msg = msp_osd::construct_FC_VARIANT();
+		this->Send(MSP_FC_VARIANT, &msg);
 	}
 
 	// MSP_STATUS #2 
 	{
-		// if(_msp.status == 0){
-			// PX4_INFO("");
-			// PX4_INFO("Sending MSP STATUS");
-			vehicle_status_s vehicle_status{};
-			_vehicle_status_sub.copy(&vehicle_status);
-	
-			const auto msg = msp_osd::construct_STATUS_HDZ(vehicle_status);
-			this->Send(MSP_STATUS, &msg);
-		// }
+		// PX4_INFO("");
+		// PX4_INFO("Sending MSP STATUS");
+		vehicle_status_s vehicle_status{};
+		_vehicle_status_sub.copy(&vehicle_status);
+		const auto msg = msp_osd::construct_STATUS_HDZ(vehicle_status);
+		this->Send(MSP_STATUS, &msg);
 	}
 
 	// MSP RC #3
 	{
-		// if(_msp.rc == 0){
-			// PX4_INFO("");
-			// PX4_INFO("Sending RC");
-			input_rc_s input_rc{};
-			_input_rc_sub.copy(&input_rc);
-
-			const auto msg = msp_osd::construct_RC(input_rc);
-			this->Send(MSP_RC, &msg);
-		// }
+		// PX4_INFO("");
+		// PX4_INFO("Sending RC");
+		input_rc_s input_rc{};
+		_input_rc_sub.copy(&input_rc);
+		const auto msg = msp_osd::construct_RC(input_rc);
+		this->Send(MSP_RC, &msg);
 	}
-
-	_msp.mspProcessCmds();
 }
 
 void MspOsd::Send(const unsigned int message_type, const void *payload)
@@ -451,12 +440,6 @@ int MspOsd::print_status()
 	PX4_INFO("\tscroll rate: %d", static_cast<int>(_param_osd_scroll_rate.get()));
 	PX4_INFO("\tsuccessful sends: %lu", _performance_data.successful_sends);
 	PX4_INFO("\tunsuccessful sends: %lu", _performance_data.unsuccessful_sends);
-	PX4_INFO("\t\tFC Variant: %i", get_instance()->_msp.variant);
-	PX4_INFO("\t\tStatus:     %i", get_instance()->_msp.status);
-	PX4_INFO("\t\tRC:         %i", get_instance()->_msp.rc);
-	PX4_INFO("\t\tOSD Canvas: %i", get_instance()->_msp.osd_canvas);
-	PX4_INFO("\t\tVTX Config: %i", get_instance()->_msp.vtx_config);
-	PX4_INFO("\t\tUnknwn Cmd: %i", get_instance()->_msp.unknown_cmd);
 
 	// print current display string
 	char msg[FULL_MSG_BUFFER];
@@ -474,6 +457,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 	int col{0};
 	int cmd_fontType{0};
 	int cmd_resolution{0};
+	char cmd_string[get_instance()->column_max[get_instance()->resolution]]{0};
 	const char* resolutions[4] = {"SD_3016", "HD_5018", "HD_3016", "HD_5320"};
 	const char *myoptarg = nullptr;
 	const char *verb = argv[argc - 1];
@@ -484,30 +468,26 @@ int MspOsd::custom_command(int argc, char *argv[])
 		return -1;
 	}
 
-	while ((ch = px4_getopt(argc, argv, "l:c:f:r:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "l:c:f:r:s:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'l':	// row == line
-			row = atoi(myoptarg); // 0 min, 17 max, TRUNCATES MSG
-			// This limiting logic should probably be handled on a per resolution basis.. this is for HD_5018
+			row = atoi(myoptarg); // 0 min, 17 max, HD_5018 TRUNCATES MSG
 			if (row < 0) row = 0;
-			if (row > 17) row = 17;
-
+			if (row > get_instance()->row_max[get_instance()->resolution]) row = 17;
 			PX4_INFO("Got Row: %i", row);
 			break;
 
 		case 'c':
-			col = atoi(myoptarg);	// 0 min, 49 max, TRUNCATES MSG
-			// This limiting logic should probably be handled on a per resolution basis.. this is for HD_5018
+			col = atoi(myoptarg);	// 0 min, 49 max, HD_5018 TRUNCATES MSG
 			if (col < 0) col = 0;
-			if (col > 49) col = 49;
-
+			if (col > get_instance()->column_max[get_instance()->resolution]) col = 49;
 			PX4_INFO("Got Col: %i", col);
 			break;
 
 		case 'f':
 			cmd_fontType = atoi(myoptarg);
 			if (cmd_fontType < 0 || cmd_fontType > 3){
-				print_usage("Invalid resolution, must be 0-3.");
+				print_usage("Invalid font type, must be 0-3.");
 				return 0;
 			}
 			PX4_INFO("Got fontType: %i", cmd_fontType);
@@ -522,6 +502,16 @@ int MspOsd::custom_command(int argc, char *argv[])
 			PX4_INFO("Got Resolution: %s", resolutions[cmd_resolution]);
 			break;
 
+		case 's':
+			if (strlen(myoptarg) > MSP_OSD_MAX_STRING_LENGTH){
+				PX4_WARN("String length too long, max string length: %i. Message may be truncated.", MSP_OSD_MAX_STRING_LENGTH);
+				// print_usage("String length too long, max string length: 30.");
+				// return 0;
+			}
+			PX4_INFO("Got string: %s, Length: %lu", myoptarg, strlen(myoptarg));
+			strncpy(cmd_string, myoptarg, strlen(myoptarg) + 1);
+			break;
+
 		default:
 			print_usage("Unknown command, parsing flags");
 			return 0;
@@ -531,17 +521,13 @@ int MspOsd::custom_command(int argc, char *argv[])
 	// Write string
 	if(!strcmp(verb,"write")){
 		PX4_INFO("");
-		PX4_INFO("Sending WRITE STRING CMD");
+		PX4_INFO("Sending WRITE CMD");
 		char line[2];	// 30 char max
 		line[0] = 0x90; // Battery FULL symbol
 		line[1] = 0; 
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
 		msp_osd::construct_OSD_write(col, row, line, output, sizeof(output));
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
-	
-		// Sleep 1ms
-		px4_usleep(1000);
-
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
@@ -550,20 +536,21 @@ int MspOsd::custom_command(int argc, char *argv[])
 	}
 
 	// Write string
-	if(!strcmp(verb,"write2")){
+	if(!strcmp(verb,"write_string")){
 		PX4_INFO("");
-		PX4_INFO("Sending WRITE2 STRING CMD");
-		char line[3]; 	// 30 char max
-		line[0] = 0x90; // Battery FULL symbol.. for testing
-		line[1] = 0x90; 
-		line[2] = 0;
-		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
-		msp_osd::construct_OSD_write(col, row, line, output, sizeof(output));
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
-	
-		// Sleep 1ms
-		px4_usleep(1000);
+		PX4_INFO("Sending WRITE STRING CMD");
+		if (cmd_string[MSP_OSD_MAX_STRING_LENGTH-1] != '\0') cmd_string[MSP_OSD_MAX_STRING_LENGTH-1] = '\0';
 
+		// Convert string to uppercase, otherwise it will try to print symbols instead
+		for(size_t i=0; i<strlen(cmd_string);++i){
+			cmd_string[i] = (cmd_string[i] >= 'a' && cmd_string[i] <= 'z') ? cmd_string[i] - 'a' + 'A' : cmd_string[i];
+		}
+
+		const char* const_cmd_string = cmd_string;
+		uint8_t output[sizeof(msp_osd_dp_cmd_t) + strlen(const_cmd_string)+1]{0};
+		PX4_INFO("Output String: %s\tSize of output: %lu", const_cmd_string, sizeof(output));
+		msp_osd::construct_OSD_write(col, row, const_cmd_string, output, sizeof(output));
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
@@ -580,7 +567,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		return 0;
 	}
 
-	// Release OSD .. does this do anything?
+	// Release OSD 
 	if(!strcmp(verb,"release")){
 		PX4_INFO("");
 		PX4_INFO("Sending RELEASE CMD");
@@ -600,7 +587,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		return 0;
 	}
 
-	// Config OSD Canvas size .. does this do anything?
+	// Config OSD Canvas size 
 	if(!strcmp(verb,"osd_canvas")){
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CANVAS CMD");
@@ -634,6 +621,16 @@ $ msp_osd
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("msp_osd", "driver");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("start", "Start the task");
+	PRINT_MODULE_USAGE_PARAM_STRING('d', "/dev/ttyHS1", "/dev/ttyHS1", "UART port", false);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("clear", "DisplayPort command: Clear the OSD.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("release", "DisplayPort command: Clears the display and allows local rendering on the display device based on telemetry information etc.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("write", "DisplayPort command: Write string to OSD at given location");
+	PRINT_MODULE_USAGE_PARAM_INT('l', 0, 0, get_instance()->row_max[get_instance()->resolution], "Line/Row to write the string on", false);
+	PRINT_MODULE_USAGE_PARAM_INT('c', 0, 0, get_instance()->column_max[get_instance()->resolution], "Column to write the string on", false);	PRINT_MODULE_USAGE_COMMAND_DESCR("release", "Clears the display and allows local rendering on the display device based on telemetry information etc.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("osd_config", "DisplayPort command: Set OSD font type and resolution.");
+	PRINT_MODULE_USAGE_PARAM_INT('r', 0, 0, 3, "Resolution to set OSD to.", false);
+	PRINT_MODULE_USAGE_PARAM_INT('f', 0, 0, sizeof(get_instance()->resolution)-1, "Font type to use for OSD.", false);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

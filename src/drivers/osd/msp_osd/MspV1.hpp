@@ -48,18 +48,12 @@ class MspV1
 public:
 	MspV1(int fd);
 	int GetMessageSize(int message_type);
-	int mspProcessCmds();
+	// int mspProcessCmds();
 	bool Send(const uint8_t message_id, const void *payload);
-	int processReadBuffer(int size);
-	int Read();
+	// int processReadBuffer(int size);
+	// int Read();
 
 	msp_packet_t _msp_packet;
-	int unknown_cmd{0};
-	int variant{0};
-	int status{0};
-	int rc{0};
-	int osd_canvas{0};
-	int vtx_config{0};
 
 private:
 	int _fd{-1};

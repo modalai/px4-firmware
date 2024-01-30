@@ -462,8 +462,8 @@ msp_esc_sensor_data_dji_t construct_ESC_SENSOR_DATA()
 
 // New code for HDZero VTX
 
-msp_VTX_config_t construct_VTX_CONFIG(){
-	msp_VTX_config_t vtx_config {0};
+msp_vtx_config_t construct_vtx_config(){
+	msp_vtx_config_t vtx_config {0};
 
 	vtx_config.protocol = 5; 		// MSP
 	vtx_config.band 	= 5; 		// BAND 5
@@ -494,17 +494,22 @@ msp_rc_t construct_RC(const input_rc_s &input_rc){
 	for (int i=0; i < MSP_MAX_SUPPORTED_CHANNELS; ++i){
 		msp_rc.channelValue[i] = input_rc.values[i];
 	}
+	uint16_t throttle_swap{msp_rc.channelValue[2]};
+	msp_rc.channelValue[2] = msp_rc.channelValue[3];	// Ch3 throttle -> yaw
+	msp_rc.channelValue[3] = throttle_swap;				// Ch4 yaw -> throttle
 	return msp_rc;
 }
 
 msp_osd_canvas_t construct_OSD_canvas(){
 	msp_osd_canvas_t msp_canvas{0};
 
-	msp_canvas.h_max = HD_HMAX;
-	msp_canvas.v_max = HD_VMAX;
+	// HD
+	msp_canvas.row_max = HD_ROW_MAX;
+	msp_canvas.col_max = HD_COL_MAX;
 
-	// msp_canvas.h_max = SD_HMAX;
-	// msp_canvas.v_max = SD_VMAX;
+	// SD
+	// msp_canvas.row_max = SD_COL_MAX;
+	// msp_canvas.col_max = SD_ROW_MAX;
 
 	return msp_canvas;
 }
@@ -528,28 +533,15 @@ displayportMspCommand_e construct_OSD_clear(){
 uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_t *output, uint8_t len)
 {
 	msp_osd_dp_cmd_t msp_osd_dp_cmd;
-	// int str_len = 0;
 	int str_len = strlen(string);
-	// Find length of string in input (may not be whole array)
-	// for (size_t i=0;i<strlen(string);++i){
-	// 	if(string[i] == '\0') break;
-	// 	str_len++;
-	// }
-
 	// PX4_INFO("String Length: %i\tBuffer Length: %lu\tOutput Buffer Length: %u", str_len, strlen(string), len);
 	// PX4_INFO("%s", string);
     if (str_len > MSP_OSD_MAX_STRING_LENGTH) {
-		PX4_WARN("String Length too long, setting to MSP_OSD_MAX_STRING_LENGTH: %i", MSP_OSD_MAX_STRING_LENGTH);
+		// PX4_WARN("String Length too long, setting to MSP_OSD_MAX_STRING_LENGTH: %i", MSP_OSD_MAX_STRING_LENGTH);
         str_len = MSP_OSD_MAX_STRING_LENGTH;
     }
 	
-	// Set buffer to 0 or else we get unwanted symbols (HDZero OSD writes the whole buffer, not just the msg)
-	// uint8_t msg[sizeof(msp_osd_dp_cmd_t) + str_len];
-	// memset(msg, 0, sizeof(msg));	
-
-	// if (sizeof(msp_osd_dp_cmd_t) + str_len < len){
-	// 	PX4_WARN("Output buffer too small! Random symbols may appear on OSD.");
-	// };
+	// if (sizeof(msp_osd_dp_cmd_t) + str_len + 1 < len) PX4_WARN("Output buffer too small! Random symbols may appear on OSD.");
 
 	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
 	msp_osd_dp_cmd.row = row;
@@ -563,12 +555,10 @@ uint8_t construct_OSD_write(uint8_t col, uint8_t row, const char *string, uint8_
 	// char ascii_string[len * 3];
 	// int ascii_string_index = 0;
 	// for (int i = 0; i < len; ++i) {
-	// 	ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", output[i]);
+		// ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", output[i]);
 	// }
 	// ascii_string[ascii_string_index - 1] = '\0';
 	// PX4_INFO("[ %s ]", ascii_string);
-	// PX4_INFO("%s", output);
-
 	return 0;
 }
 

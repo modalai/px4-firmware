@@ -865,13 +865,13 @@ enum betaflightDJIModesMask_e {
 /* NEW STRUCTS FOR HDZero msgs */
 
 // MSP_VTX_CONFIG 
-struct msp_VTX_config_t {
-	uint8_t  protocol;	// 0
-	uint8_t  band;		// 1
-	uint8_t  channel;	// 2
-	uint8_t  power;		// 3
-	uint8_t  pit;		// 4 
-	uint16_t freq;	// 5, 6
+struct msp_vtx_config_t {
+	uint8_t  protocol;
+	uint8_t  band;	
+	uint8_t  channel;
+	uint8_t  power;	
+	uint8_t  pit;	 
+	uint16_t freq;	
 } __attribute__((packed));
 
 // MSP_STATUS 
@@ -887,19 +887,19 @@ struct msp_status_HDZ_t {
 	uint32_t arming_disable_flags;
 } __attribute__((packed));
 
-#define SD_HMAX 30
-#define SD_VMAX 16
-#define HD_HMAX 50
-#define HD_VMAX 18
+#define SD_COL_MAX 30
+#define SD_ROW_MAX 16
+#define HD_COL_MAX 50
+#define HD_ROW_MAX 18
 // MSP_OSD_CANVAS 
 struct msp_osd_canvas_t {
-	uint8_t  h_max;
-	uint8_t  v_max;
+	uint8_t  row_max;
+	uint8_t  col_max;
 } __attribute__((packed));
 
 
 // MSP Display Port commands
-typedef enum {
+typedef enum __attribute__((packed)){
     MSP_DP_HEARTBEAT = 0,       // Release the display after clearing and updating
     MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
     MSP_DP_CLEAR_SCREEN = 2,    // Clear the display
@@ -908,9 +908,9 @@ typedef enum {
     MSP_DP_CONFIG = 5,          // CONFIG COMMAND -Not used by Betaflight, used by Ardupilot and INAV // CONFIG COMM
     MSP_DP_SYS = 6,             // Display system element displayportSystemElement_e at given coordinates
     MSP_DP_COUNT,
-} __attribute__((packed)) displayportMspCommand_e ;
+} displayportMspCommand_e ;
 
-typedef enum {
+typedef enum __attribute__((packed)) {
     SD_3016,	// OSD width x height
     HD_5018,
     HD_3016,
@@ -930,7 +930,6 @@ struct msp_osd_dp_config_t {
 #define MSP_OSD_DP_WRITE_PAYLOAD 4
 // MSP_CMD_DISPLAYPORT write/draw command 
 struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
-	// displayportMspCommand_e  subcmd;
 	uint8_t subcmd;
 	uint8_t row;	
 	uint8_t col;	
