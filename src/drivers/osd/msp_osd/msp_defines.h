@@ -897,6 +897,25 @@ struct msp_osd_canvas_t {
 	uint8_t  col_max;
 } __attribute__((packed));
 
+// MSP_CMD_DISPLAYPORT config 
+struct msp_osd_dp_config_t {
+	// displayportMspCommand_e  subcmd;
+	uint8_t subcmd;
+	uint8_t fontType;
+	uint8_t resolution;
+} __attribute__((packed));
+
+#define MSP_OSD_MAX_STRING_LENGTH 30 // FIXME move these
+#define DISPLAYPORT_MSP_ATTR_BLINK   (1UL << (6)) // Device local blink
+#define MSP_OSD_DP_WRITE_PAYLOAD 4
+// MSP_CMD_DISPLAYPORT write/draw command 
+struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
+	uint8_t subcmd;
+	uint8_t row;	
+	uint8_t col;	
+	uint8_t attr{0};		// HDZero VTX doesn't support blinking
+	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
+} __attribute__((packed));
 
 // MSP Display Port commands
 typedef enum __attribute__((packed)){
@@ -916,26 +935,4 @@ typedef enum __attribute__((packed)) {
     HD_3016,
     HD_5320,
 } resolutionType_e;
-
-// MSP_CMD_DISPLAYPORT config 
-struct msp_osd_dp_config_t {
-	// displayportMspCommand_e  subcmd;
-	uint8_t subcmd;
-	uint8_t fontType;
-	uint8_t resolution;
-} __attribute__((packed));
-
-#define MSP_OSD_MAX_STRING_LENGTH 30 // FIXME move these
-#define DISPLAYPORT_MSP_ATTR_BLINK   (1UL << (6)) // Device local blink
-#define MSP_OSD_DP_WRITE_PAYLOAD 4
-// MSP_CMD_DISPLAYPORT write/draw command 
-struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
-	uint8_t subcmd;
-	uint8_t row;	
-	uint8_t col;	
-	uint8_t attr{0};	
-	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
-} __attribute__((packed));
-
-
 

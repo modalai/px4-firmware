@@ -273,25 +273,25 @@ void MspOsd::Run()
 		PX4_INFO("");
 		PX4_INFO("Sending CLEAR CMD");
 		const auto clear_osd_msg = msp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
 
 		// Send VTX Config
 		PX4_INFO("");
 		PX4_INFO("Sending VTX CONFIG");
 		const auto vtx_config_msg = msp_osd::construct_vtx_config();
-		this->Send(MSP_VTX_CONFIG, &vtx_config_msg);
+		this->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
 
 		// Send OSD resolution, font 
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CONFIG");
 		const auto osd_config_msg = msp_osd::construct_OSD_config(this->resolution, this->fontType);
-		this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg);
+		this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg, MSP_DIRECTION_REPLY);
 	
 		// Send OSD Canvas size
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CANVAS");
 		const auto osd_canvas_msg = msp_osd::construct_OSD_canvas(row_max[resolution], column_max[resolution]);
-		this->Send(MSP_SET_OSD_CANVAS, &osd_canvas_msg);
+		this->Send(MSP_SET_OSD_CANVAS, &osd_canvas_msg, MSP_DIRECTION_REPLY);
 	}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
@@ -300,11 +300,13 @@ void MspOsd::Run()
 	}
 
 	// Heartbeat
+    // a) ensure display is not released by remote OSD software
+    // b) prevent OSD Slave boards from displaying a 'disconnected' status.
 	{
 		// PX4_INFO("");
 		// PX4_INFO("Sending HEARTBEAT");
 		const auto heartbeat_msg = msp_osd::construct_OSD_heartbeat();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &heartbeat_msg);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &heartbeat_msg, MSP_DIRECTION_REPLY);
 	}
 
 	// Clear screen
@@ -312,7 +314,7 @@ void MspOsd::Run()
 		// PX4_INFO("");
 		// PX4_INFO("Sending CLEAR CMD");
 		const auto clear_osd_msg = msp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
 	}
 
 	// Construct display message...
@@ -330,9 +332,9 @@ void MspOsd::Run()
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
 		memset(output, 0, sizeof(output));
 		msp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, false, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
-		this->Send(MSP_CMD_DISPLAYPORT, &output);
+		this->Send(MSP_CMD_DISPLAYPORT, &output, MSP_DIRECTION_REPLY);
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
-		this->Send(MSP_CMD_DISPLAYPORT, &draw);
+		this->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
 	}
 
 	// MSP_FC_VARIANT #1
@@ -340,7 +342,7 @@ void MspOsd::Run()
 		// PX4_INFO("");
 		// PX4_INFO("Sending FC VARIANT");
 		const auto msg = msp_osd::construct_FC_VARIANT();
-		this->Send(MSP_FC_VARIANT, &msg);
+		this->Send(MSP_FC_VARIANT, &msg, MSP_DIRECTION_REPLY);
 	}
 
 	// MSP_STATUS #2 
@@ -350,7 +352,7 @@ void MspOsd::Run()
 		vehicle_status_s vehicle_status{};
 		_vehicle_status_sub.copy(&vehicle_status);
 		const auto msg = msp_osd::construct_STATUS_HDZ(vehicle_status);
-		this->Send(MSP_STATUS, &msg);
+		this->Send(MSP_STATUS, &msg, MSP_DIRECTION_REPLY);
 	}
 
 	// MSP RC #3
@@ -360,13 +362,13 @@ void MspOsd::Run()
 		input_rc_s input_rc{};
 		_input_rc_sub.copy(&input_rc);
 		const auto msg = msp_osd::construct_RC(input_rc);
-		this->Send(MSP_RC, &msg);
+		this->Send(MSP_RC, &msg, MSP_DIRECTION_REPLY);
 	}
 }
 
-void MspOsd::Send(const unsigned int message_type, const void *payload)
+void MspOsd::Send(const unsigned int message_type, const void *payload, mspDirection_e direction)
 {
-	if (_msp.Send(message_type, payload)) {
+	if (_msp.Send(message_type, payload, direction)) {
 		_performance_data.successful_sends++;
 
 	} else {
@@ -526,7 +528,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		}
 	}
 
-	// Write string
+	// Write string for testing placement on canvas
 	if(!strcmp(verb,"write")){
 		PX4_INFO("");
 		PX4_INFO("Sending WRITE CMD");
@@ -535,11 +537,11 @@ int MspOsd::custom_command(int argc, char *argv[])
 		line[1] = 0; 
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
 		msp_osd::construct_OSD_write(col, row, false, line, output, sizeof(output));
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output, MSP_DIRECTION_REPLY);
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
 		return 0;
 	}
 
@@ -558,11 +560,11 @@ int MspOsd::custom_command(int argc, char *argv[])
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + strlen(const_cmd_string)+1]{0};
 		PX4_INFO("Output String: %s\tSize of output: %lu", const_cmd_string, sizeof(output));
 		msp_osd::construct_OSD_write(col, row, false, const_cmd_string, output, sizeof(output));
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output, MSP_DIRECTION_REPLY);
 		PX4_INFO("");
 		PX4_INFO("Sending DRAW CMD");
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
 		return 0;
 	}
 
@@ -571,7 +573,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("");
 		PX4_INFO("Sending CLEAR CMD");
 		const auto msg = msp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg, MSP_DIRECTION_REPLY);
 		return 0;
 	}
 
@@ -580,7 +582,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("");
 		PX4_INFO("Sending RELEASE CMD");
 		const auto msg = msp_osd::construct_OSD_release();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg, MSP_DIRECTION_REPLY);
 		return 0;
 	}
 
@@ -589,7 +591,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CONFIG CMD");
 		const auto msg = msp_osd::construct_OSD_config((resolutionType_e)cmd_resolution, cmd_fontType);
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg);
+		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg, MSP_DIRECTION_REPLY);
 		get_instance()->resolution = (resolutionType_e)cmd_resolution;
 		get_instance()->fontType = cmd_fontType;
 		return 0;
@@ -600,7 +602,7 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("");
 		PX4_INFO("Sending OSD CANVAS CMD");
 		const auto msg = msp_osd::construct_OSD_canvas(get_instance()->row_max[get_instance()->resolution], get_instance()->column_max[get_instance()->resolution]);
-		get_instance()->Send(MSP_SET_OSD_CANVAS, &msg);
+		get_instance()->Send(MSP_SET_OSD_CANVAS, &msg, MSP_DIRECTION_REPLY);
 		return 0;
 	}
 

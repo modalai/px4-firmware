@@ -35,25 +35,19 @@
 
 #define MSP_READ_BUFFER_SIZE 128
 
-// Probably should be redone later
-struct msp_packet_t {
-	uint8_t payload_size;
-	uint8_t message_id;
-	uint8_t buffer[MSP_READ_BUFFER_SIZE];
-	int index;
-};
+// MSP communication direction
+typedef enum __attribute__((packed)){
+    MSP_DIRECTION_REPLY = 0,
+    MSP_DIRECTION_REQUEST = 1
+} mspDirection_e;
+
 
 class MspV1
 {
 public:
 	MspV1(int fd);
 	int GetMessageSize(int message_type);
-	// int mspProcessCmds();
-	bool Send(const uint8_t message_id, const void *payload);
-	// int processReadBuffer(int size);
-	// int Read();
-
-	msp_packet_t _msp_packet;
+	bool Send(const uint8_t message_id, const void *payload, mspDirection_e direction = MSP_DIRECTION_REQUEST);
 
 private:
 	int _fd{-1};

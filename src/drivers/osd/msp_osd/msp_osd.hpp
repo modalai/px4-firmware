@@ -124,7 +124,7 @@ private:
 	void Run() override;
 
 	// update a single display element in the display
-	void Send(const unsigned int message_type, const void *payload);
+	void Send(const unsigned int message_type, const void *payload, mspDirection_e direction = MSP_DIRECTION_REQUEST);
 
 	// send full configuration to MSP (triggers the actual update)
 	void SendConfig();
