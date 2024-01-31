@@ -111,6 +111,8 @@ const uint16_t osd_current_draw_pos = 2103;
 
 const uint16_t osd_numerical_vario_pos = LOCATION_HIDDEN;
 
+bool clear{true};
+
 MspOsd::MspOsd(const char *device) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
@@ -310,7 +312,7 @@ void MspOsd::Run()
 	}
 
 	// Clear screen
-	{
+	if (clear){
 		// PX4_INFO("");
 		// PX4_INFO("Sending CLEAR CMD");
 		const auto clear_osd_msg = msp_osd::construct_OSD_clear();
@@ -318,7 +320,6 @@ void MspOsd::Run()
 	}
 
 	// Construct display message...
-	// FLIGHT MODE | ARMING | HEADING 
 	{
 		vehicle_status_s vehicle_status{};
 		_vehicle_status_sub.copy(&vehicle_status);
@@ -328,11 +329,18 @@ void MspOsd::Run()
 
 		log_message_s log_message{};
 		_log_message_sub.copy(&log_message);
+
+		// FLIGHT MODE | ARMING | HEADING 
 		const auto display_msg = msp_osd::construct_display_message( vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
+		
+		// Create appropriate size output buffer
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
-		memset(output, 0, sizeof(output));
+		
+		// Write MSP DisplayPort Command header + message to output buffer and send to VTX
 		msp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, false, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
 		this->Send(MSP_CMD_DISPLAYPORT, &output, MSP_DIRECTION_REPLY);
+
+		// Draw output to screen
 		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 		this->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
 	}
@@ -459,6 +467,7 @@ int MspOsd::print_status()
 	return 0;
 }
 
+// Ex: msp_osd -c 5 -l 5 -s TEST write_string -> Write "TEST" at column 5/row 5 
 int MspOsd::custom_command(int argc, char *argv[])
 {	
 	int myoptind = 0;
@@ -533,9 +542,9 @@ int MspOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("");
 		PX4_INFO("Sending WRITE CMD");
 		char line[2];	// 30 char max
-		line[0] = 0x90; // Battery FULL symbol
+		line[0] = SYM_BATT_FULL; // Battery FULL symbol
 		line[1] = 0; 
-		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)];
+		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(line)]{0};
 		msp_osd::construct_OSD_write(col, row, false, line, output, sizeof(output));
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &output, MSP_DIRECTION_REPLY);
 		PX4_INFO("");
@@ -568,12 +577,11 @@ int MspOsd::custom_command(int argc, char *argv[])
 		return 0;
 	}
 
-	// Clear OSD
-	if(!strcmp(verb,"clear")){
+	// Turn auto clear OSD on/off 
+	if(!strcmp(verb,"toggle_clear")){
 		PX4_INFO("");
-		PX4_INFO("Sending CLEAR CMD");
-		const auto msg = msp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &msg, MSP_DIRECTION_REPLY);
+		PX4_INFO("Sending TOGGLING CLEAR");
+		clear = !clear;
 		return 0;
 	}
 

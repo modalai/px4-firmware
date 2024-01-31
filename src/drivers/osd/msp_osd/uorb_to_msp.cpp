@@ -535,34 +535,18 @@ displayportMspCommand_e construct_OSD_clear(){
 }
 
 // Construct a HDZero OSD write command into an output buffer given location, string, and # bytes to write 
+// WARNING: If input string has lowercase chars, they may be interpreted as symbols!
 uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len)
 {
 	msp_osd_dp_cmd_t msp_osd_dp_cmd;
 	int str_len = strlen(string);
-	// PX4_INFO("String Length: %i\tBuffer Length: %lu\tOutput Buffer Length: %u", str_len, strlen(string), len);
-	// PX4_INFO("%s", string);
-    if (str_len > MSP_OSD_MAX_STRING_LENGTH) {
-		// PX4_WARN("String Length too long, setting to MSP_OSD_MAX_STRING_LENGTH: %i", MSP_OSD_MAX_STRING_LENGTH);
-        str_len = MSP_OSD_MAX_STRING_LENGTH;
-    }
-	
-	// if (sizeof(msp_osd_dp_cmd_t) + str_len + 1 < len) PX4_WARN("Output buffer too small! Random symbols may appear on OSD.");
-
+    if (str_len > MSP_OSD_MAX_STRING_LENGTH) str_len = MSP_OSD_MAX_STRING_LENGTH;
 	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
 	msp_osd_dp_cmd.row = row;
 	msp_osd_dp_cmd.col = col;
-	msp_osd_dp_cmd.attr = blink ? msp_osd_dp_cmd.attr | DISPLAYPORT_MSP_ATTR_BLINK : 0;
+	msp_osd_dp_cmd.attr = blink ? msp_osd_dp_cmd.attr | DISPLAYPORT_MSP_ATTR_BLINK : 0;	// Blink doesn't work with HDZero Freestyle V2 VTX
 	memcpy(output, &msp_osd_dp_cmd, sizeof(msp_osd_dp_cmd));
-	memcpy(output+MSP_OSD_DP_WRITE_PAYLOAD, string, str_len);
-
-	// Debug message 
-	// char ascii_string[len * 3];
-	// int ascii_string_index = 0;
-	// for (int i = 0; i < len; ++i) {
-		// ascii_string_index += snprintf(ascii_string + ascii_string_index, sizeof(ascii_string) - ascii_string_index, "%02x ", output[i]);
-	// }
-	// ascii_string[ascii_string_index - 1] = '\0';
-	// PX4_INFO("[ %s ]", ascii_string);
+	memcpy(&output[MSP_OSD_DP_WRITE_PAYLOAD], string, str_len);
 	return 0;
 }
 
@@ -574,11 +558,9 @@ displayportMspCommand_e construct_OSD_draw(){
 // Construct a HDZero OSD config command
 msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType){
 	msp_osd_dp_config_t msp_osd_dp_config;
-
 	msp_osd_dp_config.subcmd     = MSP_DP_CONFIG;
 	msp_osd_dp_config.fontType   = fontType;
 	msp_osd_dp_config.resolution = resolution;
-	
 	return msp_osd_dp_config;
 }
 

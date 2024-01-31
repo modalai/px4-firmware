@@ -135,7 +135,7 @@ bool MspV1::Send(const uint8_t message_id, const void *payload, mspDirection_e d
 	packet[0] = '$';
 	packet[1] = 'M';
 	// packet[2] = '<'; 
-	packet[2] = direction ? '<' : '>';	// HDZero VTX firmware only supports 'replies'...
+	packet[2] = direction ? MSP_CMD : MSP_REPLY;	// HDZero VTX firmware only supports 'replies'...
 	packet[3] = payload_size;
 	packet[4] = message_id;
 
