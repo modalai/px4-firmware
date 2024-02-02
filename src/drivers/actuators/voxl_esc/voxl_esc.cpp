@@ -127,8 +127,8 @@ int VoxlEsc::init()
 
 	//reset the ESC version info before requesting
 	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; ++esc_id){
-		_version_info[esc_id].sw_version = 0xFFFF;  //invalid
-		_version_info[esc_id].hw_version = 0xFFFF;  //invalid
+		_version_info[esc_id].sw_version = 0;  //invalid
+		_version_info[esc_id].hw_version = 0;  //invalid
 		_version_info[esc_id].id         = esc_id;
 	}
 
@@ -199,7 +199,7 @@ int VoxlEsc::init()
 	//check the SW version of the ESCs
 	bool esc_detection_fault = false;
 	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; esc_id++){
-		if (_version_info[esc_id].sw_version == 0xFFFF){
+		if (_version_info[esc_id].sw_version == 0){
 			PX4_ERR("VOXL_ESC: ESC ID %d was not detected", esc_id);
 			esc_detection_fault = true;
 		}
