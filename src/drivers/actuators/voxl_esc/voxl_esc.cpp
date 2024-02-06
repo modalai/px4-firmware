@@ -205,10 +205,10 @@ int VoxlEsc::init()
 		}
 	}
 
-	//check the firmware hashes to make sure they are the same. Firmware hash has 8 chars
+	//check the firmware hashes to make sure they are the same. Firmware hash has 8 chars plus optional "*"
 	for (int esc_id=1; esc_id < VOXL_ESC_OUTPUT_CHANNELS; esc_id++){
-		if (strncmp(_version_info[0].firmware_git_version,_version_info[esc_id].firmware_git_version, 8) != 0) {
-			PX4_ERR("VOXL_ESC: ESC %d Firmware hash does not match ESC 0 firmware hash:  %.12s != %.12s", 
+		if (strncmp(_version_info[0].firmware_git_version,_version_info[esc_id].firmware_git_version, 9) != 0) {
+			PX4_ERR("VOXL_ESC: ESC %d Firmware hash does not match ESC 0 firmware hash:  (%.12s) != (%.12s)", 
 				esc_id, _version_info[esc_id].firmware_git_version, _version_info[0].firmware_git_version);
 			esc_detection_fault = true;
 		}
@@ -217,8 +217,9 @@ int VoxlEsc::init()
 	//if firmware version is equal or greater than VOXL_ESC_EXT_RPM, ESC packet with extended rpm range is supported. use it
 	_extended_rpm      = true;
 	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; esc_id++){
-		if (_version_info[esc_id].sw_version < VOXL_ESC_EXT_RPM)
+		if (_version_info[esc_id].sw_version < VOXL_ESC_EXT_RPM){
 			_extended_rpm = false;
+		}
 	}
 
 	PX4_INFO("VOXL_ESC: Use extened rpm packet : %d", _extended_rpm);
