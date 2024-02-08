@@ -62,6 +62,8 @@
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/esc_status.h>
+#include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/sensor_optical_flow.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
@@ -88,7 +90,7 @@ static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
-bool debug = false;
+bool _debug = false;
 std::string port = "2";
 int baudrate = 921600;
 const unsigned mode_flag_custom = 1;
@@ -96,14 +98,17 @@ const unsigned mode_flag_armed = 128;
 bool _send_gps = false;
 bool _send_mag = false;
 bool _send_odometry = false;
+bool _send_distance = false;
+bool _send_optical_flow = false;
 
 uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
-uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<sensor_baro_s>			_sensor_baro_pub{ORB_ID(sensor_baro)};
 uORB::Publication<esc_status_s>					_esc_status_pub{ORB_ID(esc_status)};
+uORB::Publication<distance_sensor_s>			_distance_sensor_pub{ORB_ID(distance_sensor)};
+uORB::Publication<sensor_optical_flow_s>        _sensor_optical_flow_pub{ORB_ID(sensor_optical_flow)};
 uORB::Subscription 								_battery_status_sub{ORB_ID(battery_status)};
 
 int32_t _output_functions[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS] {};
@@ -129,14 +134,28 @@ float x_gyro = 0;
 float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
-bool _use_software_mav_throttling{false};
 
-int heartbeat_counter = 0;
-int imu_counter = 0;
-int hil_sensor_counter = 0;
-int vision_msg_counter = 0;
-int odometry_msg_counter = 0;
-int gps_counter = 0;
+// Status counters
+uint32_t heartbeat_received_counter = 0;
+uint32_t heartbeat_sent_counter = 0;
+uint32_t imu_counter = 0;
+uint32_t hil_sensor_counter = 0;
+uint32_t mag_counter = 0;
+uint32_t baro_counter = 0;
+uint32_t actuator_sent_counter = 0;
+uint32_t odometry_received_counter = 0;
+uint32_t odometry_sent_counter = 0;
+uint32_t gps_received_counter = 0;
+uint32_t gps_sent_counter = 0;
+uint32_t distance_received_counter = 0;
+uint32_t distance_sent_counter = 0;
+uint32_t flow_received_counter = 0;
+uint32_t flow_sent_counter = 0;
+uint32_t unknown_msg_received_counter = 0;
+
+uint64_t first_sensor_msg_timestamp = 0;
+uint64_t first_sensor_report_timestamp = 0;
+uint64_t last_sensor_report_timestamp = 0;
 
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
@@ -146,7 +165,6 @@ battery_status_s _battery_status{};
 sensor_accel_fifo_s accel_fifo{};
 sensor_gyro_fifo_s gyro_fifo{};
 
-
 int openPort(const char *dev, speed_t speed);
 int closePort();
 
@@ -155,7 +173,8 @@ int writeResponse(void *buf, size_t len);
 
 int start(int argc, char *argv[]);
 int stop();
-int get_status();
+void print_status();
+void clear_status_counters();
 bool isOpen() { return _uart_fd >= 0; };
 
 void usage();
@@ -165,52 +184,57 @@ void *send_actuator(void *);
 void send_actuator_data();
 
 void handle_message_hil_sensor_dsp(mavlink_message_t *msg);
+void handle_message_hil_optical_flow(mavlink_message_t *msg);
+void handle_message_distance_sensor(mavlink_message_t *msg);
 void handle_message_hil_gps_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
-void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
 void handle_message_command_long_dsp(mavlink_message_t *msg);
 
 void handle_message_dsp(mavlink_message_t *msg);
 void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
-void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control);
+void send_esc_status(mavlink_hil_actuator_controls_t hil_act_control);
 
 void
 handle_message_dsp(mavlink_message_t *msg)
 {
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_HIL_SENSOR:
+		hil_sensor_counter++;
 		handle_message_hil_sensor_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HIL_GPS:
+		gps_received_counter++;
 		if (_send_gps) handle_message_hil_gps_dsp(msg);
 		break;
-	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
-		handle_message_vision_position_estimate_dsp(msg);
-		break;
 	case MAVLINK_MSG_ID_ODOMETRY:
+		odometry_received_counter++;
 		if (_send_odometry) handle_message_odometry_dsp(msg);
 		break;
-	case MAVLINK_MSG_ID_COMMAND_LONG:
-		handle_message_command_long_dsp(msg);
-		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
-		PX4_DEBUG("Heartbeat msg received");
+		heartbeat_received_counter++;
+		if (_debug) { PX4_INFO("Heartbeat msg received"); }
 		break;
-	case MAVLINK_MSG_ID_SYSTEM_TIME:
-		PX4_DEBUG("MAVLINK SYSTEM TIME");
+	case MAVLINK_MSG_ID_HIL_OPTICAL_FLOW:
+		flow_received_counter++;
+		if (_send_optical_flow) handle_message_hil_optical_flow(msg);
+		break;
+	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
+		distance_received_counter++;
+		if (_send_distance) handle_message_distance_sensor(msg);
 		break;
 	default:
-		PX4_DEBUG("Unknown msg ID: %d", msg->msgid);
+		unknown_msg_received_counter++;
+		if (_debug) { PX4_INFO("Unknown msg ID: %d", msg->msgid); }
 		break;
 	}
 }
 
-void *send_actuator(void *){
+void *send_actuator(void *) {
 	send_actuator_data();
 	return nullptr;
 }
 
-void send_actuator_data(){
+void send_actuator_data() {
 
 	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_sim), 0);
 	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
@@ -219,54 +243,61 @@ void send_actuator_data(){
 	int differential = 0;
 	bool first_sent = false;
 
-	while (true){
-
+	while (true) {
 		bool controls_updated = false;
 		(void) orb_check(_vehicle_control_mode_sub_, &controls_updated);
 
-		if(controls_updated){
+		if (controls_updated) {
 			orb_copy(ORB_ID(vehicle_control_mode), _vehicle_control_mode_sub_, &_control_mode);
 		}
 
 		bool actuator_updated = false;
 		(void) orb_check(_actuator_outputs_sub, &actuator_updated);
 
-		if(actuator_updated){
-			orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
-			px4_lockstep_wait_for_components();
-			if (_actuator_outputs.timestamp > 0) {
-				mavlink_hil_actuator_controls_t hil_act_control;
-				actuator_controls_from_outputs_dsp(&hil_act_control);
+		uint8_t  newBuf[512];
+		uint16_t newBufLen = 0;
 
-				mavlink_message_t message{};
-				mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
+		mavlink_hil_actuator_controls_t hil_act_control;
+		actuator_controls_from_outputs_dsp(&hil_act_control);
+
+		mavlink_message_t message{};
+		mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
+
+		if (actuator_updated) {
+			orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
+
+			if (_actuator_outputs.timestamp > 0) {
 				previous_timestamp = _actuator_outputs.timestamp;
 				previous_uorb_timestamp = _actuator_outputs.timestamp;
-				uint8_t  newBuf[512];
-				uint16_t newBufLen = 0;
+
 				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
 				int writeRetval = writeResponse(&newBuf, newBufLen);
-				PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
+
+				actuator_sent_counter++;
+
+				if (_debug) { PX4_INFO("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time()); }
+
 				first_sent = true;
-				send_esc_telemetry_dsp(hil_act_control);
+
+				send_esc_status(hil_act_control);
 			}
-		} else if(!actuator_updated && first_sent && differential > 4000){
-			mavlink_hil_actuator_controls_t hil_act_control;
-			actuator_controls_from_outputs_dsp(&hil_act_control);
+
+		} else if ( ! actuator_updated && first_sent && differential > 4000){
 			previous_timestamp = hrt_absolute_time();
 
-			mavlink_message_t message{};
-			mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
-			uint8_t  newBuf[512];
-			uint16_t newBufLen = 0;
 			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
 			int writeRetval = writeResponse(&newBuf, newBufLen);
-			//PX4_INFO("Sending from NOT UPDTE AND TIMEOUT: %i", differential);
 
-			PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
-			send_esc_telemetry_dsp(hil_act_control);
+			actuator_sent_counter++;
+
+			if (_debug) { PX4_INFO("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time()); }
+
+			send_esc_status(hil_act_control);
 		}
+
 		differential = hrt_absolute_time() - previous_timestamp;
+
+		px4_usleep(1000);
 	}
 }
 
@@ -275,13 +306,10 @@ void task_main(int argc, char *argv[])
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "osdmgp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "odmghfp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
-		case 's':
-			_use_software_mav_throttling = true;
-			break;
 		case 'd':
-			debug = true;
+			_debug = true;
 			break;
 		case 'p':
 			port = myoptarg;
@@ -298,16 +326,25 @@ void task_main(int argc, char *argv[])
 		case 'o':
 			_send_odometry = true;
 			break;
+		case 'h':
+			_send_distance = true;
+			break;
+		case 'f':
+			_send_optical_flow = true;
+			break;
 		default:
 			break;
 		}
 	}
 
 	const char* charport = port.c_str();
-	int openRetval = openPort(charport, (speed_t) baudrate);
-	int open = isOpen();
-	if(open){
-		PX4_INFO("DSP HITL Serial Port is open: %d", openRetval);
+	(void) openPort(charport, (speed_t) baudrate);
+
+	if ((_debug) && (isOpen())) PX4_INFO("DSP HITL serial port initialized. Baudrate: %d", baudrate);
+
+	if ( ! isOpen()) {
+		PX4_ERR("DSP HITL failed to open serial port");
+		return;
 	}
 
 	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
@@ -326,22 +363,19 @@ void task_main(int argc, char *argv[])
 	pthread_attr_destroy(&sender_thread_attr);
 
 	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
-	PX4_INFO("Got %d from orb_subscribe", _vehicle_status_sub);
 
 	_is_running = true;
 
 	while (!_task_should_exit){
-
 		uint8_t rx_buf[1024];
-		//rx_buf[511] = '\0';
 
 		uint64_t timestamp = hrt_absolute_time();
 
 		// Send out sensor messages every 10ms
 		if (got_first_sensor_msg) {
 			uint64_t delta_time = timestamp - last_imu_update_timestamp;
-			if (delta_time > 15000) {
-				PX4_ERR("Sending updates at %llu, delta %llu", timestamp, delta_time);
+			if ((imu_counter) && (delta_time > 15000)) {
+				PX4_WARN("Sending updates at %llu, delta %llu", timestamp, delta_time);
 			}
 			uint64_t _px4_gyro_accel_timestamp = hrt_absolute_time();
 			_px4_gyro->update(_px4_gyro_accel_timestamp, x_gyro, y_gyro, z_gyro);
@@ -375,7 +409,7 @@ void task_main(int argc, char *argv[])
 			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
 			(void) writeResponse(&hb_newBuf, hb_newBufLen);
 			last_heartbeat_timestamp = timestamp;
-			heartbeat_counter++;
+			heartbeat_sent_counter++;
 		}
 
 		bool vehicle_updated = false;
@@ -394,7 +428,7 @@ void task_main(int argc, char *argv[])
 	_is_running = false;
 }
 
-void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
+void send_esc_status(mavlink_hil_actuator_controls_t hil_act_control)
 {
 	esc_status_s esc_status{};
 	esc_status.timestamp = hrt_absolute_time();
@@ -425,17 +459,13 @@ void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
 	_esc_status_pub.publish(esc_status);
 }
 
-
 void
 handle_message_command_long_dsp(mavlink_message_t *msg)
 {
-	/* command */
 	mavlink_command_long_t cmd_mavlink;
 	mavlink_msg_command_long_decode(msg, &cmd_mavlink);
 
-	if(debug){
-		PX4_INFO("Value of command_long.command: %d", cmd_mavlink.command);
-	}
+	if (_debug) PX4_INFO("Value of command_long.command: %d", cmd_mavlink.command);
 
 	mavlink_command_ack_t ack = {};
 	ack.result = MAV_RESULT_UNSUPPORTED;
@@ -447,46 +477,116 @@ handle_message_command_long_dsp(mavlink_message_t *msg)
 	uint16_t acknewBufLen = 0;
 	acknewBufLen = mavlink_msg_to_send_buffer(acknewBuf, &ack_message);
 	int writeRetval = writeResponse(&acknewBuf, acknewBufLen);
-	PX4_INFO("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
+
+	if (_debug) PX4_INFO("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
 }
 
+int	flow_debug_counter = 0;
+
 void
-handle_message_vision_position_estimate_dsp(mavlink_message_t *msg)
+handle_message_hil_optical_flow(mavlink_message_t *msg)
 {
-	mavlink_vision_position_estimate_t vpe;
-	mavlink_msg_vision_position_estimate_decode(msg, &vpe);
+	mavlink_hil_optical_flow_t flow;
+	mavlink_msg_hil_optical_flow_decode(msg, &flow);
 
-	// fill vehicle_odometry from Mavlink VISION_POSITION_ESTIMATE
-	vehicle_odometry_s odom{};
-	uint64_t timestamp = hrt_absolute_time();
-	odom.timestamp_sample = timestamp;
+	if ((_debug) && ( ! (flow_debug_counter % 10))) {
+		PX4_INFO("optflow: time: %llu, quality %d", flow.time_usec, (int) flow.quality);
+		PX4_INFO("optflow: x: %.2f y: %.2f", (double) flow.integrated_x, (double) flow.integrated_y);
+	}
+	flow_debug_counter++;
 
-	odom.pose_frame = vehicle_odometry_s::POSE_FRAME_NED;
-	odom.position[0] = vpe.x;
-	odom.position[1] = vpe.y;
-	odom.position[2] = vpe.z;
+	device::Device::DeviceId device_id;
+	device_id.devid_s.bus_type = device::Device::DeviceBusType::DeviceBusType_MAVLINK;
+	device_id.devid_s.bus = 1;
+	device_id.devid_s.address = msg->sysid;
+	device_id.devid_s.devtype = DRV_FLOW_DEVTYPE_SIM;
 
-	const matrix::Quatf q(matrix::Eulerf(vpe.roll, vpe.pitch, vpe.yaw));
-	q.copyTo(odom.q);
+	sensor_optical_flow_s sensor_optical_flow{};
 
-	// VISION_POSITION_ESTIMATE covariance
-	//  Row-major representation of pose 6x6 cross-covariance matrix upper right triangle
-	//  (states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.).
-	//  If unknown, assign NaN value to first element in the array.
-	odom.position_variance[0] = vpe.covariance[0];  // X  row 0, col 0
-	odom.position_variance[1] = vpe.covariance[6];  // Y  row 1, col 1
-	odom.position_variance[2] = vpe.covariance[11]; // Z  row 2, col 2
+	sensor_optical_flow.timestamp_sample = hrt_absolute_time();
+	sensor_optical_flow.device_id = device_id.devid;
 
-	odom.orientation_variance[0] = vpe.covariance[15]; // R  row 3, col 3
-	odom.orientation_variance[1] = vpe.covariance[18]; // P  row 4, col 4
-	odom.orientation_variance[2] = vpe.covariance[20]; // Y  row 5, col 5
+	sensor_optical_flow.pixel_flow[0] = flow.integrated_x;
+	sensor_optical_flow.pixel_flow[1] = flow.integrated_y;
 
-	odom.reset_counter = vpe.reset_counter;
+	sensor_optical_flow.integration_timespan_us = flow.integration_time_us;
+	sensor_optical_flow.quality = flow.quality;
 
-	odom.timestamp = hrt_absolute_time();
+	const matrix::Vector3f integrated_gyro(flow.integrated_xgyro, flow.integrated_ygyro, flow.integrated_zgyro);
 
-	_visual_odometry_pub.publish(odom);
-	vision_msg_counter++;
+	if (integrated_gyro.isAllFinite()) {
+		integrated_gyro.copyTo(sensor_optical_flow.delta_angle);
+		sensor_optical_flow.delta_angle_available = true;
+	}
+
+	sensor_optical_flow.max_flow_rate       = NAN;
+	sensor_optical_flow.min_ground_distance = NAN;
+	sensor_optical_flow.max_ground_distance = NAN;
+
+	// Use distance value for distance sensor topic
+	// if (PX4_ISFINITE(flow.distance) && (flow.distance >= 0.f)) {
+	// 	// Positive value (including zero): distance known. Negative value: Unknown distance.
+	// 	sensor_optical_flow.distance_m = flow.distance;
+	// 	sensor_optical_flow.distance_available = true;
+	// }
+
+	// Emulate voxl-flow-server where distance comes in a separate
+	// distance sensor topic message
+	sensor_optical_flow.distance_m = 0.0f;
+	sensor_optical_flow.distance_available = false;
+
+	sensor_optical_flow.timestamp = hrt_absolute_time();
+
+	_sensor_optical_flow_pub.publish(sensor_optical_flow);
+
+	flow_sent_counter++;
+}
+
+int distance_debug_counter = 0;
+
+void handle_message_distance_sensor(mavlink_message_t *msg)
+{
+	mavlink_distance_sensor_t dist_sensor;
+	mavlink_msg_distance_sensor_decode(msg, &dist_sensor);
+
+	if ((_debug) && ( ! (distance_debug_counter % 10))) {
+		PX4_INFO("distance: time: %u, quality: %u, height: %u",
+				 dist_sensor.time_boot_ms, dist_sensor.signal_quality,
+				 dist_sensor.current_distance);
+	}
+	distance_debug_counter++;
+
+	distance_sensor_s ds{};
+
+	device::Device::DeviceId device_id;
+	device_id.devid_s.bus_type = device::Device::DeviceBusType::DeviceBusType_MAVLINK;
+	device_id.devid_s.bus = 1;
+	device_id.devid_s.address = msg->sysid;
+	device_id.devid_s.devtype = DRV_DIST_DEVTYPE_MAVLINK;
+
+	ds.timestamp        = hrt_absolute_time(); /* Use system time for now, don't trust sender to attach correct timestamp */
+	ds.min_distance     = static_cast<float>(dist_sensor.min_distance) * 1e-2f;     /* cm to m */
+	ds.max_distance     = static_cast<float>(dist_sensor.max_distance) * 1e-2f;     /* cm to m */
+	ds.current_distance = static_cast<float>(dist_sensor.current_distance) * 1e-2f; /* cm to m */
+	ds.variance         = dist_sensor.covariance * 1e-4f;                           /* cm^2 to m^2 */
+	ds.h_fov            = dist_sensor.horizontal_fov;
+	ds.v_fov            = dist_sensor.vertical_fov;
+	ds.q[0]             = dist_sensor.quaternion[0];
+	ds.q[1]             = dist_sensor.quaternion[1];
+	ds.q[2]             = dist_sensor.quaternion[2];
+	ds.q[3]             = dist_sensor.quaternion[3];
+	ds.type             = dist_sensor.type;
+	ds.device_id        = device_id.devid;
+	ds.orientation      = dist_sensor.orientation;
+
+	// MAVLink DISTANCE_SENSOR signal_quality value of 0 means unset/unknown
+	// quality value. Also it comes normalised between 1 and 100 while the uORB
+	// signal quality is normalised between 0 and 100.
+	ds.signal_quality = dist_sensor.signal_quality == 0 ? -1 : 100 * (dist_sensor.signal_quality - 1) / 99;
+
+	_distance_sensor_pub.publish(ds);
+
+	distance_sent_counter++;
 }
 
 void
@@ -495,7 +595,7 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	mavlink_odometry_t odom_in;
 	mavlink_msg_odometry_decode(msg, &odom_in);
 
-	odometry_msg_counter++;
+	odometry_sent_counter++;
 
 	// fill vehicle_odometry from Mavlink ODOMETRY
 	vehicle_odometry_s odom{};
@@ -723,10 +823,6 @@ void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg)
 	msg->mode = mode_flag_custom;
 	msg->mode |= (armed) ? mode_flag_armed : 0;
 	msg->flags = 0;
-
-#if defined(ENABLE_LOCKSTEP_SCHEDULER)
-	msg->flags |= 1;
-#endif
 }
 
 int openPort(const char *dev, speed_t speed)
@@ -737,7 +833,7 @@ int openPort(const char *dev, speed_t speed)
 	}
 
 	_uart_fd = qurt_uart_open(dev, speed);
-	PX4_DEBUG("qurt_uart_opened");
+	if (_debug) { PX4_INFO("qurt_uart_opened"); }
 
 	if (_uart_fd < 0) {
 		PX4_ERR("Error opening port: %s (%i)", dev, errno);
@@ -817,26 +913,46 @@ int stop()
 
 void usage()
 {
-	PX4_INFO("Usage: dsp_hitl {start|info|status|stop}");
+	PX4_INFO("Usage: dsp_hitl {start|status|clear|stop}");
 }
 
-int get_status()
+void print_status()
 {
 	PX4_INFO("Running: %s", _is_running ? "yes" : "no");
-	PX4_INFO("Status of IMU_Data counter: %i", imu_counter);
-	PX4_INFO("Value of current accel x, y, z data: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
-	PX4_INFO("Value of current gyro x, y, z data: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
-	PX4_INFO("Value of HIL_Sensor counter: %i", hil_sensor_counter);
-	PX4_INFO("Value of Heartbeat counter: %i", heartbeat_counter);
-	PX4_INFO("Value of Vision data counter: %i", vision_msg_counter);
-	PX4_INFO("Value of odometry counter: %i", odometry_msg_counter);
-	PX4_INFO("Value of GPS Data counter: %i", gps_counter);
-	return 0;
+	PX4_INFO("HIL Sensor received: %i", hil_sensor_counter);
+	PX4_INFO("IMU updates: %i", imu_counter);
+	PX4_INFO("\tCurrent accel x, y, z: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
+	PX4_INFO("\tCurrent gyro x, y, z: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
+	PX4_INFO("Magnetometer sent: %i", mag_counter);
+	PX4_INFO("Barometer sent: %i", baro_counter);
+	PX4_INFO("Heartbeat received: %i, sent: %i", heartbeat_received_counter, heartbeat_sent_counter);
+	PX4_INFO("Odometry received: %i, sent: %i", odometry_received_counter, odometry_sent_counter);
+	PX4_INFO("GPS received: %i, sent: %i", gps_received_counter, gps_sent_counter);
+	PX4_INFO("Distance sensor received: %i, sent: %i", distance_received_counter, distance_sent_counter);
+	PX4_INFO("Optical flow received: %i, sent: %i", flow_received_counter, flow_sent_counter);
+	PX4_INFO("Actuator updates sent: %i", actuator_sent_counter);
+	PX4_INFO("Unknown messages received: %i", unknown_msg_received_counter);
 }
 
-uint64_t first_sensor_msg_timestamp = 0;
-uint64_t first_sensor_report_timestamp = 0;
-uint64_t last_sensor_report_timestamp = 0;
+void
+clear_status_counters() {
+	heartbeat_received_counter = 0;
+	heartbeat_sent_counter = 0;
+	imu_counter = 0;
+	hil_sensor_counter = 0;
+	mag_counter = 0;
+	baro_counter = 0;
+	actuator_sent_counter = 0;
+	odometry_received_counter = 0;
+	odometry_sent_counter = 0;
+	gps_received_counter = 0;
+	gps_sent_counter = 0;
+	distance_received_counter = 0;
+	distance_sent_counter = 0;
+	flow_received_counter = 0;
+	flow_sent_counter = 0;
+	unknown_msg_received_counter = 0;
+}
 
 void
 handle_message_hil_sensor_dsp(mavlink_message_t *msg)
@@ -905,6 +1021,8 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 			}
 
 			_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
+
+			mag_counter++;
 		}
 	}
 
@@ -919,17 +1037,8 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 		sensor_baro.error_count = 0;
 		sensor_baro.timestamp = hrt_absolute_time();
 		_sensor_baro_pub.publish(sensor_baro);
-	}
 
-	// differential pressure
-	if ((hil_sensor.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS) {
-		differential_pressure_s report{};
-		report.timestamp_sample = gyro_accel_time;
-		report.device_id = 1377548; // 1377548: DRV_DIFF_PRESS_DEVTYPE_SIM, BUS: 1, ADDR: 5, TYPE: SIMULATION
-		report.temperature = hil_sensor.temperature;
-		report.differential_pressure_pa = hil_sensor.diff_pressure * 100.0f; // hPa to Pa
-		report.timestamp = hrt_absolute_time();
-		_differential_pressure_pub.publish(report);
+		baro_counter++;
 	}
 
 	// battery status
@@ -947,7 +1056,6 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 
 		_battery_pub.publish(hil_battery_status);
 	}
-	hil_sensor_counter++;
 }
 
 void
@@ -1006,10 +1114,12 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	gps.timestamp = hrt_absolute_time();
 
 	_sensor_gps_pub.publish(gps);
-	gps_counter++;
+
+	gps_sent_counter++;
 }
 
-}
+} // End dsp_hitl namespace
+
 int dsp_hitl_main(int argc, char *argv[])
 {
 	int myoptind = 1;
@@ -1021,19 +1131,20 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	const char *verb = argv[myoptind];
 
-
 	if (!strcmp(verb, "start")) {
 		return dsp_hitl::start(argc - 1, argv + 1);
 	}
-
 	else if (!strcmp(verb, "stop")) {
 		return dsp_hitl::stop();
 	}
-
 	else if(!strcmp(verb, "status")){
-		return dsp_hitl::get_status();
+		dsp_hitl::print_status();
+		return 0;
 	}
-
+	else if(!strcmp(verb, "clear")){
+		dsp_hitl::clear_status_counters();
+		return 0;
+	}
 	else {
 		dsp_hitl::usage();
 		return 1;
