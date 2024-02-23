@@ -116,6 +116,12 @@ static perf_counter_t param_set_perf;
 static pthread_mutex_t file_mutex  =
 	PTHREAD_MUTEX_INITIALIZER; ///< this protects against concurrent param saves (file or flash access).
 
+#if not defined(__PX4_QURT)
+#include "ParameterServer.hpp"
+static ParameterServer *parameter_server {nullptr};
+#include "param.h"
+#endif
+
 void
 param_init()
 {
@@ -128,7 +134,14 @@ param_init()
 	px4_register_boardct_ioctl(_PARAMIOCBASE, param_ioctl);
 #endif
 
+#if not defined(__PX4_QURT)
 	autosave_instance = new ParamAutosave();
+
+	if (parameter_server == nullptr) {
+		px4_usleep(100'000);
+		parameter_server = new ParameterServer();
+	}
+#endif
 }
 
 
@@ -153,6 +166,8 @@ param_notify_changes()
 		orb_publish(ORB_ID(parameter_update), param_topic, &pup);
 	}
 }
+
+#if not defined(__PX4_QURT)
 
 static param_t param_find_internal(const char *name, bool notification)
 {
@@ -200,6 +215,8 @@ param_t param_find_no_notification(const char *name)
 {
 	return param_find_internal(name, false);
 }
+
+#endif
 
 unsigned param_count_used()
 {
@@ -258,6 +275,8 @@ param_value_unsaved(param_t param)
 	return handle_in_range(param) ? params_unsaved[param] : false;
 }
 
+#if not defined(__PX4_QURT)
+
 int
 param_get(param_t param, void *val)
 {
@@ -291,6 +310,8 @@ param_get(param_t param, void *val)
 
 	return result;
 }
+
+#endif
 
 int
 param_get_default_value_internal(param_t param, void *default_val)
@@ -446,6 +467,8 @@ void param_get_external(param_t param, void *val)
 }
 #endif
 
+#if not defined(__PX4_QURT)
+
 int param_set(param_t param, const void *val)
 {
 	return param_set_internal(param, val, false, true);
@@ -455,6 +478,8 @@ int param_set_no_notification(param_t param, const void *val)
 {
 	return param_set_internal(param, val, false, false);
 }
+
+#endif
 
 bool param_used(param_t param)
 {

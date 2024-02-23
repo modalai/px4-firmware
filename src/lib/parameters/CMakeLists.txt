@@ -156,6 +156,12 @@ add_custom_target(parameters_header DEPENDS px4_parameters.hpp)
 
 set(SRCS)
 
+if((${PX4_PLATFORM} MATCHES "qurt"))
+	set(PX4_PARAM_CLIENT_SRV 1)
+	add_compile_definitions(PX4_PARAM_CLIENT_SRV)
+	list(APPEND SRCS parameters_srv.cpp)
+endif()
+
 list(APPEND SRCS parameters.cpp atomic_transaction.cpp autosave.cpp)
 
 if(BUILD_TESTING)
@@ -181,6 +187,8 @@ if(NOT "${PX4_BOARD}" MATCHES "px4_io")
 	add_library(parameters STATIC EXCLUDE_FROM_ALL
 		${SRCS}
 		px4_parameters.hpp
+		ParameterServer.cpp
+		ParameterServer.hpp
 	)
 
 	target_link_libraries(parameters PRIVATE perf tinybson px4_platform)

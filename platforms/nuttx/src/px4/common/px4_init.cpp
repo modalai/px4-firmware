@@ -190,9 +190,9 @@ int px4_platform_init()
 
 	px4::WorkQueueManagerStart();
 
-	param_init();
-
 	uorb_start();
+
+	param_init();
 
 	px4_log_initialize();
 

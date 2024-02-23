@@ -153,7 +153,10 @@ set(msg_files
 	OrbTest.msg
 	OrbTestLarge.msg
 	OrbTestMedium.msg
+	Parameter.msg
+	ParameterRequest.msg
 	ParameterUpdate.msg
+	ParameterValue.msg
 	Ping.msg
 	PositionControllerLandingStatus.msg
 	PositionControllerStatus.msg
@@ -195,6 +198,10 @@ set(msg_files
 	SensorsStatusImu.msg
 	SensorUwb.msg
 	SensorAirflow.msg
+	SrvParameterGetRequest.msg
+    SrvParameterGetResponse.msg
+    SrvParameterSetRequest.msg
+    SrvParameterSetResponse.msg
 	SystemPower.msg
 	TakeoffStatus.msg
 	TaskStackInfo.msg
