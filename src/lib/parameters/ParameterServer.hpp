@@ -33,8 +33,6 @@
 
 #pragma once
 
-#define PARAM_IMPLEMENTATION
-
 // #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 // #include <px4_platform_common/atomic_bitset.h>

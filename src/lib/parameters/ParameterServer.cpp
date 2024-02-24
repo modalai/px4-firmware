@@ -31,6 +31,8 @@
  *
  ****************************************************************************/
 
+#define PARAM_IMPLEMENTATION
+
 #include <parameters/px4_parameters.hpp>
 #include "ParameterServer.hpp"
 #include <drivers/drv_hrt.h>
@@ -52,6 +54,8 @@ ParameterServer::~ParameterServer()
 
 void ParameterServer::Run()
 {
+	// PX4_INFO("Running ParameterServer thread main loop");
+
 	// srv: parameter_set
 	if (_srv_parameter_set_request_sub.updated()) {
 		const unsigned last_generation = _srv_parameter_set_request_sub.get_last_generation();
@@ -77,9 +81,11 @@ void ParameterServer::Run()
 
 			if (handle_in_range(request.parameter.index) && (strlen(request.parameter.name) == 0)) {
 				param = request.parameter.index;
+				// PX4_INFO("ParameterServer got parameter_set_request for index %u (%s)", param, param_name(param));
 
 			} else {
 				param = param_find(request.parameter.name);
+				// PX4_INFO("ParameterServer got parameter_set_request for %s", request.parameter.name);
 			}
 
 			response.parameter.index = param;
@@ -145,9 +151,13 @@ void ParameterServer::Run()
 
 			if (handle_in_range(request.index) && (strlen(request.name) == 0)) {
 				param = request.index;
+				// PX4_INFO("ParameterServer got parameter_get_request for index %u (%s), generation %u",
+				// 		 param, param_name(param), _srv_parameter_get_request_sub.get_last_generation());
 
 			} else {
 				param = param_find(request.name);
+				// PX4_INFO("ParameterServer got parameter_get_request for %s, generation %u",
+				// 		 request.name, _srv_parameter_get_request_sub.get_last_generation());
 			}
 
 			response.parameter.index = param;

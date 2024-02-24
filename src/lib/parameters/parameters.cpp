@@ -139,6 +139,7 @@ param_init()
 
 	if (parameter_server == nullptr) {
 		px4_usleep(100'000);
+		PX4_INFO("Creating ParameterServer");
 		parameter_server = new ParameterServer();
 	}
 #endif
