@@ -154,9 +154,7 @@ set(msg_files
 	OrbTestLarge.msg
 	OrbTestMedium.msg
 	Parameter.msg
-	ParameterRequest.msg
 	ParameterUpdate.msg
-	ParameterValue.msg
 	Ping.msg
 	PositionControllerLandingStatus.msg
 	PositionControllerStatus.msg
