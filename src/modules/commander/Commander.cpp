@@ -2634,7 +2634,7 @@ int Commander::task_spawn(int argc, char *argv[])
 	}
 
 	// wait until task is up & running
-	if (wait_until_running() < 0) {
+	if (wait_until_running(5000) < 0) {
 		_task_id = -1;
 		return -1;
 	}
