@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022-2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +45,9 @@ ParameterServer::ParameterServer() :
 	_srv_parameter_get_request_sub.registerCallback();
 	_srv_parameter_set_request_sub.registerCallback();
 
-	ScheduleOnInterval(100_ms);
+	// This has to run often enough such that client requests won't time out
+	// waiting on the response.
+	ScheduleOnInterval(20_ms);
 }
 
 ParameterServer::~ParameterServer()
@@ -54,7 +56,7 @@ ParameterServer::~ParameterServer()
 
 void ParameterServer::Run()
 {
-	// PX4_INFO("Running ParameterServer thread main loop");
+	PX4_DEBUG("Running ParameterServer thread main loop");
 
 	// srv: parameter_set
 	if (_srv_parameter_set_request_sub.updated()) {
@@ -65,7 +67,7 @@ void ParameterServer::Run()
 		if (_srv_parameter_set_request_sub.copy(&request)) {
 
 			if (_srv_parameter_set_request_sub.get_last_generation() != last_generation + 1) {
-				PX4_ERR("missed srv_parameter_set_request, generation %d -> %d", last_generation,
+				PX4_ERR("missed srv_parameter_set_request, generation %d -> %d", last_generation, \
 					_srv_parameter_set_request_sub.get_last_generation());
 			}
 
@@ -81,11 +83,13 @@ void ParameterServer::Run()
 
 			if (handle_in_range(request.parameter.index) && (strlen(request.parameter.name) == 0)) {
 				param = request.parameter.index;
-				// PX4_INFO("ParameterServer got parameter_set_request for index %u (%s)", param, param_name(param));
+				PX4_DEBUG("ParameterServer got parameter_set_request for index %u (%s), generation %u", \
+					  param, param_name(param), _srv_parameter_set_request_sub.get_last_generation());
 
 			} else {
 				param = param_find(request.parameter.name);
-				// PX4_INFO("ParameterServer got parameter_set_request for %s", request.parameter.name);
+				PX4_DEBUG("ParameterServer got parameter_set_request for %s, generation %u", \
+					  request.parameter.name, _srv_parameter_set_request_sub.get_last_generation());
 			}
 
 			response.parameter.index = param;
@@ -134,7 +138,7 @@ void ParameterServer::Run()
 		if (_srv_parameter_get_request_sub.copy(&request)) {
 
 			if (_srv_parameter_get_request_sub.get_last_generation() != last_generation + 1) {
-				PX4_ERR("missed srv_parameter_get_request, generation %d -> %d", last_generation,
+				PX4_ERR("missed srv_parameter_get_request, generation %d -> %d", last_generation, \
 					_srv_parameter_get_request_sub.get_last_generation());
 			}
 
@@ -151,13 +155,13 @@ void ParameterServer::Run()
 
 			if (handle_in_range(request.index) && (strlen(request.name) == 0)) {
 				param = request.index;
-				// PX4_INFO("ParameterServer got parameter_get_request for index %u (%s), generation %u",
-				// 		 param, param_name(param), _srv_parameter_get_request_sub.get_last_generation());
+				PX4_DEBUG("ParameterServer got parameter_get_request for index %u (%s), generation %u", \
+					  param, param_name(param), _srv_parameter_get_request_sub.get_last_generation());
 
 			} else {
 				param = param_find(request.name);
-				// PX4_INFO("ParameterServer got parameter_get_request for %s, generation %u",
-				// 		 request.name, _srv_parameter_get_request_sub.get_last_generation());
+				PX4_DEBUG("ParameterServer got parameter_get_request for %s, generation %u", \
+					  request.name, _srv_parameter_get_request_sub.get_last_generation());
 			}
 
 			response.parameter.index = param;

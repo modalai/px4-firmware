@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -139,11 +139,13 @@ param_init()
 #endif
 
 #if defined(CONFIG_PARAM_SERVER)
+
 	if (parameter_server == nullptr) {
 		px4_usleep(100'000);
 		PX4_INFO("Creating ParameterServer");
 		parameter_server = new ParameterServer();
 	}
+
 #endif
 }
 

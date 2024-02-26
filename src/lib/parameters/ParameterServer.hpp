@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022-2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,35 +33,15 @@
 
 #pragma once
 
-// #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
-// #include <px4_platform_common/atomic_bitset.h>
-// #include <px4_platform_common/defines.h>
-// #include <px4_platform_common/posix.h>
-// #include <px4_platform_common/sem.h>
-// #include <px4_platform_common/shutdown.h>
-// #include <containers/Bitset.hpp>
-// #include <drivers/drv_hrt.h>
-// #include <lib/perf/perf_counter.h>
-
-// #include "tinybson/tinybson.h"
-// #include "uthash/utarray.h"
 
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
-
-// #include <uORB/topics/actuator_armed.h>
-// #include <uORB/topics/parameter_request.h>
-// #include <uORB/topics/parameter_value.h>
-// #include <uORB/topics/parameter_update.h>
-
 #include <uORB/topics/srv_parameter_get_request.h>
 #include <uORB/topics/srv_parameter_get_response.h>
 #include <uORB/topics/srv_parameter_set_request.h>
 #include <uORB/topics/srv_parameter_set_response.h>
-
-// #include <px4_platform_common/param.h>
 
 class ParameterServer : public px4::ScheduledWorkItem
 {
@@ -73,12 +53,7 @@ private:
 
 	static constexpr uint16_t param_info_count = sizeof(px4::parameters) / sizeof(param_info_s);
 
-	/**
-	 * Test whether a param_t is valid.
-	 *
-	 * @param param			The parameter handle to test.
-	 * @return			True if the handle is valid.
-	 */
+	// Test whether a param_t is valid.
 	static constexpr bool handle_in_range(param_t param) { return (param < param_info_count); }
 
 	void Run() override;

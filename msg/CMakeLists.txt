@@ -197,9 +197,9 @@ set(msg_files
 	SensorUwb.msg
 	SensorAirflow.msg
 	SrvParameterGetRequest.msg
-    SrvParameterGetResponse.msg
-    SrvParameterSetRequest.msg
-    SrvParameterSetResponse.msg
+	SrvParameterGetResponse.msg
+	SrvParameterSetRequest.msg
+	SrvParameterSetResponse.msg
 	SystemPower.msg
 	TakeoffStatus.msg
 	TaskStackInfo.msg

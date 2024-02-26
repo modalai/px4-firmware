@@ -82,6 +82,7 @@ public:
 		if (ret_mutex_init != 0) {
 			PX4_ERR("pthread_mutex_init failed, status=%d", ret_mutex_init);
 		}
+
 #endif
 	}
 
@@ -96,10 +97,12 @@ public:
 	void call() override
 	{
 #ifndef __PX4_QURT
+
 		// signal immediately if no interval, otherwise only if interval has elapsed
 		if ((_interval_us == 0) || (hrt_elapsed_time(&_last_update) >= _interval_us)) {
 			pthread_cond_signal(&_cv);
 		}
+
 #endif
 	}
 
@@ -112,9 +115,11 @@ public:
 	bool updatedBlocking(uint32_t timeout_us = 0)
 	{
 #ifndef __PX4_QURT
+
 		if (!_registered) {
 			registerCallback();
 		}
+
 #endif
 
 		if (updated()) {
@@ -124,7 +129,7 @@ public:
 		} else {
 			// otherwise wait
 #ifndef __PX4_QURT
-			LockGuard lg{_mutex};
+			LockGuard lg {_mutex};
 
 			if (timeout_us == 0) {
 				// wait with no timeout
@@ -148,12 +153,16 @@ public:
 					return updated();
 				}
 			}
+
 #else
 			hrt_abstime start = hrt_absolute_time();
+
 			while (hrt_elapsed_time(&start) < timeout_us) {
 				if (updated()) { return true; }
+
 				px4_usleep(1000);
 			}
+
 #endif
 		}
 

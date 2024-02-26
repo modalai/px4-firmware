@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2024 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022-2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,26 +48,32 @@
 
 using namespace time_literals;
 
-static bool parameters_srv_debug = false;
-
 param_t param_find(const char *name)
 {
-	if (parameters_srv_debug) PX4_INFO("Calling param_find for %s", name);
-	
-	// request
+	// Validate parameter
+	if (!name) {
+		PX4_ERR("Null pointer passed to param_find");
+		return PARAM_INVALID;
+	}
+
+	// Request
 	uORB::Publication<srv_parameter_get_request_s> request_pub{ORB_ID(srv_parameter_get_request)};
-	uORB::SubscriptionBlocking<srv_parameter_get_response_s> response_sub{ORB_ID(srv_parameter_get_response)};
 	srv_parameter_get_request_s request{};
+
+	// Setting index to -1 indicates that the name should be used instead of the index
 	request.index = -1;
 	memcpy(request.name, name, 16);
 	request.timestamp = hrt_absolute_time();
-
 	request_pub.publish(request);
 
-	// response
+	PX4_DEBUG("Calling param_find for %s at time %llu", name, request.timestamp);
+
+	// Response
+	uORB::SubscriptionBlocking<srv_parameter_get_response_s> response_sub{ORB_ID(srv_parameter_get_response)};
+	srv_parameter_get_response_s response{};
+
 	while ((hrt_elapsed_time(&request.timestamp) < 50_ms) || response_sub.updated()) {
 		const unsigned last_generation = response_sub.get_last_generation();
-		srv_parameter_get_response_s response{};
 
 		if (response_sub.updateBlocking(response, 1'000)) {
 
@@ -78,8 +84,7 @@ param_t param_find(const char *name)
 
 			if ((request.timestamp == response.timestamp_requested)
 			    && (strncmp(request.name, response.parameter.name, sizeof(request.name)) == 0)) {
-				if (parameters_srv_debug) PX4_INFO("param_find succeeded for %s. Index %u", name, response.parameter.index);
-
+				PX4_DEBUG("param_find succeeded for %s. Index %u", name, response.parameter.index);
 				return response.parameter.index;
 			}
 		}
@@ -95,23 +100,22 @@ param_t param_find_no_notification(const char *name)
 	return param_find(name);
 }
 
-
 int param_get(param_t param, void *val)
 {
-	// request
+	// Request
 	uORB::Publication<srv_parameter_get_request_s> request_pub{ORB_ID(srv_parameter_get_request)};
 	srv_parameter_get_request_s request{};
-	uORB::SubscriptionBlocking<srv_parameter_get_response_s> response_sub{ORB_ID(srv_parameter_get_response)};
-	srv_parameter_get_response_s response{};
 
 	request.index = param;
 	request.timestamp = hrt_absolute_time();
-
 	request_pub.publish(request);
 
-	if (parameters_srv_debug) PX4_INFO("Calling param_get for index %u at time %llu", param, request.timestamp);
+	PX4_DEBUG("Calling param_get for index %u at time %llu", param, request.timestamp);
 
-	// response
+	// Response
+	uORB::SubscriptionBlocking<srv_parameter_get_response_s> response_sub{ORB_ID(srv_parameter_get_response)};
+	srv_parameter_get_response_s response{};
+
 	while ((hrt_elapsed_time(&request.timestamp) < 50_ms) || response_sub.updated()) {
 		const unsigned last_generation = response_sub.get_last_generation();
 
@@ -134,7 +138,7 @@ int param_get(param_t param, void *val)
 				}
 
 				if (response.result == srv_parameter_get_response_s::RESULT_GET_SUCCESS) {
-					if (parameters_srv_debug) PX4_INFO("param_get succeeded for index %u", param);
+					PX4_DEBUG("param_get succeeded for index %u", param);
 					return 0;
 				}
 
@@ -151,22 +155,30 @@ int param_get(param_t param, void *val)
 
 int param_set(param_t param, const void *val)
 {
-	PX4_ERR("Calling param_set for index %u", param);
+	// Validate parameter
+	if (!val) {
+		PX4_ERR("Null pointer passed to param_set");
+		return -1;
+	}
 
-	// request
+	// Request
 	uORB::Publication<srv_parameter_set_request_s> request_pub{ORB_ID(srv_parameter_set_request)};
-	uORB::SubscriptionBlocking<srv_parameter_set_response_s> response_sub{ORB_ID(srv_parameter_set_response)};
 	srv_parameter_set_request_s request{};
+
 	request.parameter.index = param;
 	memcpy(&request.parameter.int32_value, val, sizeof(int32_t));
 	memcpy(&request.parameter.float32_value, val, sizeof(float));
 	request.timestamp = hrt_absolute_time();
 	request_pub.publish(request);
 
-	// response
+	PX4_DEBUG("Calling param_set for index %u at time %llu", param, request.timestamp);
+
+	// Response
+	uORB::SubscriptionBlocking<srv_parameter_set_response_s> response_sub{ORB_ID(srv_parameter_set_response)};
+	srv_parameter_set_response_s response{};
+
 	while ((hrt_elapsed_time(&request.timestamp) < 50_ms) || response_sub.updated()) {
 		const unsigned last_generation = response_sub.get_last_generation();
-		srv_parameter_set_response_s response{};
 
 		if (response_sub.updateBlocking(response, 1'000)) {
 
@@ -177,10 +189,11 @@ int param_set(param_t param, const void *val)
 
 			if ((request.timestamp == response.timestamp_requested) && (request.parameter.index == response.parameter.index)) {
 				if (response.result == srv_parameter_set_response_s::RESULT_SET_SUCCESS) {
+					PX4_DEBUG("param_set succeeded for index %u", param);
 					return 0;
 				}
 
-				PX4_ERR("param_set %d failed", param);
+				PX4_ERR("param_set failed for index %u. Response code %u", param, response.result);
 				return -1;
 			}
 		}
