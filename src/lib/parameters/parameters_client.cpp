@@ -84,8 +84,15 @@ param_t param_find(const char *name)
 
 			if ((request.timestamp == response.timestamp_requested)
 			    && (strncmp(request.name, response.parameter.name, sizeof(request.name)) == 0)) {
-				PX4_DEBUG("param_find succeeded for %s. Index %u", name, response.parameter.index);
-				return response.parameter.index;
+				if (response.result == srv_parameter_get_response_s::RESULT_GET_SUCCESS) {
+					PX4_DEBUG("param_find succeeded for %s. Index %u", name, response.parameter.index);
+					return response.parameter.index;
+				} else {
+					// This can be normal. Sometimes param_find is just used to see
+					// if the parameter exists or not.
+					PX4_DEBUG("param_find returned error for %s. Index %u", name, response.parameter.index);
+					return PARAM_INVALID;
+				}
 			}
 		}
 	}

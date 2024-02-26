@@ -191,6 +191,9 @@ void ParameterServer::Run()
 				}
 
 			} else {
+				if (strlen(request.name)) {
+					memcpy(response.parameter.name, request.name, strlen(request.name));
+				}
 				response.result = srv_parameter_get_response_s::RESULT_ERROR_INVALID_PARAMETER;
 			}
 
