@@ -116,7 +116,7 @@ static perf_counter_t param_set_perf;
 static pthread_mutex_t file_mutex  =
 	PTHREAD_MUTEX_INITIALIZER; ///< this protects against concurrent param saves (file or flash access).
 
-#if not defined(__PX4_QURT)
+#if defined(CONFIG_PARAM_SERVER)
 #include "ParameterServer.hpp"
 static ParameterServer *parameter_server {nullptr};
 #include "param.h"
@@ -136,7 +136,9 @@ param_init()
 
 #if not defined(__PX4_QURT)
 	autosave_instance = new ParamAutosave();
+#endif
 
+#if defined(CONFIG_PARAM_SERVER)
 	if (parameter_server == nullptr) {
 		px4_usleep(100'000);
 		PX4_INFO("Creating ParameterServer");
@@ -168,7 +170,7 @@ param_notify_changes()
 	}
 }
 
-#if not defined(__PX4_QURT)
+#if not defined(CONFIG_PARAM_CLIENT)
 
 static param_t param_find_internal(const char *name, bool notification)
 {
@@ -276,7 +278,7 @@ param_value_unsaved(param_t param)
 	return handle_in_range(param) ? params_unsaved[param] : false;
 }
 
-#if not defined(__PX4_QURT)
+#if not defined(CONFIG_PARAM_CLIENT)
 
 int
 param_get(param_t param, void *val)
@@ -468,7 +470,7 @@ void param_get_external(param_t param, void *val)
 }
 #endif
 
-#if not defined(__PX4_QURT)
+#if not defined(CONFIG_PARAM_CLIENT)
 
 int param_set(param_t param, const void *val)
 {

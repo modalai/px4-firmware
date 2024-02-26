@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,23 +31,11 @@
  *
  ****************************************************************************/
 
-/**
- * @file parameters.cpp
- *
- * Global parameter store.
- *
- * Note that it might make sense to convert this into a driver.  That would
- * offer some interesting options regarding state for e.g. ORB advertisements
- * and background parameter saving.
- */
-
 #include <pthread.h>
 
 #define PARAM_IMPLEMENTATION
 
 #include "param.h"
-
-#if defined(PX4_PARAM_CLIENT_SRV)
 
 #include <uORB/SubscriptionBlocking.hpp>
 #include <uORB/Publication.hpp>
@@ -206,5 +194,3 @@ int param_set_no_notification(param_t param, const void *val)
 {
 	return param_set(param, val);
 }
-
-#endif // PX4_PARAM_CLIENT_SRV
