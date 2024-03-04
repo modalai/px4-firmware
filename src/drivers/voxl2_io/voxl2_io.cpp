@@ -67,11 +67,10 @@ int Voxl2IO::init()
 	int ret = PX4_OK;
 	/* Open serial port in this thread */
 	if (!_uart_port->is_open()) {
-		if (_uart_port->uart_open((const char*)_device, _parameters.baud_rate) == PX4_OK) {			
-			/* Send PWM config to M0065... pwm_min and pwm_max */
-			PX4_INFO("Opened UART connection to M0065 device on port %s", _device);
+		if (_uart_port->uart_open((const char*)_device, _parameters.baud_rate) == PX4_OK) {
+			PX4_INFO("VOXL2_IO: Opened UART connection to M0065 device on port %s, baud rate %d", _device, _parameters.baud_rate);
 		} else {
-			PX4_ERR("Failed opening device");
+			PX4_ERR("VOXL2_IO: Failed opening device %s, baud rate %d", _device, _parameters.baud_rate);
 			return PX4_ERROR;
 		}
 	}
@@ -136,13 +135,13 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 	
 	/* Validate PWM min and max values */
 	if (params->pwm_min > params->pwm_max){
-		PX4_ERR("Invalid parameter VOXL2_IO_MIN.  Please verify parameters.");
+		PX4_ERR("VOXL2_IO: Invalid parameter VOXL2_IO_MIN.  Please verify parameters.");
 		params->pwm_min = 0;
 		ret = PX4_ERROR;
 	}
 
 	if(ret == PX4_OK && _uart_port->is_open() && (max != params->pwm_max || min != params->pwm_min)){
-		PX4_INFO("Updating PWM params load_params");
+		PX4_INFO("VOXL2_IO: Updating PWM params load_params");
 		update_pwm_config();
 	}
 
@@ -157,7 +156,7 @@ void Voxl2IO::update_pwm_config()
 	cmd.len = voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_CONFIG_BOARD_REQUEST, data, VOXL2_IO_BOARD_CONFIG_SIZE,	cmd.buf, sizeof(cmd.buf));
 
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("Failed to send config packet");
+		PX4_ERR("VOXL2_IO: Failed to send config packet");
 	} else {
 		_bytes_sent+=cmd.len;
 		_packets_sent++;
@@ -175,7 +174,7 @@ int Voxl2IO::get_version_info()
 	cmd.len = voxl2_io_create_version_request_packet(0, cmd.buf, VOXL2_IO_VERSION_INFO_SIZE);
 	while(read_retries){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-			PX4_ERR("Failed to send version info packet");
+			PX4_ERR("VOXL2_IO: Failed to send version info packet");
 		} else {
 			_bytes_sent+=cmd.len;
 			_packets_sent++;
@@ -186,7 +185,7 @@ int Voxl2IO::get_version_info()
 		res = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
 		if (res > 0) {
 			if (parse_response(_read_buf,res) < 0){ 
-				if (_debug) PX4_ERR("Failed to parse version info, received len: %u", res);	
+				if (_debug) PX4_ERR("VOXL2_IO: Failed to parse version info, received len: %u", res);	
 			}
 		} 
 		
@@ -216,7 +215,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	int32_t _fb_idx = -1;
 
 	if (num_outputs != VOXL2_IO_OUTPUT_CHANNELS) {
-		PX4_ERR("Num outputs != VOXL2_IO_OUTPUT_CHANNELS!");
+		PX4_ERR("VOXL2_IO: Num outputs != VOXL2_IO_OUTPUT_CHANNELS!");
 		return false;
 	}
 
@@ -242,7 +241,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 					       				   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
 					       				   _fb_idx, cmd.buf, sizeof(cmd.buf));
 	if (_pwm_on && _debug){
-		PX4_INFO("Mixer outputs");
+		PX4_INFO("VOXL2_IO: Mixer outputs");
 		PX4_INFO("[%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
 					outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5], 
 					outputs[6], outputs[7], outputs[8], outputs[9], outputs[10], outputs[11], 
@@ -251,18 +250,18 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 
 		// Debug messages for PWM 400Hz values sent to M0065  
 		uint16_t tics_1 = (_parameters.pwm_min +  (_pwm_fullscale * ((double)outputs[0]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("\tPWM CH1: %hu::%uus::%u tics", outputs[0], tics_1/24, tics_1);
+		PX4_INFO("VOXL2_IO: \tPWM CH1: %hu::%uus::%u tics", outputs[0], tics_1/24, tics_1);
 		uint16_t tics_2 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[1]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("\tPWM CH2: %u::%uus::%u tics", outputs[1], tics_2/24, tics_2);
+		PX4_INFO("VOXL2_IO: \tPWM CH2: %u::%uus::%u tics", outputs[1], tics_2/24, tics_2);
 		uint16_t tics_3 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[2]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("\tPWM CH3: %u::%uus::%u tics", outputs[2], tics_3/24, tics_3);
+		PX4_INFO("VOXL2_IO: \tPWM CH3: %u::%uus::%u tics", outputs[2], tics_3/24, tics_3);
 		uint16_t tics_4 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[3]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("\tPWM CH4: %u::%uus::%u tics", outputs[3], tics_4/24, tics_4);
-		PX4_INFO("");
+		PX4_INFO("VOXL2_IO: \tPWM CH4: %u::%uus::%u tics", outputs[3], tics_4/24, tics_4);
+		PX4_INFO("VOXL2_IO: ");
 	}
 	
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("Failed to send packet");
+		PX4_ERR("VOXL2_IO: Failed to send packet");
 		return false;
 	} else {
 		_bytes_sent+=cmd.len;
@@ -310,23 +309,23 @@ int Voxl2IO::parse_response(uint8_t *buf, uint8_t len)
 		} else { //parser error
 			switch (ret) {
 			case VOXL2_IO_ERROR_BAD_CHECKSUM:
-				if(_pwm_on && _debug) PX4_WARN("BAD packet checksum");
+				if(_pwm_on && _debug) PX4_WARN("VOXL2_IO: BAD packet checksum");
 				break; 
 
 			case VOXL2_IO_ERROR_BAD_LENGTH:
-				if(_pwm_on && _debug) PX4_WARN("BAD packet length");
+				if(_pwm_on && _debug) PX4_WARN("VOXL2_IO: BAD packet length");
 				break;
 
 			case VOXL2_IO_ERROR_BAD_HEADER:
-				if(_pwm_on && _debug) PX4_WARN("BAD packet header");
+				if(_pwm_on && _debug) PX4_WARN("VOXL2_IO: BAD packet header");
 				break;
 
 			case VOXL2_IO_NO_PACKET:
-				// if(_pwm_on) PX4_WARN("NO packet");
+				// if(_pwm_on) PX4_WARN("VOXL2_IO: NO packet");
 				break;
 
 			default:
-				if(_pwm_on && _debug) PX4_WARN("Unknown error: %i", ret);
+				if(_pwm_on && _debug) PX4_WARN("VOXL2_IO: Unknown error: %i", ret);
 				break;
 			}
 		}
@@ -406,7 +405,7 @@ int Voxl2IO::receive_sbus()
 
 			/* Try again in a bit if packet header not present yet... */
 			if (header == -1){
-				if (_debug) PX4_ERR("Failed to find SBUS packet header, trying again... retries left: %i", read_retries);
+				if (_debug) PX4_ERR("VOXL2_IO: Failed to find SBUS packet header, trying again... retries left: %i", read_retries);
 				read_retries--;
 				continue;
 			}
@@ -414,8 +413,8 @@ int Voxl2IO::receive_sbus()
 			/* Check if we got a valid packet...*/
 			if (parse_response(&_read_buf[header], (uint8_t)VOXL2_IO_SBUS_FRAME_SIZE)){
 				if(_pwm_on && _debug) {
-					PX4_ERR("Error parsing QC RAW SBUS packet");
-					PX4_INFO_RAW("[%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]\n",
+					PX4_ERR("VOXL2_IO: Error parsing QC RAW SBUS packet");
+					PX4_INFO_RAW("VOXL2_IO: [%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]\n",
 						_read_buf[header+0], _read_buf[header+1], _read_buf[header+2], _read_buf[header+3], _read_buf[header+4], _read_buf[header+5], 
 						_read_buf[header+6], _read_buf[header+7], _read_buf[header+8], _read_buf[header+9], _read_buf[header+10], _read_buf[header+11], 
 						_read_buf[header+12], _read_buf[header+13], _read_buf[header+14], _read_buf[header+15], _read_buf[header+16], _read_buf[header+17], 
@@ -438,8 +437,8 @@ int Voxl2IO::receive_sbus()
 	
 			if (rc_updated) {
 				if (_pwm_on && _debug){
-					PX4_INFO("Decoded packet, header pos: %i", header);
-					PX4_INFO("[%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
+					PX4_INFO("VOXL2_IO: Decoded packet, header pos: %i", header);
+					PX4_INFO("VOXL2_IO: [%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
 						_raw_rc_values[0], _raw_rc_values[1], _raw_rc_values[2], 
 						_raw_rc_values[3], _raw_rc_values[4], _raw_rc_values[5], 
 						_raw_rc_values[6], _raw_rc_values[7], _raw_rc_values[8],
@@ -463,11 +462,11 @@ int Voxl2IO::receive_sbus()
 				read_succeeded = 1;
 				break;
 			} else if (_pwm_on && _debug) {
-				PX4_ERR("Failed to decode SBUS packet, header pos: %i", header);
+				PX4_ERR("VOXL2_IO: Failed to decode SBUS packet, header pos: %i", header);
 				if (sbus_frame_drop) {
-					PX4_WARN("SBUS frame dropped");
+					PX4_WARN("VOXL2_IO: SBUS frame dropped");
 				}
-				PX4_ERR("[%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]",
+				PX4_ERR("VOXL2_IO: [%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]",
 					_read_buf[header+0], _read_buf[header+1], _read_buf[header+2], _read_buf[header+3], _read_buf[header+4], _read_buf[header+5], 
 					_read_buf[header+6], _read_buf[header+7], _read_buf[header+8], _read_buf[header+9], _read_buf[header+10], _read_buf[header+11], 
 					_read_buf[header+12], _read_buf[header+13], _read_buf[header+14], _read_buf[header+15], _read_buf[header+16], _read_buf[header+17], 
@@ -503,15 +502,15 @@ void Voxl2IO::Run()
 
 	/* Verify protocol version info */
 	if (_need_version_info){
-		if (get_version_info() < 0) PX4_ERR("Failed to detect voxl2_io protocol version.");
+		if (get_version_info() < 0) PX4_ERR("VOXL2_IO: Failed to detect voxl2_io protocol version.");
 		if (_version_info.sw_version == VOXL2_IO_SW_PROTOCOL_VERSION && _version_info.hw_version == VOXL2_IO_HW_PROTOCOL_VERSION){
-			PX4_INFO("Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
+			PX4_INFO("VOXL2_IO: Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
 		} else if (_protocol_read_retries > 0) {	// If Voxl2 IO gets powered up late, the initial values read are sometimes garbage
-			if (_debug) PX4_INFO("Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries);
+			if (_debug) PX4_INFO("VOXL2_IO: Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries);
 			_protocol_read_retries--;
 			return;
 		} else {
-			if (_debug) PX4_INFO("Retries exhausted, exiting now.");
+			if (_debug) PX4_INFO("VOXL2_IO: Retries exhausted, exiting now.");
 			request_stop();
 			return;
 		}
@@ -520,7 +519,7 @@ void Voxl2IO::Run()
 	/* Handle RC */
 	if (_rc_mode == RC_MODE::SCAN){
 		if (receive_sbus() == PX4_OK){
-			PX4_INFO("Found M0065 SBUS RC.");
+			PX4_INFO("VOXL2_IO: Found M0065 SBUS RC.");
 			_rc_mode = RC_MODE::SBUS;
 		}	// Add more cases here for other protocols in the future..
 	} else if (_rc_mode == RC_MODE::SBUS){ 
@@ -549,11 +548,11 @@ void Voxl2IO::Run()
 	/* Don't process commands if pwm on */
 	if (!_pwm_on) {
 		if (_current_cmd.valid()) {
-			PX4_INFO("sending %d commands with delay %dus",_current_cmd.repeats,_current_cmd.repeat_delay_us);
+			PX4_INFO("VOXL2_IO: sending %d commands with delay %dus",_current_cmd.repeats,_current_cmd.repeat_delay_us);
 			flush_uart_rx();
 
 			do {
-				PX4_INFO("CMDs left %d",_current_cmd.repeats);
+				PX4_INFO("VOXL2_IO: CMDs left %d",_current_cmd.repeats);
 				if (_uart_port->uart_write(_current_cmd.buf, _current_cmd.len) == _current_cmd.len) {
 					if (_current_cmd.repeats == 0) {
 						_current_cmd.clear();
@@ -565,11 +564,11 @@ void Voxl2IO::Run()
 					_packets_sent++;
 					if (_current_cmd.retries == 0) {
 						_current_cmd.clear();
-						PX4_ERR("Failed to send command, errno: %i", errno);
+						PX4_ERR("VOXL2_IO: Failed to send command, errno: %i", errno);
 
 					} else {
 						_current_cmd.retries--;
-						PX4_ERR("Failed to send command, errno: %i", errno);
+						PX4_ERR("VOXL2_IO: Failed to send command, errno: %i", errno);
 					}
 				}
 
@@ -606,17 +605,17 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 		while ((ch = px4_getopt(argc-1, argv, "vdep:", &myoptind, &myoptarg)) != EOF) {
 			switch (ch) {
 			case 'v':
-				PX4_INFO("Verbose mode enabled");
+				PX4_INFO("VOXL2_IO: Verbose mode enabled");
 				get_instance()->_debug = true;
 				break;
 
 			case 'd':
-				PX4_INFO("M0065 PWM outputs disabled");
+				PX4_INFO("VOXL2_IO: M0065 PWM outputs disabled");
 				get_instance()->_outputs_disabled = true;
 				break;
 
 			case 'e':
-				PX4_INFO("M0065 using external RC");
+				PX4_INFO("VOXL2_IO: M0065 using external RC");
 				get_instance()->_rc_mode = RC_MODE::EXTERNAL;
 				break;
 
@@ -624,7 +623,7 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 				if (valid_port(atoi(myoptarg))){
 					snprintf(get_instance()->_device, 2, "%s", myoptarg);
 				} else {
-					PX4_ERR("Bad UART port number: %s (must be 2, 6, or 7).", myoptarg);
+					PX4_ERR("VOXL2_IO: Bad UART port number: %s (must be 2, 6, or 7).", myoptarg);
 					_object.store(nullptr);
 					_task_id = -1;
 					return PX4_ERROR;
@@ -632,7 +631,7 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 				break;
 
 			default:
-				print_usage("Unknown command, parsing flags");
+				print_usage("VOXL2_IO: Unknown command, parsing flags");
 				break;
 			}
 		}
@@ -642,7 +641,7 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 		}
 		
 	} else {
-		PX4_ERR("alloc failed");
+		PX4_ERR("VOXL2_IO: alloc failed");
 	}
 
 	_object.store(nullptr);
@@ -664,7 +663,7 @@ bool Voxl2IO::stop_all_pwms()
 											_fb_idx, cmd.buf, sizeof(cmd.buf));
 
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("Failed to send packet");
+		PX4_ERR("VOXL2_IO: Failed to send packet");
 		return false;
 	} else {
 		_bytes_sent+=cmd.len;
@@ -699,17 +698,17 @@ int Voxl2IO::calibrate_escs(){
 	/* Some legacy M0065 FW requires that we send this command in order to write PWM outputs to 0 (required to start cal process) */
 	cmd.len = voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_TUNE_CONFIG, &data, VOXL2_IO_ESC_CAL_SIZE, cmd.buf, sizeof(cmd.buf));
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("ESC Calibration failed: Failed to send PWM OFF packet");
+		PX4_ERR("VOXL2_IO: ESC Calibration failed: Failed to send PWM OFF packet");
 		_outputs_disabled = false;
 		return -1;
 	}
 
 	/* Give user 10 seconds to plug in PWM cable for ESCs */
-	PX4_INFO("Connect your ESCs! (Calibration will start in ~10 seconds)");
+	PX4_INFO("VOXL2_IO: Connect your ESCs! (Calibration will start in ~10 seconds)");
 	px4_usleep(10000000);
 
 	/* PWM MAX */
-	PX4_INFO("Writing PWM MAX for 3 seconds!");
+	PX4_INFO("VOXL2_IO: Writing PWM MAX for 3 seconds!");
 	int16_t max_pwm[4]{VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX};
 	if (_debug) PX4_INFO("%i %i %i %i", max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3]);
 	int16_t led_cmd[4]{0,0,0,0};
@@ -721,7 +720,7 @@ int Voxl2IO::calibrate_escs(){
 	hrt_abstime start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 3000000){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-			PX4_ERR("ESC Calibration failed: Failed to send PWM MAX packet");
+			PX4_ERR("VOXL2_IO: ESC Calibration failed: Failed to send PWM MAX packet");
 			_outputs_disabled = false;
 			return -1;
 		}
@@ -729,7 +728,7 @@ int Voxl2IO::calibrate_escs(){
 	}
 
 	/* PWM MIN */
-	PX4_INFO("Writing PWM MIN for 4 seconds!");
+	PX4_INFO("VOXL2_IO: Writing PWM MIN for 4 seconds!");
 	int16_t min_pwm[4]{VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN};
 	if (_debug) PX4_INFO("%i %i %i %i", min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3]);
 	cmd.len = voxl2_io_create_pwm_packet4_fb(min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3],
@@ -740,14 +739,14 @@ int Voxl2IO::calibrate_escs(){
 	start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 4000000){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-			PX4_ERR("ESC Calibration failed: Failed to send PWM MIN packet");
+			PX4_ERR("VOXL2_IO: ESC Calibration failed: Failed to send PWM MIN packet");
 			_outputs_disabled = false;
 			return -1;
 		}
 		px4_usleep(1000);
 	}
 
-	PX4_INFO("ESC Calibration complete");
+	PX4_INFO("VOXL2_IO: ESC Calibration complete");
 	_outputs_disabled = false;
 	return 0;
 }
@@ -771,7 +770,7 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 	} else if (argc < 1) {
 		return print_usage("unknown command: missing args");
 	}
-	PX4_INFO("Executing the following command: %s", verb);
+	PX4_INFO("VOXL2_IO: Executing the following command: %s", verb);
 
 	/* start the FMU if not running */
 	if (!strcmp(verb, "start")) {
@@ -782,20 +781,20 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 
 	if (!strcmp(verb, "status")) {
 		if (!is_running()){
-			PX4_INFO("Not running");
+			PX4_INFO("VOXL2_IO: Not running");
 			return -1;
 		}
 		return get_instance()->print_status();
 	}
 
 	if (!is_running()) {
-		PX4_INFO("Not running");
+		PX4_INFO("VOXL2_IO: Not running");
 		return -1;
 	}
 
 	if (!strcmp(verb,"calibrate_escs")){
 		if (get_instance()->_outputs_disabled){
-			PX4_WARN("Can't calibrate ESCs while outputs are disabled.");
+			PX4_WARN("VOXL2_IO: Can't calibrate ESCs while outputs are disabled.");
 			return -1;
 		}
 		return get_instance()->calibrate_escs();
@@ -839,7 +838,7 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 			if (valid_port(atoi(myoptarg))){
 				snprintf(get_instance()->_device, 2, "%s", myoptarg);
 			} else {
-				PX4_ERR("Bad UART port number: %s (must be 2, 6, or 7).", myoptarg);
+				PX4_ERR("VOXL2_IO: Bad UART port number: %s (must be 2, 6, or 7).", myoptarg);
 				return 0;
 			}
 			break;
@@ -851,12 +850,12 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 	}
 
 	if (!strcmp(verb, "pwm")) {
-		PX4_INFO("Output channel: %i", output_channel);
-		PX4_INFO("Repeat count: %i", repeat_count);
-		PX4_INFO("Repeat delay (us): %i", repeat_delay_us);
-		PX4_INFO("Rate: %i", rate);
+		PX4_INFO("VOXL2_IO: Output channel: %i", output_channel);
+		PX4_INFO("VOXL2_IO: Repeat count: %i", repeat_count);
+		PX4_INFO("VOXL2_IO: Repeat delay (us): %i", repeat_delay_us);
+		PX4_INFO("VOXL2_IO: Rate: %i", rate);
 		if (output_channel < VOXL2_IO_OUTPUT_CHANNELS) {
-			PX4_INFO("Request PWM for Output Channel: %i - PWM: %i", output_channel, rate);
+			PX4_INFO("VOXL2_IO: Request PWM for Output Channel: %i - PWM: %i", output_channel, rate);
 			int16_t rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
 			uint8_t id_fb = 0;
 
@@ -881,18 +880,18 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 			cmd.repeat_delay_us = repeat_delay_us;
 			cmd.print_feedback  = false;
 
-			PX4_INFO("feedback id debug: %i", id_fb);
-			PX4_INFO("Sending UART M0065 power command %i", rate);
+			PX4_INFO("VOXL2_IO: feedback id debug: %i", id_fb);
+			PX4_INFO("VOXL2_IO: Sending UART M0065 power command %i", rate);
 
 			if (get_instance()->_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-				PX4_ERR("Failed to send packet: stop PWMs");
+				PX4_ERR("VOXL2_IO: Failed to send packet: stop PWMs");
 				return -1;
 			} else {
 				get_instance()->_bytes_sent+=cmd.len;
 				get_instance()->_packets_sent++;
 			}
 		} else {
-			print_usage("Invalid Output Channel, use 0-3");
+			print_usage("VOXL2_IO: Invalid Output Channel, use 0-3");
 			return 0;
 		}
 	}
@@ -902,23 +901,23 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 
 int Voxl2IO::print_status()
 {
-	PX4_INFO("Max update rate: %u Hz", 1000000/_current_update_interval);
-	PX4_INFO("PWM Rate: 400 Hz");	// Only support 400 Hz for now
-	PX4_INFO("Outputs on: %s", _pwm_on ? "yes" : "no");
-	PX4_INFO("SW version: %u", _version_info.sw_version);
-	PX4_INFO("HW version: %u", _version_info.hw_version);
-	PX4_INFO("RC Type: SBUS");		// Only support SBUS through M0065 for now 
-	PX4_INFO("RC Connected: %s", hrt_absolute_time() - _rc_last_valid > 500000 ? "no" : "yes");
-	PX4_INFO("RC Packets Received: %" PRIu16, _sbus_total_frames);
-	PX4_INFO("UART port: %s", _device);
-	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
-	PX4_INFO("Packets sent: %" PRIu32, _packets_sent);
-	PX4_INFO("");
-	PX4_INFO("Params: VOXL2_IO_BAUD: %" PRId32, _parameters.baud_rate);
-	PX4_INFO("Params: VOXL2_IO_FUNC1: %" PRId32, _parameters.function_map[0]);
-	PX4_INFO("Params: VOXL2_IO_FUNC2: %" PRId32, _parameters.function_map[1]);
-	PX4_INFO("Params: VOXL2_IO_FUNC3: %" PRId32, _parameters.function_map[2]);
-	PX4_INFO("Params: VOXL2_IO_FUNC4: %" PRId32, _parameters.function_map[3]);
+	PX4_INFO("VOXL2_IO: Max update rate: %u Hz", 1000000/_current_update_interval);
+	PX4_INFO("VOXL2_IO: PWM Rate: 400 Hz");	// Only support 400 Hz for now
+	PX4_INFO("VOXL2_IO: Outputs on: %s", _pwm_on ? "yes" : "no");
+	PX4_INFO("VOXL2_IO: SW version: %u", _version_info.sw_version);
+	PX4_INFO("VOXL2_IO: HW version: %u", _version_info.hw_version);
+	PX4_INFO("VOXL2_IO: RC Type: SBUS");		// Only support SBUS through M0065 for now 
+	PX4_INFO("VOXL2_IO: RC Connected: %s", hrt_absolute_time() - _rc_last_valid > 500000 ? "no" : "yes");
+	PX4_INFO("VOXL2_IO: RC Packets Received: %" PRIu16, _sbus_total_frames);
+	PX4_INFO("VOXL2_IO: UART port: %s", _device);
+	PX4_INFO("VOXL2_IO: UART open: %s", _uart_port->is_open() ? "yes" : "no");
+	PX4_INFO("VOXL2_IO: Packets sent: %" PRIu32, _packets_sent);
+	PX4_INFO("VOXL2_IO: ");
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD: %" PRId32, _parameters.baud_rate);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC1: %" PRId32, _parameters.function_map[0]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2: %" PRId32, _parameters.function_map[1]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3: %" PRId32, _parameters.function_map[2]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC4: %" PRId32, _parameters.function_map[3]);
 
 	perf_print_counter(_cycle_perf);
 	perf_print_counter(_output_update_perf);
