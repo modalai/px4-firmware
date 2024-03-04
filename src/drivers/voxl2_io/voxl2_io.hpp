@@ -59,6 +59,8 @@
 #include "voxl2_io_packet.h"
 #include "voxl2_io_packet_types.h"
 
+#include <string>
+
 using namespace time_literals;
 
 class Voxl2IO final : public ModuleBase<Voxl2IO>, public OutputModuleInterface
@@ -145,10 +147,9 @@ private:
 
 	/* M0065 version info */
 	static constexpr uint16_t VOXL2_IO_VERSION_INFO_SIZE = 6;
-	static constexpr uint16_t VOXL2_IO_SW_PROTOCOL_VERSION = 1;
-	static constexpr uint16_t VOXL2_IO_HW_PROTOCOL_VERSION = 35;
-	int  _protocol_read_retries{3};
-	bool _need_version_info{true};
+	static constexpr uint16_t VOXL2_IO_SW_VERSION = 1;
+	static constexpr uint16_t VOXL2_IO_HW_VERSION = 35;
+	int  _board_detect_retries{3};
 	VOXL2_IO_VERSION_INFO _version_info;
 
 	/* Module update interval */
@@ -227,4 +228,5 @@ private:
 	int update_params();
 	int	flush_uart_rx();
 	int calibrate_escs();
+	std::string board_id_to_name(int board_id);
 };

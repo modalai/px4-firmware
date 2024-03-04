@@ -64,13 +64,17 @@ Voxl2IO::~Voxl2IO()
 
 int Voxl2IO::init()
 {
+	PX4_INFO("VOXL2_IO: Driver starting");
+
 	int ret = PX4_OK;
-	/* Open serial port in this thread */
+	
+
+	PX4_INFO("VOXL2_IO: Opening UART device %s, baud rate %d", _device, _parameters.baud_rate);
 	if (!_uart_port->is_open()) {
 		if (_uart_port->uart_open((const char*)_device, _parameters.baud_rate) == PX4_OK) {
-			PX4_INFO("VOXL2_IO: Opened UART connection to M0065 device on port %s, baud rate %d", _device, _parameters.baud_rate);
+			PX4_INFO("VOXL2_IO: Successfully opened UART device");
 		} else {
-			PX4_ERR("VOXL2_IO: Failed opening device %s, baud rate %d", _device, _parameters.baud_rate);
+			PX4_ERR("VOXL2_IO: Failed openening UART device");
 			return PX4_ERROR;
 		}
 	}
@@ -79,14 +83,26 @@ int Voxl2IO::init()
 	ret = update_params();
 
 	if (ret != OK) {
+		PX4_ERR("VOXL2_IO: Failed to update params during init");
 		return ret;
 	}
+
+    // Detect M0065 board
+    ret = get_version_info();
+    if (ret != 0){
+		PX4_ERR("VOXL2_IO: Could not detect the board");
+		PX4_ERR("VOXL2_IO: Driver initialization failed. Exiting");
+		return -1;
+	}
+	
 
 	/* Send PWM MIN/MAX to M0065 */
 	update_pwm_config();
 
 	ScheduleOnInterval(_current_update_interval); 
 	// ScheduleNow();
+
+	PX4_INFO("VOXL2_IO: Driver initialization succeeded");
 	return ret;
 }
 
@@ -161,43 +177,104 @@ void Voxl2IO::update_pwm_config()
 		_bytes_sent+=cmd.len;
 		_packets_sent++;
 	}
+
+	PX4_INFO("VOXL2_IO: Sent board configuration");
 }
 
 int Voxl2IO::get_version_info()
 {
-	if(!_need_version_info) return 0;
-	int res = 0 ;
-	int read_retries = 100;
-	Command cmd;	
+	PX4_INFO("VOXL2_IO: Detecting M0065 board...");
+	voxl2_io_packet_init(&_voxl2_io_packet);
 
-	/*Request protocol version info from M0065, wait 1ms, read response */
-	cmd.len = voxl2_io_create_version_request_packet(0, cmd.buf, VOXL2_IO_VERSION_INFO_SIZE);
-	while(read_retries){
-		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-			PX4_ERR("VOXL2_IO: Failed to send version info packet");
-		} else {
-			_bytes_sent+=cmd.len;
-			_packets_sent++;
+    Command cmd;
+	cmd.len = voxl2_io_create_extended_version_request_packet(0, cmd.buf, sizeof(cmd.buf));
+
+    int retries_left  = _board_detect_retries;
+    bool got_response = false;
+
+	while( (got_response==false) && (retries_left>0) ){
+		retries_left--;
+
+		//send the version request command to the board
+	    if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len)
+		{
+			PX4_ERR("VOXL2_IO: Could not write version request packet to UART port");
+			return -1;
 		}
 
-		px4_usleep(1000); //sleep for 1ms
+		_bytes_sent+=cmd.len;
+		_packets_sent++;
+
+		hrt_abstime t_request = hrt_absolute_time();
+		hrt_abstime t_timeout = 50000; //50ms timeout for version info response
 		
-		res = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
-		if (res > 0) {
-			if (parse_response(_read_buf,res) < 0){ 
-				if (_debug) PX4_ERR("VOXL2_IO: Failed to parse version info, received len: %u", res);	
+
+		//wait for the response to come back
+		while( (!got_response) && (hrt_elapsed_time(&t_request) < t_timeout) ){
+			px4_usleep(100); //sleep a bit while waiting for ESC to respond
+
+			int nread = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+
+			for (int i = 0; i < nread; i++) {
+				int16_t parse_ret = voxl2_io_packet_process_char(_read_buf[i], &_voxl2_io_packet);
+
+				if (parse_ret > 0) {
+					hrt_abstime response_time = hrt_elapsed_time(&t_request);
+					//PX4_INFO("got packet of length %i",ret);
+					//_rx_packet_count++;
+					uint8_t packet_type = voxl2_io_packet_get_type(&_voxl2_io_packet);
+					uint8_t packet_size = voxl2_io_packet_get_size(&_voxl2_io_packet);
+
+					if (packet_type == VOXL2_IO_PACKET_TYPE_VERSION_EXT_RESPONSE && packet_size == sizeof(VOXL2_IO_EXTENDED_VERSION_INFO)) {
+						VOXL2_IO_EXTENDED_VERSION_INFO ver;
+						memcpy(&ver, _voxl2_io_packet.buffer, packet_size);
+						
+						PX4_INFO("VOXL2_IO: \tVOXL2_IO ID: %i", ver.id);
+						PX4_INFO("VOXL2_IO: \tBoard Type : %i: %s", ver.hw_version, board_id_to_name(ver.hw_version).c_str());
+						//PX4_INFO("VOXL2_IO: \tBoard Type : %i", ver.hw_version;
+
+						uint8_t *u = &ver.unique_id[0];
+						PX4_INFO("VOXL2_IO: \tUnique ID  : 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+							 u[11], u[10], u[9], u[8], u[7], u[6], u[5], u[4], u[3], u[2], u[1], u[0]);
+
+						PX4_INFO("VOXL2_IO: \tFirmware   : version %4d, hash %.12s", ver.sw_version, ver.firmware_git_version);
+						PX4_INFO("VOXL2_IO: \tBootloader : version %4d, hash %.12s", ver.bootloader_version, ver.bootloader_git_version);
+						PX4_INFO("VOXL2_IO: \tReply time : %uus",(uint32_t)response_time);
+
+						//we requested response from ID 0, so it should match
+						if (ver.id != 0){
+							PX4_ERR("VOXL2_IO: invalid id: %d",ver.id);
+						}
+
+						//check HW (board version)
+						else if (ver.hw_version != VOXL2_IO_HW_VERSION){
+							PX4_ERR("VOXL2_IO: invalid hw version : %d (expected %d)",ver.hw_version,VOXL2_IO_HW_VERSION);
+						}
+
+						//check firmware version running on the board
+						else if (ver.sw_version != VOXL2_IO_SW_VERSION){
+							PX4_ERR("VOXL2_IO: invalid fw version : %d (expected %d)",ver.sw_version,VOXL2_IO_SW_VERSION);
+						}
+						else{
+							got_response = true;
+						}
+					}
+				}
 			}
-		} 
-		
-		if (!_need_version_info){break;}
+
+			//break out of the loop waiting for a response
+			if (got_response){
+				break;
+			}
+		}
+
+
+		if (!got_response){
+			PX4_ERR("VOXL2_IO: Board version info response timeout (%d retries left)",retries_left);
+		}
 	}
 
-	/* Failed to read version info in alloted time */
-	if (_need_version_info){
-		return -EIO;
-	}
-
-	return 0;
+	return (got_response == true ? 0 : -1);
 }
 
 bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_INPUT_MAX_CHANNELS],
@@ -296,10 +373,6 @@ int Voxl2IO::parse_response(uint8_t *buf, uint8_t len)
 
 			if (packet_type == VOXL2_IO_PACKET_TYPE_RC_DATA_RAW && packet_size == VOXL2_IO_SBUS_FRAME_SIZE) 
 			{
-				return 0;
-			} else if (packet_type == VOXL2_IO_PACKET_TYPE_VERSION_RESPONSE && packet_size == sizeof(VOXL2_IO_VERSION_INFO)) {
-				memcpy(&_version_info, &_voxl2_io_packet.buffer , sizeof(VOXL2_IO_VERSION_INFO));
-				_need_version_info = false;
 				return 0;
 			}
 			 else {
@@ -499,22 +572,6 @@ void Voxl2IO::Run()
 	}
 
 	perf_begin(_cycle_perf);
-
-	/* Verify protocol version info */
-	if (_need_version_info){
-		if (get_version_info() < 0) PX4_ERR("VOXL2_IO: Failed to detect voxl2_io protocol version.");
-		if (_version_info.sw_version == VOXL2_IO_SW_PROTOCOL_VERSION && _version_info.hw_version == VOXL2_IO_HW_PROTOCOL_VERSION){
-			PX4_INFO("VOXL2_IO: Detected M0065 protocol version. SW: %u HW: %u", _version_info.sw_version, _version_info.hw_version);
-		} else if (_protocol_read_retries > 0) {	// If Voxl2 IO gets powered up late, the initial values read are sometimes garbage
-			if (_debug) PX4_INFO("VOXL2_IO: Detected incorrect M0065 protocol version. SW: %u HW: %u. Retrying, %i attempts left...", _version_info.sw_version, _version_info.hw_version, _protocol_read_retries);
-			_protocol_read_retries--;
-			return;
-		} else {
-			if (_debug) PX4_INFO("VOXL2_IO: Retries exhausted, exiting now.");
-			request_stop();
-			return;
-		}
-	}
 
 	/* Handle RC */
 	if (_rc_mode == RC_MODE::SCAN){
@@ -957,6 +1014,25 @@ px4io driver is used for main ones.
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
+}
+
+std::string Voxl2IO::board_id_to_name(int board_id)
+{
+	switch(board_id){
+		case 31: return std::string("ModalAi 4-in-1 ESC V2 RevB (M0049)");
+		case 32: return std::string("Blheli32 4-in-1 ESC Type A (Tmotor F55A PRO F051)");
+		case 33: return std::string("Blheli32 4-in-1 ESC Type B (Tmotor F55A PRO G071)");
+		case 34: return std::string("ModalAi 4-in-1 ESC (M0117-1)");
+		case 35: return std::string("ModalAi I/O Expander (M0065)");
+		case 36: return std::string("ModalAi 4-in-1 ESC (M0117-3)");
+		case 37: return std::string("ModalAi 4-in-1 ESC (M0134-1)");
+		case 38: return std::string("ModalAi 4-in-1 ESC (M0134-3)");
+		case 39: return std::string("ModalAi 4-in-1 ESC (M0129-1)");
+		case 40: return std::string("ModalAi 4-in-1 ESC (M0129-3)");
+		case 41: return std::string("ModalAi 4-in-1 ESC (M0134-6)");
+		case 42: return std::string("ModalAi 4-in-1 ESC (M0138-1)");
+		default: return std::string("Unknown Board");
+	}
 }
 
 extern "C" __EXPORT int voxl2_io_main(int argc, char *argv[]);
