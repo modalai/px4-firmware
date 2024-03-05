@@ -257,6 +257,7 @@ int Voxl2IO::get_version_info()
 						}
 						else{
 							got_response = true;
+							memcpy(&_version_info,&ver, sizeof(_version_info)); //store the version info only if it is valid
 						}
 					}
 				}

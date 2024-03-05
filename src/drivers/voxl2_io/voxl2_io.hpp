@@ -146,11 +146,10 @@ private:
 	static constexpr uint16_t SBUS_PAYLOAD = 3;
 
 	/* M0065 version info */
-	static constexpr uint16_t VOXL2_IO_VERSION_INFO_SIZE = 6;
 	static constexpr uint16_t VOXL2_IO_SW_VERSION = 1;
 	static constexpr uint16_t VOXL2_IO_HW_VERSION = 35;
 	int  _board_detect_retries{3};
-	VOXL2_IO_VERSION_INFO _version_info;
+	VOXL2_IO_EXTENDED_VERSION_INFO _version_info;
 
 	/* Module update interval */
 	static constexpr unsigned	_current_update_interval{4000}; // 250 Hz
