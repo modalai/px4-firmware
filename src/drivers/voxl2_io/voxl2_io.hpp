@@ -108,7 +108,8 @@ public:
 	};
 
 	int send_cmd_thread_safe(Command *cmd);
-	int receive_sbus();
+	int receive_uart_packets();
+	int parse_sbus_packet(uint8_t * raw_data, uint32_t data_len);
 
 	void fill_rc_in(uint16_t raw_rc_count_local,
 		    uint16_t raw_rc_values_local[input_rc_s::RC_INPUT_MAX_CHANNELS],
@@ -146,8 +147,8 @@ private:
 	static constexpr uint16_t SBUS_PAYLOAD = 3;
 
 	/* M0065 version info */
-	static constexpr uint16_t VOXL2_IO_SW_VERSION = 1;
-	static constexpr uint16_t VOXL2_IO_HW_VERSION = 35;
+	static constexpr uint16_t VOXL2_IO_SW_VERSION = 2;
+	static constexpr uint16_t VOXL2_IO_HW_VERSION = 35;  //this is the version of the HW
 	int  _board_detect_retries{3};
 	VOXL2_IO_EXTENDED_VERSION_INFO _version_info;
 
@@ -193,8 +194,7 @@ private:
 	uint64_t _rc_last_valid;		
 	uint16_t _raw_rc_values[input_rc_s::RC_INPUT_MAX_CHANNELS] {UINT16_MAX};
 	unsigned _sbus_frame_drops{0};
-	uint16_t _sbus_total_frames{0};
-	bool	 _new_packet{false};		
+	uint16_t _sbus_total_frames{0};	
 
 	/* Publications */
 	uORB::PublicationMulti<input_rc_s> _rc_pub{ORB_ID(input_rc)};
@@ -222,7 +222,7 @@ private:
 	uint32_t		_packets_sent{0};
 	uint32_t		_packets_received{0};
 
-	int parse_response(uint8_t *buf, uint8_t len);
+	//int parse_response(uint8_t *buf, uint8_t len);
 	int	load_params(voxl2_io_params_t *params);
 	int update_params();
 	int	flush_uart_rx();

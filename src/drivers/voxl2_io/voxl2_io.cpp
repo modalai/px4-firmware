@@ -54,6 +54,7 @@ Voxl2IO::~Voxl2IO()
 
 	if (_uart_port) {
 		_uart_port->uart_close();
+		delete _uart_port;
 		_uart_port = nullptr;
 	}
 
@@ -67,8 +68,22 @@ int Voxl2IO::init()
 	PX4_INFO("VOXL2_IO: Driver starting");
 
 	int ret = PX4_OK;
-	
 
+	// Getting initial parameter values
+	ret = update_params();
+	if (ret != OK) {
+		PX4_ERR("VOXL2_IO: Failed to update params during init");
+		return ret;
+	}
+
+	// Print initial param values
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD: %" PRId32, _parameters.baud_rate);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC1: %" PRId32, _parameters.function_map[0]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2: %" PRId32, _parameters.function_map[1]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3: %" PRId32, _parameters.function_map[2]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC4: %" PRId32, _parameters.function_map[3]);
+	PX4_INFO("VOXL2_IO: ");
+	
 	PX4_INFO("VOXL2_IO: Opening UART device %s, baud rate %d", _device, _parameters.baud_rate);
 	if (!_uart_port->is_open()) {
 		if (_uart_port->uart_open((const char*)_device, _parameters.baud_rate) == PX4_OK) {
@@ -79,28 +94,27 @@ int Voxl2IO::init()
 		}
 	}
 
-	/* Getting initial parameter values */
-	ret = update_params();
-
-	if (ret != OK) {
-		PX4_ERR("VOXL2_IO: Failed to update params during init");
-		return ret;
-	}
-
     // Detect M0065 board
     ret = get_version_info();
     if (ret != 0){
 		PX4_ERR("VOXL2_IO: Could not detect the board");
 		PX4_ERR("VOXL2_IO: Driver initialization failed. Exiting");
+
+		if (_uart_port->is_open()) {
+			PX4_INFO("VOXL2_IO: Closing uart port");
+			_uart_port->uart_close();
+		}
 		return -1;
 	}
+
+	//_debug = true;
 	
 
-	/* Send PWM MIN/MAX to M0065 */
+	// Send PWM MIN/MAX to M0065
 	update_pwm_config();
 
-	ScheduleOnInterval(_current_update_interval); 
-	// ScheduleNow();
+	//ScheduleOnInterval(_current_update_interval); 
+	ScheduleNow();
 
 	PX4_INFO("VOXL2_IO: Driver initialization succeeded");
 	return ret;
@@ -135,21 +149,21 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 		params->function_map[i] = (int)OutputFunction::Disabled;
 	}
 	
-	/* UART config, PWM mode, and RC protocol*/
+	// UART config, PWM mode, and RC protocol
 	param_get(param_find("VOXL2_IO_BAUD"),    &params->baud_rate);
 	param_get(param_find("RC_INPUT_PROTO"),    &params->param_rc_input_proto);
 
-	/* PWM min, max, and failsafe values*/
+	// PWM min, max, and failsafe values
 	param_get(param_find("VOXL2_IO_MIN"),  &params->pwm_min);
 	param_get(param_find("VOXL2_IO_MAX"),  &params->pwm_max);
 
-	/* PWM output functions */
+	// PWM output functions
 	param_get(param_find("VOXL2_IO_FUNC1"),  &params->function_map[0]);
 	param_get(param_find("VOXL2_IO_FUNC2"),  &params->function_map[1]);
 	param_get(param_find("VOXL2_IO_FUNC3"),  &params->function_map[2]);
 	param_get(param_find("VOXL2_IO_FUNC4"),  &params->function_map[3]);
 	
-	/* Validate PWM min and max values */
+	// Validate PWM min and max values
 	if (params->pwm_min > params->pwm_max){
 		PX4_ERR("VOXL2_IO: Invalid parameter VOXL2_IO_MIN.  Please verify parameters.");
 		params->pwm_min = 0;
@@ -211,7 +225,7 @@ int Voxl2IO::get_version_info()
 
 		//wait for the response to come back
 		while( (!got_response) && (hrt_elapsed_time(&t_request) < t_timeout) ){
-			px4_usleep(100); //sleep a bit while waiting for ESC to respond
+			px4_usleep(500); //sleep a bit while waiting for the board to respond
 
 			int nread = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
 
@@ -243,17 +257,19 @@ int Voxl2IO::get_version_info()
 
 						//we requested response from ID 0, so it should match
 						if (ver.id != 0){
-							PX4_ERR("VOXL2_IO: invalid id: %d",ver.id);
+							PX4_ERR("VOXL2_IO: Invalid id: %d",ver.id);
 						}
 
 						//check HW (board version)
 						else if (ver.hw_version != VOXL2_IO_HW_VERSION){
-							PX4_ERR("VOXL2_IO: invalid hw version : %d (expected %d)",ver.hw_version,VOXL2_IO_HW_VERSION);
+							PX4_ERR("VOXL2_IO: Invalid HW version : %d (expected %d)",ver.hw_version,VOXL2_IO_HW_VERSION);
+							return -1;
 						}
 
 						//check firmware version running on the board
 						else if (ver.sw_version != VOXL2_IO_SW_VERSION){
-							PX4_ERR("VOXL2_IO: invalid fw version : %d (expected %d)",ver.sw_version,VOXL2_IO_SW_VERSION);
+							PX4_ERR("VOXL2_IO: Invalid FW version : %d (expected %d)",ver.sw_version,VOXL2_IO_SW_VERSION);
+							return -1;
 						}
 						else{
 							got_response = true;
@@ -281,7 +297,7 @@ int Voxl2IO::get_version_info()
 bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_INPUT_MAX_CHANNELS],
 			   unsigned num_outputs, unsigned num_control_groups_updated)
 {
-	/* Stop Mixer while ESCs are being calibrated */
+	// Stop Mixer while ESCs are being calibrated
 	if (_outputs_disabled) {
 		return 0;
 	}
@@ -290,7 +306,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
 	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
 	uint8_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	int32_t _fb_idx = -1;
+	int32_t _fb_idx = -1;  //cannot request feedback from voxl2_io board
 
 	if (num_outputs != VOXL2_IO_OUTPUT_CHANNELS) {
 		PX4_ERR("VOXL2_IO: Num outputs != VOXL2_IO_OUTPUT_CHANNELS!");
@@ -318,15 +334,17 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
 					       				   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
 					       				   _fb_idx, cmd.buf, sizeof(cmd.buf));
-	if (_pwm_on && _debug){
+	//if (_pwm_on && _debug){
+    if (_debug){
 		PX4_INFO("VOXL2_IO: Mixer outputs");
-		PX4_INFO("[%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
+		PX4_INFO("VOXL2_IO: [%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
 					outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5], 
 					outputs[6], outputs[7], outputs[8], outputs[9], outputs[10], outputs[11], 
 					outputs[12], outputs[13], outputs[14], outputs[15], outputs[16], outputs[17]
 					);
 
-		// Debug messages for PWM 400Hz values sent to M0065  
+		// Debug messages for PWM 400Hz values sent to M0065
+		/*
 		uint16_t tics_1 = (_parameters.pwm_min +  (_pwm_fullscale * ((double)outputs[0]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
 		PX4_INFO("VOXL2_IO: \tPWM CH1: %hu::%uus::%u tics", outputs[0], tics_1/24, tics_1);
 		uint16_t tics_2 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[1]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
@@ -336,6 +354,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 		uint16_t tics_4 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[3]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
 		PX4_INFO("VOXL2_IO: \tPWM CH4: %u::%uus::%u tics", outputs[3], tics_4/24, tics_4);
 		PX4_INFO("VOXL2_IO: ");
+		*/
 	}
 	
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -359,10 +378,13 @@ int Voxl2IO::flush_uart_rx()
 }
 
 static bool valid_port(int port){
-	if (port == 2 || port == 6 || port == 7) return true;
+	if (port == 2 || port == 6 || port == 7){
+		return true;
+	}
 	return false;
 }
 
+/*
 int Voxl2IO::parse_response(uint8_t *buf, uint8_t len)
 {
 	for (int i = 0; i < len; i++) {
@@ -372,11 +394,9 @@ int Voxl2IO::parse_response(uint8_t *buf, uint8_t len)
 			uint8_t packet_type = voxl2_io_packet_get_type(&_voxl2_io_packet);
 			uint8_t packet_size = voxl2_io_packet_get_size(&_voxl2_io_packet);
 
-			if (packet_type == VOXL2_IO_PACKET_TYPE_RC_DATA_RAW && packet_size == VOXL2_IO_SBUS_FRAME_SIZE) 
-			{
+			if (packet_type == VOXL2_IO_PACKET_TYPE_RC_DATA_RAW && packet_size == VOXL2_IO_SBUS_FRAME_SIZE) {
 				return 0;
-			}
-			 else {
+			} else {
 				return -1;
 			}
 
@@ -407,6 +427,7 @@ int Voxl2IO::parse_response(uint8_t *buf, uint8_t len)
 
 	return 0;
 }
+*/
 
 void Voxl2IO::fill_rc_in(uint16_t raw_rc_count_local,
 		    uint16_t raw_rc_values_local[input_rc_s::RC_INPUT_MAX_CHANNELS],
@@ -433,9 +454,9 @@ void Voxl2IO::fill_rc_in(uint16_t raw_rc_count_local,
 		_raw_rc_values[i] = UINT16_MAX;
 	}
 
-	input_rc.timestamp = now;
+	input_rc.timestamp             = now;
 	input_rc.timestamp_last_signal = input_rc.timestamp;
-	input_rc.rc_ppm_frame_length = 0;
+	input_rc.rc_ppm_frame_length   = 0;
 
 	/* fake rssi if no value was provided */
 	if (rssi == -1) {
@@ -452,112 +473,95 @@ void Voxl2IO::fill_rc_in(uint16_t raw_rc_count_local,
 		_sbus_frame_drops++;
 	}
 
-	input_rc.rc_failsafe = failsafe;
-	input_rc.rc_lost = input_rc.rc_failsafe;
-	input_rc.rc_lost_frame_count = _sbus_frame_drops;
+	input_rc.rc_failsafe          = failsafe;
+	input_rc.rc_lost              = input_rc.rc_failsafe;
+	input_rc.rc_lost_frame_count  = _sbus_frame_drops;
 	input_rc.rc_total_frame_count = ++_sbus_total_frames;
 }
 
-int Voxl2IO::receive_sbus()
+
+int Voxl2IO::parse_sbus_packet(uint8_t * raw_data, uint32_t data_len)
 {
-	int res = 0;
-	int header = -1;
-	int read_retries = 3;
-	int read_succeeded = 0;
-	voxl2_io_packet_init(&_voxl2_io_packet);
-	while (read_retries) {
-		memset(&_read_buf, 0x00, READ_BUF_SIZE);
-		res = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
-		if (res) {
-			/* Get index of packer header */
-			for (int index = 0; index < READ_BUF_SIZE; ++index){
-				if (_read_buf[index] == VOXL2_IO_PACKET_HEADER){
-					header = index;
-					break;
-				}
-			}
+	input_rc_s input_rc;
+	uint16_t num_values;
+	bool sbus_failsafe    = false;
+	bool sbus_frame_drop  = false;
+	uint16_t max_channels = sizeof(_raw_rc_values) / sizeof(_raw_rc_values[0]);
+	hrt_abstime t_now     = hrt_absolute_time();
 
-			/* Try again in a bit if packet header not present yet... */
-			if (header == -1){
-				if (_debug) PX4_ERR("VOXL2_IO: Failed to find SBUS packet header, trying again... retries left: %i", read_retries);
-				read_retries--;
-				continue;
-			}
-
-			/* Check if we got a valid packet...*/
-			if (parse_response(&_read_buf[header], (uint8_t)VOXL2_IO_SBUS_FRAME_SIZE)){
-				if(_pwm_on && _debug) {
-					PX4_ERR("VOXL2_IO: Error parsing QC RAW SBUS packet");
-					PX4_INFO_RAW("VOXL2_IO: [%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]\n",
-						_read_buf[header+0], _read_buf[header+1], _read_buf[header+2], _read_buf[header+3], _read_buf[header+4], _read_buf[header+5], 
-						_read_buf[header+6], _read_buf[header+7], _read_buf[header+8], _read_buf[header+9], _read_buf[header+10], _read_buf[header+11], 
-						_read_buf[header+12], _read_buf[header+13], _read_buf[header+14], _read_buf[header+15], _read_buf[header+16], _read_buf[header+17], 
-						_read_buf[header+18], _read_buf[header+19], _read_buf[header+20], _read_buf[header+21], _read_buf[header+22], _read_buf[header+23], 
-						_read_buf[header+24], _read_buf[header+25], _read_buf[header+26], _read_buf[header+27], _read_buf[header+28], _read_buf[header+29]
-						);
-				}
-				read_retries--;
-				break;
-			} 
-
-			input_rc_s input_rc;
-			uint16_t num_values;
-			bool sbus_failsafe = false;
-			bool sbus_frame_drop = false;
-			uint16_t max_channels = sizeof(_raw_rc_values) / sizeof(_raw_rc_values[0]);
-			hrt_abstime now = hrt_absolute_time();
-			bool rc_updated = sbus_parse(now, &_read_buf[header+SBUS_PAYLOAD], SBUS_FRAME_SIZE, _raw_rc_values, &num_values,
-						&sbus_failsafe, &sbus_frame_drop, &_sbus_frame_drops, max_channels);
 	
-			if (rc_updated) {
-				if (_pwm_on && _debug){
-					PX4_INFO("VOXL2_IO: Decoded packet, header pos: %i", header);
-					PX4_INFO("VOXL2_IO: [%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
-						_raw_rc_values[0], _raw_rc_values[1], _raw_rc_values[2], 
-						_raw_rc_values[3], _raw_rc_values[4], _raw_rc_values[5], 
-						_raw_rc_values[6], _raw_rc_values[7], _raw_rc_values[8],
-						_raw_rc_values[9], _raw_rc_values[10], _raw_rc_values[11], 
-						_raw_rc_values[12], _raw_rc_values[13], _raw_rc_values[14], 
-						_raw_rc_values[15], _raw_rc_values[16], _raw_rc_values[17]
-						);
-				}
+	bool rc_updated = sbus_parse(t_now, raw_data, data_len, _raw_rc_values, &num_values,
+					&sbus_failsafe, &sbus_frame_drop, &_sbus_frame_drops, max_channels);
 
-				input_rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4IO_SBUS;
-				fill_rc_in(num_values, _raw_rc_values, now, sbus_frame_drop, sbus_failsafe, _sbus_frame_drops, -1, input_rc);
-				if (!input_rc.rc_lost && !input_rc.rc_failsafe) {
-					_rc_last_valid = input_rc.timestamp;
-				}
+	if (rc_updated) {
+		//if (_pwm_on && _debug){
+		if (_debug){
+			//PX4_INFO("VOXL2_IO: Decoded packet, header pos: %i", header);
+			PX4_INFO("VOXL2_IO: [%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u]",
+				_raw_rc_values[0], _raw_rc_values[1], _raw_rc_values[2], 
+				_raw_rc_values[3], _raw_rc_values[4], _raw_rc_values[5], 
+				_raw_rc_values[6], _raw_rc_values[7], _raw_rc_values[8],
+				_raw_rc_values[9], _raw_rc_values[10], _raw_rc_values[11], 
+				_raw_rc_values[12], _raw_rc_values[13], _raw_rc_values[14], 
+				_raw_rc_values[15], _raw_rc_values[16], _raw_rc_values[17]
+				);
 
-				input_rc.timestamp_last_signal =_rc_last_valid;
-				_rc_pub.publish(input_rc);
-
-				_bytes_received+=res;
-				_packets_received++;
-				read_succeeded = 1;
-				break;
-			} else if (_pwm_on && _debug) {
-				PX4_ERR("VOXL2_IO: Failed to decode SBUS packet, header pos: %i", header);
-				if (sbus_frame_drop) {
-					PX4_WARN("VOXL2_IO: SBUS frame dropped");
-				}
-				PX4_ERR("VOXL2_IO: [%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x]",
-					_read_buf[header+0], _read_buf[header+1], _read_buf[header+2], _read_buf[header+3], _read_buf[header+4], _read_buf[header+5], 
-					_read_buf[header+6], _read_buf[header+7], _read_buf[header+8], _read_buf[header+9], _read_buf[header+10], _read_buf[header+11], 
-					_read_buf[header+12], _read_buf[header+13], _read_buf[header+14], _read_buf[header+15], _read_buf[header+16], _read_buf[header+17], 
-					_read_buf[header+18], _read_buf[header+19], _read_buf[header+20], _read_buf[header+21], _read_buf[header+22], _read_buf[header+23], 
-					_read_buf[header+24], _read_buf[header+25], _read_buf[header+26], _read_buf[header+27], _read_buf[header+28], _read_buf[header+29]
-					);
+			if (sbus_frame_drop) {
+				PX4_WARN("VOXL2_IO: SBUS frame dropped");
 			}
 		}
-		read_retries--;
+
+		input_rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4IO_SBUS;
+		fill_rc_in(num_values, _raw_rc_values, t_now, sbus_frame_drop, sbus_failsafe, _sbus_frame_drops, -1, input_rc);
+		if (!input_rc.rc_lost && !input_rc.rc_failsafe) {
+			_rc_last_valid = input_rc.timestamp;
+		}
+
+		input_rc.timestamp_last_signal =_rc_last_valid;
+		_rc_pub.publish(input_rc);
+
+		if (_rc_mode == RC_MODE::SCAN){
+			PX4_INFO("VOXL2_IO: Found M0065 SBUS RC.");
+			_rc_mode = RC_MODE::SBUS;
+		}
 	}
 
-	if ( ! read_succeeded) {
-		_new_packet = false;
-		return -EIO;
+	return 0;
+}
+
+
+int Voxl2IO::receive_uart_packets()
+{
+	int nread = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
+	if (nread > 0) {
+		if(_debug) {
+			PX4_INFO("VOXL2_IO: receive_uart_packets read %d bytes", nread);
+		}
+
+		_bytes_received+=nread;
+
+		for (int i = 0; i < nread; i++) {
+			int16_t parse_ret = voxl2_io_packet_process_char(_read_buf[i], &_voxl2_io_packet);
+
+			if (parse_ret > 0) {
+				_packets_received++;
+
+				uint8_t packet_type = voxl2_io_packet_get_type(&_voxl2_io_packet);
+				uint8_t packet_size = voxl2_io_packet_get_size(&_voxl2_io_packet);
+
+				if (packet_type == VOXL2_IO_PACKET_TYPE_RC_DATA_RAW && packet_size == VOXL2_IO_SBUS_FRAME_SIZE) {
+
+					//parse SBUS packet only if configured to do so
+					if ( (_rc_mode == RC_MODE::SCAN) || (_rc_mode == RC_MODE::SBUS) ){
+                		parse_sbus_packet(&_voxl2_io_packet.buffer[SBUS_PAYLOAD], SBUS_FRAME_SIZE);
+                	}
+				}
+
+				//parse other packets (future use)
+			}
+		}
 	}
 
-	_new_packet = true;
 	return 0;
 }
 
@@ -574,24 +578,13 @@ void Voxl2IO::Run()
 
 	perf_begin(_cycle_perf);
 
-	/* Handle RC */
-	if (_rc_mode == RC_MODE::SCAN){
-		if (receive_sbus() == PX4_OK){
-			PX4_INFO("VOXL2_IO: Found M0065 SBUS RC.");
-			_rc_mode = RC_MODE::SBUS;
-		}	// Add more cases here for other protocols in the future..
-	} else if (_rc_mode == RC_MODE::SBUS){ 
-		receive_sbus();
-	} 
-
-	/* Only update outputs if we have new values from RC */
-	if (_new_packet || _rc_mode == RC_MODE::EXTERNAL){
-		_mixing_output.update(); //calls MixingOutput::limitAndUpdateOutputs which calls updateOutputs in this module
-		_new_packet = false;
-	}
+    _mixing_output.update(); //calls MixingOutput::limitAndUpdateOutputs which calls updateOutputs in this module
 
 	/* update PWM status if armed or if disarmed PWM values are set */
 	_pwm_on = _mixing_output.armed().armed;
+
+	//receive packets from voxl_io board
+    receive_uart_packets();
 
 	/* check for parameter updates */
 	if (!_pwm_on && _parameter_update_sub.updated()) {
@@ -959,7 +952,7 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 
 int Voxl2IO::print_status()
 {
-	PX4_INFO("VOXL2_IO: Max update rate: %u Hz", 1000000/_current_update_interval);
+	//PX4_INFO("VOXL2_IO: Max update rate: %u Hz", 1000000/_current_update_interval);
 	PX4_INFO("VOXL2_IO: PWM Rate: 400 Hz");	// Only support 400 Hz for now
 	PX4_INFO("VOXL2_IO: Outputs on: %s", _pwm_on ? "yes" : "no");
 	PX4_INFO("VOXL2_IO: SW version: %u", _version_info.sw_version);
