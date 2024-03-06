@@ -473,6 +473,7 @@ void Voxl2IO::fill_rc_in(uint16_t raw_rc_count_local,
 		_sbus_frame_drops++;
 	}
 
+	input_rc.rssi_dbm             = 0.0f;
 	input_rc.rc_failsafe          = failsafe;
 	input_rc.rc_lost              = input_rc.rc_failsafe;
 	input_rc.rc_lost_frame_count  = _sbus_frame_drops;
