@@ -43,6 +43,24 @@ extern "C" { __EXPORT int uart_poll_main(int argc, char *argv[]); }
 
 #define ASYNC_UART_READ_WAIT_US 2000
 
+static void uart_read_data() {
+	uint8_t buf[1024];
+	int bytes_read = 0;
+
+	bytes_read = qurt_uart_read(_uart_fd, (char *) buf, 1024, ASYNC_UART_READ_WAIT_US);
+	PX4_INFO("Read %d bytes from UART", bytes_read);
+	if (bytes_read) {
+		for (int i = 0; i < bytes_read; i++) {
+			PX4_INFO("%d\t%u", i, buf[i]);
+		}
+	}
+}
+
+static void uart_poll_callback(int fd) {
+	PX4_INFO("Got uart poll callback!");
+	uart_read_data();
+}
+
 static int uart_poll_thread(int argc, char *argv[])
 {
 	PX4_INFO("Starting uart poll THREAD");
@@ -60,19 +78,19 @@ static int uart_poll_thread(int argc, char *argv[])
 
 	} else { PX4_INFO("qurt uart opened successfully"); }
 
-	uint8_t buf[1024];
-	int bytes_read = 0;
-
 	while (true) {
 		usleep(1000000);
-		PX4_INFO("UART thread polling");
-		bytes_read = qurt_uart_read(_uart_fd, (char *) buf, 10, ASYNC_UART_READ_WAIT_US);
-		PX4_INFO("Read %d bytes", bytes_read);
-		if (bytes_read) {
-			for (int i = 0; i < bytes_read; i++) {
-				PX4_INFO("%d\t%u", i, buf[i]);
-			}
+		int status = qurt_uart_poll(_uart_fd, uart_poll_callback, 0);
+		if (status == 0) {
+			PX4_INFO("uart poll callback failed, already data to read");
+			uart_read_data();
+		} else if (status == 1) {
+			PX4_INFO("Successfully installed callback with qurt_uart_poll");
+		} else {
+			PX4_INFO("Got error from qurt_uart_poll");
 		}
+		PX4_INFO("UART thread polling");
+
 	}
 
 	return 0;

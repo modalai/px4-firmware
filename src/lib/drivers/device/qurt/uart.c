@@ -8,19 +8,25 @@
 // Static variables
 static bool _callbacks_configured = false;
 
-static open_uart_func_t  _open_uart  = NULL;
-static write_uart_func_t _write_uart = NULL;
-static read_uart_func_t  _read_uart  = NULL;
+static open_uart_func_t   _open_uart  = NULL;
+static write_uart_func_t  _write_uart = NULL;
+static read_uart_func_t   _read_uart  = NULL;
+static flush_uart_func_t  _flush_uart = NULL;
+static uart_poll_func_t   _uart_poll  = NULL;
 
 void configure_uart_callbacks(open_uart_func_t open_func,
 			      write_uart_func_t write_func,
-			      read_uart_func_t read_func)
+			      read_uart_func_t read_func,
+			      flush_uart_func_t flush_func,
+			      uart_poll_func_t poll_func)
 {
 	_open_uart  = open_func;
 	_write_uart = write_func;
 	_read_uart  = read_func;
+	_flush_uart  = flush_func;
+	_uart_poll  = poll_func;
 
-	if (_open_uart && _write_uart && _read_uart) {
+	if (_open_uart && _write_uart && _read_uart && _flush_uart && _uart_poll) {
 		_callbacks_configured = true;
 	}
 }
@@ -110,6 +116,42 @@ int qurt_uart_read(int fd, char *buf, size_t len, uint32_t timeout_us)
 
 	} else {
 		PX4_ERR("Cannot read from uart until callbacks have been configured");
+	}
+
+	return -1;
+}
+
+int qurt_uart_flush(int fd)
+{
+	if (fd < 0) {
+		PX4_ERR("invalid fd %d for %s", fd, __FUNCTION__);
+		return -1;
+	}
+
+	if (_callbacks_configured) {
+		return _flush_uart(fd);
+
+	} else {
+		PX4_ERR("Cannot flush uart until callbacks have been configured");
+	}
+
+	return -1;
+}
+
+int qurt_uart_poll(int fd, void (*cb)(int), uint32_t timeout_us)
+{
+	(void) timeout_us;
+
+	if (fd < 0) {
+		PX4_ERR("invalid fd %d for %s", fd, __FUNCTION__);
+		return -1;
+	}
+
+	if (_callbacks_configured) {
+		return _uart_poll(fd, cb);
+
+	} else {
+		PX4_ERR("Cannot poll uart until callbacks have been configured");
 	}
 
 	return -1;

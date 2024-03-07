@@ -200,6 +200,8 @@ typedef struct {
 	int (*open_uart_func_t)(uint8_t, speed_t);
 	int (*write_uart_func_t)(int, const void *, size_t);
 	int (*read_uart_func_t)(int,  void *, size_t);
+    int (*flush_uart_func_t)(int fd);
+    int (*uart_poll_func_t)(int fd, void (*)(int));
 	int (*register_interrupt_callback)(int (*)(int, void *, void *), void *arg);
 } fc_func_ptrs;
 
