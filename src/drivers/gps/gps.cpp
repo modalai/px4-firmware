@@ -41,10 +41,7 @@
 #include <nuttx/arch.h>
 #endif
 
-#ifndef __PX4_QURT
 #include <poll.h>
-#endif
-
 #include <termios.h>
 #include <cstring>
 
@@ -437,7 +434,9 @@ int GPS::callback(GPSCallbackType type, void *data1, int data2, void *user)
 			// as of 2021 setting the time on Nuttx temporarily pauses interrupts
 			// so only set the time if it is very wrong.
 			// TODO: clock slewing of the RTC for small time differences
+#ifndef __PX4_QURT
 			px4_clock_settime(CLOCK_REALTIME, &rtc_gps_time);
+#endif
 		}
 
 
@@ -450,10 +449,6 @@ int GPS::callback(GPSCallbackType type, void *data1, int data2, void *user)
 int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 {
 	handleInjectDataTopic();
-
-#if !defined(__PX4_QURT)
-
-	/* For non QURT, use the usual polling. */
 
 	//Poll only for the serial data. In the same thread we also need to handle orb messages,
 	//so ideally we would poll on both, the serial fd and orb subscription. Unfortunately the
@@ -508,13 +503,6 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 	}
 
 	return ret;
-
-#else
-	/* For QURT, just use read for now, since this doesn't block, we need to slow it down
-	 * just a bit. */
-	px4_usleep(10000);
-	return ::read(_serial_fd, buf, buf_length);
-#endif
 }
 
 void GPS::handleInjectDataTopic()
