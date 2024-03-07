@@ -61,16 +61,19 @@ private:
 	const std::string topicName = "aggregation";
 
 	// Master flag to enable aggregation
-	const bool aggregationEnabled = true;
+	const bool aggregationEnabled = false;
 
 	const uint32_t syncFlag = 0x5A01FF00;
 	const uint32_t syncFlagSize = 4;
 	const uint32_t topicNameLengthSize = 4;
-	const uint32_t dataLengthSize = 4;
-	const uint32_t headerSize = syncFlagSize + topicNameLengthSize + dataLengthSize;
+	const uint32_t dataLengthSize = 2;
+	const uint32_t sequenceNumberSize = 2;
+	const uint32_t headerSize = syncFlagSize + topicNameLengthSize + dataLengthSize + sequenceNumberSize;
 	static const uint32_t numBuffers = 2;
 	static const uint32_t bufferSize = 2048;
 
+	uint16_t sequenceNumber;
+	uint16_t expectedSequenceNumber;
 	uint32_t bufferId;
 	uint32_t bufferWriteIndex;
 	uint8_t  buffer[numBuffers][bufferSize];
@@ -85,7 +88,7 @@ private:
 
 	void MoveToNextBuffer();
 
-	void AddRecordToBuffer(const char *messageName, int32_t length, const uint8_t *data);
+	void AddRecordToBuffer(const char *messageName, uint16_t length, const uint8_t *data);
 };
 
 }

@@ -49,10 +49,11 @@ void mUORB::Aggregator::MoveToNextBuffer()
 {
 	bufferWriteIndex = 0;
 	bufferId++;
+	sequenceNumber++;
 	bufferId %= numBuffers;
 }
 
-void mUORB::Aggregator::AddRecordToBuffer(const char *messageName, int32_t length, const uint8_t *data)
+void mUORB::Aggregator::AddRecordToBuffer(const char *messageName, uint16_t length, const uint8_t *data)
 {
 	if (! messageName) { return; }
 
@@ -63,6 +64,8 @@ void mUORB::Aggregator::AddRecordToBuffer(const char *messageName, int32_t lengt
 	bufferWriteIndex += topicNameLengthSize;
 	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t *) &length, dataLengthSize);
 	bufferWriteIndex += dataLengthSize;
+	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t *) &sequenceNumber, sequenceNumberSize);
+	bufferWriteIndex += sequenceNumberSize;
 	memcpy(&buffer[bufferId][bufferWriteIndex], (uint8_t *) messageName, messageNameLength);
 	bufferWriteIndex += messageNameLength;
 	memcpy(&buffer[bufferId][bufferWriteIndex], data, length);
@@ -134,8 +137,17 @@ void mUORB::Aggregator::ProcessReceivedTopic(const char *topic, const uint8_t *d
 
 			current_index += topicNameLengthSize;
 
-			uint32_t data_length = *((uint32_t *) &data[current_index]);
+			uint16_t data_length = *((uint16_t *) &data[current_index]);
 			current_index += dataLengthSize;
+
+			uint16_t sequence_number = *((uint16_t *) &data[current_index]);
+			current_index += sequenceNumberSize;
+
+			if (sequence_number != expectedSequenceNumber) {
+				PX4_ERR("Expected sequence number %u, got %u", expectedSequenceNumber, sequence_number);
+			}
+
+			expectedSequenceNumber = sequence_number;
 
 			int32_t payload_size = name_length + data_length;
 			int32_t remaining_bytes = length_in_bytes - current_index;
@@ -157,6 +169,8 @@ void mUORB::Aggregator::ProcessReceivedTopic(const char *topic, const uint8_t *d
 							     const_cast<uint8_t *>(&data[current_index]));
 			current_index += data_length;
 		}
+
+		expectedSequenceNumber++;
 
 	} else {
 		if (debugFlag) { PX4_INFO("Got non-aggregate buffer for topic %s", topic); }

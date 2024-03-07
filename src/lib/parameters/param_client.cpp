@@ -65,6 +65,10 @@ static const char  *sync_thread_name = "client_sync_thread";
 static orb_advert_t parameter_set_used_h  = nullptr;
 static orb_advert_t parameter_set_value_h = nullptr;
 
+static struct param_client_counters param_client_counters;
+
+static pthread_mutex_t _tx_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 #ifdef SEND_PARAM_RESPONSES
 static int param_set_used_rsp_fd  = PX4_ERROR;
 static int param_set_value_rsp_fd = PX4_ERROR;
@@ -112,6 +116,8 @@ static int param_sync_thread(int argc, char *argv[])
 
 			if (debug) { PX4_INFO("Got parameter_client_set_value_request for %s", s_req.parameter_name); }
 
+			param_client_counters.set_value_received++;
+
 			// This will find the parameter and also set its used flag
 			param_t param = param_find(s_req.parameter_name);
 
@@ -148,6 +154,8 @@ static int param_sync_thread(int argc, char *argv[])
 			orb_copy(ORB_ID(parameter_client_reset_request), param_reset_req_fd, &r_req);
 
 			if (debug) { PX4_INFO("Got parameter_client_reset_request"); }
+
+			param_client_counters.reset_received++;
 
 			if (r_req.reset_all) {
 				param_reset_all();
@@ -239,6 +247,8 @@ void param_client_set(param_t param, const void *val)
 			orb_publish(ORB_ID(parameter_server_set_value_request), parameter_set_value_h, &req);
 		}
 
+		param_client_counters.set_value_sent++;
+
 #ifdef SEND_PARAM_RESPONSES
 		// Wait for response
 		bool updated = false;
@@ -268,11 +278,16 @@ void param_client_set(param_t param, const void *val)
 	}
 }
 
+// static bool first_set_used = true;
+
 void
 param_client_set_used(param_t param)
 {
+	// if (first_set_used) { usleep(100000); first_set_used = false; }
+
 	// Notify the parameter server that this parameter has been marked as used
 	if (debug) { PX4_INFO("Requesting server to mark %s as used", param_name(param)); }
+	// PX4_INFO("Requesting server to mark %s as used", param_name(param));
 
 	struct parameter_server_set_used_request_s req;
 
@@ -282,12 +297,16 @@ param_client_set_used(param_t param)
 
 	req.parameter_name[16] = 0;
 
+	pthread_mutex_lock(&_tx_mutex);
 	if (parameter_set_used_h == nullptr) {
 		parameter_set_used_h = orb_advertise(ORB_ID(parameter_server_set_used_request), &req);
 
 	} else {
 		orb_publish(ORB_ID(parameter_server_set_used_request), parameter_set_used_h, &req);
 	}
+	pthread_mutex_unlock(&_tx_mutex);
+
+	param_client_counters.set_used_sent++;
 
 #ifdef SEND_PARAM_RESPONSES
 	if (param_set_used_rsp_fd == PX4_ERROR) {
@@ -332,4 +351,9 @@ param_client_set_used(param_t param)
 #else
 	usleep(TIMEOUT_WAIT);
 #endif
+}
+
+void param_client_get_counters(struct param_client_counters *cnt)
+{
+	*cnt = param_client_counters;
 }

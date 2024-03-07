@@ -149,9 +149,14 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 	// sure that we do not call PX4_INFO, PX4_ERR, etc. That would cause an
 	// infinite loop!
 	bool is_not_slpi_log = true;
+	bool in_not_set_used = true;
 
 	if ((strcmp(messageName, "slpi_debug") == 0) || (strcmp(messageName, "slpi_error") == 0)) {
 		is_not_slpi_log = false;
+	}
+
+	if (strcmp(messageName, "parameter_server_set_used_request") == 0) {
+		in_not_set_used = false;
 	}
 
 	if (muorb_func_ptrs.topic_data_func_ptr) {
@@ -173,7 +178,7 @@ int16_t uORB::ProtobufChannel::send_message(const char *messageName, int32_t len
 			int16_t rc = 0;
 			pthread_mutex_lock(&_tx_mutex);
 
-			if (is_not_slpi_log) {
+			if ((is_not_slpi_log) && (in_not_set_used)) {
 				rc = _Aggregator.ProcessTransmitTopic(messageName, data, length);
 
 			} else {
