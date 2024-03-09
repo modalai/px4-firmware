@@ -95,11 +95,8 @@ std::string port = "2";
 int baudrate = 921600;
 const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
-bool _send_gps = false;
 bool _send_mag = false;
-bool _send_odometry = false;
 bool _send_distance = false;
-bool _send_optical_flow = false;
 
 uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
@@ -153,6 +150,19 @@ uint32_t flow_received_counter = 0;
 uint32_t flow_sent_counter = 0;
 uint32_t unknown_msg_received_counter = 0;
 
+enum class position_source {GPS, VIO, FLOW, NUM_POSITION_SOURCES};
+
+struct position_source_data_s {
+	char label[8];
+	bool send;
+	bool fail;
+	uint32_t failure_duration;
+	uint64_t failure_duration_start;
+} position_source_data[(int) position_source::NUM_POSITION_SOURCES] = {
+					{"GPS", false, false, 0, 0},
+					{"VIO", false, false, 0, 0},
+					{"FLOW", false, false, 0, 0} };
+
 uint64_t first_sensor_msg_timestamp = 0;
 uint64_t first_sensor_report_timestamp = 0;
 uint64_t last_sensor_report_timestamp = 0;
@@ -204,11 +214,11 @@ handle_message_dsp(mavlink_message_t *msg)
 		break;
 	case MAVLINK_MSG_ID_HIL_GPS:
 		gps_received_counter++;
-		if (_send_gps) handle_message_hil_gps_dsp(msg);
+		if (position_source_data[(int) position_source::GPS].send) handle_message_hil_gps_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_ODOMETRY:
 		odometry_received_counter++;
-		if (_send_odometry) handle_message_odometry_dsp(msg);
+		if (position_source_data[(int) position_source::VIO].send) handle_message_odometry_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
 		heartbeat_received_counter++;
@@ -216,7 +226,7 @@ handle_message_dsp(mavlink_message_t *msg)
 		break;
 	case MAVLINK_MSG_ID_HIL_OPTICAL_FLOW:
 		flow_received_counter++;
-		if (_send_optical_flow) handle_message_hil_optical_flow(msg);
+		if (position_source_data[(int) position_source::FLOW].send) handle_message_hil_optical_flow(msg);
 		break;
 	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
 		distance_received_counter++;
@@ -321,16 +331,16 @@ void task_main(int argc, char *argv[])
 			_send_mag = true;
 			break;
 		case 'g':
-			_send_gps = true;
+			position_source_data[(int) position_source::GPS].send = true;
 			break;
 		case 'o':
-			_send_odometry = true;
+			position_source_data[(int) position_source::VIO].send = true;
 			break;
 		case 'h':
 			_send_distance = true;
 			break;
 		case 'f':
-			_send_optical_flow = true;
+			position_source_data[(int) position_source::FLOW].send = true;
 			break;
 		default:
 			break;
@@ -511,6 +521,24 @@ handle_message_hil_optical_flow(mavlink_message_t *msg)
 
 	sensor_optical_flow.integration_timespan_us = flow.integration_time_us;
 	sensor_optical_flow.quality = flow.quality;
+
+	int index = (int) position_source::FLOW;
+	if (position_source_data[index].fail) {
+		uint32_t duration = position_source_data[index].failure_duration;
+		hrt_abstime start = position_source_data[index].failure_duration_start;
+		if (duration) {
+			if (hrt_elapsed_time(&start) > (duration * 1000000)) {
+				PX4_INFO("Optical flow failure ending");
+				position_source_data[index].fail = false;
+				position_source_data[index].failure_duration = 0;
+				position_source_data[index].failure_duration_start = 0;
+			} else {
+				sensor_optical_flow.quality = 0;
+			}
+		} else {
+			sensor_optical_flow.quality = 0;
+		}
+	}
 
 	const matrix::Vector3f integrated_gyro(flow.integrated_xgyro, flow.integrated_ygyro, flow.integrated_zgyro);
 
@@ -778,6 +806,24 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	odom.reset_counter = odom_in.reset_counter;
 	odom.quality = odom_in.quality;
 
+	int index = (int) position_source::VIO;
+	if (position_source_data[index].fail) {
+		uint32_t duration = position_source_data[index].failure_duration;
+		hrt_abstime start = position_source_data[index].failure_duration_start;
+		if (duration) {
+			if (hrt_elapsed_time(&start) > (duration * 1000000)) {
+				PX4_INFO("VIO failure ending");
+				position_source_data[index].fail = false;
+				position_source_data[index].failure_duration = 0;
+				position_source_data[index].failure_duration_start = 0;
+			} else {
+				odom.quality = 0;
+			}
+		} else {
+			odom.quality = 0;
+		}
+	}
+
 	switch (odom_in.estimator_type) {
 	case MAV_ESTIMATOR_TYPE_UNKNOWN: // accept MAV_ESTIMATOR_TYPE_UNKNOWN for legacy support
 	case MAV_ESTIMATOR_TYPE_NAIVE:
@@ -913,7 +959,10 @@ int stop()
 
 void usage()
 {
-	PX4_INFO("Usage: dsp_hitl {start|status|clear|stop}");
+	PX4_INFO("Usage: dsp_hitl {start|status|clear|failure|stop}");
+	PX4_INFO("       failure  <source> <duration>");
+	PX4_INFO("                source: gps, vio, flow");
+	PX4_INFO("                duration: 0 (toggle state), else seconds");
 }
 
 void print_status()
@@ -1081,7 +1130,29 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 
 	gps.s_variance_m_s = 0.25f;
 	gps.c_variance_rad = 0.5f;
+
+	gps.satellites_used = hil_gps.satellites_visible;
 	gps.fix_type = hil_gps.fix_type;
+
+	int index = (int) position_source::GPS;
+	if (position_source_data[index].fail) {
+		uint32_t duration = position_source_data[index].failure_duration;
+		hrt_abstime start = position_source_data[index].failure_duration_start;
+		if (duration) {
+			if (hrt_elapsed_time(&start) > (duration * 1000000)) {
+				PX4_INFO("GPS failure ending");
+				position_source_data[index].fail = false;
+				position_source_data[index].failure_duration = 0;
+				position_source_data[index].failure_duration_start = 0;
+			} else {
+				gps.satellites_used = 1;
+				gps.fix_type = 0;
+			}
+		} else {
+			gps.satellites_used = 1;
+			gps.fix_type = 0;
+		}
+	}
 
 	gps.eph = (float)hil_gps.eph * 1e-2f; // cm -> m
 	gps.epv = (float)hil_gps.epv * 1e-2f; // cm -> m
@@ -1106,7 +1177,6 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	gps.timestamp_time_relative = 0;
 	gps.time_utc_usec = hil_gps.time_usec;
 
-	gps.satellites_used = hil_gps.satellites_visible;
 
 	gps.heading = NAN;
 	gps.heading_offset = NAN;
@@ -1116,6 +1186,40 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	_sensor_gps_pub.publish(gps);
 
 	gps_sent_counter++;
+}
+
+int
+process_failure(dsp_hitl::position_source src, int duration) {
+	if (src >= position_source::NUM_POSITION_SOURCES) {
+		return 1;
+	}
+
+	int index = (int) src;
+
+	if (position_source_data[index].send) {
+		if (duration <= 0) {
+			// Toggle state
+			if (position_source_data[index].fail) {
+				PX4_INFO("Ending indefinite %s failure", position_source_data[index].label);
+				position_source_data[index].fail = false;
+			} else {
+				PX4_INFO("Starting indefinite %s failure", position_source_data[index].label);
+				position_source_data[index].fail = true;
+			}
+			position_source_data[index].failure_duration = 0;
+			position_source_data[index].failure_duration_start = 0;
+		} else {
+			PX4_INFO("%s failure for %d seconds", position_source_data[index].label, duration);
+			position_source_data[index].fail = true;
+			position_source_data[index].failure_duration = duration;
+			position_source_data[index].failure_duration_start = hrt_absolute_time();
+		}
+	} else {
+		PX4_ERR("%s not active, cannot create failure", position_source_data[index].label);
+		return 1;
+	}
+
+	return 0;
 }
 
 } // End dsp_hitl namespace
@@ -1137,12 +1241,36 @@ int dsp_hitl_main(int argc, char *argv[])
 	else if (!strcmp(verb, "stop")) {
 		return dsp_hitl::stop();
 	}
-	else if(!strcmp(verb, "status")){
+	else if (!strcmp(verb, "status")) {
 		dsp_hitl::print_status();
 		return 0;
 	}
-	else if(!strcmp(verb, "clear")){
+	else if (!strcmp(verb, "clear")) {
 		dsp_hitl::clear_status_counters();
+		return 0;
+	}
+	else if (!strcmp(verb, "failure")) {
+		if (argc != 4) {
+			dsp_hitl::usage();
+			return 1;
+		}
+		const char *source = argv[myoptind + 1];
+		int duration = atoi(argv[myoptind + 2]);
+
+		if (!strcmp(source, "gps")) {
+			return dsp_hitl::process_failure(dsp_hitl::position_source::GPS, duration);
+		}
+		else if (!strcmp(source, "vio")) {
+			return dsp_hitl::process_failure(dsp_hitl::position_source::VIO, duration);
+		}
+		else if (!strcmp(source, "flow")) {
+			return dsp_hitl::process_failure(dsp_hitl::position_source::FLOW, duration);
+		}
+		else {
+			PX4_ERR("Unknown failure source %s, duration %d", source, duration);
+			dsp_hitl::usage();
+			return 1;
+		}
 		return 0;
 	}
 	else {
