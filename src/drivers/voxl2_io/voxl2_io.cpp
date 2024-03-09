@@ -49,9 +49,6 @@ Voxl2IO::Voxl2IO() :
 
 Voxl2IO::~Voxl2IO()
 {
-	/* make sure servos are off */
-	stop_all_pwms();
-
 	if (_uart_port) {
 		_uart_port->uart_close();
 		delete _uart_port;
@@ -82,6 +79,11 @@ int Voxl2IO::init()
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2: %" PRId32, _parameters.function_map[1]);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3: %" PRId32, _parameters.function_map[2]);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC4: %" PRId32, _parameters.function_map[3]);
+
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_DIS: %" PRId32, _parameters.pwm_dis);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_MIN: %" PRId32, _parameters.pwm_min);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_MAX: %" PRId32, _parameters.pwm_max);
+
 	PX4_INFO("VOXL2_IO: ");
 	
 	PX4_INFO("VOXL2_IO: Opening UART device %s, baud rate %d", _device, _parameters.baud_rate);
@@ -109,10 +111,6 @@ int Voxl2IO::init()
 
 	//_debug = true;
 	
-
-	// Send PWM MIN/MAX to M0065
-	update_pwm_config();
-
 	//ScheduleOnInterval(_current_update_interval); 
 	ScheduleNow();
 
@@ -128,11 +126,10 @@ int Voxl2IO::update_params()
 	ret = load_params(&_parameters);
 
 	if (ret == PX4_OK) {
-		_mixing_output.setAllDisarmedValues(VOXL2_IO_MIXER_DISARMED);
+		_mixing_output.setAllDisarmedValues(_parameters.pwm_dis);
 		_mixing_output.setAllFailsafeValues(VOXL2_IO_MIXER_FAILSAFE);
-		_mixing_output.setAllMinValues(VOXL2_IO_MIXER_MIN);
-		_mixing_output.setAllMaxValues(VOXL2_IO_MIXER_MAX);
-		_pwm_fullscale = _parameters.pwm_max - _parameters.pwm_min;
+		_mixing_output.setAllMinValues(_parameters.pwm_min);
+		_mixing_output.setAllMaxValues(_parameters.pwm_max);
 	}
 
 	return ret;
@@ -141,8 +138,6 @@ int Voxl2IO::update_params()
 int Voxl2IO::load_params(voxl2_io_params_t *params)
 {
 	int ret = PX4_OK;
-	int32_t max = params->pwm_max;
-	int32_t min = params->pwm_min;
 
 	// initialize out
 	for (int i = 0; i < VOXL2_IO_OUTPUT_CHANNELS; i++) {
@@ -151,17 +146,21 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 	
 	// UART config, PWM mode, and RC protocol
 	param_get(param_find("VOXL2_IO_BAUD"),    &params->baud_rate);
-	param_get(param_find("RC_INPUT_PROTO"),    &params->param_rc_input_proto);
+	//param_get(param_find("RC_INPUT_PROTO"),    &params->param_rc_input_proto);
 
 	// PWM min, max, and failsafe values
 	param_get(param_find("VOXL2_IO_MIN"),  &params->pwm_min);
 	param_get(param_find("VOXL2_IO_MAX"),  &params->pwm_max);
+	param_get(param_find("VOXL2_IO_DIS"),  &params->pwm_dis);
 
 	// PWM output functions
+	//101-112: motors, 201-208: servos, 402: RC Roll, 403: RC Pitch, 404: RC Throttle, 
+	//405: RC Yaw, 406: RC Flaps, 407-412: RC AUX 1-6, 420-422: Gimbal RPY
 	param_get(param_find("VOXL2_IO_FUNC1"),  &params->function_map[0]);
 	param_get(param_find("VOXL2_IO_FUNC2"),  &params->function_map[1]);
 	param_get(param_find("VOXL2_IO_FUNC3"),  &params->function_map[2]);
 	param_get(param_find("VOXL2_IO_FUNC4"),  &params->function_map[3]);
+	param_get(param_find("VOXL2_IO_FUNC5"),  &params->function_map[3]);
 	
 	// Validate PWM min and max values
 	if (params->pwm_min > params->pwm_max){
@@ -170,29 +169,7 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 		ret = PX4_ERROR;
 	}
 
-	if(ret == PX4_OK && _uart_port->is_open() && (max != params->pwm_max || min != params->pwm_min)){
-		PX4_INFO("VOXL2_IO: Updating PWM params load_params");
-		update_pwm_config();
-	}
-
 	return ret;
-}
-
-void Voxl2IO::update_pwm_config()
-{
-	Command cmd;
-	uint8_t data[VOXL2_IO_BOARD_CONFIG_SIZE] = {static_cast<uint8_t>((_parameters.pwm_min & 0xFF00)>>8), static_cast<uint8_t>(_parameters.pwm_min & 0xFF),
-										   static_cast<uint8_t>((_parameters.pwm_max & 0xFF00)>>8), static_cast<uint8_t>(_parameters.pwm_max & 0xFF)};
-	cmd.len = voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_CONFIG_BOARD_REQUEST, data, VOXL2_IO_BOARD_CONFIG_SIZE,	cmd.buf, sizeof(cmd.buf));
-
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("VOXL2_IO: Failed to send config packet");
-	} else {
-		_bytes_sent+=cmd.len;
-		_packets_sent++;
-	}
-
-	PX4_INFO("VOXL2_IO: Sent board configuration");
 }
 
 int Voxl2IO::get_version_info()
@@ -301,12 +278,12 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	if (_outputs_disabled) {
 		return 0;
 	}
+
+	//PX4_INFO("VOXL2_IO: Mixer output: %u, %u, %u, %u", outputs[0], outputs[1], outputs[2], outputs[3]);
 	
 	//in Run() we call _mixing_output.update(), which calls MixingOutput::limitAndUpdateOutputs which calls _interface.updateOutputs (this function)
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
-	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	uint8_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	int32_t _fb_idx = -1;  //cannot request feedback from voxl2_io board
+	uint32_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
 
 	if (num_outputs != VOXL2_IO_OUTPUT_CHANNELS) {
 		PX4_ERR("VOXL2_IO: Num outputs != VOXL2_IO_OUTPUT_CHANNELS!");
@@ -323,17 +300,25 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 			_pwm_on = true;
 		}
 		if (!_pwm_on || stop_motors) {
-			_rate_req[i] = 0;
+			_rate_req[i] = _parameters.pwm_dis * 1000; //0; //convert to ns
 		} else {
-			_rate_req[i] = outputs[i];
+			_rate_req[i] = ((uint32_t)outputs[i]) * 1000;  //convert to ns
 		}
-		_pwm_values[i] = _rate_req[i];
+
+		//testing!!!
+		//_rate_req[i] = (1000 + 100*i) * 1000;  //ns
 	}
 
 	Command cmd;
-	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
-					       				   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
-					       				   _fb_idx, cmd.buf, sizeof(cmd.buf));
+	cmd.len = voxl2_io_create_hires_pwm_packet(_rate_req, 4, cmd.buf, sizeof(cmd.buf));
+	//PX4_INFO("VOXL2_IO: sending cmd of len %d",cmd.len);
+
+	
+	//cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
+	//				       				   _led_req[0], _led_req[1], _led_req[2], _led_req[3],
+	//				       				   _fb_idx, cmd.buf, sizeof(cmd.buf));
+    
+
 	//if (_pwm_on && _debug){
     if (_debug){
 		PX4_INFO("VOXL2_IO: Mixer outputs");
@@ -342,19 +327,6 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 					outputs[6], outputs[7], outputs[8], outputs[9], outputs[10], outputs[11], 
 					outputs[12], outputs[13], outputs[14], outputs[15], outputs[16], outputs[17]
 					);
-
-		// Debug messages for PWM 400Hz values sent to M0065
-		/*
-		uint16_t tics_1 = (_parameters.pwm_min +  (_pwm_fullscale * ((double)outputs[0]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("VOXL2_IO: \tPWM CH1: %hu::%uus::%u tics", outputs[0], tics_1/24, tics_1);
-		uint16_t tics_2 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[1]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("VOXL2_IO: \tPWM CH2: %u::%uus::%u tics", outputs[1], tics_2/24, tics_2);
-		uint16_t tics_3 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[2]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("VOXL2_IO: \tPWM CH3: %u::%uus::%u tics", outputs[2], tics_3/24, tics_3);
-		uint16_t tics_4 = (_parameters.pwm_min +  (_pwm_fullscale *((double)outputs[3]/VOXL2_IO_MIXER_MAX))) * VOXL2_IO_TICS;
-		PX4_INFO("VOXL2_IO: \tPWM CH4: %u::%uus::%u tics", outputs[3], tics_4/24, tics_4);
-		PX4_INFO("VOXL2_IO: ");
-		*/
 	}
 	
 	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -515,10 +487,10 @@ int Voxl2IO::parse_sbus_packet(uint8_t * raw_data, uint32_t data_len)
 		input_rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4IO_SBUS;
 		fill_rc_in(num_values, _raw_rc_values, t_now, sbus_frame_drop, sbus_failsafe, _sbus_frame_drops, -1, input_rc);
 		if (!input_rc.rc_lost && !input_rc.rc_failsafe) {
-			_rc_last_valid = input_rc.timestamp;
+			_rc_last_valid_time = input_rc.timestamp;
 		}
 
-		input_rc.timestamp_last_signal =_rc_last_valid;
+		input_rc.timestamp_last_signal =_rc_last_valid_time;
 		_rc_pub.publish(input_rc);
 
 		if (_rc_mode == RC_MODE::SCAN){
@@ -597,46 +569,6 @@ void Voxl2IO::Run()
 		update_params();
 	}
 
-	/* Don't process commands if pwm on */
-	if (!_pwm_on) {
-		if (_current_cmd.valid()) {
-			PX4_INFO("VOXL2_IO: sending %d commands with delay %dus",_current_cmd.repeats,_current_cmd.repeat_delay_us);
-			flush_uart_rx();
-
-			do {
-				PX4_INFO("VOXL2_IO: CMDs left %d",_current_cmd.repeats);
-				if (_uart_port->uart_write(_current_cmd.buf, _current_cmd.len) == _current_cmd.len) {
-					if (_current_cmd.repeats == 0) {
-						_current_cmd.clear();
-					}
-
-
-				} else {
-					_bytes_sent+=_current_cmd.len;
-					_packets_sent++;
-					if (_current_cmd.retries == 0) {
-						_current_cmd.clear();
-						PX4_ERR("VOXL2_IO: Failed to send command, errno: %i", errno);
-
-					} else {
-						_current_cmd.retries--;
-						PX4_ERR("VOXL2_IO: Failed to send command, errno: %i", errno);
-					}
-				}
-
-				px4_usleep(_current_cmd.repeat_delay_us);
-			} while (_current_cmd.repeats-- > 0);
-
-		} else {
-			Command *new_cmd = _pending_cmd.load();
-
-			if (new_cmd) {
-				_current_cmd = *new_cmd;
-				_pending_cmd.store(nullptr);
-			}
-		}
-	}
-
 	/* check at end of cycle (updateSubscriptions() can potentially change to a different WorkQueue thread) */
 	_mixing_output.updateSubscriptions(true);
 	perf_end(_cycle_perf);
@@ -703,72 +635,35 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 }
 
 
-bool Voxl2IO::stop_all_pwms()
-{
-	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	int16_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	uint8_t _fb_idx = 0;
-
-	Command cmd;
-	cmd.len = voxl2_io_create_pwm_packet4_fb(_rate_req[0], _rate_req[1], _rate_req[2], _rate_req[3],
-											_led_req[0], _led_req[1], _led_req[2], _led_req[3],
-											_fb_idx, cmd.buf, sizeof(cmd.buf));
-
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("VOXL2_IO: Failed to send packet");
-		return false;
-	} else {
-		_bytes_sent+=cmd.len;
-		_packets_sent++;
-	}
-
-	return true;
-}
-
-int Voxl2IO::send_cmd_thread_safe(Command *cmd)
-{
-	cmd->id = _cmd_id++;
-	_pending_cmd.store(cmd);
-
-	/* wait until main thread processed it */
-	while (_pending_cmd.load()) {
-		px4_usleep(1000);
-	}
-
-	return 0;
-}
-
 int Voxl2IO::calibrate_escs(){
 
-	/* Disable outputs so Mixer isn't being a PITA while we calibrate */
+	// Disable outputs so Mixer isn't being a PITA while we calibrate
 	_outputs_disabled = true;
 
 	Command cmd;
-	uint8_t data = 0;
-	int32_t fb_idx = -1;
 
-	/* Some legacy M0065 FW requires that we send this command in order to write PWM outputs to 0 (required to start cal process) */
-	cmd.len = voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_TUNE_CONFIG, &data, VOXL2_IO_ESC_CAL_SIZE, cmd.buf, sizeof(cmd.buf));
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-		PX4_ERR("VOXL2_IO: ESC Calibration failed: Failed to send PWM OFF packet");
-		_outputs_disabled = false;
-		return -1;
-	}
-
-	/* Give user 10 seconds to plug in PWM cable for ESCs */
+	// Give user 10 seconds to plug in PWM cable for ESCs
 	PX4_INFO("VOXL2_IO: Connect your ESCs! (Calibration will start in ~10 seconds)");
 	px4_usleep(10000000);
 
-	/* PWM MAX */
+	// PWM MAX
 	PX4_INFO("VOXL2_IO: Writing PWM MAX for 3 seconds!");
-	int16_t max_pwm[4]{VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX, VOXL2_IO_MIXER_MAX};
-	if (_debug) PX4_INFO("%i %i %i %i", max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3]);
-	int16_t led_cmd[4]{0,0,0,0};
-	cmd.len = voxl2_io_create_pwm_packet4_fb(max_pwm[0], max_pwm[1], max_pwm[2], max_pwm[3],
-											led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
-											fb_idx, cmd.buf, sizeof(cmd.buf));
+	uint32_t max_pwms[4];
+	uint32_t min_pwms[4];
+
+	for (int idx=0; idx<4; idx++)
+	{
+		max_pwms[idx] = _parameters.pwm_max*1000;
+		min_pwms[idx] = _parameters.pwm_min*1000;
+	}
+
+	if (_debug){
+		PX4_INFO("VOXL2_IO: Scaled max pwms: %u %u %u %u", max_pwms[0], max_pwms[1], max_pwms[2], max_pwms[3]);
+	}
+
+	cmd.len = voxl2_io_create_hires_pwm_packet(max_pwms, 4, cmd.buf, sizeof(cmd.buf));
 	
-	/* Send PWM max every 1ms for 3 seconds */
+	// Send PWM max every 5ms for 3 seconds
 	hrt_abstime start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 3000000){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -776,18 +671,17 @@ int Voxl2IO::calibrate_escs(){
 			_outputs_disabled = false;
 			return -1;
 		}
-		px4_usleep(1000);
+		px4_usleep(5000);
 	}
 
-	/* PWM MIN */
+	// PWM MIN
 	PX4_INFO("VOXL2_IO: Writing PWM MIN for 4 seconds!");
-	int16_t min_pwm[4]{VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN, VOXL2_IO_MIXER_MIN};
-	if (_debug) PX4_INFO("%i %i %i %i", min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3]);
-	cmd.len = voxl2_io_create_pwm_packet4_fb(min_pwm[0], min_pwm[1], min_pwm[2], min_pwm[3],
-											led_cmd[0], led_cmd[1], led_cmd[2], led_cmd[3],
-					 						fb_idx, cmd.buf, sizeof(cmd.buf));
+	if (_debug){
+		PX4_INFO("VOXL2_IO: Scaled min pwms: %u %u %u %u", min_pwms[0], min_pwms[1], min_pwms[2], min_pwms[3]);
+	}
+	cmd.len = voxl2_io_create_hires_pwm_packet(min_pwms, 4, cmd.buf, sizeof(cmd.buf));
 	
-	/* Send PWM min every 1ms for 4 seconds */
+	// Send PWM min every 5ms for 4 seconds
 	start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 4000000){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -795,7 +689,7 @@ int Voxl2IO::calibrate_escs(){
 			_outputs_disabled = false;
 			return -1;
 		}
-		px4_usleep(1000);
+		px4_usleep(5000);
 	}
 
 	PX4_INFO("VOXL2_IO: ESC Calibration complete");
@@ -805,38 +699,17 @@ int Voxl2IO::calibrate_escs(){
 
 int Voxl2IO::custom_command(int argc, char *argv[])
 {
-	int myoptind = 0;
-	int ch;
-	const char *myoptarg = nullptr;
-
-	Command  cmd;
-	uint8_t  output_channel   = 0xF;
-	int16_t  rate     = 0;
-
-	uint32_t repeat_count    = 100;
-	uint32_t repeat_delay_us = 10000;
-
 	const char *verb = argv[argc - 1];
-	if ((strcmp(verb,"pwm")) == 0 && argc < 3){
-		return print_usage("pwm command: missing args");
-	} else if (argc < 1) {
+	if (argc < 1) {
 		return print_usage("unknown command: missing args");
 	}
 	PX4_INFO("VOXL2_IO: Executing the following command: %s", verb);
 
-	/* start the FMU if not running */
+	/* start if not running */
 	if (!strcmp(verb, "start")) {
 		if (!is_running()) {
 			return Voxl2IO::task_spawn(argc, argv);
 		}
-	}
-
-	if (!strcmp(verb, "status")) {
-		if (!is_running()){
-			PX4_INFO("VOXL2_IO: Not running");
-			return -1;
-		}
-		return get_instance()->print_status();
 	}
 
 	if (!is_running()) {
@@ -844,6 +717,11 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 		return -1;
 	}
 
+	if (!strcmp(verb, "status")) {
+		return get_instance()->print_status();
+	}
+
+	
 	if (!strcmp(verb,"calibrate_escs")){
 		if (get_instance()->_outputs_disabled){
 			PX4_WARN("VOXL2_IO: Can't calibrate ESCs while outputs are disabled.");
@@ -852,120 +730,24 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 		return get_instance()->calibrate_escs();
 	}
 
-	while ((ch = px4_getopt(argc, argv, "c:n:t:r:p:", &myoptind, &myoptarg)) != EOF) {
-		switch (ch) {
-		case 'c':
-			output_channel = atoi(myoptarg);
-			if (output_channel > VOXL2_IO_OUTPUT_CHANNELS - 1){
-				char reason[50];
-				sprintf(reason, "Bad channel value: %d. Must be 0-%d.", output_channel, VOXL2_IO_OUTPUT_CHANNELS-1);
-				print_usage(reason);
-				return 0;
-			}
-			break;
-
-		case 'n':
-			repeat_count = atoi(myoptarg);
-
-			if (repeat_count < 1) {
-				print_usage("bad repeat_count");
-				return 0;
-			}
-			break;
-
-		case 't':
-			repeat_delay_us = atoi(myoptarg);
-
-			if (repeat_delay_us < 1) {
-				print_usage("bad repeat delay");
-				return 0;
-			} 
-			break;
-
-		case 'r':
-			rate = atoi(myoptarg);
-			break;
-
-		case 'p':
-			if (valid_port(atoi(myoptarg))){
-				snprintf(get_instance()->_device, 2, "%s", myoptarg);
-			} else {
-				PX4_ERR("VOXL2_IO: Bad UART port number: %s (must be 2, 6, or 7).", myoptarg);
-				return 0;
-			}
-			break;
-
-		default:
-			print_usage("Unknown command, parsing flags");
-			return 0;
-		}
-	}
-
-	if (!strcmp(verb, "pwm")) {
-		PX4_INFO("VOXL2_IO: Output channel: %i", output_channel);
-		PX4_INFO("VOXL2_IO: Repeat count: %i", repeat_count);
-		PX4_INFO("VOXL2_IO: Repeat delay (us): %i", repeat_delay_us);
-		PX4_INFO("VOXL2_IO: Rate: %i", rate);
-		if (output_channel < VOXL2_IO_OUTPUT_CHANNELS) {
-			PX4_INFO("VOXL2_IO: Request PWM for Output Channel: %i - PWM: %i", output_channel, rate);
-			int16_t rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-			uint8_t id_fb = 0;
-
-			if (output_channel == 0xFF) {  //WARNING: this condition is not possible due to check 'if (esc_id < MODAL_IO_OUTPUT_CHANNELS)'.
-				rate_req[0] = rate;
-				rate_req[1] = rate;
-				rate_req[2] = rate;
-				rate_req[3] = rate;
-
-			} else {
-				rate_req[output_channel] = rate;
-				id_fb = output_channel;
-			}
-
-			cmd.len = voxl2_io_create_pwm_packet4_fb(rate_req[0], rate_req[1], rate_req[2], rate_req[3],
-							       				   0, 0, 0, 0,
-							       				   id_fb, cmd.buf, sizeof(cmd.buf));
-
-			cmd.response        = false;
-			cmd.repeats         = repeat_count;
-			cmd.resp_delay_us   = 1000;
-			cmd.repeat_delay_us = repeat_delay_us;
-			cmd.print_feedback  = false;
-
-			PX4_INFO("VOXL2_IO: feedback id debug: %i", id_fb);
-			PX4_INFO("VOXL2_IO: Sending UART M0065 power command %i", rate);
-
-			if (get_instance()->_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
-				PX4_ERR("VOXL2_IO: Failed to send packet: stop PWMs");
-				return -1;
-			} else {
-				get_instance()->_bytes_sent+=cmd.len;
-				get_instance()->_packets_sent++;
-			}
-		} else {
-			print_usage("VOXL2_IO: Invalid Output Channel, use 0-3");
-			return 0;
-		}
-	}
-
 	return print_usage("unknown custom command");
 }
 
 int Voxl2IO::print_status()
 {
 	//PX4_INFO("VOXL2_IO: Max update rate: %u Hz", 1000000/_current_update_interval);
-	PX4_INFO("VOXL2_IO: PWM Rate: 400 Hz");	// Only support 400 Hz for now
+	//PX4_INFO("VOXL2_IO: PWM Rate: 400 Hz");	// Only support 400 Hz for now
 	PX4_INFO("VOXL2_IO: Outputs on: %s", _pwm_on ? "yes" : "no");
 	PX4_INFO("VOXL2_IO: SW version: %u", _version_info.sw_version);
-	PX4_INFO("VOXL2_IO: HW version: %u", _version_info.hw_version);
+	PX4_INFO("VOXL2_IO: HW version: %u: %s", _version_info.hw_version, board_id_to_name(_version_info.hw_version).c_str());
 	PX4_INFO("VOXL2_IO: RC Type: SBUS");		// Only support SBUS through M0065 for now 
-	PX4_INFO("VOXL2_IO: RC Connected: %s", hrt_absolute_time() - _rc_last_valid > 500000 ? "no" : "yes");
+	PX4_INFO("VOXL2_IO: RC Connected: %s", hrt_absolute_time() - _rc_last_valid_time > 500000 ? "no" : "yes");
 	PX4_INFO("VOXL2_IO: RC Packets Received: %" PRIu16, _sbus_total_frames);
 	PX4_INFO("VOXL2_IO: UART port: %s", _device);
 	PX4_INFO("VOXL2_IO: UART open: %s", _uart_port->is_open() ? "yes" : "no");
 	PX4_INFO("VOXL2_IO: Packets sent: %" PRIu32, _packets_sent);
 	PX4_INFO("VOXL2_IO: ");
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD: %" PRId32, _parameters.baud_rate);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD: %"  PRId32, _parameters.baud_rate);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC1: %" PRId32, _parameters.function_map[0]);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2: %" PRId32, _parameters.function_map[1]);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3: %" PRId32, _parameters.function_map[2]);
@@ -1000,12 +782,6 @@ px4io driver is used for main ones.
 	PRINT_MODULE_USAGE_PARAM_FLAG('e', "Disable RC", false);
 	PRINT_MODULE_USAGE_PARAM_INT('p', 2, 2, 7, "UART port", false);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("calibrate_escs", "Calibrate ESCs min/max range");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("calibrate_escs", "Calibrate ESCs min/max range");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("pwm", "Open-Loop PWM test control request");
-	PRINT_MODULE_USAGE_PARAM_INT('c', 0, 0, 3, "PWM OUTPUT Channel, 0-3", false);
-	PRINT_MODULE_USAGE_PARAM_INT('r', 0, 0, 800, "Duty Cycle value, 0 to 800", false);
-	PRINT_MODULE_USAGE_PARAM_INT('n', 100, 0, 1<<31, "Command repeat count, 0 to INT_MAX", false);
-	PRINT_MODULE_USAGE_PARAM_INT('t', 10000, 0, 1<<31, "Delay between repeated commands (microseconds), 0 to INT_MAX", false);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
