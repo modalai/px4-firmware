@@ -118,12 +118,14 @@ private:
 	
 	/* PWM Parameters */	
 	static constexpr uint32_t VOXL2_IO_DEFAULT_BAUD = 921600;
-	static constexpr uint16_t VOXL2_IO_OUTPUT_CHANNELS = 4;
+	static constexpr uint16_t VOXL2_IO_OUTPUT_CHANNELS = 8;
 	static constexpr uint16_t VOXL2_IO_MIXER_FAILSAFE = 0;
 
 	/* SBUS */
 	static constexpr uint16_t VOXL2_IO_SBUS_FRAME_SIZE = 30;
 	static constexpr uint16_t SBUS_PAYLOAD = 3;
+
+	//static constexpr uint32_t PACKET_PULSE_RESOLUTION = 1000;
 
 	/* M0065 version info */
 	static constexpr uint16_t VOXL2_IO_SW_VERSION = 2;
@@ -142,7 +144,7 @@ private:
 		//int32_t		pwm_failsafe{VOXL2_IO_DEFAULT_FAILSAFE};
 		//int32_t 	param_rc_input_proto{0};
 		int32_t		param_rc_rssi_pwm_chan{0};
-		int32_t		function_map[VOXL2_IO_OUTPUT_CHANNELS] {0, 0, 0, 0};
+		int32_t		function_map[VOXL2_IO_OUTPUT_CHANNELS] {0, 0, 0, 0, 0, 0, 0, 0};
 		int32_t		verbose_logging{0};
 	} voxl2_io_params_t;
 	voxl2_io_params_t	_parameters;
