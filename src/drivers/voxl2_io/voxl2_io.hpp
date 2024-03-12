@@ -141,6 +141,8 @@ private:
 		int32_t		pwm_min{0};
 		int32_t		pwm_max{0};
 		int32_t     pwm_dis{0};
+		int32_t     pwm_cal_min{0};
+		int32_t     pwm_cal_max{0};
 		//int32_t		pwm_failsafe{VOXL2_IO_DEFAULT_FAILSAFE};
 		//int32_t 	param_rc_input_proto{0};
 		int32_t		param_rc_rssi_pwm_chan{0};

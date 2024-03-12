@@ -65,7 +65,7 @@ PARAM_DEFINE_INT32(VOXL2_IO_DIS, 1000);
  * @unit us
  */
 
-PARAM_DEFINE_INT32(VOXL2_IO_MIN, 1050);
+PARAM_DEFINE_INT32(VOXL2_IO_MIN, 1100);
 
 /**
  * VOXL2_IO Max PWM
@@ -77,3 +77,28 @@ PARAM_DEFINE_INT32(VOXL2_IO_MIN, 1050);
  * @unit us
  */
 PARAM_DEFINE_INT32(VOXL2_IO_MAX, 2000);
+
+
+/**
+ * VOXL2_IO Calibration Min PWM
+ *
+ * Minimum duration (microseconds) for VOXL2_IO board
+ *
+ * @min 0
+ * @max 2000
+ * @group VOXL2 IO
+ * @unit us
+ */
+
+PARAM_DEFINE_INT32(VOXL2_IO_CMIN, 1050);
+
+/**
+ * VOXL2_IO Calibration Max PWM
+ *
+ * Maximum duration (microseconds) for VOXL2_IO board
+ * @min 0
+ * @max 2000
+ * @group VOXL2 IO
+ * @unit us
+ */
+PARAM_DEFINE_INT32(VOXL2_IO_CMAX, 2000);
