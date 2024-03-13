@@ -33,8 +33,6 @@
 
 #include "voxl2_io.hpp"
 
-#include <px4_platform_common/sem.hpp>
-
 
 Voxl2IO::Voxl2IO() :
 	OutputModuleInterface(MODULE_NAME, px4::serial_port_to_wq(VOXL2_IO_DEFAULT_PORT)),
@@ -59,7 +57,6 @@ Voxl2IO::~Voxl2IO()
 	perf_free(_output_update_perf);
 }
 
-
 int Voxl2IO::init()
 {
 	PX4_INFO("VOXL2_IO: Driver starting");
@@ -74,21 +71,7 @@ int Voxl2IO::init()
 	}
 
 	// Print initial param values
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD    : %" PRId32, _parameters.baud_rate);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC1   : %" PRId32, _parameters.function_map[0]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2   : %" PRId32, _parameters.function_map[1]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3   : %" PRId32, _parameters.function_map[2]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC4   : %" PRId32, _parameters.function_map[3]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC5   : %" PRId32, _parameters.function_map[4]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC6   : %" PRId32, _parameters.function_map[5]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC7   : %" PRId32, _parameters.function_map[6]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC8   : %" PRId32, _parameters.function_map[7]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_DIS : %" PRId32, _parameters.pwm_dis);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_MIN : %" PRId32, _parameters.pwm_min);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_MAX : %" PRId32, _parameters.pwm_max);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CAL_MIN : %" PRId32, _parameters.pwm_cal_min);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CAL_MAX : %" PRId32, _parameters.pwm_cal_max);
-
+	print_params();
 
 	PX4_INFO("VOXL2_IO: ");
 	
@@ -114,8 +97,6 @@ int Voxl2IO::init()
 		}
 		return -1;
 	}
-
-	//_debug = true;
 	
 	//ScheduleOnInterval(_current_update_interval); 
 	ScheduleNow();
@@ -224,7 +205,7 @@ int Voxl2IO::get_version_info()
 				if (parse_ret > 0) {
 					hrt_abstime response_time = hrt_elapsed_time(&t_request);
 					//PX4_INFO("got packet of length %i",ret);
-					//_rx_packet_count++;
+					_packets_received++;
 					uint8_t packet_type = voxl2_io_packet_get_type(&_voxl2_io_packet);
 					uint8_t packet_size = voxl2_io_packet_get_size(&_voxl2_io_packet);
 
@@ -234,7 +215,6 @@ int Voxl2IO::get_version_info()
 						
 						PX4_INFO("VOXL2_IO: \tVOXL2_IO ID: %i", ver.id);
 						PX4_INFO("VOXL2_IO: \tBoard Type : %i: %s", ver.hw_version, board_id_to_name(ver.hw_version).c_str());
-						//PX4_INFO("VOXL2_IO: \tBoard Type : %i", ver.hw_version;
 
 						uint8_t *u = &ver.unique_id[0];
 						PX4_INFO("VOXL2_IO: \tUnique ID  : 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
@@ -314,13 +294,10 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 
 		//Do we even need this condition? mixer should handle stopping motors anyway by sending the disable command, right?
 		if (0){ //(!_pwm_on || stop_motors) {
-			output_cmds[i] = _parameters.pwm_dis * 1000; //0; //convert to ns
+			output_cmds[i] = _parameters.pwm_dis * MIXER_OUTPUT_TO_CMD_SCALE; //0; //convert to ns
 		} else {
-			output_cmds[i] = ((uint32_t)outputs[i]) * 1000;  //convert to ns
+			output_cmds[i] = ((uint32_t)outputs[i]) * MIXER_OUTPUT_TO_CMD_SCALE;  //convert to ns
 		}
-
-		//testing!!!
-		//output_cmds[i] = (1000 + 100*i) * 1000;  //ns
 	}
 
 	Command cmd;
@@ -411,6 +388,8 @@ void Voxl2IO::fill_rc_in(uint16_t raw_rc_count_local,
 		    unsigned frame_drops, int rssi, input_rc_s &input_rc)
 {
 	// fill rc_in struct for publishing
+	memset(&input_rc, 0, sizeof(input_rc));  //zero out the struct first
+
 	input_rc.channel_count = raw_rc_count_local;
 
 	if (input_rc.channel_count > input_rc_s::RC_INPUT_MAX_CHANNELS) {
@@ -498,7 +477,7 @@ int Voxl2IO::parse_sbus_packet(uint8_t * raw_data, uint32_t data_len)
 		_rc_pub.publish(input_rc);
 
 		if (_rc_mode == RC_MODE::SCAN){
-			PX4_INFO("VOXL2_IO: Found M0065 SBUS RC.");
+			PX4_INFO("VOXL2_IO: Detected VOXL2 IO SBUS RC");
 			_rc_mode = RC_MODE::SBUS;
 		}
 	}
@@ -649,37 +628,35 @@ int Voxl2IO::calibrate_escs(){
 	PX4_INFO("VOXL2_IO: PWM ESC calibration is starting!");
 
 	// Give user 10 seconds to plug in PWM cable for ESCs
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CAL_MIN : %" PRId32, _parameters.pwm_cal_min);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CAL_MAX : %" PRId32, _parameters.pwm_cal_max);
-
+	PX4_INFO("VOXL2_IO: MIN PWM used for ESC Calibration : %" PRId32, _parameters.pwm_cal_min);
+	PX4_INFO("VOXL2_IO: MAX PWM used for ESC Calibration : %" PRId32, _parameters.pwm_cal_max);
+	PX4_INFO("VOXL2_IO:");
 	PX4_INFO("VOXL2_IO: Connect your ESCs! (Calibration will start in ~10 seconds)");
+
 	px4_usleep(10000000);
 
-	//uint32_t dis_pwms[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
-	uint32_t max_pwms[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
-	uint32_t min_pwms[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
+	uint32_t max_pwm_cmds[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
+	uint32_t min_pwm_cmds[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-	for (int idx=0; idx<VOXL2_IO_OUTPUT_CHANNELS; idx++)
-	{
+	for (int idx=0; idx<VOXL2_IO_OUTPUT_CHANNELS; idx++){
 		//only send out calibration pulse if the actuator is a motor
 		if ( (_parameters.function_map[idx]>=101) && (_parameters.function_map[idx]<=112) ){
-			//dis_pwms[idx] = _parameters.pwm_min*1000;
-			max_pwms[idx] = _parameters.pwm_cal_max*1000;
-			min_pwms[idx] = _parameters.pwm_cal_min*1000;
+			max_pwm_cmds[idx] = _parameters.pwm_cal_max*MIXER_OUTPUT_TO_CMD_SCALE;
+			min_pwm_cmds[idx] = _parameters.pwm_cal_min*MIXER_OUTPUT_TO_CMD_SCALE;
 		}
 	}
 
 	if (_debug){
 		PX4_INFO("VOXL2_IO: Scaled max pwms: %u %u %u %u %u %u %u %u", 
-			max_pwms[0], max_pwms[1], max_pwms[2], max_pwms[3],
-			max_pwms[4], max_pwms[5], max_pwms[6], max_pwms[7]);
+			max_pwm_cmds[0], max_pwm_cmds[1], max_pwm_cmds[2], max_pwm_cmds[3],
+			max_pwm_cmds[4], max_pwm_cmds[5], max_pwm_cmds[6], max_pwm_cmds[7]);
 	}
 
 	hrt_abstime start;
 
-	// Send PWM max every 5ms for 3 seconds
-	PX4_INFO("VOXL2_IO: Writing PWM MAX (%dus) for 5 seconds!",_parameters.pwm_cal_max);
-	cmd.len = voxl2_io_create_hires_pwm_packet(max_pwms, VOXL2_IO_OUTPUT_CHANNELS, cmd.buf, sizeof(cmd.buf));
+	// Send PWM max every 2.5ms for 5 seconds
+	PX4_INFO("VOXL2_IO: Sending PWM MAX (%dus) for 5 seconds!",_parameters.pwm_cal_max);
+	cmd.len = voxl2_io_create_hires_pwm_packet(max_pwm_cmds, VOXL2_IO_OUTPUT_CHANNELS, cmd.buf, sizeof(cmd.buf));
 	start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 5000000){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -690,16 +667,16 @@ int Voxl2IO::calibrate_escs(){
 		px4_usleep(2500);
 	}
 
-	// PWM MIN
-	PX4_INFO("VOXL2_IO: Writing PWM MIN (%dus) for 5 seconds!",_parameters.pwm_cal_min);
+	// Send PWM min every 2.5ms for 5 seconds
+	PX4_INFO("VOXL2_IO: Sending PWM MIN (%dus) for 5 seconds!",_parameters.pwm_cal_min);
 	if (_debug){
 		PX4_INFO("VOXL2_IO: Scaled min pwms: %u %u %u %u %u %u %u %u",
-			min_pwms[0], min_pwms[1], min_pwms[2], min_pwms[3],
-			min_pwms[4], min_pwms[5], min_pwms[6], min_pwms[7]);
+			min_pwm_cmds[0], min_pwm_cmds[1], min_pwm_cmds[2], min_pwm_cmds[3],
+			min_pwm_cmds[4], min_pwm_cmds[5], min_pwm_cmds[6], min_pwm_cmds[7]);
 	}
-	cmd.len = voxl2_io_create_hires_pwm_packet(min_pwms, VOXL2_IO_OUTPUT_CHANNELS, cmd.buf, sizeof(cmd.buf));
+	cmd.len = voxl2_io_create_hires_pwm_packet(min_pwm_cmds, VOXL2_IO_OUTPUT_CHANNELS, cmd.buf, sizeof(cmd.buf));
 	
-	// Send PWM min every 5ms for 4 seconds
+	
 	start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 5000000){
 		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
@@ -771,21 +748,8 @@ int Voxl2IO::print_status()
 	PX4_INFO("VOXL2_IO: UART open      : %s", _uart_port->is_open() ? "yes" : "no");
 	PX4_INFO("VOXL2_IO: Packets sent   : %"    PRIu32, _packets_sent);
 	PX4_INFO("VOXL2_IO: ");
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD    : %" PRId32, _parameters.baud_rate);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC1   : %" PRId32, _parameters.function_map[0]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2   : %" PRId32, _parameters.function_map[1]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3   : %" PRId32, _parameters.function_map[2]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC4   : %" PRId32, _parameters.function_map[3]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC5   : %" PRId32, _parameters.function_map[4]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC6   : %" PRId32, _parameters.function_map[5]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC7   : %" PRId32, _parameters.function_map[6]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC8   : %" PRId32, _parameters.function_map[7]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_DIS : %" PRId32, _parameters.pwm_dis);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_MIN : %" PRId32, _parameters.pwm_min);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_PWM_MAX : %" PRId32, _parameters.pwm_max);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CAL_MIN : %" PRId32, _parameters.pwm_cal_min);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CAL_MAX : %" PRId32, _parameters.pwm_cal_max);
-
+	print_params();
+	
 	perf_print_counter(_cycle_perf);
 	perf_print_counter(_output_update_perf);
 	PX4_INFO("");
@@ -837,6 +801,24 @@ std::string Voxl2IO::board_id_to_name(int board_id)
 		case 42: return std::string("ModalAi 4-in-1 ESC (M0138-1)");
 		default: return std::string("Unknown Board");
 	}
+}
+
+void Voxl2IO::print_params()
+{
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_BAUD  : %" PRId32, _parameters.baud_rate);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC1 : %" PRId32, _parameters.function_map[0]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC2 : %" PRId32, _parameters.function_map[1]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC3 : %" PRId32, _parameters.function_map[2]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC4 : %" PRId32, _parameters.function_map[3]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC5 : %" PRId32, _parameters.function_map[4]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC6 : %" PRId32, _parameters.function_map[5]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC7 : %" PRId32, _parameters.function_map[6]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC8 : %" PRId32, _parameters.function_map[7]);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_DIS   : %" PRId32, _parameters.pwm_dis);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_MIN   : %" PRId32, _parameters.pwm_min);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_MAX   : %" PRId32, _parameters.pwm_max);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CMIN  : %" PRId32, _parameters.pwm_cal_min);
+	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CMAX  : %" PRId32, _parameters.pwm_cal_max);
 }
 
 extern "C" __EXPORT int voxl2_io_main(int argc, char *argv[]);

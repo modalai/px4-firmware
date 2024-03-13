@@ -88,6 +88,7 @@ public:
 	virtual int	init();
 
 	int get_version_info();
+	void print_params();
 			   
 	struct Command {
 		uint16_t	id                 = 0;
@@ -117,15 +118,17 @@ private:
 	void Run() override;
 	
 	/* PWM Parameters */	
-	static constexpr uint32_t VOXL2_IO_DEFAULT_BAUD = 921600;
+	static constexpr uint32_t VOXL2_IO_DEFAULT_BAUD    = 921600;
 	static constexpr uint16_t VOXL2_IO_OUTPUT_CHANNELS = 8;
-	static constexpr uint16_t VOXL2_IO_MIXER_FAILSAFE = 0;
+	static constexpr uint16_t VOXL2_IO_MIXER_FAILSAFE  = UINT16_MAX; //this will tell mixer to use the default failsafe depending on the function
 
 	/* SBUS */
 	static constexpr uint16_t VOXL2_IO_SBUS_FRAME_SIZE = 30;
 	static constexpr uint16_t SBUS_PAYLOAD = 3;
 
-	//static constexpr uint32_t PACKET_PULSE_RESOLUTION = 1000;
+    //packet packing function accepts pulse width in nanoseconds
+    //assuming the mixer outputs in microseconds, need to convert
+	static constexpr uint32_t MIXER_OUTPUT_TO_CMD_SCALE = 1000;
 
 	/* M0065 version info */
 	static constexpr uint16_t VOXL2_IO_SW_VERSION = 2;
