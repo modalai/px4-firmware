@@ -128,7 +128,8 @@ private:
 
     //packet packing function accepts pulse width in nanoseconds
     //assuming the mixer outputs in microseconds, need to convert
-	static constexpr uint32_t MIXER_OUTPUT_TO_CMD_SCALE = 1000;
+	static constexpr uint32_t MIXER_OUTPUT_TO_CMD_SCALE = 1000;  //standard pwm
+	//static constexpr uint32_t MIXER_OUTPUT_TO_CMD_SCALE = 125;   //oneshot125
 
 	/* M0065 version info */
 	static constexpr uint16_t VOXL2_IO_SW_VERSION = 2;

@@ -153,9 +153,9 @@ int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2,
 typedef struct
 {
   uint8_t  command_type;
-  uint8_t  channel_offset;
+  //uint8_t  channel_offset;
   uint16_t vals[8]; //could be 1,2,4,6,8
-} pwm_hires_cmd_t;
+} __attribute__((__packed__)) pwm_hires_cmd_t;
 
 pwm_hires_cmd_t hires_cmd;
 
@@ -165,7 +165,7 @@ int32_t voxl2_io_create_hires_pwm_packet(uint32_t * pwm_val_ns, uint32_t cmd_cnt
     return -1;
 
   hires_cmd.command_type   = 0;
-  hires_cmd.channel_offset = 0;
+  //hires_cmd.channel_offset = 0;
 
   //resolution of commands in the packet is 0.05us = 50ns
   for (uint32_t idx=0; idx<cmd_cnt; idx++)
@@ -173,7 +173,7 @@ int32_t voxl2_io_create_hires_pwm_packet(uint32_t * pwm_val_ns, uint32_t cmd_cnt
   	hires_cmd.vals[idx] = pwm_val_ns[idx] / 50;
   }
 
-  return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_PWM_HIRES_CMD, (uint8_t *) &hires_cmd, (cmd_cnt*2+2), out, out_size);
+  return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_PWM_HIRES_CMD, (uint8_t *) &hires_cmd, (cmd_cnt*2+1), out, out_size);
 }
 
 int32_t voxl2_io_create_packet(uint8_t type, uint8_t *data, uint16_t size, uint8_t *out, uint16_t out_size)
