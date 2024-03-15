@@ -44,14 +44,16 @@
 #include <drivers/drv_hrt.h>
 
 #include "msp_defines.h"
-#include "MspV1.hpp"
+#include "MspDPV1.hpp"
 
-MspV1::MspV1(int fd) :
+#include <px4_platform_common/log.h>
+
+MspDPV1::MspDPV1(int fd) :
 	_fd(fd)
 {
 }
 
-int MspV1::GetMessageSize(int message_type)
+int MspDPV1::GetMessageSize(int message_type)
 {
 	return 0;
 }
@@ -62,12 +64,13 @@ struct msp_message_descriptor_t {
 	uint8_t message_size;
 };
 
-#define MSP_DESCRIPTOR_COUNT 11
+// #define MSP_DESCRIPTOR_COUNT 11
+#define MSP_DESCRIPTOR_COUNT 16
 const msp_message_descriptor_t msp_message_descriptors[MSP_DESCRIPTOR_COUNT] = {
 	{MSP_OSD_CONFIG, true, sizeof(msp_osd_config_t)},
 	{MSP_NAME, true, sizeof(msp_name_t)},
 	{MSP_ANALOG, true, sizeof(msp_analog_t)},
-	{MSP_STATUS, true, sizeof(msp_status_BF_t)},
+	{MSP_STATUS, true, sizeof(msp_status_HDZ_t)},
 	{MSP_BATTERY_STATE, true, sizeof(msp_battery_state_t)},
 	{MSP_RAW_GPS, true, sizeof(msp_raw_gps_t)},
 	{MSP_ATTITUDE, true, sizeof(msp_attitude_t)},
@@ -75,11 +78,16 @@ const msp_message_descriptor_t msp_message_descriptors[MSP_DESCRIPTOR_COUNT] = {
 	{MSP_COMP_GPS, true, sizeof(msp_comp_gps_t)},
 	{MSP_ESC_SENSOR_DATA, true, sizeof(msp_esc_sensor_data_dji_t)},
 	{MSP_MOTOR_TELEMETRY, true, sizeof(msp_motor_telemetry_t)},
+	{MSP_RC, true, sizeof(msp_rc_t)},
+	{MSP_SET_OSD_CANVAS, true, sizeof(msp_osd_canvas_t)},
+	{MSP_FC_VARIANT, true, sizeof(msp_fc_variant_t)},
+	{MSP_VTX_CONFIG, true, sizeof(msp_vtx_config_t)},
+	{MSP_CMD_DISPLAYPORT, false, sizeof(msp_osd_dp_cmd_t)},
 };
 
 #define MSP_FRAME_START_SIZE 5
 #define MSP_CRC_SIZE 1
-bool MspV1::Send(const uint8_t message_id, const void *payload)
+bool MspDPV1::Send(const uint8_t message_id, const void *payload, mspDirection_e direction)
 {
 	uint32_t payload_size = 0;
 
@@ -91,23 +99,43 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 			break;
 		}
 	}
-
+	
 	if (!desc) {
 		return false;
 	}
 
+	// need to handle different size Displayport commands
 	if (!desc->fixed_size) {
-		return false;
+		if (desc->message_id ==  MSP_CMD_DISPLAYPORT){
+			uint8_t subcmd[1]{0};
+			memcpy(subcmd, payload, 1);
+			// PX4_INFO("DP SUBCMD: %u", subcmd[0]);
+			if (subcmd[0] == MSP_DP_DRAW_SCREEN){
+				payload_size = 1;
+			} else if(subcmd[0] == MSP_DP_WRITE_STRING){	// Case when we write string.. payload size may vary 
+				payload_size+=sizeof(msp_osd_dp_cmd_t);
+				char dp_payload[sizeof(msp_osd_dp_cmd_t)+MSP_OSD_MAX_STRING_LENGTH];
+				memcpy(dp_payload, payload, sizeof(dp_payload));
+				// Find length of string in input (may not be whole array)
+				for (int i=0;i<MSP_OSD_MAX_STRING_LENGTH;++i){
+					if(dp_payload[MSP_OSD_DP_WRITE_PAYLOAD + i] == '\0') break;
+					payload_size++;
+				}
+			} else {
+				payload_size = desc->message_size;
+			}
+		} 
+	} else {
+		payload_size = desc->message_size;
 	}
-
-	payload_size = desc->message_size;
 
 	uint8_t packet[MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE];
 	uint8_t crc;
 
 	packet[0] = '$';
 	packet[1] = 'M';
-	packet[2] = '<';
+	// packet[2] = '<'; 
+	packet[2] = direction ? MSP_CMD : MSP_REPLY;	// HDZero VTX firmware only supports 'replies'...
 	packet[3] = payload_size;
 	packet[4] = message_id;
 
@@ -122,5 +150,6 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 	packet[MSP_FRAME_START_SIZE + payload_size] = crc;
 
 	int packet_size =  MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE;
+
 	return  write(_fd, packet, packet_size) == packet_size;
 }

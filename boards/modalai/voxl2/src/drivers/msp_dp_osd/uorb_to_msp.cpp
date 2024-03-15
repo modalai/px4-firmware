@@ -47,7 +47,7 @@ using namespace time_literals;
 
 #include "uorb_to_msp.hpp"
 
-namespace msp_osd
+namespace msp_dp_osd
 {
 
 msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
@@ -169,6 +169,7 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 
 	// display, if updated
 	if (log_message.severity <= log_level) {
+		// warn_to_upper(log_message.text);
 		display.set(MessageDisplayType::WARNING, log_message.text);
 		last_warning_stamp = now;
 
@@ -231,232 +232,115 @@ msp_fc_variant_t construct_FC_VARIANT()
 	return variant;
 }
 
-msp_status_BF_t construct_STATUS(const vehicle_status_s &vehicle_status)
-{
-	// initialize result
-	msp_status_BF_t status_BF = {0};
+// New code for HDZero VTX
+
+msp_vtx_config_t construct_vtx_config(){
+	msp_vtx_config_t vtx_config {0};
+
+	vtx_config.protocol = 5; 		// MSP
+	vtx_config.band 	= 5; 		// BAND 5
+	vtx_config.channel 	= 1; 		// CHANNEL 1
+	// vtx_config.channel 	= 2; 		// CHANNEL 2
+	vtx_config.power 	= 1; 		// POWER LEVEL 1 -> 25mW
+	vtx_config.pit	 	= 0; 		// PIT MODE OFF
+	vtx_config.freq 	= 0x161A;	// 5865 MHz
+
+	return vtx_config;
+}
+
+msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status){
+	msp_status_HDZ_t status_HDZ = {0};
 
 	if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-		status_BF.flight_mode_flags |= ARM_ACRO_BF;
-
-		switch (vehicle_status.nav_state) {
-		case vehicle_status_s::NAVIGATION_STATE_MANUAL:
-			status_BF.flight_mode_flags |= 0;
-			break;
-
-		case vehicle_status_s::NAVIGATION_STATE_ACRO:
-			status_BF.flight_mode_flags |= 0;
-			break;
-
-		case vehicle_status_s::NAVIGATION_STATE_STAB:
-			status_BF.flight_mode_flags |= STAB_BF;
-			break;
-
-		case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
-			status_BF.flight_mode_flags |= RESC_BF;
-			break;
-
-		case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
-			status_BF.flight_mode_flags |= FS_BF;
-			break;
-
-		default:
-			status_BF.flight_mode_flags |= 0;
-			break;
-		}
+		status_HDZ.armed = 0x01;
 	}
 
-	status_BF.arming_disable_flags_count = 1;
-	status_BF.arming_disable_flags  = !(vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
-	return status_BF;
+	status_HDZ.arming_disable_flags_count = 1;
+	status_HDZ.arming_disable_flags  = !(vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
+	return status_HDZ;
 }
 
-msp_analog_t construct_ANALOG(const battery_status_s &battery_status, const input_rc_s &input_rc)
+msp_rc_t construct_RC(const input_rc_s &input_rc){
+	msp_rc_t msp_rc{0};
+	
+	for (int i=0; i < MSP_MAX_SUPPORTED_CHANNELS; ++i){
+		msp_rc.channelValue[i] = input_rc.values[i];
+	}
+	uint16_t throttle_swap{msp_rc.channelValue[2]};
+	msp_rc.channelValue[2] = msp_rc.channelValue[3];	// Ch3 throttle -> yaw
+	msp_rc.channelValue[3] = throttle_swap;				// Ch4 yaw -> throttle
+	return msp_rc;
+}
+
+msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
+	msp_osd_canvas_t msp_canvas{0};
+
+	// HD
+	if (row > 49) row = 49;
+	if (col > 17) col = 17;
+	msp_canvas.row_max = row;
+	msp_canvas.col_max = col;
+
+	// msp_canvas.row_max = HD_ROW_MAX;
+	// msp_canvas.col_max = HD_COL_MAX;
+
+	// SD
+	// msp_canvas.row_max = SD_COL_MAX;
+	// msp_canvas.col_max = SD_ROW_MAX;
+
+	return msp_canvas;
+}
+
+// Construct a HDZero OSD heartbeat command
+displayportMspCommand_e construct_OSD_heartbeat(){
+	return MSP_DP_HEARTBEAT;
+}
+
+// Construct a HDZero OSD release command
+displayportMspCommand_e construct_OSD_release(){
+	return MSP_DP_RELEASE;
+}
+
+// Construct a HDZero OSD clear command
+displayportMspCommand_e construct_OSD_clear(){
+	return MSP_DP_CLEAR_SCREEN;
+}
+
+// Construct a HDZero OSD write command into an output buffer given location, string, and # bytes to write 
+// WARNING: If input string has lowercase chars, they may be interpreted as symbols!
+uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len)
 {
-	// initialize result
-	msp_analog_t analog {0};
-
-	analog.vbat = battery_status.voltage_v * 10; // bottom right... v * 10
-	analog.rssi = (uint16_t)((input_rc.link_quality * 1023.0f) / 100.0f);
-	analog.amperage = battery_status.current_a * 100; // main amperage
-	analog.mAhDrawn = battery_status.discharged_mah; // unused
-	return analog;
+	msp_osd_dp_cmd_t msp_osd_dp_cmd;
+	int str_len = strlen(string);
+    if (str_len > MSP_OSD_MAX_STRING_LENGTH) str_len = MSP_OSD_MAX_STRING_LENGTH;
+	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
+	msp_osd_dp_cmd.row = row;
+	msp_osd_dp_cmd.col = col;
+	msp_osd_dp_cmd.attr = blink ? msp_osd_dp_cmd.attr | DISPLAYPORT_MSP_ATTR_BLINK : 0;	// Blink doesn't work with HDZero Freestyle V2 VTX
+	memcpy(output, &msp_osd_dp_cmd, sizeof(msp_osd_dp_cmd));
+	memcpy(&output[MSP_OSD_DP_WRITE_PAYLOAD], string, str_len);
+	return 0;
 }
 
-msp_battery_state_t construct_BATTERY_STATE(const battery_status_s &battery_status)
-{
-	// initialize result
-	msp_battery_state_t battery_state = {0};
-
-	// MSP_BATTERY_STATE
-	battery_state.amperage = battery_status.current_a * 100.0f; // Used for power element
-	battery_state.batteryVoltage = (uint16_t)((battery_status.voltage_v / battery_status.cell_count) * 400.0f);  // OK
-	battery_state.mAhDrawn = battery_status.discharged_mah ; // OK
-	battery_state.batteryCellCount = battery_status.cell_count;
-	battery_state.batteryCapacity = battery_status.capacity; // not used?
-
-	// Voltage color 0==white, 1==red
-	if (battery_status.voltage_v < 14.4f) {
-		battery_state.batteryState = 1;
-
-	} else {
-		battery_state.batteryState = 0;
-	}
-
-	battery_state.legacyBatteryVoltage = battery_status.voltage_v * 10;
-	return battery_state;
+// Construct a HDZero OSD draw command
+displayportMspCommand_e construct_OSD_draw(){
+	return MSP_DP_DRAW_SCREEN;
 }
 
-msp_raw_gps_t construct_RAW_GPS(const sensor_gps_s &vehicle_gps_position,
-				const airspeed_validated_s &airspeed_validated)
-{
-	// initialize result
-	msp_raw_gps_t raw_gps {0};
-
-	if (vehicle_gps_position.fix_type >= 2) {
-		raw_gps.lat = vehicle_gps_position.lat;
-		raw_gps.lon = vehicle_gps_position.lon;
-		raw_gps.alt =  vehicle_gps_position.alt / 10;
-
-		float course = math::degrees(vehicle_gps_position.cog_rad);
-
-		if (course < 0) {
-			course += 360.0f;
-		}
-
-		raw_gps.groundCourse = course * 100.0f; // centidegrees
-
-	} else {
-		raw_gps.lat = 0;
-		raw_gps.lon = 0;
-		raw_gps.alt = 0;
-		raw_gps.groundCourse = 0; // centidegrees
-	}
-
-	raw_gps.groundCourse = 0; // centidegrees
-
-	if (vehicle_gps_position.fix_type == 0
-	    || vehicle_gps_position.fix_type == 1) {
-		raw_gps.fixType = MSP_GPS_NO_FIX;
-
-	} else if (vehicle_gps_position.fix_type == 2) {
-		raw_gps.fixType = MSP_GPS_FIX_2D;
-
-	} else if (vehicle_gps_position.fix_type >= 3 && vehicle_gps_position.fix_type <= 5) {
-		raw_gps.fixType = MSP_GPS_FIX_3D;
-
-	} else {
-		raw_gps.fixType = MSP_GPS_NO_FIX;
-	}
-
-	//raw_gps.hdop = vehicle_gps_position_struct.hdop
-	raw_gps.numSat = vehicle_gps_position.satellites_used;
-
-	if (airspeed_validated.airspeed_sensor_measurement_valid
-	    && PX4_ISFINITE(airspeed_validated.indicated_airspeed_m_s)
-	    && airspeed_validated.indicated_airspeed_m_s > 0) {
-		raw_gps.groundSpeed = airspeed_validated.indicated_airspeed_m_s * 100;
-
-	} else {
-		raw_gps.groundSpeed = 0;
-	}
-
-	return raw_gps;
+// Construct a HDZero OSD config command
+msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType){
+	msp_osd_dp_config_t msp_osd_dp_config;
+	msp_osd_dp_config.subcmd     = MSP_DP_CONFIG;
+	msp_osd_dp_config.fontType   = fontType;
+	msp_osd_dp_config.resolution = resolution;
+	return msp_osd_dp_config;
 }
 
-msp_comp_gps_t construct_COMP_GPS(const home_position_s &home_position,
-				  const estimator_status_s &estimator_status,
-				  const vehicle_global_position_s &vehicle_global_position,
-				  const bool heartbeat)
-{
-	// initialize result
-	msp_comp_gps_t comp_gps {0};
-
-	// Calculate distance and direction to home
-	if (home_position.valid_hpos
-	    && home_position.valid_lpos
-	    && estimator_status.solution_status_flags & (1 << 4)) {
-		float bearing_to_home = math::degrees(get_bearing_to_next_waypoint(vehicle_global_position.lat,
-						      vehicle_global_position.lon,
-						      home_position.lat, home_position.lon));
-
-		if (bearing_to_home < 0) {
-			bearing_to_home += 360.0f;
-		}
-
-		float distance_to_home = get_distance_to_next_waypoint(vehicle_global_position.lat,
-					 vehicle_global_position.lon,
-					 home_position.lat, home_position.lon);
-
-		comp_gps.distanceToHome = (int16_t)distance_to_home; // meters
-		comp_gps.directionToHome = bearing_to_home;
-
-	} else {
-		comp_gps.distanceToHome = 0; // meters
-		comp_gps.directionToHome = 0;
+void warn_to_upper(char* string){
+	// Convert string to uppercase, otherwise it will try to print symbols instead
+	for(size_t i=0; i<strlen(string);++i){
+		string[i] = (string[i] >= 'a' && string[i] <= 'z') ? string[i] - 'a' + 'A' : string[i];
 	}
-
-	comp_gps.heartbeat = heartbeat;
-	return comp_gps;
 }
 
-msp_attitude_t construct_ATTITUDE(const vehicle_attitude_s &vehicle_attitude)
-{
-	// initialize results
-	msp_attitude_t attitude {0};
-
-	// convert from quaternion to RPY
-	matrix::Eulerf euler_attitude(matrix::Quatf(vehicle_attitude.q));
-	attitude.pitch = math::degrees(euler_attitude.theta()) * 10;
-	attitude.roll = math::degrees(euler_attitude.phi()) * 10;
-	//attitude.yaw = math::degrees(euler_attitude.psi()) * 10;
-
-	float yaw_fixed = math::degrees(euler_attitude.psi());
-
-	if (yaw_fixed < 0) {
-		yaw_fixed += 360.0f;
-	}
-
-	attitude.yaw = yaw_fixed;
-
-	//attitude.yaw = 360;
-
-	return attitude;
-}
-
-msp_altitude_t construct_ALTITUDE(const sensor_gps_s &vehicle_gps_position,
-				  const estimator_status_s &estimator_status,
-				  const vehicle_local_position_s &vehicle_local_position)
-{
-	// initialize result
-	msp_altitude_t altitude {0};
-
-	if (vehicle_gps_position.fix_type >= 2) {
-		altitude.estimatedActualPosition = vehicle_gps_position.alt / 10;
-
-	} else {
-		altitude.estimatedActualPosition = 0;
-	}
-
-	if (estimator_status.solution_status_flags & (1 << 5)) {
-		altitude.estimatedActualVelocity = -vehicle_local_position.vz * 10; //m/s to cm/s
-
-	} else {
-		altitude.estimatedActualVelocity = 0;
-	}
-
-	return altitude;
-}
-
-msp_esc_sensor_data_dji_t construct_ESC_SENSOR_DATA()
-{
-	// initialize result
-	msp_esc_sensor_data_dji_t esc_sensor_data {0};
-
-	esc_sensor_data.rpm = 0;
-	esc_sensor_data.temperature = 50;
-
-	return esc_sensor_data;
-}
-
-} // namespace msp_osd
+} // namespace msp_dp_osd

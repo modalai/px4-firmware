@@ -33,6 +33,12 @@
 
 #pragma once
 
+// protocol bytes
+#define MSP_HEADER '$'
+#define MSP_START  'M'
+#define MSP_REPLY  '>'
+#define MSP_CMD    '<'
+
 // requests & replies
 #define MSP_API_VERSION            1
 #define MSP_FC_VARIANT             2
@@ -48,6 +54,8 @@
 #define MSP_ARMING_CONFIG         61
 #define MSP_RX_MAP                64 // get channel map (also returns number of channels total)
 #define MSP_LOOP_TIME             73 // FC cycle time i.e looptime parameter
+#define MSP_VTX_CONFIG            88 //out message         Get vtx settings - betaflight
+#define MSP_SET_VTX_CONFIG        89 //in message          Set vtx settings - betaflight
 #define MSP_STATUS               101
 #define MSP_RAW_IMU              102
 #define MSP_SERVO                103
@@ -72,6 +80,9 @@
 #define MSP_UID                  160 // Unique device ID
 #define MSP_GPSSVINFO            164 // get Signal Strength (only U-Blox)
 #define MSP_GPSSTATISTICS        166 // get GPS debugging data
+#define MSP_CMD_DISPLAYPORT      182 // Write osd to display port 
+#define MSP_SET_OSD_CANVAS       188 // in message           Set osd canvas size COLSxROWS
+#define MSP_OSD_CANVAS           189 // out message          Get osd canvas size COLSxROWS
 #define MSP_SET_PID              202 // set P I D coeff
 
 // commands
@@ -848,4 +859,80 @@ enum betaflightDJIModesMask_e {
 // 0b00100000 resc
 // 0b01000000 acro
 // 0b10000000 acro
+
+
+
+/* NEW STRUCTS FOR HDZero msgs */
+
+// MSP_VTX_CONFIG 
+struct msp_vtx_config_t {
+	uint8_t  protocol;
+	uint8_t  band;	
+	uint8_t  channel;
+	uint8_t  power;	
+	uint8_t  pit;	 
+	uint16_t freq;	
+} __attribute__((packed));
+
+// MSP_STATUS 
+struct msp_status_HDZ_t {
+	uint8_t  unused0;
+	uint8_t  unused1;
+	uint8_t  unused2;
+	uint8_t  unused3;
+	uint8_t  unused4;
+	uint8_t  unused5;
+	uint8_t  armed;				//msp_rx_buf[6] 
+	uint8_t  arming_disable_flags_count;
+	uint32_t arming_disable_flags;
+} __attribute__((packed));
+
+#define SD_COL_MAX 30
+#define SD_ROW_MAX 16
+#define HD_COL_MAX 50
+#define HD_ROW_MAX 18
+// MSP_OSD_CANVAS 
+struct msp_osd_canvas_t {
+	uint8_t  row_max;
+	uint8_t  col_max;
+} __attribute__((packed));
+
+// MSP_CMD_DISPLAYPORT config 
+struct msp_osd_dp_config_t {
+	// displayportMspCommand_e  subcmd;
+	uint8_t subcmd;
+	uint8_t fontType;
+	uint8_t resolution;
+} __attribute__((packed));
+
+#define MSP_OSD_MAX_STRING_LENGTH 30 // FIXME move these
+#define DISPLAYPORT_MSP_ATTR_BLINK   (1UL << (6)) // Device local blink
+#define MSP_OSD_DP_WRITE_PAYLOAD 4
+// MSP_CMD_DISPLAYPORT write/draw command 
+struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
+	uint8_t subcmd;
+	uint8_t row;	
+	uint8_t col;	
+	uint8_t attr{0};		// HDZero VTX doesn't support blinking
+	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
+} __attribute__((packed));
+
+// MSP Display Port commands
+typedef enum __attribute__((packed)){
+    MSP_DP_HEARTBEAT = 0,       // Release the display after clearing and updating
+    MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
+    MSP_DP_CLEAR_SCREEN = 2,    // Clear the display
+    MSP_DP_WRITE_STRING = 3,    // Write a string at given coordinates
+    MSP_DP_DRAW_SCREEN = 4,     // Trigger a screen draw
+    MSP_DP_CONFIG = 5,          // CONFIG COMMAND -Not used by Betaflight, used by Ardupilot and INAV // CONFIG COMM
+    MSP_DP_SYS = 6,             // Display system element displayportSystemElement_e at given coordinates
+    MSP_DP_COUNT,
+} displayportMspCommand_e ;
+
+typedef enum __attribute__((packed)) {
+    SD_3016,	// OSD width x height
+    HD_5018,
+    HD_3016,
+    HD_5320,
+} resolutionType_e;
 

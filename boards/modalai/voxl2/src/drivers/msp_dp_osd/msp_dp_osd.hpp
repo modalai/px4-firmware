@@ -56,9 +56,10 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_status.h>
 
-#include "MspV1.hpp"
-#include "MessageDisplay/MessageDisplay.hpp"
+#include "MspDPV1.hpp"
+#include "MessageDisplay/MessageDisplayDisplayPort.hpp"
 #include "uorb_to_msp.hpp"
+#include "msp_osd_symbols.h"
 
 using namespace time_literals;
 
@@ -98,12 +99,12 @@ enum SymbolIndex : uint8_t {
 	POWER			= 21
 };
 
-class MspOsd : public ModuleBase<MspOsd>, public ModuleParams, public px4::ScheduledWorkItem
+class MspDPOsd : public ModuleBase<MspDPOsd>, public ModuleParams, public px4::ScheduledWorkItem
 {
 public:
-	MspOsd(const char *device);
+	MspDPOsd(const char *device);
 
-	~MspOsd() override;
+	~MspDPOsd() override;
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);
@@ -123,7 +124,7 @@ private:
 	void Run() override;
 
 	// update a single display element in the display
-	void Send(const unsigned int message_type, const void *payload);
+	void Send(const unsigned int message_type, const void *payload, mspDirection_e direction = MSP_DIRECTION_REQUEST);
 
 	// send full configuration to MSP (triggers the actual update)
 	void SendConfig();
@@ -135,10 +136,10 @@ private:
 	// convenience function to check if a given symbol is enabled
 	bool enabled(const SymbolIndex &symbol);
 
-	MspV1 _msp{0};
+	MspDPV1 _msp{0};
 	int _msp_fd{-1};
 
-	msp_osd::MessageDisplay _display{};
+	msp_dp_osd::MessageDisplay _display{};
 
 	bool _is_initialized{false};
 
@@ -172,6 +173,10 @@ private:
 
 	// metadata
 	char _device[64] {};
+	uint8_t fontType{0};
+	resolutionType_e resolution{HD_5018};
+	uint8_t row_max[4]{15,17,15,19};
+	uint8_t column_max[4]{29,49,29,52};
 	PerformanceData _performance_data{};
 };
 

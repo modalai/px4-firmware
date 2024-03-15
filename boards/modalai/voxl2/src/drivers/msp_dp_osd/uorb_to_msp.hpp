@@ -63,9 +63,10 @@
 
 // MSP structs
 #include "msp_defines.h"
-#include "MessageDisplay/MessageDisplay.hpp"
+#include "MessageDisplay/MessageDisplayDisplayPort.hpp"
+#include <px4_platform_common/log.h>
 
-namespace msp_osd
+namespace msp_dp_osd
 {
 
 // construct an MSP_NAME struct
@@ -109,4 +110,38 @@ msp_altitude_t construct_ALTITUDE(const sensor_gps_s &vehicle_gps_position,
 // construct an MSP_ESC_SENSOR_DATA struct
 msp_esc_sensor_data_dji_t construct_ESC_SENSOR_DATA();
 
-} // namespace msp_osd
+/****** UPDATES TO WORK WITH HDZERO FREESTYLE V2 VTX ******/
+// Construct a MSP_VTX_CONFIG struct
+msp_vtx_config_t construct_vtx_config();
+
+// Construct a HDZero STATUS struct
+msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status);
+
+// Construct a HDZero RC struct
+msp_rc_t construct_RC(const input_rc_s &input_rc);
+
+// Construct a HDZero canvas size reply struct
+msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col);
+
+// Construct a HDZero OSD heartbeat command
+displayportMspCommand_e construct_OSD_heartbeat();
+
+// Construct a HDZero OSD release command
+displayportMspCommand_e construct_OSD_release();
+
+// Construct a HDZero OSD clear command
+displayportMspCommand_e construct_OSD_clear();
+
+// Construct a HDZero OSD write struct given a string
+uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len);
+
+// Construct a HDZero OSD draw command
+displayportMspCommand_e construct_OSD_draw();
+
+// Construct a HDZero OSD config command
+msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType);
+
+// Convert warning message to upper case so HDZero OSD interprets the message as letters instead of symbols
+void warn_to_upper(char* string);
+
+} // namespace msp_dp_osd

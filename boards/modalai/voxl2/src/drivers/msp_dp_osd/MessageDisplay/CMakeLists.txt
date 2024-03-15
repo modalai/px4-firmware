@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+#   Copyright (c) 2022 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,18 +31,12 @@
 #
 ############################################################################
 
-# Need to make sure that the Linux processor on VOXL2
-# knows about all parameters since it is acting as the
-# parameter server for other processors that may define
-# parameters that it doesn't normally know about.
-set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
+add_compile_options(-Wno-stringop-truncation) # full message intentional string truncation
 
-add_library(drivers_board
-	board_config.h
-	init.c
-    )
+px4_add_library(message_display_dp
+	MessageDisplayDisplayPort.cpp
+	MessageDisplayDisplayPort.hpp
+)
 
-# Add custom drivers
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/modal_io_bridge)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/msp_dp_osd)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/apps_sbus)
+# unit testing
+px4_add_unit_gtest(SRC MessageDisplayTestDisplayPort.cpp LINKLIBS message_display_dp)

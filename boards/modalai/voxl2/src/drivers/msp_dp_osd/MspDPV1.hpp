@@ -33,12 +33,21 @@
 
 #pragma once
 
-class MspV1
+#define MSP_READ_BUFFER_SIZE 128
+
+// MSP communication direction
+typedef enum __attribute__((packed)){
+    MSP_DIRECTION_REPLY = 0,
+    MSP_DIRECTION_REQUEST = 1
+} mspDirection_e;
+
+
+class MspDPV1
 {
 public:
-	MspV1(int fd);
+	MspDPV1(int fd);
 	int GetMessageSize(int message_type);
-	bool Send(const uint8_t message_id, const void *payload);
+	bool Send(const uint8_t message_id, const void *payload, mspDirection_e direction = MSP_DIRECTION_REQUEST);
 
 private:
 	int _fd{-1};
