@@ -35,6 +35,10 @@
 
 using namespace time_literals;
 
+// Delay in microseconds
+#define READ_DELAY 2000
+#define MEASURE_DELAY 10000
+
 MS4525DO::MS4525DO(const I2CSPIDriverConfig &config) :
 	I2C(config),
 	I2CSPIDriver(config)
@@ -121,12 +125,12 @@ void MS4525DO::RunImpl()
 			if (transfer(&cmd, 1, nullptr, 0) == OK) {
 				_timestamp_sample = hrt_absolute_time();
 				_state = STATE::READ;
-				ScheduleDelayed(2_ms);
+				ScheduleDelayed(READ_DELAY);
 
 			} else {
 				perf_count(_comms_errors);
 				_state = STATE::MEASURE;
-				ScheduleDelayed(10_ms); // try again in 10 ms
+				ScheduleDelayed(MEASURE_DELAY); // try again in 10 ms
 			}
 		}
 
