@@ -103,7 +103,7 @@ int SDP3X::configure()
 	int ret = write_command(SDP3X_CONT_MODE_STOP);
 
 	if (ret == PX4_OK) {
-		px4_udelay(500); // SDP3X is unresponsive for 500us after stop continuous measurement command
+		//px4_udelay(500); // SDP3X is unresponsive for 500us after stop continuous measurement command
 		ret = write_command(SDP3X_CONT_MEAS_AVG_MODE);
 	}
 
