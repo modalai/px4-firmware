@@ -40,7 +40,8 @@
 
 #include "msp_dp_osd.hpp"
 
-#include "msp_defines.h"
+#include "msp_dp_defines.h"
+#include <drivers/osd/msp_osd/msp_defines.h>
 
 #include <fcntl.h>
 #include <math.h>
@@ -64,52 +65,6 @@
 #include <lib/geo/geo.h>
 
 #include "MspDPV1.hpp"
-
-//OSD elements positions
-//in betaflight configurator set OSD elements to your desired positions and in CLI type "set osd" to retreieve the numbers.
-//234 -> not visible. Horizontally 2048-2074(spacing 1), vertically 2048-2528(spacing 32). 26 characters X 15 lines
-
-// Currently working elements positions (hardcoded)
-
-/* center col
-
-Speed Power Alt
-Rssi cell_voltage mah
-craft name
-
-*/
-
-// Left
-const uint16_t osd_gps_lat_pos = 2048;
-const uint16_t osd_gps_lon_pos = 2080;
-const uint16_t osd_gps_sats_pos = 2112;
-
-// Center
-// Top
-const uint16_t osd_disarmed_pos = 2125;
-const uint16_t osd_home_dir_pos = 2093;
-const uint16_t osd_home_dist_pos = 2095;
-
-// Bottom row 1
-const uint16_t osd_gps_speed_pos = 2413;
-const uint16_t osd_power_pos = 2415;
-const uint16_t osd_altitude_pos = 2416;
-
-// Bottom Row 2
-const uint16_t osd_rssi_value_pos = 2445;
-const uint16_t osd_avg_cell_voltage_pos = 2446;
-const uint16_t osd_mah_drawn_pos = 2449;
-
-// Bottom Row 3
-const uint16_t osd_craft_name_pos = 2480;
-const uint16_t osd_crosshairs_pos = 2319;
-
-// Right
-const uint16_t osd_main_batt_voltage_pos = 2073;
-const uint16_t osd_current_draw_pos = 2103;
-
-
-const uint16_t osd_numerical_vario_pos = LOCATION_HIDDEN;
 
 bool clear{true};
 
@@ -139,97 +94,6 @@ bool MspDPOsd::init()
 	return true;
 }
 
-
-void MspDPOsd::SendConfig()
-{
-	PX4_INFO("Sending config full OSD config");
-
-	msp_osd_config_t msp_osd_config;
-
-	msp_osd_config.units = 0;
-	msp_osd_config.osd_item_count = 56;
-	msp_osd_config.osd_stat_count = 24;
-	msp_osd_config.osd_timer_count = 2;
-	msp_osd_config.osd_warning_count = 16;              // 16
-	msp_osd_config.osd_profile_count = 1;              // 1
-	msp_osd_config.osdprofileindex = 1;                // 1
-	msp_osd_config.overlay_radio_mode = 0;             //  0
-
-	// display conditional elements
-	msp_osd_config.osd_craft_name_pos = enabled(SymbolIndex::CRAFT_NAME) ? osd_craft_name_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_disarmed_pos = enabled(SymbolIndex::DISARMED) ? osd_disarmed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lat_pos = enabled(SymbolIndex::GPS_LAT) ? osd_gps_lat_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lon_pos = enabled(SymbolIndex::GPS_LON) ? osd_gps_lon_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_sats_pos = enabled(SymbolIndex::GPS_SATS) ? osd_gps_sats_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_speed_pos = enabled(SymbolIndex::GPS_SPEED) ? osd_gps_speed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dist_pos = enabled(SymbolIndex::HOME_DIST) ? osd_home_dist_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dir_pos = enabled(SymbolIndex::HOME_DIR) ? osd_home_dir_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_voltage_pos = enabled(SymbolIndex::MAIN_BATT_VOLTAGE) ? osd_main_batt_voltage_pos :
-			LOCATION_HIDDEN;
-	msp_osd_config.osd_current_draw_pos = enabled(SymbolIndex::CURRENT_DRAW) ? osd_current_draw_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_mah_drawn_pos = enabled(SymbolIndex::MAH_DRAWN) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos :
-			LOCATION_HIDDEN;
-
-	msp_osd_config.osd_power_pos = enabled(SymbolIndex::POWER) ? osd_power_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_avg_cell_voltage_pos = enabled(SymbolIndex::AVG_CELL_VOLTAGE) ? osd_avg_cell_voltage_pos :
-			LOCATION_HIDDEN;
-
-	// the location of our crosshairs can change
-	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
-
-	if (enabled(SymbolIndex::CROSSHAIRS)) {
-		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos - 32 * _param_osd_ch_height.get();
-	}
-
-	// possibly available, but not currently used
-	msp_osd_config.osd_flymode_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_esc_tmp_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_pitch_angle_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_roll_angle_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_horizon_sidebars_pos = 		LOCATION_HIDDEN;
-
-	// Not implemented or not available
-	msp_osd_config.osd_artificial_horizon_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_item_timer_1_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_item_timer_2_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_throttle_pos_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_vtx_channel_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_roll_pids_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_pitch_pids_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_yaw_pids_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_pidrate_profile_pos =		LOCATION_HIDDEN;
-	msp_osd_config.osd_warnings_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_debug_pos = 				LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_usage_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_heading_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_compass_bar_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_esc_rpm_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_remaining_time_estimate_pos = 	LOCATION_HIDDEN;
-	msp_osd_config.osd_rtc_datetime_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_adjustment_range_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_core_temperature_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_anti_gravity_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_g_force_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_motor_diag_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_log_status_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_flip_arrow_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_link_quality_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_flight_dist_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_stick_overlay_left_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_stick_overlay_right_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_display_name_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_esc_rpm_freq_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_rate_profile_name_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_pid_profile_name_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_profile_name_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_dbm_value_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_rc_channels_pos = 			LOCATION_HIDDEN;
-
-	_msp.Send(MSP_OSD_CONFIG, &msp_osd_config);
-}
 
 void MspDPOsd::Run()
 {
@@ -349,7 +213,7 @@ void MspDPOsd::Run()
 	{
 		// PX4_INFO("");
 		// PX4_INFO("Sending FC VARIANT");
-		const auto msg = msp_dp_osd::construct_FC_VARIANT();
+		const auto msg = msp_osd::construct_FC_VARIANT();
 		this->Send(MSP_FC_VARIANT, &msg, MSP_DIRECTION_REPLY);
 	}
 
@@ -611,6 +475,39 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		PX4_INFO("Sending OSD CANVAS CMD");
 		const auto msg = msp_dp_osd::construct_OSD_canvas(get_instance()->row_max[get_instance()->resolution], get_instance()->column_max[get_instance()->resolution]);
 		get_instance()->Send(MSP_SET_OSD_CANVAS, &msg, MSP_DIRECTION_REPLY);
+		return 0;
+	}
+
+	// Config VTX settings  
+	if(!strcmp(verb,"vtx")){
+		/* Fields:
+		protocol: 5 -> MSP
+		band:	  5 -> RC Band R (A,B,E,F,R)
+		channel:  1 -> Channel (Ex: R1, R2, F1, etc)
+		power:	  1 -> 0 (0mw), 1 (25mW), 2 (200mW)
+		pit:	  0 -> Pit mode off 
+		freq:	  0x161A -> 5658 MHz
+		*/
+		uint8_t protocol{5};
+		uint8_t band{5};
+		uint8_t channel{1};
+		uint8_t power{1};
+		uint8_t pit{0};
+		uint16_t freq{0x161A};
+		PX4_INFO("");
+		PX4_INFO("Sending VTX CONFIG");
+		PX4_WARN("Sent VTX CONFIG");
+		PX4_ERR("Sent VTX CONFIG");
+		// const auto vtx_config_msg = msp_dp_osd::construct_vtx_config();
+		const msp_vtx_config_t vtx_config_msg = {
+			protocol,
+			band,
+			channel,
+			power,
+			pit,
+			freq
+		};
+		get_instance()->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
 		return 0;
 	}
 

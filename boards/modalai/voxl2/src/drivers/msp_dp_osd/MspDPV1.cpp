@@ -43,7 +43,8 @@
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_hrt.h>
 
-#include "msp_defines.h"
+#include <drivers/osd/msp_osd/msp_defines.h>
+#include "msp_dp_defines.h"
 #include "MspDPV1.hpp"
 
 #include <px4_platform_common/log.h>
@@ -134,7 +135,6 @@ bool MspDPV1::Send(const uint8_t message_id, const void *payload, mspDirection_e
 
 	packet[0] = '$';
 	packet[1] = 'M';
-	// packet[2] = '<'; 
 	packet[2] = direction ? MSP_CMD : MSP_REPLY;	// HDZero VTX firmware only supports 'replies'...
 	packet[3] = payload_size;
 	packet[4] = message_id;
@@ -150,6 +150,5 @@ bool MspDPV1::Send(const uint8_t message_id, const void *payload, mspDirection_e
 	packet[MSP_FRAME_START_SIZE + payload_size] = crc;
 
 	int packet_size =  MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE;
-
 	return  write(_fd, packet, packet_size) == packet_size;
 }

@@ -45,16 +45,24 @@
 #include <px4_platform_common/defines.h>
 using namespace time_literals;
 
-#include "uorb_to_msp.hpp"
+// #include <drivers/osd/msp_osd/uorb_to_msp.hpp>
+#include "uorb_to_msp_dp.hpp"
 
 namespace msp_dp_osd
 {
+
+void log_msg_to_upper(char* string){
+	// Convert string to uppercase, otherwise it will try to print symbols instead
+	for(size_t i=0; i<strlen(string);++i){
+		string[i] = (string[i] >= 'a' && string[i] <= 'z') ? string[i] - 'a' + 'A' : string[i];
+	}
+}
 
 msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 				     const vehicle_attitude_s &vehicle_attitude,
 				     const log_message_s &log_message,
 				     const int log_level,
-				     MessageDisplay &display)
+				     msp_osd::MessageDisplay &display)
 {
 	// initialize result
 	msp_name_t display_message {0};
@@ -64,124 +72,126 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 
 	// update arming state, flight mode, and warnings, if current
 	if (vehicle_status.timestamp < (now - 1_s)) {
-		display.set(MessageDisplayType::ARMING, "???");
-		display.set(MessageDisplayType::FLIGHT_MODE, "???");
+		display.set(msp_osd::MessageDisplayType::ARMING, "???");
+		display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "???");
 
 	} else {
 		// display armed / disarmed
 		if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-			display.set(MessageDisplayType::ARMING, "ARM");
+			display.set(msp_osd::MessageDisplayType::ARMING, "ARM");
 
 		} else {
-			display.set(MessageDisplayType::ARMING, "DSRM");
+			display.set(msp_osd::MessageDisplayType::ARMING, "DSRM");
 		}
 
 		// display flight mode
 		switch (vehicle_status.nav_state) {
 		case vehicle_status_s::NAVIGATION_STATE_MANUAL:
-			display.set(MessageDisplayType::FLIGHT_MODE, "MANUAL");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "MANUAL");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
-			display.set(MessageDisplayType::FLIGHT_MODE, "ALTCTL");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "ALTCTL");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_POSCTL:
-			display.set(MessageDisplayType::FLIGHT_MODE, "POSCTL");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "POSCTL");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_MISSION");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_MISSION");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_LOITER");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_LOITER");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_RTL");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_RTL");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_UNUSED:
-			display.set(MessageDisplayType::FLIGHT_MODE, "UNUSED");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "UNUSED");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_ACRO:
-			display.set(MessageDisplayType::FLIGHT_MODE, "ACRO");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "ACRO");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_UNUSED1:
-			display.set(MessageDisplayType::FLIGHT_MODE, "UNUSED1");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "UNUSED1");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_DESCEND:
-			display.set(MessageDisplayType::FLIGHT_MODE, "DESCEND");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "DESCEND");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
-			display.set(MessageDisplayType::FLIGHT_MODE, "TERMINATION");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "TERMINATION");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
-			display.set(MessageDisplayType::FLIGHT_MODE, "OFFBOARD");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "OFFBOARD");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_STAB:
-			display.set(MessageDisplayType::FLIGHT_MODE, "STAB");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "STAB");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_UNUSED2:
-			display.set(MessageDisplayType::FLIGHT_MODE, "UNUSED2");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "UNUSED2");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_TAKEOFF");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_TAKEOFF");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_LAND:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_LAND");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_LAND");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_FOLLOW_TARGET");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_FOLLOW_TARGET");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_PRECLAND");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_PRECLAND");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_ORBIT:
-			display.set(MessageDisplayType::FLIGHT_MODE, "ORBIT");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "ORBIT");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF:
-			display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_VTOL_TAKEOFF");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "AUTO_VTOL_TAKEOFF");
 			break;
 
 		case vehicle_status_s::NAVIGATION_STATE_MAX:
-			display.set(MessageDisplayType::FLIGHT_MODE, "MAX");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "MAX");
 			break;
 
 		default:
-			display.set(MessageDisplayType::FLIGHT_MODE, "???");
+			display.set(msp_osd::MessageDisplayType::FLIGHT_MODE, "???");
 		}
 	}
 
 	// display, if updated
 	if (log_message.severity <= log_level) {
-		// warn_to_upper(log_message.text);
-		display.set(MessageDisplayType::WARNING, log_message.text);
+		char* log_msg = (char*)log_message.text;
+		log_msg_to_upper(log_msg);
+		display.set(msp_osd::MessageDisplayType::WARNING, log_msg);
+		// display.set(msp_osd::MessageDisplayType::WARNING, log_message.text);
 		last_warning_stamp = now;
 
 	} else if (now - last_warning_stamp > 30_s) {
 		// clear warning after timeout
-		display.set(MessageDisplayType::WARNING, "");
+		display.set(msp_osd::MessageDisplayType::WARNING, "");
 		last_warning_stamp = now;
 	}
 
 	// update heading, if relatively recent
 	if (vehicle_attitude.timestamp < (now - 1_s)) {
-		display.set(MessageDisplayType::HEADING, "N?");
+		display.set(msp_osd::MessageDisplayType::HEADING, "N?");
 
 	} else {
 		// convert to YAW
@@ -190,31 +200,31 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 
 		// display north direction
 		if (yaw <= 22.5f) {
-			display.set(MessageDisplayType::HEADING, "N");
+			display.set(msp_osd::MessageDisplayType::HEADING, "N");
 
 		} else if (yaw <= 67.5f) {
-			display.set(MessageDisplayType::HEADING, "NE");
+			display.set(msp_osd::MessageDisplayType::HEADING, "NE");
 
 		} else if (yaw <= 112.5f) {
-			display.set(MessageDisplayType::HEADING, "E");
+			display.set(msp_osd::MessageDisplayType::HEADING, "E");
 
 		} else if (yaw <= 157.5f) {
-			display.set(MessageDisplayType::HEADING, "SE");
+			display.set(msp_osd::MessageDisplayType::HEADING, "SE");
 
 		} else if (yaw <= 202.5f) {
-			display.set(MessageDisplayType::HEADING, "S");
+			display.set(msp_osd::MessageDisplayType::HEADING, "S");
 
 		} else if (yaw <= 247.5f) {
-			display.set(MessageDisplayType::HEADING, "SW");
+			display.set(msp_osd::MessageDisplayType::HEADING, "SW");
 
 		} else if (yaw <= 292.5f) {
-			display.set(MessageDisplayType::HEADING, "W");
+			display.set(msp_osd::MessageDisplayType::HEADING, "W");
 
 		} else if (yaw <= 337.5f) {
-			display.set(MessageDisplayType::HEADING, "NW");
+			display.set(msp_osd::MessageDisplayType::HEADING, "NW");
 
 		} else if (yaw <= 360.0f) {
-			display.set(MessageDisplayType::HEADING, "N");
+			display.set(msp_osd::MessageDisplayType::HEADING, "N");
 		}
 	}
 
@@ -223,27 +233,16 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 	return display_message;
 }
 
-msp_fc_variant_t construct_FC_VARIANT()
-{
-	// initialize result
-	msp_fc_variant_t variant{};
-
-	memcpy(variant.flightControlIdentifier, "BTFL", sizeof(variant.flightControlIdentifier));
-	return variant;
-}
-
 // New code for HDZero VTX
-
 msp_vtx_config_t construct_vtx_config(){
 	msp_vtx_config_t vtx_config {0};
 
 	vtx_config.protocol = 5; 		// MSP
 	vtx_config.band 	= 5; 		// BAND 5
 	vtx_config.channel 	= 1; 		// CHANNEL 1
-	// vtx_config.channel 	= 2; 		// CHANNEL 2
 	vtx_config.power 	= 1; 		// POWER LEVEL 1 -> 25mW
 	vtx_config.pit	 	= 0; 		// PIT MODE OFF
-	vtx_config.freq 	= 0x161A;	// 5865 MHz
+	vtx_config.freq 	= 0x161A;	// 5658 MHz
 
 	return vtx_config;
 }
@@ -280,14 +279,6 @@ msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
 	if (col > 17) col = 17;
 	msp_canvas.row_max = row;
 	msp_canvas.col_max = col;
-
-	// msp_canvas.row_max = HD_ROW_MAX;
-	// msp_canvas.col_max = HD_COL_MAX;
-
-	// SD
-	// msp_canvas.row_max = SD_COL_MAX;
-	// msp_canvas.col_max = SD_ROW_MAX;
-
 	return msp_canvas;
 }
 
@@ -334,13 +325,6 @@ msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fo
 	msp_osd_dp_config.fontType   = fontType;
 	msp_osd_dp_config.resolution = resolution;
 	return msp_osd_dp_config;
-}
-
-void warn_to_upper(char* string){
-	// Convert string to uppercase, otherwise it will try to print symbols instead
-	for(size_t i=0; i<strlen(string);++i){
-		string[i] = (string[i] >= 'a' && string[i] <= 'z') ? string[i] - 'a' + 'A' : string[i];
-	}
 }
 
 } // namespace msp_dp_osd

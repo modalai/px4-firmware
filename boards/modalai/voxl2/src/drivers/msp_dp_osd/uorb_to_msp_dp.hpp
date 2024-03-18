@@ -31,9 +31,9 @@
  *
  ****************************************************************************/
 
-/* uorb_to_msp.hpp
+/* uorb_to_msp_dp.hpp
  *
- * Declaration of functions which translate UORB messages into MSP specific structures.
+ * Declaration of functions which translate UORB messages into MSP DisplayPort specific structures.
  */
 
 #pragma once
@@ -62,9 +62,9 @@
 #include <px4_platform_common/events.h>
 
 // MSP structs
-#include "msp_defines.h"
-#include "MessageDisplay/MessageDisplayDisplayPort.hpp"
-#include <px4_platform_common/log.h>
+#include "msp_dp_defines.h"
+#include <drivers/osd/msp_osd/msp_defines.h>
+#include <drivers/osd/msp_osd/MessageDisplay/MessageDisplay.hpp>
 
 namespace msp_dp_osd
 {
@@ -75,40 +75,7 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 				     const vehicle_attitude_s &vehicle_attitude,
 				     const log_message_s &log_message,
 				     const int log_level,
-				     MessageDisplay &display);
-
-// construct an MSP_FC_VARIANT struct
-msp_fc_variant_t construct_FC_VARIANT();
-
-// construct an MSP_STATUS struct
-msp_status_BF_t construct_STATUS(const vehicle_status_s &vehicle_status);
-
-// construct an MSP_ANALOG struct
-msp_analog_t construct_ANALOG(const battery_status_s &battery_status, const input_rc_s &input_rc);
-
-// construct an MSP_BATTERY_STATE struct
-msp_battery_state_t construct_BATTERY_STATE(const battery_status_s &battery_status);
-
-// construct an MSP_RAW_GPS struct
-msp_raw_gps_t construct_RAW_GPS(const sensor_gps_s &vehicle_gps_position,
-				const airspeed_validated_s &airspeed_validated);
-
-// construct an MSP_COMP_GPS struct
-msp_comp_gps_t construct_COMP_GPS(const home_position_s &home_position,
-				  const estimator_status_s &estimator_status,
-				  const vehicle_global_position_s &vehicle_global_position,
-				  const bool heartbeat);
-
-// construct an MSP_ATTITUDE struct
-msp_attitude_t construct_ATTITUDE(const vehicle_attitude_s &vehicle_attitude);
-
-// construct an MSP_ALTITUDE struct
-msp_altitude_t construct_ALTITUDE(const sensor_gps_s &vehicle_gps_position,
-				  const estimator_status_s &estimator_status,
-				  const vehicle_local_position_s &vehicle_local_position);
-
-// construct an MSP_ESC_SENSOR_DATA struct
-msp_esc_sensor_data_dji_t construct_ESC_SENSOR_DATA();
+				     msp_osd::MessageDisplay &display);
 
 /****** UPDATES TO WORK WITH HDZERO FREESTYLE V2 VTX ******/
 // Construct a MSP_VTX_CONFIG struct
@@ -142,6 +109,6 @@ displayportMspCommand_e construct_OSD_draw();
 msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType);
 
 // Convert warning message to upper case so HDZero OSD interprets the message as letters instead of symbols
-void warn_to_upper(char* string);
+void log_msg_to_upper(char* string);
 
 } // namespace msp_dp_osd

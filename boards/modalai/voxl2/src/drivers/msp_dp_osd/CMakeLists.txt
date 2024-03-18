@@ -31,16 +31,18 @@
 #
 ############################################################################
 
-add_subdirectory(MessageDisplay)
-
 px4_add_module(
 	MODULE drivers__msp_dp_osd
 	MAIN msp_dp_osd
+	INCLUDES
+		${PX4_SOURCE_DIR}/src/drivers/osd/msp_osd/MessageDisplay
+		${PX4_SOURCE_DIR}/src/drivers/osd/msp_osd/osd/msp_defines.h
+		${PX4_SOURCE_DIR}/src/drivers/osd/msp_osd/osd/uorb_to_msp.hpp
 	SRCS
 		msp_dp_osd.cpp
 		MspDPV1.cpp
-		uorb_to_msp.cpp
+		uorb_to_msp_dp.cpp
 	DEPENDS
-		message_display_dp
+		message_display
 		px4_work_queue
 	)

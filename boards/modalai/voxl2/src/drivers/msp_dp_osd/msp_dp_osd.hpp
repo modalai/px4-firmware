@@ -57,8 +57,9 @@
 #include <uORB/topics/vehicle_status.h>
 
 #include "MspDPV1.hpp"
-#include "MessageDisplay/MessageDisplayDisplayPort.hpp"
-#include "uorb_to_msp.hpp"
+#include <drivers/osd/msp_osd/MessageDisplay/MessageDisplay.hpp>
+#include <drivers/osd/msp_osd/uorb_to_msp.hpp>
+#include "uorb_to_msp_dp.hpp"
 #include "msp_osd_symbols.h"
 
 using namespace time_literals;
@@ -139,7 +140,7 @@ private:
 	MspDPV1 _msp{0};
 	int _msp_fd{-1};
 
-	msp_dp_osd::MessageDisplay _display{};
+	msp_osd::MessageDisplay _display{};
 
 	bool _is_initialized{false};
 
