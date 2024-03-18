@@ -185,10 +185,10 @@ qshell ekf2 start
 qshell fw_pos_control start
 qshell fw_att_control start
 qshell fw_rate_control start
-qshell ms4525do start -X
+qshell ms4525do start -X -b 4
 qshell airspeed_selector start
 qshell fw_autotune_attitude_control start
-qshell land_detector start multicopter
+qshell land_detector start fixedwing
 qshell manual_control start
 qshell control_allocator start
 qshell load_mon start
