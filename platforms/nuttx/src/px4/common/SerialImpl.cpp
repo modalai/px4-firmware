@@ -276,16 +276,6 @@ ssize_t SerialImpl::readAtLeast(uint8_t *buffer, size_t buffer_size, size_t char
 
 		if (ret > 0) {
 			if (fds[0].revents & POLLIN) {
-				const unsigned sleeptime = character_count * 1000000 / (_baudrate / 10);
-
-				int err = 0;
-				int bytes_available = 0;
-				err = ::ioctl(_serial_fd, FIONREAD, (unsigned long)&bytes_available);
-
-				if (err != 0 || bytes_available < (int)character_count) {
-					px4_usleep(sleeptime);
-				}
-
 				ret = read(&buffer[total_bytes_read], buffer_size - total_bytes_read);
 
 				if (ret > 0) {
@@ -317,6 +307,13 @@ ssize_t SerialImpl::write(const void *buffer, size_t buffer_size)
 	}
 
 	return written;
+}
+
+void SerialImpl::flush()
+{
+	if (_open) {
+		tcflush(_serial_fd, TCIOFLUSH);
+	}
 }
 
 const char *SerialImpl::getPort() const
