@@ -77,7 +77,7 @@ print_config_settings(){
     echo -e "*************************\n"
 }
 
-while getopts "bcdhfmorwz" flag
+while getopts "abcdhfmoprwz" flag
 do
     case "${flag}" in
         a)
@@ -116,7 +116,7 @@ do
             ;;
         p)
             echo "[INFO] Airframe Selected as Fixed Wing"
-            AIRFRAME=FIXEDWING
+            AIRFRAME=FIXED_WING
             ;;
         r)
             echo "[INFO] TBS Crossfire RC receiver, MAVLINK selected"
@@ -143,12 +143,12 @@ else
     DAEMON="-d"
 fi
 
-if [ ! -f /data/px4/param/parameters ] && [ AIRFRAME == "MULTICOPTER" ]; then
+if [ ! -f /data/px4/param/parameters ] && [ $AIRFRAME == "MULTICOPTER" ]; then
    echo "[INFO] Setting default parameters for PX4 on voxl for Quad Copter"
    px4 $DAEMON -s /etc/modalai/voxl-px4-set-default-parameters.config
    /bin/sync
-elif [ ! -f /data/px4/param/fw_parameters ] && [ AIRFRAME == "FIXED_WING" ]
-   echo "[INFO] Setting default parameters for PX4 on voxl for Fixed Wing"
+elif [ ! -f /data/px4/param/fw_parameters ] && [ $AIRFRAME == "FIXED_WING" ]; then
+   echo "[INFO] Setting default parameters for PX4 on voxl for Standard Fixed Wing"
    px4 $DAEMON -s /etc/modalai/voxl-px4-set-default-fw-parameters.config
    /bin/sync
 fi

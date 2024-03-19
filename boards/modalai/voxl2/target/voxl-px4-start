@@ -59,7 +59,11 @@ fi
 # any possible race conditions.
 /bin/sleep 1
 
-param select /data/px4/param/parameters
+if [ "$AIRFRAME" == "MULTICOPTER" ]; then
+	param select /data/px4/param/parameters
+elif [ "$AIRFRAME" == "FIXED_WING" ]; then
+	param select /data/px4/param/fw_parameters
+fi
 
 # Load in all of the parameters that have been saved in the file
 param load
