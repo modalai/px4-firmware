@@ -193,7 +193,7 @@ fi
 qshell sensors start
 qshell ekf2 start
 
-if [ "$AIRFRAME" == "FIXEDWING" ]; then
+if [ "$AIRFRAME" == "FIXED_WING" ]; then
 	qshell fw_pos_control start
 	qshell fw_att_control start
 	qshell fw_rate_control start
