@@ -45,7 +45,6 @@
 #include <px4_platform_common/defines.h>
 using namespace time_literals;
 
-// #include <drivers/osd/msp_osd/uorb_to_msp.hpp>
 #include "uorb_to_msp_dp.hpp"
 
 namespace msp_dp_osd
@@ -180,7 +179,6 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 		char* log_msg = (char*)log_message.text;
 		log_msg_to_upper(log_msg);
 		display.set(msp_osd::MessageDisplayType::WARNING, log_msg);
-		// display.set(msp_osd::MessageDisplayType::WARNING, log_message.text);
 		last_warning_stamp = now;
 
 	} else if (now - last_warning_stamp > 30_s) {
@@ -325,6 +323,102 @@ msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fo
 	msp_osd_dp_config.fontType   = fontType;
 	msp_osd_dp_config.resolution = resolution;
 	return msp_osd_dp_config;
+}
+
+const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
+	const char* flight_mode;
+	// display flight mode
+	switch (vehicle_status.nav_state) {
+	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
+		flight_mode = "MANUAL"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
+		flight_mode = "ALTCTL"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+		flight_mode = "POSCTL"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+		flight_mode = "AUTO_MISSION"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
+		flight_mode = "AUTO_LOITER"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
+		flight_mode = "AUTO_RTL"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_UNUSED:
+		flight_mode = "UNUSED"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_ACRO:
+		flight_mode = "ACRO"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_UNUSED1:
+		flight_mode = "UNUSED1"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
+		flight_mode = "DESCEND"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
+		flight_mode = "TERMINATION"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+		flight_mode = "OFFBOARD"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_STAB:
+		flight_mode = "STAB"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_UNUSED2:
+		flight_mode = "UNUSED2"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF:
+		flight_mode = "AUTO_TAKEOFF"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_LAND:
+		flight_mode = "AUTO_LAND"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
+		flight_mode = "AUTO_FOLLOW_TARGET"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
+		flight_mode = "AUTO_PRECLAND"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_ORBIT:
+		flight_mode = "ORBIT"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF:
+		flight_mode = "AUTO_VTOL_TAKEOFF"; 
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_MAX:
+		flight_mode = "MAX"; 
+		break;
+
+	default:
+		flight_mode = "???"; 
+		break;
+	}
+	// const char* flight_mode = msg; 
+	return flight_mode;
 }
 
 } // namespace msp_dp_osd

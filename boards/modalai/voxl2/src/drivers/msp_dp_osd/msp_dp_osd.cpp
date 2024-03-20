@@ -165,77 +165,135 @@ void MspDPOsd::Run()
 		return;
 	}
 
+	const auto osd_config_msg = msp_dp_osd::construct_OSD_config(this->resolution, this->fontType);
+	this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg, MSP_DIRECTION_REPLY);
+
 	// Heartbeat
     // a) ensure display is not released by remote OSD software
     // b) prevent OSD Slave boards from displaying a 'disconnected' status.
 	{
-		// PX4_INFO("");
-		// PX4_INFO("Sending HEARTBEAT");
 		const auto heartbeat_msg = msp_dp_osd::construct_OSD_heartbeat();
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &heartbeat_msg, MSP_DIRECTION_REPLY);
 	}
 
 	// Clear screen
 	if (clear){
-		// PX4_INFO("");
-		// PX4_INFO("Sending CLEAR CMD");
 		const auto clear_osd_msg = msp_dp_osd::construct_OSD_clear();
 		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
 	}
 
-	// Construct display message...
+	// FC VARIANT
 	{
-		vehicle_status_s vehicle_status{};
-		_vehicle_status_sub.copy(&vehicle_status);
-
-		vehicle_attitude_s vehicle_attitude{};
-		_vehicle_attitude_sub.copy(&vehicle_attitude);
-
-		log_message_s log_message{};
-		_log_message_sub.copy(&log_message);
-
-		// FLIGHT MODE | ARMING | HEADING 
-		const auto display_msg = msp_dp_osd::construct_display_message( vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
-		
-		// Create appropriate size output buffer
-		uint8_t output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
-		
-		// Write MSP DisplayPort Command header + message to output buffer and send to VTX
-		msp_dp_osd::construct_OSD_write(column_max[(uint8_t)resolution]/2 - 5, 0, false, display_msg.craft_name, output, sizeof(output));	// col 19, row 0 in HD_5018
-		this->Send(MSP_CMD_DISPLAYPORT, &output, MSP_DIRECTION_REPLY);
-
-		// Draw output to screen
-		displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
-		this->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
-	}
-
-	// MSP_FC_VARIANT #1
-	{
-		// PX4_INFO("");
-		// PX4_INFO("Sending FC VARIANT");
 		const auto msg = msp_osd::construct_FC_VARIANT();
 		this->Send(MSP_FC_VARIANT, &msg, MSP_DIRECTION_REPLY);
 	}
 
-	// MSP_STATUS #2 
+	// VEHICLE STATUS / DISARMED / ERROR MESSAGES / FLIGHT MODE
 	{
-		// PX4_INFO("");
-		// PX4_INFO("Sending MSP STATUS");
 		vehicle_status_s vehicle_status{};
 		_vehicle_status_sub.copy(&vehicle_status);
+		vehicle_attitude_s vehicle_attitude{};
+		_vehicle_attitude_sub.copy(&vehicle_attitude);
+		log_message_s log_message{};
+		_log_message_sub.copy(&log_message);
+
+		// Vehicle Status
 		const auto msg = msp_dp_osd::construct_STATUS_HDZ(vehicle_status);
 		this->Send(MSP_STATUS, &msg, MSP_DIRECTION_REPLY);
+
+		// DISARMED Message -> BOTTOM-MIDDLE TOP
+		if(vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED){
+			const char* disarmed_msg = "DISARMED";
+			uint8_t disarmed_output[sizeof(msp_osd_dp_cmd_t) + sizeof(disarmed_msg)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
+			msp_dp_osd::construct_OSD_write(_parameters.disarmed_col, _parameters.disarmed_row, false, disarmed_msg, disarmed_output, sizeof(disarmed_output));	
+			this->Send(MSP_CMD_DISPLAYPORT, &disarmed_output, MSP_DIRECTION_REPLY);
+		}
+
+		// STATUS MESSAGE -> BOTTOM-MIDDLE MIDDLE (PX4 error messages)
+		// FLIGHT MODE | ARMING | HEADING ....  WILL PRINT PX4 ERROR MESSAGES FOR 30 SECONDS THEN RESET to above format
+		const auto display_msg = msp_dp_osd::construct_display_message(vehicle_status, vehicle_attitude, log_message, _param_osd_log_level.get(), _display);
+		uint8_t display_msg_output[sizeof(msp_osd_dp_cmd_t) + sizeof(display_msg.craft_name)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.status_col, _parameters.status_row, false, display_msg.craft_name, display_msg_output, sizeof(display_msg_output));	// display_msg max size (w/o warning) is 15
+		this->Send(MSP_CMD_DISPLAYPORT, &display_msg_output, MSP_DIRECTION_REPLY);
+
+		// Flight Mode -> BOTTOM-MIDDLE BOTTOM
+		const auto flight_mode = msp_dp_osd::construct_flight_mode(vehicle_status);
+		uint8_t flight_mode_output[sizeof(msp_osd_dp_cmd_t) + sizeof(flight_mode)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.flight_mode_col, _parameters.flight_mode_row, false, flight_mode, flight_mode_output, sizeof(flight_mode_output));	
+		this->Send(MSP_CMD_DISPLAYPORT, &flight_mode_output, MSP_DIRECTION_REPLY);
+
+
 	}
 
-	// MSP RC #3
+	// RC CHANNELS / RSSI
 	{
-		// PX4_INFO("");
-		// PX4_INFO("Sending RC");
 		input_rc_s input_rc{};
 		_input_rc_sub.copy(&input_rc);
-		const auto msg = msp_dp_osd::construct_RC(input_rc);
-		this->Send(MSP_RC, &msg, MSP_DIRECTION_REPLY);
+
+		// Send RC channel values
+		const auto rc_msg = msp_dp_osd::construct_RC(input_rc);
+		this->Send(MSP_RC, &rc_msg, MSP_DIRECTION_REPLY);
+
+		// Send RSSI
+		char rssi[5];
+		snprintf(rssi, sizeof(rssi), "%c%d", SYM_RSSI, (int)input_rc.rssi_dbm);
+		uint8_t rssi_output[sizeof(msp_osd_dp_cmd_t) + sizeof(rssi)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.rssi_col, _parameters.rssi_row, false, rssi, rssi_output, sizeof(rssi_output));	
+		this->Send(MSP_CMD_DISPLAYPORT, &rssi_output, MSP_DIRECTION_REPLY);
 	}
+
+	// BATTERY / CURRENT DRAW
+	{
+		battery_status_s battery_status{};
+		_battery_status_sub.copy(&battery_status);
+
+		// Full battery voltage
+		char batt[8];
+		uint8_t battery_symbol = SYM_BATT_FULL;
+		snprintf(batt, sizeof(batt), "%c%.2fV", battery_symbol, static_cast<double>(battery_status.voltage_v));
+		uint8_t battery_output[sizeof(msp_osd_dp_cmd_t) + sizeof(batt)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.battery_col, _parameters.battery_row, false, batt, battery_output, sizeof(battery_output));	// col 0, row 17 (bottom left) in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &battery_output, MSP_DIRECTION_REPLY);
+
+		// Per cell battery voltage
+		char batt_cell[7];
+		// uint8_t battery_symbol = SYM_BATT_FULL;
+		snprintf(batt_cell, sizeof(batt_cell), "%c%.2fV", battery_symbol, static_cast<double>(battery_status.voltage_v/battery_status.cell_count));
+		uint8_t batt_cell_output[sizeof(msp_osd_dp_cmd_t) + sizeof(batt_cell)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.cell_battery_col, _parameters.cell_battery_row, false, batt_cell, batt_cell_output, sizeof(batt_cell_output));	// col BATT + 1 SPACE, row 17 (bottom left) in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &batt_cell_output, MSP_DIRECTION_REPLY);
+
+		// Current draw
+		char current_draw[7];
+		snprintf(current_draw, sizeof(current_draw), "%.3f%c", static_cast<double>(battery_status.current_filtered_a), SYM_AMP);
+		uint8_t current_draw_output[sizeof(msp_osd_dp_cmd_t) + sizeof(current_draw)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.current_draw_col, _parameters.current_draw_row, false, current_draw, current_draw_output, sizeof(current_draw_output));	// col Max column-sizeof(current_draw_messge), row 0 (top right BOTTOM) in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &current_draw_output, MSP_DIRECTION_REPLY);
+	}
+
+	// GPS LAT/LONG
+	{
+		sensor_gps_s vehicle_gps_position{};
+		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
+		
+		// GPS Longitude 
+		char longitude[11];
+		snprintf(longitude, sizeof(longitude), "%c%.7f", SYM_LON, static_cast<double>(vehicle_gps_position.lon));
+		uint8_t longitude_output[sizeof(msp_osd_dp_cmd_t) + sizeof(longitude)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
+		msp_dp_osd::construct_OSD_write(_parameters.longitude_col, _parameters.longitude_row, false, longitude, longitude_output, sizeof(longitude_output));	// col X, row 15 (bottom right TOP) in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &longitude_output, MSP_DIRECTION_REPLY);
+
+		// GPS Latitude
+		char latitude[11];
+		snprintf(latitude, sizeof(latitude), "%c%.7f", SYM_LAT, static_cast<double>(vehicle_gps_position.lat));
+		uint8_t latitude_output[sizeof(msp_osd_dp_cmd_t) + sizeof(latitude)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
+		msp_dp_osd::construct_OSD_write(_parameters.latitude_col, _parameters.latitude_row, false, latitude, latitude_output, sizeof(latitude_output));	// col X, row 16 (bottom right BOTTOM) in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &latitude_output, MSP_DIRECTION_REPLY);
+	}
+
+	// DRAW whole screen
+	displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
+	this->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
 }
 
 void MspDPOsd::Send(const unsigned int message_type, const void *payload, mspDirection_e direction)
@@ -253,6 +311,30 @@ void MspDPOsd::parameters_update()
 	// update our display rate and dwell time
 	_display.set_period(hrt_abstime(_param_osd_scroll_rate.get() * 1000ULL));
 	_display.set_dwell(hrt_abstime(_param_osd_dwell_time.get() * 1000ULL));
+
+	// Get DisplayPort based positions
+	param_get(param_find("OSD_RSSI_COL"),  	&_parameters.rssi_col);
+	param_get(param_find("OSD_RSSI_ROW"),  	&_parameters.rssi_row);
+
+	param_get(param_find("OSD_CURR_COL"),  	&_parameters.current_draw_col);
+	param_get(param_find("OSD_CURR_ROW"),  	&_parameters.current_draw_row);
+
+	param_get(param_find("OSD_BATT_COL"),  	&_parameters.battery_col);
+	param_get(param_find("OSD_BATT_ROW"),  	&_parameters.battery_row);
+	param_get(param_find("OSD_CBATT_COL"), 	&_parameters.cell_battery_col);
+	param_get(param_find("OSD_CBATT_ROW"), 	&_parameters.cell_battery_row);
+
+	param_get(param_find("OSD_DIS_COL"),  	&_parameters.disarmed_col);
+	param_get(param_find("OSD_DIS_ROW"),  	&_parameters.disarmed_row);
+	param_get(param_find("OSD_STATUS_COL"), &_parameters.status_col);
+	param_get(param_find("OSD_STATUS_ROW"), &_parameters.status_row);
+	param_get(param_find("OSD_FM_COL"),  	&_parameters.flight_mode_col);
+	param_get(param_find("OSD_FM_ROW"),  	&_parameters.flight_mode_row);
+
+	param_get(param_find("OSD_LAT_COL"),  	&_parameters.latitude_col);
+	param_get(param_find("OSD_LAT_ROW"),  	&_parameters.latitude_row);
+	param_get(param_find("OSD_LONG_COL"), 	&_parameters.longitude_col);
+	param_get(param_find("OSD_LONG_ROW"), 	&_parameters.longitude_row);
 }
 
 bool MspDPOsd::enabled(const SymbolIndex &symbol)

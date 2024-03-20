@@ -45,4 +45,6 @@ px4_add_module(
 	DEPENDS
 		message_display
 		px4_work_queue
+	MODULE_CONFIG
+		module.yaml
 	)

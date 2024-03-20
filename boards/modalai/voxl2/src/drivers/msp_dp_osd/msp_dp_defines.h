@@ -71,7 +71,7 @@ struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable siz
 
 // MSP Display Port command enums
 typedef enum __attribute__((packed)){
-    MSP_DP_HEARTBEAT = 0,       // Release the display after clearing and updating
+    MSP_DP_HEARTBEAT = 0,       // Heartbeat
     MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
     MSP_DP_CLEAR_SCREEN = 2,    // Clear the display
     MSP_DP_WRITE_STRING = 3,    // Write a string at given coordinates

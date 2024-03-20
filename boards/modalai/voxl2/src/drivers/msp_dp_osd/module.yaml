@@ -1,0 +1,208 @@
+module_name: MSP DP OSD
+serial_config:
+    - command: msp_dp_osd start -d ${SERIAL_DEV}
+      port_config_param:
+        name: MSP_DP_OSD_CONFIG
+        group: OSD
+
+parameters:
+    - group: OSD
+      definitions:
+
+        # RSSI COL
+        OSD_RSSI_COL:
+            description:
+                short: OSD RSSI column 
+                long: |
+                    Column to place RSSI value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # RSSI ROW
+        OSD_RSSI_ROW:
+            description:
+                short: OSD RSSI row 
+                long: |
+                    Row to place RSSI value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Current Draw COL
+        OSD_CURR_COL:
+            description:
+                short: OSD Current Draw column 
+                long: |
+                    Column to place Current Draw value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Current Draw ROW
+        OSD_CURR_ROW:
+            description:
+                short: OSD Current Draw row 
+                long: |
+                    Row to place Current Draw value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Battery COL
+        OSD_BATT_COL:
+            description:
+                short: OSD Battery column 
+                long: |
+                    Column to place Battery value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Battery ROW
+        OSD_BATT_ROW:
+            description:
+                short: OSD Battery row 
+                long: |
+                    Row to place Battery value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Cell Battery COL
+        OSD_CBATT_COL:
+            description:
+                short: OSD Cell Battery column 
+                long: |
+                    Column to place Cell Battery value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Cell Battery ROW
+        OSD_CBATT_ROW:
+            description:
+                short: OSD Cell Battery row 
+                long: |
+                    Row to place Cell Battery value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Disarmed Message COL
+        OSD_DIS_COL:
+            description:
+                short: OSD Disarmed Message column 
+                long: |
+                    Column to place Disarmed Message value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Disarmed Message ROW
+        OSD_DIS_ROW:
+            description:
+                short: OSD Disarmed Message row 
+                long: |
+                    Row to place Disarmed Message value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Status Message COL
+        OSD_STATUS_COL:
+            description:
+                short: OSD Status Message column 
+                long: |
+                    Column to place Status Message value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Status Message ROW
+        OSD_STATUS_ROW:
+            description:
+                short: OSD Status Message row 
+                long: |
+                    Row to place Status Message value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Flight Mode COL
+        OSD_FM_COL:
+            description:
+                short: OSD Flight Mode column 
+                long: |
+                    Column to place Flight Mode value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Flight Mode ROW
+        OSD_FM_ROW:
+            description:
+                short: OSD Flight Mode row 
+                long: |
+                    Row to place Flight Mode value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Latitude COL
+        OSD_LAT_COL:
+            description:
+                short: OSD Latitude column 
+                long: |
+                    Column to place Latitude value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Latitude ROW
+        OSD_LAT_ROW:
+            description:
+                short: OSD Latitude row 
+                long: |
+                    Row to place Latitude value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
+        # Longitude COL
+        OSD_LONG_COL:
+            description:
+                short: OSD Longitude column 
+                long: |
+                    Column to place Longitude value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # Longitude ROW
+        OSD_LONG_ROW:
+            description:
+                short: OSD Longitude row 
+                long: |
+                    Row to place Longitude value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0

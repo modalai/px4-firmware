@@ -163,16 +163,56 @@ private:
 	// local heartbeat
 	bool _heartbeat{false};
 
+	typedef struct {
+		int32_t		rssi_col;
+		int32_t		rssi_row;
+		int32_t		current_draw_col;
+		int32_t		current_draw_row;
+		int32_t		battery_col;
+		int32_t		battery_row;
+		int32_t		cell_battery_col;
+		int32_t		cell_battery_row;
+		int32_t		disarmed_col;
+		int32_t		disarmed_row;
+		int32_t		status_col;
+		int32_t		status_row;
+		int32_t		flight_mode_col;
+		int32_t		flight_mode_row;
+		int32_t 	latitude_col;
+		int32_t 	latitude_row;
+		int32_t 	longitude_col;
+		int32_t		longitude_row;
+	} msp_dp_osd_params_t;
+
 	// parameters
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::OSD_SYMBOLS>) _param_osd_symbols,
 		(ParamInt<px4::params::OSD_CH_HEIGHT>) _param_osd_ch_height,
 		(ParamInt<px4::params::OSD_SCROLL_RATE>) _param_osd_scroll_rate,
 		(ParamInt<px4::params::OSD_DWELL_TIME>) _param_osd_dwell_time,
-		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_osd_log_level
+		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_osd_log_level,
+		(ParamInt<px4::params::OSD_RSSI_COL>) _param_osd_rssi_col,
+		(ParamInt<px4::params::OSD_RSSI_ROW>) _param_osd_rssi_row,
+		(ParamInt<px4::params::OSD_CURR_COL>) _param_osd_current_draw_col,
+		(ParamInt<px4::params::OSD_CURR_ROW>) _param_osd_current_draw_row,
+		(ParamInt<px4::params::OSD_BATT_COL>) _param_osd_batt_col,
+		(ParamInt<px4::params::OSD_BATT_ROW>) _param_osd_batt_row,
+		(ParamInt<px4::params::OSD_CBATT_COL>) _param_osd_cbatt_col,
+		(ParamInt<px4::params::OSD_CBATT_ROW>) _param_osd_cbatt_row,
+		(ParamInt<px4::params::OSD_DIS_COL>) _param_osd_disarmed_col,
+		(ParamInt<px4::params::OSD_DIS_ROW>) _param_osd_disarmed_row,
+		(ParamInt<px4::params::OSD_STATUS_COL>) _param_osd_status_col,
+		(ParamInt<px4::params::OSD_STATUS_ROW>) _param_osd_status_row,
+		(ParamInt<px4::params::OSD_FM_COL>) _param_osd_flightmode_col,
+		(ParamInt<px4::params::OSD_FM_ROW>) _param_osd_flightmode_row,
+		(ParamInt<px4::params::OSD_LAT_COL>) _param_osd_lat_col,
+		(ParamInt<px4::params::OSD_LAT_ROW>) _param_osd_lat_row,
+		(ParamInt<px4::params::OSD_LONG_COL>) _param_osd_long_col,
+		(ParamInt<px4::params::OSD_LONG_ROW>) _param_osd_long_row
 	)
 
 	// metadata
+	msp_dp_osd_params_t	_parameters{0};
 	char _device[64] {};
 	uint8_t fontType{0};
 	resolutionType_e resolution{HD_5018};
