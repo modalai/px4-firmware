@@ -344,7 +344,7 @@ void MspDPOsd::Run()
 	// CROSSHAIRS
 	{
 		char crosshair[2] = {SYM_AH_CENTER, '\0'};
-		uint8_t crosshair_output[sizeof(msp_osd_dp_cmd_t) + sizeof(crosshair)+1]{0};	
+		uint8_t crosshair_output[sizeof(msp_osd_dp_cmd_t) + sizeof(crosshair)]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.crosshair_col, _parameters.crosshair_row, false, crosshair, crosshair_output, sizeof(crosshair_output));	
 		this->Send(MSP_CMD_DISPLAYPORT, &crosshair_output, MSP_DIRECTION_REPLY);		
 	}
@@ -474,12 +474,25 @@ int MspDPOsd::task_spawn(int argc, char *argv[])
 
 int MspDPOsd::print_status()
 {
+	char current_band;
+	if (get_instance()->_band == 5){
+		current_band = 'R';
+	} else if (get_instance()->_band == 4){
+		current_band = 'F';
+	} else if (get_instance()->_band == 3){
+		current_band = 'E';
+	} else {
+		current_band = '?';
+	}
 	PX4_INFO("Running on %s", _device);
 	PX4_INFO("\tinitialized: %d", _is_initialized);
 	PX4_INFO("\tinitialization issues: %d", _performance_data.initialization_problems);
 	PX4_INFO("\tscroll rate: %d", static_cast<int>(_param_osd_scroll_rate.get()));
 	PX4_INFO("\tsuccessful sends: %lu", _performance_data.successful_sends);
 	PX4_INFO("\tunsuccessful sends: %lu", _performance_data.unsuccessful_sends);
+	PX4_INFO("\tBand: %c", current_band);
+	PX4_INFO("\tChannel: %u", get_instance()->_channel);
+
 
 	// print current display string
 	char msg[FULL_MSG_BUFFER];
@@ -489,7 +502,7 @@ int MspDPOsd::print_status()
 	return 0;
 }
 
-// Ex: msp_osd -h 5 -v 5 -s TEST write_string -> Write "TEST" at column 5/row 5 
+// Ex: msp_dp_osd -h 5 -v 5 -s TEST write_string -> Write "TEST" at column 5/row 5 
 int MspDPOsd::custom_command(int argc, char *argv[])
 {	
 	int myoptind = 0;
@@ -774,14 +787,16 @@ $ msp_dp_osd
 	PRINT_MODULE_USAGE_COMMAND_DESCR("clear", "DisplayPort command: Clear the OSD.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("release", "DisplayPort command: Clears the display and allows local rendering on the display device based on telemetry information etc.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("write_string", "DisplayPort command: Write string to OSD at given location");
-	// PRINT_MODULE_USAGE_PARAM_INT('l', 0, 0, get_instance()->row_max[get_instance()->resolution], "Line/Row to write the string on", false);
-	// PRINT_MODULE_USAGE_PARAM_INT('c', 0, 0, get_instance()->column_max[get_instance()->resolution], "Column to write the string on", false);
-	PRINT_MODULE_USAGE_PARAM_INT('l', 0, 0, 19, "Line/Row to write the string on", false);
-	PRINT_MODULE_USAGE_PARAM_INT('c', 0, 0, 52, "Column to write the string on", false);
+	PRINT_MODULE_USAGE_PARAM_INT('h', 0, 0, 19, "Line/Row to write the string on", false);
+	PRINT_MODULE_USAGE_PARAM_INT('v', 0, 0, 52, "Column to write the string on", false);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("osd_config", "DisplayPort command: Set OSD font type and resolution.");
 	PRINT_MODULE_USAGE_PARAM_INT('r', 0, 0, 3, "Resolution to set OSD to.", false);
-	// PRINT_MODULE_USAGE_PARAM_INT('f', 0, 0, sizeof(get_instance()->resolution)-1, "Font type to use for OSD.", false);
 	PRINT_MODULE_USAGE_PARAM_INT('f', 0, 0, 3, "Font type to use for OSD.", false);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("vtx", "Set VTX channel and/or band.");
+	PRINT_MODULE_USAGE_PARAM_INT('c', 1, 1, 7, "Channel to use for VTX.", false);
+	PRINT_MODULE_USAGE_PARAM_INT('b', 5, 3, 5, "Band to use for VTX.", false);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("power", "Set VTX power.");
+	PRINT_MODULE_USAGE_PARAM_INT('p', 1, 0, 2, "Set VTX power. Recommended to set this through OSD menu.", false);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
