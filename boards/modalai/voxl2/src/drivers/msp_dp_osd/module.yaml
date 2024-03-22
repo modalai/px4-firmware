@@ -16,7 +16,7 @@ parameters:
                 long: |
                     Column to place RSSI value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -27,7 +27,7 @@ parameters:
                 long: |
                     Row to place RSSI value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -38,7 +38,7 @@ parameters:
                 long: |
                     Column to place Current Draw value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -49,7 +49,7 @@ parameters:
                 long: |
                     Row to place Current Draw value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -60,7 +60,7 @@ parameters:
                 long: |
                     Column to place Battery value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -71,7 +71,7 @@ parameters:
                 long: |
                     Row to place Battery value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -82,7 +82,7 @@ parameters:
                 long: |
                     Column to place Cell Battery value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -93,7 +93,7 @@ parameters:
                 long: |
                     Row to place Cell Battery value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -104,7 +104,7 @@ parameters:
                 long: |
                     Column to place Disarmed Message value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -115,7 +115,7 @@ parameters:
                 long: |
                     Row to place Disarmed Message value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -126,7 +126,7 @@ parameters:
                 long: |
                     Column to place Status Message value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -137,7 +137,7 @@ parameters:
                 long: |
                     Row to place Status Message value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -148,7 +148,7 @@ parameters:
                 long: |
                     Column to place Flight Mode value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -159,7 +159,7 @@ parameters:
                 long: |
                     Row to place Flight Mode value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -170,7 +170,7 @@ parameters:
                 long: |
                     Column to place Latitude value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -181,7 +181,7 @@ parameters:
                 long: |
                     Row to place Latitude value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -192,7 +192,7 @@ parameters:
                 long: |
                     Column to place Longitude value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -203,7 +203,7 @@ parameters:
                 long: |
                     Row to place Longitude value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -214,7 +214,7 @@ parameters:
                 long: |
                     Column to place direction/distance to home value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -225,7 +225,7 @@ parameters:
                 long: |
                     Row to place direction/distance to home value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -236,7 +236,7 @@ parameters:
                 long: |
                     Column to place crosshair value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -247,7 +247,7 @@ parameters:
                 long: |
                     Row to place crosshair value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
 
@@ -258,7 +258,7 @@ parameters:
                 long: |
                     Column to place heading angle value in.
             type: int32
-            min: 0
+            min: -1
             max: 49
             default: 0
 
@@ -269,6 +269,28 @@ parameters:
                 long: |
                     Row to place heading angle value in.
             type: int32
-            min: 0
+            min: -1
             max: 17
             default: 0
+
+        # VTX Channel
+        OSD_CHANNEL:
+            description:
+                short: VTX channel
+                long: |
+                    Channel for VTX to broadcast on.
+            type: int32
+            min: 1
+            max: 8
+            default: 1
+
+        # VTX Band
+        OSD_BAND:
+            description:
+                short: VTX Band 
+                long: |
+                    Band for VTX to broadcast on (R, E, F).
+            type: int32
+            min: 3
+            max: 5
+            default: 5

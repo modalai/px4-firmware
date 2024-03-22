@@ -143,7 +143,11 @@ void MspDPOsd::Run()
 		// Send VTX Config
 		PX4_INFO("");
 		PX4_INFO("Sending VTX CONFIG");
-		const auto vtx_config_msg = msp_dp_osd::construct_vtx_config();
+		const auto vtx_config_msg = msp_dp_osd::construct_vtx_config(this->_band, this->_channel);
+		PX4_INFO("\tBand:    %u", vtx_config_msg.band);
+		PX4_INFO("\tChannel: %u", vtx_config_msg.channel);
+		PX4_INFO("\tPower:   %u", vtx_config_msg.power);
+		PX4_INFO("\tFreq:    %u", vtx_config_msg.freq);
 		this->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
 
 		// Send OSD resolution, font 
@@ -166,6 +170,8 @@ void MspDPOsd::Run()
 
 	const auto osd_config_msg = msp_dp_osd::construct_OSD_config(this->resolution, this->fontType);
 	this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg, MSP_DIRECTION_REPLY);
+	const auto vtx_config_msg = msp_dp_osd::construct_vtx_config(this->_band, this->_channel);
+	this->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
 
 	// Heartbeat
     // a) ensure display is not released by remote OSD software
@@ -360,6 +366,9 @@ void MspDPOsd::Send(const unsigned int message_type, const void *payload, mspDir
 
 void MspDPOsd::parameters_update()
 {
+	int32_t band_t{0};
+	int32_t channel_t{0};
+
 	// update our display rate and dwell time
 	_display.set_period(hrt_abstime(_param_osd_scroll_rate.get() * 1000ULL));
 	_display.set_dwell(hrt_abstime(_param_osd_dwell_time.get() * 1000ULL));
@@ -396,6 +405,12 @@ void MspDPOsd::parameters_update()
 
 	param_get(param_find("OSD_HDG_COL"), 	&_parameters.heading_col);
 	param_get(param_find("OSD_HDG_ROW"), 	&_parameters.heading_row);
+
+	param_get(param_find("OSD_CHANNEL"), 	&channel_t);
+	param_get(param_find("OSD_BAND"),    	&band_t);
+
+	this->_band = (uint8_t)band_t;
+	this->_channel = (uint8_t)channel_t;
 }
 
 bool MspDPOsd::enabled(const SymbolIndex &symbol)
@@ -474,13 +489,16 @@ int MspDPOsd::print_status()
 	return 0;
 }
 
-// Ex: msp_osd -c 5 -l 5 -s TEST write_string -> Write "TEST" at column 5/row 5 
+// Ex: msp_osd -h 5 -v 5 -s TEST write_string -> Write "TEST" at column 5/row 5 
 int MspDPOsd::custom_command(int argc, char *argv[])
 {	
 	int myoptind = 0;
 	int ch;
 	int row{0};
 	int col{0};
+	char cmd_band[1]{'R'};	// Default to Raceband
+	uint8_t cmd_channel{0};	// Channel 1 (R1)
+	uint8_t cmd_power{1};	// Default 25mW
 	int cmd_fontType{0};
 	int cmd_resolution{0};
 	char cmd_string[get_instance()->column_max[get_instance()->resolution]]{0};
@@ -494,16 +512,16 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		return -1;
 	}
 
-	while ((ch = px4_getopt(argc, argv, "l:c:f:r:s:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "v:h:f:r:s:b:c:p:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
-		case 'l':	// row == line
+		case 'v':	// row == vertical
 			row = atoi(myoptarg); // 0 min, 17 max, HD_5018 TRUNCATES MSG
 			if (row < 0) row = 0;
 			if (row > get_instance()->row_max[get_instance()->resolution]) row = 17;
 			PX4_INFO("Got Row: %i", row);
 			break;
 
-		case 'c':
+		case 'h':	// column == horizontal
 			col = atoi(myoptarg);	// 0 min, 49 max, HD_5018 TRUNCATES MSG
 			if (col < 0) col = 0;
 			if (col > get_instance()->column_max[get_instance()->resolution]) col = 49;
@@ -531,11 +549,29 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		case 's':
 			if (strlen(myoptarg) > MSP_OSD_MAX_STRING_LENGTH){
 				PX4_WARN("String length too long, max string length: %i. Message may be truncated.", MSP_OSD_MAX_STRING_LENGTH);
-				// print_usage("String length too long, max string length: 30.");
-				// return 0;
 			}
 			PX4_INFO("Got string: %s, Length: %lu", myoptarg, strlen(myoptarg));
 			strncpy(cmd_string, myoptarg, strlen(myoptarg) + 1);
+			break;
+
+		case 'b':
+			strncpy(cmd_band, myoptarg, strlen(myoptarg) + 1);
+			PX4_INFO("Got Band: %s", cmd_band);
+			break;
+		
+		case 'c':
+			cmd_channel = atoi(myoptarg);
+			PX4_INFO("Got channel: %u", cmd_channel);
+			break;
+	
+		case 'p':
+			cmd_power = atoi(myoptarg);
+			if (cmd_power < 1 || cmd_power > 3){
+				PX4_ERR("VTX commanded power must be 1-3. Received: %i", cmd_power);
+				return 0;
+			}
+			cmd_power--;
+			PX4_INFO("Got Power: %i", cmd_power);
 			break;
 
 		default:
@@ -568,9 +604,9 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		if (cmd_string[MSP_OSD_MAX_STRING_LENGTH-1] != '\0') cmd_string[MSP_OSD_MAX_STRING_LENGTH-1] = '\0';
 
 		// Convert string to uppercase, otherwise it will try to print symbols instead
-		// for(size_t i=0; i<strlen(cmd_string);++i){
-		// 	cmd_string[i] = (cmd_string[i] >= 'a' && cmd_string[i] <= 'z') ? cmd_string[i] - 'a' + 'A' : cmd_string[i];
-		// }
+		for(size_t i=0; i<strlen(cmd_string);++i){
+			cmd_string[i] = (cmd_string[i] >= 'a' && cmd_string[i] <= 'z') ? cmd_string[i] - 'a' + 'A' : cmd_string[i];
+		}
 
 		const char* const_cmd_string = cmd_string;
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + strlen(const_cmd_string)+1]{0};
@@ -621,25 +657,50 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		return 0;
 	}
 
-	// Config VTX settings  
+	// Config VTX Band and Channel settings  
 	if(!strcmp(verb,"vtx")){
 		/* Fields:
 		protocol: 5 -> MSP
-		band:	  5 -> RC Band R (A,B,E,F,R)
+		band:	  5 -> RC Band R (E,F,R)
 		channel:  1 -> Channel (Ex: R1, R2, F1, etc)
 		power:	  1 -> 0 (0mw), 1 (25mW), 2 (200mW)
 		pit:	  0 -> Pit mode off 
 		freq:	  0x161A -> 5658 MHz
 		*/
+
+		// Convert string to uppercase
+		for(size_t i=0; i<strlen(cmd_band);++i){
+			cmd_band[i] = (cmd_band[i] >= 'a' && cmd_band[i] <= 'z') ? cmd_band[i] - 'a' + 'A' : cmd_band[i];
+		}
+
 		uint8_t protocol{5};
-		uint8_t band{5};
-		uint8_t channel{1};
-		uint8_t power{1};
+		uint8_t band{get_instance()->_band};
+		uint8_t channel{get_instance()->_channel};
+		uint8_t power{get_instance()->_power};
 		uint8_t pit{0};
-		uint16_t freq{0x161A};
+		uint16_t freq{get_instance()->_frequency};
+
+		if(*cmd_band == 'R'){
+			band = 5;		
+		}else if (*cmd_band == 'F'){
+			band = 4;
+		} else if (*cmd_band == 'E'){
+			band = 3;
+		} else {
+			band = 5;
+			*cmd_band = 'R';
+		}
+
+		if(cmd_channel != 0){
+			channel = cmd_channel;
+		}
+
 		PX4_INFO("");
-		PX4_INFO("Sending VTX CONFIG");
-		// const auto vtx_config_msg = msp_dp_osd::construct_vtx_config();
+		PX4_INFO("Sending VTX BAND/CHANNEL CONFIG");
+		PX4_INFO("\tBand:    %u", band);
+		PX4_INFO("\tChannel: %u", channel);
+		PX4_INFO("\tPower:   %u", power);
+		PX4_INFO("\tFreq:    %u", freq);
 		const msp_vtx_config_t vtx_config_msg = {
 			protocol,
 			band,
@@ -649,6 +710,37 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 			freq
 		};
 		get_instance()->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
+		get_instance()->_band = band;
+		get_instance()->_channel = channel;
+		get_instance()->_frequency = freq;
+		return 0;
+	}
+
+	// Config VTX Power settings  
+	if(!strcmp(verb,"power")){
+		uint8_t protocol{5};
+		uint8_t band{get_instance()->_band};
+		uint8_t channel{get_instance()->_channel};
+		uint8_t power{(uint8_t)cmd_power};
+		uint8_t pit{0};
+		uint16_t freq{get_instance()->_frequency};
+
+		PX4_INFO("");
+		PX4_INFO("Sending VTX POWER CONFIG");
+		PX4_INFO("\tBand:    %u", band);
+		PX4_INFO("\tChannel: %u", channel);
+		PX4_INFO("\tPower:   %u", power);
+		PX4_INFO("\tFreq:    %u", freq);
+		const msp_vtx_config_t vtx_config_msg = {
+			protocol,
+			band,
+			channel,
+			power,
+			pit,
+			freq
+		};
+		get_instance()->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
+		get_instance()->_power = power;
 		return 0;
 	}
 

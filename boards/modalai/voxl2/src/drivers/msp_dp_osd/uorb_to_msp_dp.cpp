@@ -232,12 +232,12 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 }
 
 // New code for HDZero VTX
-msp_vtx_config_t construct_vtx_config(){
+msp_vtx_config_t construct_vtx_config(uint8_t band=5, uint8_t channel=1){
 	msp_vtx_config_t vtx_config {0};
 
 	vtx_config.protocol = 5; 		// MSP
-	vtx_config.band 	= 5; 		// BAND 5
-	vtx_config.channel 	= 1; 		// CHANNEL 1
+	vtx_config.band 	= band; 		// BAND 5
+	vtx_config.channel 	= channel; 		// CHANNEL 1
 	vtx_config.power 	= 1; 		// POWER LEVEL 1 -> 25mW
 	vtx_config.pit	 	= 0; 		// PIT MODE OFF
 	vtx_config.freq 	= 0x161A;	// 5658 MHz

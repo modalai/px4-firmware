@@ -80,7 +80,7 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 
 /****** UPDATES TO WORK WITH HDZERO FREESTYLE V2 VTX ******/
 // Construct a MSP_VTX_CONFIG struct
-msp_vtx_config_t construct_vtx_config();
+msp_vtx_config_t construct_vtx_config(uint8_t band, uint8_t channel);
 
 // Construct a HDZero STATUS struct
 msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status);
