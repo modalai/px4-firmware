@@ -63,6 +63,7 @@
 
 // MSP structs
 #include "msp_dp_defines.h"
+#include "msp_osd_symbols.h"
 #include <drivers/osd/msp_osd/msp_defines.h>
 #include <drivers/osd/msp_osd/MessageDisplay/MessageDisplay.hpp>
 
@@ -110,6 +111,8 @@ msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fo
 
 // Construct Flight mode Message
 const char* construct_flight_mode(const vehicle_status_s &vehicle_status);
+
+uint8_t get_symbol_from_bearing(double bearing);
 
 // Convert warning message to upper case so HDZero OSD interprets the message as letters instead of symbols
 void log_msg_to_upper(char* string);

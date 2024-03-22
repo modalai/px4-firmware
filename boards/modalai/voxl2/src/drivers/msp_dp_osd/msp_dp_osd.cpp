@@ -291,6 +291,55 @@ void MspDPOsd::Run()
 		this->Send(MSP_CMD_DISPLAYPORT, &latitude_output, MSP_DIRECTION_REPLY);
 	}
 
+	// DIR/DIST TO HOME
+	{
+		home_position_s home_position{};
+		_home_position_sub.copy(&home_position);
+		estimator_status_s estimator_status{};
+		_estimator_status_sub.copy(&estimator_status);
+		vehicle_global_position_s vehicle_global_position{};
+		_vehicle_global_position_sub.copy(&vehicle_global_position);
+		int16_t distance_to_home{0};
+		int16_t bearing_to_home{SYM_ARROW_NORTH};
+
+		// Calculate distance and direction to home
+		if (home_position.valid_hpos && home_position.valid_lpos && estimator_status.solution_status_flags & (1 << 4)) {
+			float bearing_to_home_f = math::degrees(get_bearing_to_next_waypoint(vehicle_global_position.lat,
+								vehicle_global_position.lon,
+								home_position.lat, home_position.lon));
+
+			if (bearing_to_home < 0) {
+				bearing_to_home += 360.0f;
+			}
+
+			float distance_to_home_f = get_distance_to_next_waypoint(vehicle_global_position.lat,
+						vehicle_global_position.lon,
+						home_position.lat, home_position.lon);
+
+			distance_to_home = (int16_t)distance_to_home_f; // meters
+			bearing_to_home = msp_dp_osd::get_symbol_from_bearing((double)bearing_to_home_f);
+		} 
+	
+		char to_home[8];	// Direction symbol [1 byte], Distance to home [5 bytes max], Meter symbol [1 byte] 
+		snprintf(to_home, sizeof(to_home), "%c%i%c", bearing_to_home, distance_to_home, SYM_M);
+		uint8_t to_home_output[sizeof(msp_osd_dp_cmd_t) + sizeof(to_home)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.to_home_col, _parameters.to_home_row, false, to_home, to_home_output, sizeof(to_home_output));	
+		this->Send(MSP_CMD_DISPLAYPORT, &to_home_output, MSP_DIRECTION_REPLY);
+	}
+
+	// // EXPERIMENTATION
+	// {
+	// 	char experiment[17] = {
+	// 		SYM_ARROW_SOUTH, SYM_ARROW_2, SYM_ARROW_3, SYM_ARROW_4,
+	// 		SYM_ARROW_EAST, SYM_ARROW_6, SYM_ARROW_7, SYM_ARROW_8,
+	// 		SYM_ARROW_NORTH, SYM_ARROW_10, SYM_ARROW_11, SYM_ARROW_12,
+	// 		SYM_ARROW_WEST, SYM_ARROW_14, SYM_ARROW_15, SYM_ARROW_16,
+	// 	};
+	// 	uint8_t experiment_output[sizeof(msp_osd_dp_cmd_t) + sizeof(experiment)+1]{0};	
+	// 	msp_dp_osd::construct_OSD_write(8, 10, false, experiment, experiment_output, sizeof(experiment_output));	
+	// 	this->Send(MSP_CMD_DISPLAYPORT, &experiment_output, MSP_DIRECTION_REPLY);	
+	// }
+
 	// DRAW whole screen
 	displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
 	this->Send(MSP_CMD_DISPLAYPORT, &draw, MSP_DIRECTION_REPLY);
@@ -335,6 +384,9 @@ void MspDPOsd::parameters_update()
 	param_get(param_find("OSD_LAT_ROW"),  	&_parameters.latitude_row);
 	param_get(param_find("OSD_LONG_COL"), 	&_parameters.longitude_col);
 	param_get(param_find("OSD_LONG_ROW"), 	&_parameters.longitude_row);
+
+	param_get(param_find("OSD_HOME_COL"), 	&_parameters.to_home_col);
+	param_get(param_find("OSD_HOME_ROW"), 	&_parameters.to_home_row);
 }
 
 bool MspDPOsd::enabled(const SymbolIndex &symbol)
@@ -507,9 +559,9 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		if (cmd_string[MSP_OSD_MAX_STRING_LENGTH-1] != '\0') cmd_string[MSP_OSD_MAX_STRING_LENGTH-1] = '\0';
 
 		// Convert string to uppercase, otherwise it will try to print symbols instead
-		for(size_t i=0; i<strlen(cmd_string);++i){
-			cmd_string[i] = (cmd_string[i] >= 'a' && cmd_string[i] <= 'z') ? cmd_string[i] - 'a' + 'A' : cmd_string[i];
-		}
+		// for(size_t i=0; i<strlen(cmd_string);++i){
+		// 	cmd_string[i] = (cmd_string[i] >= 'a' && cmd_string[i] <= 'z') ? cmd_string[i] - 'a' + 'A' : cmd_string[i];
+		// }
 
 		const char* const_cmd_string = cmd_string;
 		uint8_t output[sizeof(msp_osd_dp_cmd_t) + strlen(const_cmd_string)+1]{0};
@@ -578,8 +630,6 @@ int MspDPOsd::custom_command(int argc, char *argv[])
 		uint16_t freq{0x161A};
 		PX4_INFO("");
 		PX4_INFO("Sending VTX CONFIG");
-		PX4_WARN("Sent VTX CONFIG");
-		PX4_ERR("Sent VTX CONFIG");
 		// const auto vtx_config_msg = msp_dp_osd::construct_vtx_config();
 		const msp_vtx_config_t vtx_config_msg = {
 			protocol,

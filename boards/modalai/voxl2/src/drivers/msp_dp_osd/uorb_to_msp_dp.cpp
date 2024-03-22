@@ -327,7 +327,6 @@ msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fo
 
 const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
 	const char* flight_mode;
-	// display flight mode
 	switch (vehicle_status.nav_state) {
 	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
 		flight_mode = "MANUAL"; 
@@ -417,8 +416,93 @@ const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
 		flight_mode = "???"; 
 		break;
 	}
-	// const char* flight_mode = msg; 
 	return flight_mode;
+}
+
+
+uint8_t get_symbol_from_bearing(double bearing){
+	uint8_t bearing_sybmol{SYM_ARROW_NORTH};
+	// NORTH
+	if((bearing >= 0 && bearing <= 11.25) || (bearing > 348.75 && bearing <= 360))
+	{
+		bearing_sybmol = SYM_ARROW_NORTH;	
+	}
+	// NORTH-NORTH-EAST
+	else if((bearing > 11.25 && bearing <= 33.75))
+	{
+		bearing_sybmol = SYM_ARROW_8;	
+	}
+	// NORTH-EAST
+	else if((bearing > 33.75 && bearing <= 56.25))
+	{
+		bearing_sybmol = SYM_ARROW_7;	
+	}
+	// EAST-NORTH-EAST
+	else if((bearing > 56.25 && bearing <= 78.75))
+	{
+		bearing_sybmol = SYM_ARROW_6;	
+	}
+	// EAST
+	else if((bearing > 78.75 && bearing <= 101.25))
+	{
+		bearing_sybmol = SYM_ARROW_EAST;	
+	}
+	// EAST-SOUTH-EAST
+	else if((bearing > 101.25 && bearing <= 123.75))
+	{
+		bearing_sybmol = SYM_ARROW_4;	
+	}
+	// SOUTH-EAST
+	else if((bearing > 123.75 && bearing <= 146.25))
+	{
+		bearing_sybmol = SYM_ARROW_3;	
+	}
+	// SOUTH-SOUTH-EAST
+	else if((bearing > 146.25 && bearing <= 168.75))
+	{
+		bearing_sybmol = SYM_ARROW_2;	
+	}
+	// SOUTH
+	else if((bearing > 168.75 && bearing <= 191.25))
+	{
+		bearing_sybmol = SYM_ARROW_SOUTH;	
+	}
+	// SOUTH-SOUTH-WEST
+	else if((bearing > 191.25 && bearing <= 213.75))
+	{
+		bearing_sybmol = SYM_ARROW_16;	
+	}
+	// SOUTH-WEST
+	else if((bearing > 213.75 && bearing <= 236.25))
+	{
+		bearing_sybmol = SYM_ARROW_15;	
+	}
+	// WEST-SOUTH-WEST
+	else if((bearing > 236.25 && bearing <= 258.75))
+	{
+		bearing_sybmol = SYM_ARROW_14;	
+	}
+	// WEST
+	else if((bearing > 258.75 && bearing <= 281.25))
+	{
+		bearing_sybmol = SYM_ARROW_WEST;	
+	}
+	// WEST-NORTH-WEST
+	else if((bearing > 281.25 && bearing <= 303.75))
+	{
+		bearing_sybmol = SYM_ARROW_12;	
+	}
+	// NORTH-WEST
+	else if((bearing > 303.75 && bearing <= 326.25))
+	{
+		bearing_sybmol = SYM_ARROW_11;	
+	}
+	// NORTH-NORTH-WEST
+	else if((bearing > 326.25 && bearing <= 348.75))
+	{
+		bearing_sybmol = SYM_ARROW_10;	
+	}
+	return bearing_sybmol;
 }
 
 } // namespace msp_dp_osd

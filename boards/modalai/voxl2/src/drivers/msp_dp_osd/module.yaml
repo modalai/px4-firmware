@@ -206,3 +206,26 @@ parameters:
             min: 0
             max: 17
             default: 0
+
+        # DIR/DIST HOME COL
+        OSD_HOME_COL:
+            description:
+                short: OSD direction/distance to home column 
+                long: |
+                    Column to place direction/distance to home value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # DIR/DIST HOME ROW
+        OSD_HOME_ROW:
+            description:
+                short: OSD direction/distance to home row 
+                long: |
+                    Row to place direction/distance to home value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
+
