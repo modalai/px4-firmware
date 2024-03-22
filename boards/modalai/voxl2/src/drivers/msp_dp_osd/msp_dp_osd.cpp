@@ -320,25 +320,20 @@ void MspDPOsd::Run()
 			bearing_to_home = msp_dp_osd::get_symbol_from_bearing((double)bearing_to_home_f);
 		} 
 	
-		char to_home[8];	// Direction symbol [1 byte], Distance to home [5 bytes max], Meter symbol [1 byte] 
-		snprintf(to_home, sizeof(to_home), "%c%i%c", bearing_to_home, distance_to_home, SYM_M);
+		char to_home[8];
+		snprintf(to_home, sizeof(to_home), "%c%c%i%c", bearing_to_home, SYM_HOMEFLAG, distance_to_home, SYM_M);
 		uint8_t to_home_output[sizeof(msp_osd_dp_cmd_t) + sizeof(to_home)+1]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.to_home_col, _parameters.to_home_row, false, to_home, to_home_output, sizeof(to_home_output));	
 		this->Send(MSP_CMD_DISPLAYPORT, &to_home_output, MSP_DIRECTION_REPLY);
 	}
 
-	// // EXPERIMENTATION
-	// {
-	// 	char experiment[17] = {
-	// 		SYM_ARROW_SOUTH, SYM_ARROW_2, SYM_ARROW_3, SYM_ARROW_4,
-	// 		SYM_ARROW_EAST, SYM_ARROW_6, SYM_ARROW_7, SYM_ARROW_8,
-	// 		SYM_ARROW_NORTH, SYM_ARROW_10, SYM_ARROW_11, SYM_ARROW_12,
-	// 		SYM_ARROW_WEST, SYM_ARROW_14, SYM_ARROW_15, SYM_ARROW_16,
-	// 	};
-	// 	uint8_t experiment_output[sizeof(msp_osd_dp_cmd_t) + sizeof(experiment)+1]{0};	
-	// 	msp_dp_osd::construct_OSD_write(8, 10, false, experiment, experiment_output, sizeof(experiment_output));	
-	// 	this->Send(MSP_CMD_DISPLAYPORT, &experiment_output, MSP_DIRECTION_REPLY);	
-	// }
+	// CROSSHAIRS
+	{
+		char crosshair[] = {SYM_AH_CENTER};
+		uint8_t crosshair_output[sizeof(msp_osd_dp_cmd_t) + sizeof(crosshair)+1]{0};	
+		msp_dp_osd::construct_OSD_write(_parameters.crosshair_col, _parameters.crosshair_row, false, crosshair, crosshair_output, sizeof(crosshair_output));	
+		this->Send(MSP_CMD_DISPLAYPORT, &crosshair_output, MSP_DIRECTION_REPLY);		
+	}
 
 	// DRAW whole screen
 	displayportMspCommand_e draw{MSP_DP_DRAW_SCREEN};
@@ -387,6 +382,9 @@ void MspDPOsd::parameters_update()
 
 	param_get(param_find("OSD_HOME_COL"), 	&_parameters.to_home_col);
 	param_get(param_find("OSD_HOME_ROW"), 	&_parameters.to_home_row);
+
+	param_get(param_find("OSD_CH_COL"), 	&_parameters.crosshair_col);
+	param_get(param_find("OSD_CH_ROW"), 	&_parameters.crosshair_row);
 }
 
 bool MspDPOsd::enabled(const SymbolIndex &symbol)

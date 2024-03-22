@@ -184,6 +184,8 @@ private:
 		int32_t		longitude_row;
 		int32_t		to_home_col;
 		int32_t		to_home_row;
+		int32_t		crosshair_col;
+		int32_t		crosshair_row;
 	} msp_dp_osd_params_t;
 
 	// parameters
@@ -212,7 +214,9 @@ private:
 		(ParamInt<px4::params::OSD_LONG_COL>) _param_osd_long_col,
 		(ParamInt<px4::params::OSD_LONG_ROW>) _param_osd_long_row,
 		(ParamInt<px4::params::OSD_HOME_COL>) _param_osd_home_col,
-		(ParamInt<px4::params::OSD_HOME_ROW>) _param_osd_home_row
+		(ParamInt<px4::params::OSD_HOME_ROW>) _param_osd_home_row,
+		(ParamInt<px4::params::OSD_CH_COL>) _param_osd_crosshair_col,
+		(ParamInt<px4::params::OSD_CH_ROW>) _param_osd_crosshair_row
 	)
 
 	// metadata

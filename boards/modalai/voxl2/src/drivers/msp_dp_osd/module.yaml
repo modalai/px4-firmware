@@ -229,3 +229,24 @@ parameters:
             max: 17
             default: 0
 
+        # CROSSHAIR COL
+        OSD_CH_COL:
+            description:
+                short: OSD crosshair column 
+                long: |
+                    Column to place crosshair value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # CROSSHAIR ROW
+        OSD_CH_ROW:
+            description:
+                short: OSD crosshair row 
+                long: |
+                    Row to place crosshair value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0
