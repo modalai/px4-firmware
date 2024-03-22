@@ -250,3 +250,25 @@ parameters:
             min: 0
             max: 17
             default: 0
+
+        # HEADING ANGLE COL
+        OSD_HDG_COL:
+            description:
+                short: OSD heading angle column 
+                long: |
+                    Column to place heading angle value in.
+            type: int32
+            min: 0
+            max: 49
+            default: 0
+
+        # HEADING ANGLE ROW
+        OSD_HDG_ROW:
+            description:
+                short: OSD heading angle row 
+                long: |
+                    Row to place heading angle value in.
+            type: int32
+            min: 0
+            max: 17
+            default: 0

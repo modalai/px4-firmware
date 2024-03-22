@@ -133,13 +133,12 @@ void MspDPOsd::Run()
 		_msp = MspDPV1(_msp_fd);
 
 		_is_initialized = true;
-		
 
 		// Clear old info on OSD
 		PX4_INFO("");
 		PX4_INFO("Sending CLEAR CMD");
 		const auto clear_osd_msg = msp_dp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
+		this->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
 
 		// Send VTX Config
 		PX4_INFO("");
@@ -173,13 +172,13 @@ void MspDPOsd::Run()
     // b) prevent OSD Slave boards from displaying a 'disconnected' status.
 	{
 		const auto heartbeat_msg = msp_dp_osd::construct_OSD_heartbeat();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &heartbeat_msg, MSP_DIRECTION_REPLY);
+		this->Send(MSP_CMD_DISPLAYPORT, &heartbeat_msg, MSP_DIRECTION_REPLY);
 	}
 
 	// Clear screen
 	if (clear){
 		const auto clear_osd_msg = msp_dp_osd::construct_OSD_clear();
-		get_instance()->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
+		this->Send(MSP_CMD_DISPLAYPORT, &clear_osd_msg, MSP_DIRECTION_REPLY);
 	}
 
 	// FC VARIANT
@@ -271,7 +270,7 @@ void MspDPOsd::Run()
 		this->Send(MSP_CMD_DISPLAYPORT, &current_draw_output, MSP_DIRECTION_REPLY);
 	}
 
-	// GPS LAT/LONG
+	// GPS LAT/LONG/HEADING ANGLE
 	{
 		sensor_gps_s vehicle_gps_position{};
 		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
@@ -291,7 +290,7 @@ void MspDPOsd::Run()
 		this->Send(MSP_CMD_DISPLAYPORT, &latitude_output, MSP_DIRECTION_REPLY);
 	}
 
-	// DIR/DIST TO HOME
+	// DIR/DIST TO HOME/HEADING ANGLE
 	{
 		home_position_s home_position{};
 		_home_position_sub.copy(&home_position);
@@ -299,6 +298,8 @@ void MspDPOsd::Run()
 		_estimator_status_sub.copy(&estimator_status);
 		vehicle_global_position_s vehicle_global_position{};
 		_vehicle_global_position_sub.copy(&vehicle_global_position);
+		sensor_gps_s vehicle_gps_position{};
+		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
 		int16_t distance_to_home{0};
 		int16_t bearing_to_home{SYM_ARROW_NORTH};
 
@@ -325,11 +326,18 @@ void MspDPOsd::Run()
 		uint8_t to_home_output[sizeof(msp_osd_dp_cmd_t) + sizeof(to_home)+1]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.to_home_col, _parameters.to_home_row, false, to_home, to_home_output, sizeof(to_home_output));	
 		this->Send(MSP_CMD_DISPLAYPORT, &to_home_output, MSP_DIRECTION_REPLY);
+
+		// Heading Angle
+		char heading[5];
+		snprintf(heading, sizeof(heading), "%c%i", bearing_to_home, (int16_t)vehicle_gps_position.heading);
+		uint8_t heading_output[sizeof(msp_osd_dp_cmd_t) + sizeof(heading)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
+		msp_dp_osd::construct_OSD_write(_parameters.heading_col, _parameters.heading_row, false, heading, heading_output, sizeof(heading_output));	// col X, row 16 (bottom right BOTTOM) in HD_5018
+		this->Send(MSP_CMD_DISPLAYPORT, &heading_output, MSP_DIRECTION_REPLY);
 	}
 
 	// CROSSHAIRS
 	{
-		char crosshair[] = {SYM_AH_CENTER};
+		char crosshair[2] = {SYM_AH_CENTER, '\0'};
 		uint8_t crosshair_output[sizeof(msp_osd_dp_cmd_t) + sizeof(crosshair)+1]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.crosshair_col, _parameters.crosshair_row, false, crosshair, crosshair_output, sizeof(crosshair_output));	
 		this->Send(MSP_CMD_DISPLAYPORT, &crosshair_output, MSP_DIRECTION_REPLY);		
@@ -385,6 +393,9 @@ void MspDPOsd::parameters_update()
 
 	param_get(param_find("OSD_CH_COL"), 	&_parameters.crosshair_col);
 	param_get(param_find("OSD_CH_ROW"), 	&_parameters.crosshair_row);
+
+	param_get(param_find("OSD_HDG_COL"), 	&_parameters.heading_col);
+	param_get(param_find("OSD_HDG_ROW"), 	&_parameters.heading_row);
 }
 
 bool MspDPOsd::enabled(const SymbolIndex &symbol)
