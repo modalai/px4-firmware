@@ -147,6 +147,9 @@ void task_main(int argc, char *argv[])
 						 rx_buf[14],
 						 rx_buf[15]);
 				}
+
+				uint8_t write_data[5] = {0x23, 0x45, 0x09, 0x22, 0xfe};
+				qurt_uart_write(uart_fd, (const char *) write_data, 5);
 			}
 
 			usleep(250000);
