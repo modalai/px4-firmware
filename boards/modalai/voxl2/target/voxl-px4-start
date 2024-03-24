@@ -57,6 +57,10 @@ fi
 # any possible race conditions.
 /bin/sleep 1
 
+qshell uart_test start
+
+exit 0
+
 param select /data/px4/param/parameters
 
 # Load in all of the parameters that have been saved in the file
