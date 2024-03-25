@@ -409,8 +409,6 @@ void MspDPOsd::parameters_update()
 	param_get(param_find("OSD_CHANNEL"), 	&channel_t);
 	param_get(param_find("OSD_BAND"),    	&band_t);
 
-	param_get(param_find("OSD_CH_SWAP"),    &_parameters.swap);
-	
 	this->_band = (uint8_t)band_t;
 	this->_channel = (uint8_t)channel_t;
 }
