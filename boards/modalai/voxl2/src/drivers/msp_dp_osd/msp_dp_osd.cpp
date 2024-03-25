@@ -254,8 +254,8 @@ void MspDPOsd::Run()
 
 		// Full battery voltage
 		char batt[8];
-		uint8_t battery_symbol = SYM_BATT_FULL;
-		snprintf(batt, sizeof(batt), "%c%.2fV", battery_symbol, static_cast<double>(battery_status.voltage_v));
+		uint8_t battery_symbol = SYM_BATT_FULL;	// Could probably make this change based on battery level...
+		snprintf(batt, sizeof(batt), "%c%.2f%c", battery_symbol, static_cast<double>(battery_status.voltage_v), SYM_VOLT);
 		uint8_t battery_output[sizeof(msp_osd_dp_cmd_t) + sizeof(batt)+1]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.battery_col, _parameters.battery_row, false, batt, battery_output, sizeof(battery_output));	// col 0, row 17 (bottom left) in HD_5018
 		this->Send(MSP_CMD_DISPLAYPORT, &battery_output, MSP_DIRECTION_REPLY);
@@ -263,13 +263,13 @@ void MspDPOsd::Run()
 		// Per cell battery voltage
 		char batt_cell[7];
 		// uint8_t battery_symbol = SYM_BATT_FULL;
-		snprintf(batt_cell, sizeof(batt_cell), "%c%.2fV", battery_symbol, static_cast<double>(battery_status.voltage_v/battery_status.cell_count));
+		snprintf(batt_cell, sizeof(batt_cell), "%c%.2f%c", battery_symbol, static_cast<double>(battery_status.voltage_v/battery_status.cell_count), SYM_VOLT);
 		uint8_t batt_cell_output[sizeof(msp_osd_dp_cmd_t) + sizeof(batt_cell)+1]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.cell_battery_col, _parameters.cell_battery_row, false, batt_cell, batt_cell_output, sizeof(batt_cell_output));	// col BATT + 1 SPACE, row 17 (bottom left) in HD_5018
 		this->Send(MSP_CMD_DISPLAYPORT, &batt_cell_output, MSP_DIRECTION_REPLY);
 
 		// Current draw
-		char current_draw[7];
+		char current_draw[8];
 		snprintf(current_draw, sizeof(current_draw), "%.3f%c", static_cast<double>(battery_status.current_filtered_a), SYM_AMP);
 		uint8_t current_draw_output[sizeof(msp_osd_dp_cmd_t) + sizeof(current_draw)+1]{0};	
 		msp_dp_osd::construct_OSD_write(_parameters.current_draw_col, _parameters.current_draw_row, false, current_draw, current_draw_output, sizeof(current_draw_output));	// col Max column-sizeof(current_draw_messge), row 0 (top right BOTTOM) in HD_5018
@@ -409,6 +409,8 @@ void MspDPOsd::parameters_update()
 	param_get(param_find("OSD_CHANNEL"), 	&channel_t);
 	param_get(param_find("OSD_BAND"),    	&band_t);
 
+	param_get(param_find("OSD_CH_SWAP"),    &_parameters.swap);
+	
 	this->_band = (uint8_t)band_t;
 	this->_channel = (uint8_t)channel_t;
 }

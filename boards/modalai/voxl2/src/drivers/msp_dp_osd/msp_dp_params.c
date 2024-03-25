@@ -37,7 +37,6 @@
  * Selects which column to place RSSI element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -49,7 +48,6 @@ PARAM_DEFINE_INT32(OSD_RSSI_COL, -1);
  * Selects which row to place RSSI element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -61,7 +59,6 @@ PARAM_DEFINE_INT32(OSD_RSSI_ROW, -1);
  * Selects which column to place Current Draw element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -73,7 +70,6 @@ PARAM_DEFINE_INT32(OSD_CURR_COL, -1);
  * Selects which row to place Current Draw element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -85,7 +81,6 @@ PARAM_DEFINE_INT32(OSD_CURR_ROW, -1);
  * Selects which column to place Battery element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -97,7 +92,6 @@ PARAM_DEFINE_INT32(OSD_BATT_COL, -1);
  * Selects which row to place Battery element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -109,7 +103,6 @@ PARAM_DEFINE_INT32(OSD_BATT_ROW, -1);
  * Selects which column to place Cell Battery element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -121,7 +114,6 @@ PARAM_DEFINE_INT32(OSD_CBATT_COL, -1);
  * Selects which row to place Cell Battery element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -133,7 +125,6 @@ PARAM_DEFINE_INT32(OSD_CBATT_ROW, -1);
  * Selects which column to place Disarmed Message element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -145,7 +136,6 @@ PARAM_DEFINE_INT32(OSD_DIS_COL, -1);
  * Selects which row to place Disarmed Message element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -157,7 +147,6 @@ PARAM_DEFINE_INT32(OSD_DIS_ROW, -1);
  * Selects which column to place Status Message element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -169,7 +158,6 @@ PARAM_DEFINE_INT32(OSD_STATUS_COL, -1);
  * Selects which row to place Status Message element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -181,7 +169,6 @@ PARAM_DEFINE_INT32(OSD_STATUS_ROW, -1);
  * Selects which column to place Flight Mode element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -193,7 +180,6 @@ PARAM_DEFINE_INT32(OSD_FM_COL, -1);
  * Selects which row to place Flight Mode element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -205,7 +191,6 @@ PARAM_DEFINE_INT32(OSD_FM_ROW, -1);
  * Selects which column to place Latitude element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -217,7 +202,6 @@ PARAM_DEFINE_INT32(OSD_LAT_COL, -1);
  * Selects which row to place Latitude element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -229,7 +213,6 @@ PARAM_DEFINE_INT32(OSD_LAT_ROW, -1);
  * Selects which column to place Longitude element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -241,7 +224,6 @@ PARAM_DEFINE_INT32(OSD_LONG_COL, -1);
  * Selects which row to place Longitude element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -253,7 +235,6 @@ PARAM_DEFINE_INT32(OSD_LONG_ROW, -1);
  * Selects which column to place direction/distance to home element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -265,7 +246,6 @@ PARAM_DEFINE_INT32(OSD_HOME_COL, -1);
  * Selects which row to place direction/distance to home element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -277,7 +257,6 @@ PARAM_DEFINE_INT32(OSD_HOME_ROW, -1);
  * Selects which column to place crosshair element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -289,7 +268,6 @@ PARAM_DEFINE_INT32(OSD_CH_COL, -1);
  * Selects which row to place crosshair element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
@@ -301,7 +279,6 @@ PARAM_DEFINE_INT32(OSD_CH_ROW, -1);
  * Selects which column to place heading angle element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 49
  */
@@ -313,7 +290,6 @@ PARAM_DEFINE_INT32(OSD_HDG_COL, -1);
  * Selects which row to place heading angle element in.
  *
  * @group OSD
- * @value -1 - Disabled
  * @min -1
  * @max 17
  */
