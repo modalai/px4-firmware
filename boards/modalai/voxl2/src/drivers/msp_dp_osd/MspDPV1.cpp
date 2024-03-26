@@ -71,7 +71,7 @@ const msp_message_descriptor_t msp_message_descriptors[MSP_DESCRIPTOR_COUNT] = {
 	{MSP_OSD_CONFIG, true, sizeof(msp_osd_config_t)},
 	{MSP_NAME, true, sizeof(msp_name_t)},
 	{MSP_ANALOG, true, sizeof(msp_analog_t)},
-	{MSP_STATUS, true, sizeof(msp_status_HDZ_t)},
+	{MSP_STATUS, true, sizeof(msp_dp_status_t)},
 	{MSP_BATTERY_STATE, true, sizeof(msp_battery_state_t)},
 	{MSP_RAW_GPS, true, sizeof(msp_raw_gps_t)},
 	{MSP_ATTITUDE, true, sizeof(msp_attitude_t)},
@@ -80,10 +80,10 @@ const msp_message_descriptor_t msp_message_descriptors[MSP_DESCRIPTOR_COUNT] = {
 	{MSP_ESC_SENSOR_DATA, true, sizeof(msp_esc_sensor_data_dji_t)},
 	{MSP_MOTOR_TELEMETRY, true, sizeof(msp_motor_telemetry_t)},
 	{MSP_RC, true, sizeof(msp_rc_t)},
-	{MSP_SET_OSD_CANVAS, true, sizeof(msp_osd_canvas_t)},
+	{MSP_SET_OSD_CANVAS, true, sizeof(msp_dp_canvas_t)},
 	{MSP_FC_VARIANT, true, sizeof(msp_fc_variant_t)},
-	{MSP_VTX_CONFIG, true, sizeof(msp_vtx_config_t)},
-	{MSP_CMD_DISPLAYPORT, false, sizeof(msp_osd_dp_cmd_t)},
+	{MSP_VTX_CONFIG, true, sizeof(msp_dp_vtx_config_t)},
+	{MSP_CMD_DISPLAYPORT, false, sizeof(msp_dp_cmd_t)},
 };
 
 #define MSP_FRAME_START_SIZE 5
@@ -114,8 +114,8 @@ bool MspDPV1::Send(const uint8_t message_id, const void *payload, mspDirection_e
 			if (subcmd[0] == MSP_DP_DRAW_SCREEN){
 				payload_size = 1;
 			} else if(subcmd[0] == MSP_DP_WRITE_STRING){	// Case when we write string.. payload size may vary 
-				payload_size+=sizeof(msp_osd_dp_cmd_t);
-				char dp_payload[sizeof(msp_osd_dp_cmd_t)+MSP_OSD_MAX_STRING_LENGTH];
+				payload_size+=sizeof(msp_dp_cmd_t);
+				char dp_payload[sizeof(msp_dp_cmd_t)+MSP_OSD_MAX_STRING_LENGTH];
 				memcpy(dp_payload, payload, sizeof(dp_payload));
 				// Find length of string in input (may not be whole array)
 				for (int i=0;i<MSP_OSD_MAX_STRING_LENGTH;++i){

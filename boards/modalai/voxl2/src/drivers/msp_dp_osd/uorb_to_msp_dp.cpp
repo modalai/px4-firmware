@@ -232,8 +232,8 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 }
 
 // New code for HDZero VTX
-msp_vtx_config_t construct_vtx_config(uint8_t band=5, uint8_t channel=1){
-	msp_vtx_config_t vtx_config {0};
+msp_dp_vtx_config_t construct_vtx_config(uint8_t band=5, uint8_t channel=1){
+	msp_dp_vtx_config_t vtx_config {0};
 
 	vtx_config.protocol = 5; 		// MSP
 	vtx_config.band 	= band; 		// BAND 5
@@ -245,16 +245,16 @@ msp_vtx_config_t construct_vtx_config(uint8_t band=5, uint8_t channel=1){
 	return vtx_config;
 }
 
-msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status){
-	msp_status_HDZ_t status_HDZ = {0};
+msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status){
+	msp_dp_status_t status = {0};
 
 	if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-		status_HDZ.armed = 0x01;
+		status.armed = 0x01;
 	}
 
-	status_HDZ.arming_disable_flags_count = 1;
-	status_HDZ.arming_disable_flags  = !(vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
-	return status_HDZ;
+	status.arming_disable_flags_count = 1;
+	status.arming_disable_flags  = !(vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
+	return status;
 }
 
 msp_rc_t construct_RC(const input_rc_s &input_rc){
@@ -269,8 +269,8 @@ msp_rc_t construct_RC(const input_rc_s &input_rc){
 	return msp_rc;
 }
 
-msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
-	msp_osd_canvas_t msp_canvas{0};
+msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
+	msp_dp_canvas_t msp_canvas{0};
 
 	// HD
 	if (row > 49) row = 49;
@@ -299,7 +299,7 @@ displayportMspCommand_e construct_OSD_clear(){
 // WARNING: If input string has lowercase chars, they may be interpreted as symbols!
 uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len)
 {
-	msp_osd_dp_cmd_t msp_osd_dp_cmd;
+	msp_dp_cmd_t msp_osd_dp_cmd;
 	int str_len = strlen(string);
     if (str_len > MSP_OSD_MAX_STRING_LENGTH) str_len = MSP_OSD_MAX_STRING_LENGTH;
 	msp_osd_dp_cmd.subcmd = (uint8_t)MSP_DP_WRITE_STRING;
@@ -317,8 +317,8 @@ displayportMspCommand_e construct_OSD_draw(){
 }
 
 // Construct a HDZero OSD config command
-msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType){
-	msp_osd_dp_config_t msp_osd_dp_config;
+msp_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType){
+	msp_dp_config_t msp_osd_dp_config;
 	msp_osd_dp_config.subcmd     = MSP_DP_CONFIG;
 	msp_osd_dp_config.fontType   = fontType;
 	msp_osd_dp_config.resolution = resolution;
@@ -420,85 +420,85 @@ const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
 }
 
 
-uint8_t get_symbol_from_bearing(double bearing){
+uint8_t get_symbol_from_bearing(float bearing){
 	uint8_t bearing_sybmol{SYM_ARROW_NORTH};
 	// NORTH
-	if((bearing >= 0 && bearing <= 11.25) || (bearing > 348.75 && bearing <= 360))
+	if((bearing >= 0.0f && bearing <= 11.25f) || (bearing > 348.75f && bearing <= 360.0f))
 	{
 		bearing_sybmol = SYM_ARROW_NORTH;	
 	}
 	// NORTH-NORTH-EAST
-	else if((bearing > 11.25 && bearing <= 33.75))
+	else if((bearing > 11.25f && bearing <= 33.75f))
 	{
 		bearing_sybmol = SYM_ARROW_8;	
 	}
 	// NORTH-EAST
-	else if((bearing > 33.75 && bearing <= 56.25))
+	else if((bearing > 33.75f && bearing <= 56.25f))
 	{
 		bearing_sybmol = SYM_ARROW_7;	
 	}
 	// EAST-NORTH-EAST
-	else if((bearing > 56.25 && bearing <= 78.75))
+	else if((bearing > 56.25f && bearing <= 78.75f))
 	{
 		bearing_sybmol = SYM_ARROW_6;	
 	}
 	// EAST
-	else if((bearing > 78.75 && bearing <= 101.25))
+	else if((bearing > 78.75f && bearing <= 101.25f))
 	{
 		bearing_sybmol = SYM_ARROW_EAST;	
 	}
 	// EAST-SOUTH-EAST
-	else if((bearing > 101.25 && bearing <= 123.75))
+	else if((bearing > 101.25f && bearing <= 123.75f))
 	{
 		bearing_sybmol = SYM_ARROW_4;	
 	}
 	// SOUTH-EAST
-	else if((bearing > 123.75 && bearing <= 146.25))
+	else if((bearing > 123.75f && bearing <= 146.25f))
 	{
 		bearing_sybmol = SYM_ARROW_3;	
 	}
 	// SOUTH-SOUTH-EAST
-	else if((bearing > 146.25 && bearing <= 168.75))
+	else if((bearing > 146.25f && bearing <= 168.75f))
 	{
 		bearing_sybmol = SYM_ARROW_2;	
 	}
 	// SOUTH
-	else if((bearing > 168.75 && bearing <= 191.25))
+	else if((bearing > 168.75f && bearing <= 191.25f))
 	{
 		bearing_sybmol = SYM_ARROW_SOUTH;	
 	}
 	// SOUTH-SOUTH-WEST
-	else if((bearing > 191.25 && bearing <= 213.75))
+	else if((bearing > 191.25f && bearing <= 213.75f))
 	{
 		bearing_sybmol = SYM_ARROW_16;	
 	}
 	// SOUTH-WEST
-	else if((bearing > 213.75 && bearing <= 236.25))
+	else if((bearing > 213.75f && bearing <= 236.25f))
 	{
 		bearing_sybmol = SYM_ARROW_15;	
 	}
 	// WEST-SOUTH-WEST
-	else if((bearing > 236.25 && bearing <= 258.75))
+	else if((bearing > 236.25f && bearing <= 258.75f))
 	{
 		bearing_sybmol = SYM_ARROW_14;	
 	}
 	// WEST
-	else if((bearing > 258.75 && bearing <= 281.25))
+	else if((bearing > 258.75f && bearing <= 281.25f))
 	{
 		bearing_sybmol = SYM_ARROW_WEST;	
 	}
 	// WEST-NORTH-WEST
-	else if((bearing > 281.25 && bearing <= 303.75))
+	else if((bearing > 281.25f && bearing <= 303.75f))
 	{
 		bearing_sybmol = SYM_ARROW_12;	
 	}
 	// NORTH-WEST
-	else if((bearing > 303.75 && bearing <= 326.25))
+	else if((bearing > 303.75f && bearing <= 326.25f))
 	{
 		bearing_sybmol = SYM_ARROW_11;	
 	}
 	// NORTH-NORTH-WEST
-	else if((bearing > 326.25 && bearing <= 348.75))
+	else if((bearing > 326.25f && bearing <= 348.75f))
 	{
 		bearing_sybmol = SYM_ARROW_10;	
 	}

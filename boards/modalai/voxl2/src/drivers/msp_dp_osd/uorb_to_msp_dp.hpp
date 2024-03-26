@@ -80,16 +80,16 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 
 /****** UPDATES TO WORK WITH HDZERO FREESTYLE V2 VTX ******/
 // Construct a MSP_VTX_CONFIG struct
-msp_vtx_config_t construct_vtx_config(uint8_t band, uint8_t channel);
+msp_dp_vtx_config_t construct_vtx_config(uint8_t band, uint8_t channel);
 
 // Construct a HDZero STATUS struct
-msp_status_HDZ_t construct_STATUS_HDZ(const vehicle_status_s &vehicle_status);
+msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status);
 
 // Construct a HDZero RC struct
 msp_rc_t construct_RC(const input_rc_s &input_rc);
 
 // Construct a HDZero canvas size reply struct
-msp_osd_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col);
+msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col);
 
 // Construct a HDZero OSD heartbeat command
 displayportMspCommand_e construct_OSD_heartbeat();
@@ -107,12 +107,12 @@ uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *st
 displayportMspCommand_e construct_OSD_draw();
 
 // Construct a HDZero OSD config command
-msp_osd_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType);
+msp_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType);
 
 // Construct Flight mode Message
 const char* construct_flight_mode(const vehicle_status_s &vehicle_status);
 
-uint8_t get_symbol_from_bearing(double bearing);
+uint8_t get_symbol_from_bearing(float bearing);
 
 // Convert warning message to upper case so HDZero OSD interprets the message as letters instead of symbols
 void log_msg_to_upper(char* string);

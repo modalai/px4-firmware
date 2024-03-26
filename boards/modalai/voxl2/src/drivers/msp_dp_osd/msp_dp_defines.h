@@ -7,20 +7,18 @@
 #define MSP_CMD    '<'
 
 // requests & replies
-#define MSP_VTX_CONFIG            88 //out message         Get vtx settings - betaflight
-#define MSP_SET_VTX_CONFIG        89 //in message          Set vtx settings - betaflight
-#define MSP_CMD_DISPLAYPORT      182 // Write osd to display port 
-#define MSP_SET_OSD_CANVAS       188 // in message           Set osd canvas size COLSxROWS
-#define MSP_OSD_CANVAS           189 // out message          Get osd canvas size COLSxROWS
+#define MSP_VTX_CONFIG            88 //out message         	Get vtx settings 
+#define MSP_SET_VTX_CONFIG        89 //in message          	Set vtx settings 
+#define MSP_CMD_DISPLAYPORT      182 //out message			Write osd to display port 
+#define MSP_SET_OSD_CANVAS       188 // in message          Set osd canvas size COLSxROWS
+#define MSP_OSD_CANVAS           189 // out message         Get osd canvas size COLSxROWS
 
 #define MSP_OSD_DP_WRITE_PAYLOAD 4
 #define MSP_OSD_MAX_STRING_LENGTH 30 
 #define DISPLAYPORT_MSP_ATTR_BLINK   (1UL << (6)) // Device local blink
 
-/* NEW STRUCTS FOR HDZero msgs */
-
-// MSP_VTX_CONFIG 
-struct msp_vtx_config_t {
+// VTX CONFIG 
+struct msp_dp_vtx_config_t {
 	uint8_t  protocol;
 	uint8_t  band;	
 	uint8_t  channel;
@@ -29,8 +27,8 @@ struct msp_vtx_config_t {
 	uint16_t freq;	
 } __attribute__((packed));
 
-// MSP_STATUS 
-struct msp_status_HDZ_t {
+// STATUS 
+struct msp_dp_status_t {
 	uint8_t  unused0;
 	uint8_t  unused1;
 	uint8_t  unused2;
@@ -46,22 +44,22 @@ struct msp_status_HDZ_t {
 #define SD_ROW_MAX 16
 #define HD_COL_MAX 50
 #define HD_ROW_MAX 18
-// MSP_OSD_CANVAS 
-struct msp_osd_canvas_t {
+// OSD CANVAS 
+struct msp_dp_canvas_t {
 	uint8_t  row_max;
 	uint8_t  col_max;
 } __attribute__((packed));
 
-// MSP_CMD_DISPLAYPORT config 
-struct msp_osd_dp_config_t {
+// DISPLAYPORT CONFIG
+struct msp_dp_config_t {
 	// displayportMspCommand_e  subcmd;
 	uint8_t subcmd;
 	uint8_t fontType;
 	uint8_t resolution;
 } __attribute__((packed));
 
-// MSP_CMD_DISPLAYPORT write/draw command 
-struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
+// DISPLAYPORT WRITE COMMAND 
+struct msp_dp_cmd_t {	// Message is added later since it can be variable size and HDZero OSD writes the whole buffer sent, doesn't stop at delimiter
 	uint8_t subcmd;
 	uint8_t row;	
 	uint8_t col;	
@@ -69,7 +67,7 @@ struct msp_osd_dp_cmd_t {	// Message is added later since it can be variable siz
 	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
 } __attribute__((packed));
 
-// MSP Display Port command enums
+// Display Port command enums
 typedef enum __attribute__((packed)){
     MSP_DP_HEARTBEAT = 0,       // Heartbeat
     MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
