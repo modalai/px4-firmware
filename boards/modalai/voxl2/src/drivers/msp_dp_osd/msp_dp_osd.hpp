@@ -200,6 +200,7 @@ private:
 	)
 
 	// metadata
+	msp_dp_rc_sticks_t	_sticks{0};
 	msp_dp_osd_params_t	_parameters{0};
 	char _device[64] {};
 	uint8_t fontType{0};

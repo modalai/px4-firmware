@@ -257,15 +257,28 @@ msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status){
 	return status;
 }
 
-msp_rc_t construct_RC(const input_rc_s &input_rc){
+/*
+HDZERO expects:
+CH 1 - Roll
+CH 2 - Pitch
+CH 3 - Yaw
+CH 4 - Throttle
+*/
+
+msp_rc_t construct_RC(const input_rc_s &input_rc,  const msp_dp_rc_sticks_t &sticks){
 	msp_rc_t msp_rc{0};
 	
 	for (int i=0; i < MSP_MAX_SUPPORTED_CHANNELS; ++i){
 		msp_rc.channelValue[i] = input_rc.values[i];
 	}
-	uint16_t throttle_swap{msp_rc.channelValue[2]};
-	msp_rc.channelValue[2] = msp_rc.channelValue[3];	// Ch3 throttle -> yaw
-	msp_rc.channelValue[3] = throttle_swap;				// Ch4 yaw -> throttle
+	uint16_t throttle{msp_rc.channelValue[sticks.throttle-1]};	
+	uint16_t roll{msp_rc.channelValue[sticks.roll-1]};			
+	uint16_t pitch{msp_rc.channelValue[sticks.pitch-1]};		
+	uint16_t yaw{msp_rc.channelValue[sticks.yaw-1]};			
+	msp_rc.channelValue[0] = roll;
+	msp_rc.channelValue[1] = pitch;	
+	msp_rc.channelValue[2] = yaw;		
+	msp_rc.channelValue[3] = throttle;	
 	return msp_rc;
 }
 

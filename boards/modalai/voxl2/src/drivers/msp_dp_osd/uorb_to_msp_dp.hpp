@@ -86,7 +86,7 @@ msp_dp_vtx_config_t construct_vtx_config(uint8_t band, uint8_t channel);
 msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status);
 
 // Construct a HDZero RC struct
-msp_rc_t construct_RC(const input_rc_s &input_rc);
+msp_rc_t construct_RC(const input_rc_s &input_rc, const msp_dp_rc_sticks_t &sticks);
 
 // Construct a HDZero canvas size reply struct
 msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col);

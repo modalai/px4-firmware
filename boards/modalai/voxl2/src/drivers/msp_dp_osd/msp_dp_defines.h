@@ -67,6 +67,13 @@ struct msp_dp_cmd_t {	// Message is added later since it can be variable size an
 	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
 } __attribute__((packed));
 
+struct msp_dp_rc_sticks_t {
+	int32_t throttle;
+	int32_t roll;
+	int32_t pitch;
+	int32_t yaw;
+} __attribute__((packed));
+
 // Display Port command enums
 typedef enum __attribute__((packed)){
     MSP_DP_HEARTBEAT = 0,       // Heartbeat

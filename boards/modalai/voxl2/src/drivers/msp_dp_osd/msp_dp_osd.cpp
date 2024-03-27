@@ -146,9 +146,6 @@ void MspDPOsd::Run()
 	const auto osd_config_msg = msp_dp_osd::construct_OSD_config(this->resolution, this->fontType);
 	this->Send(MSP_CMD_DISPLAYPORT, &osd_config_msg, MSP_DIRECTION_REPLY);
 
-	const auto vtx_config_msg = msp_dp_osd::construct_vtx_config(this->_band, this->_channel);
-	this->Send(MSP_VTX_CONFIG, &vtx_config_msg, MSP_DIRECTION_REPLY);
-
 	// Heartbeat
     // a) ensure display is not released by remote OSD software
     // b) prevent OSD Slave boards from displaying a 'disconnected' status.
@@ -212,7 +209,7 @@ void MspDPOsd::Run()
 		_input_rc_sub.copy(&input_rc);
 
 		// Send RC channel values
-		const auto rc_msg = msp_dp_osd::construct_RC(input_rc);
+		const auto rc_msg = msp_dp_osd::construct_RC(input_rc, this->_sticks);
 		this->Send(MSP_RC, &rc_msg, MSP_DIRECTION_REPLY);
 
 		// Send RSSI
@@ -260,7 +257,7 @@ void MspDPOsd::Run()
 		}
 	}
 
-	// GPS LAT/LONG/HEADING ANGLE
+	// GPS LAT/LONG
 	{
 		sensor_gps_s vehicle_gps_position{};
 		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
@@ -268,7 +265,7 @@ void MspDPOsd::Run()
 		// GPS Longitude 
 		if(_parameters.longitude_col != -1 && _parameters.longitude_row != -1){
 			char longitude[11];
-			snprintf(longitude, sizeof(longitude), "%c%.7f", SYM_LON, static_cast<double>(vehicle_gps_position.lon));
+			snprintf(longitude, sizeof(longitude), "%c%.7f", SYM_LON, static_cast<double>(vehicle_gps_position.lon)*1e-7);
 			uint8_t longitude_output[sizeof(msp_dp_cmd_t) + sizeof(longitude)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
 			msp_dp_osd::construct_OSD_write(_parameters.longitude_col, _parameters.longitude_row, false, longitude, longitude_output, sizeof(longitude_output));	// col X, row 15 (bottom right TOP) in HD_5018
 			this->Send(MSP_CMD_DISPLAYPORT, &longitude_output, MSP_DIRECTION_REPLY);
@@ -277,7 +274,7 @@ void MspDPOsd::Run()
 		// GPS Latitude
 		if(_parameters.latitude_col != -1 && _parameters.latitude_row != -1){
 			char latitude[11];
-			snprintf(latitude, sizeof(latitude), "%c%.7f", SYM_LAT, static_cast<double>(vehicle_gps_position.lat));
+			snprintf(latitude, sizeof(latitude), "%c%.7f", SYM_LAT, static_cast<double>(vehicle_gps_position.lat)*1e-7);
 			uint8_t latitude_output[sizeof(msp_dp_cmd_t) + sizeof(latitude)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
 			msp_dp_osd::construct_OSD_write(_parameters.latitude_col, _parameters.latitude_row, false, latitude, latitude_output, sizeof(latitude_output));	// col X, row 16 (bottom right BOTTOM) in HD_5018
 			this->Send(MSP_CMD_DISPLAYPORT, &latitude_output, MSP_DIRECTION_REPLY);
@@ -401,6 +398,11 @@ void MspDPOsd::parameters_update()
 
 	param_get(param_find("OSD_CHANNEL"), 	&channel_t);
 	param_get(param_find("OSD_BAND"),    	&band_t);
+
+	param_get(param_find("RC_MAP_THROTTLE"), &_sticks.throttle);
+	param_get(param_find("RC_MAP_ROLL"),     &_sticks.roll);
+	param_get(param_find("RC_MAP_PITCH"),    &_sticks.pitch);
+	param_get(param_find("RC_MAP_YAW"),    	 &_sticks.yaw);
 
 	this->_band = (uint8_t)band_t;
 	this->_channel = (uint8_t)channel_t;
