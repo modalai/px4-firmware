@@ -231,20 +231,21 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 	return display_message;
 }
 
-// New code for HDZero VTX
+// Construct VTX configuration
 msp_dp_vtx_config_t construct_vtx_config(uint8_t band=5, uint8_t channel=1){
 	msp_dp_vtx_config_t vtx_config {0};
 
 	vtx_config.protocol = 5; 		// MSP
-	vtx_config.band 	= band; 		// BAND 5
-	vtx_config.channel 	= channel; 		// CHANNEL 1
-	vtx_config.power 	= 1; 		// POWER LEVEL 1 -> 25mW
+	vtx_config.band 	= band; 	// BAND (R=5, F=4, E=3) 
+	vtx_config.channel 	= channel; 	// CHANNEL (R=1-8, F=1,2,4, E=1)
+	vtx_config.power 	= 1; 		// POWER LEVEL 1 -> 25mW (0mW, 25mW, 200mW)
 	vtx_config.pit	 	= 0; 		// PIT MODE OFF
 	vtx_config.freq 	= 0x161A;	// 5658 MHz
 
 	return vtx_config;
 }
 
+// Vehicle status message (arm state)
 msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status){
 	msp_dp_status_t status = {0};
 
@@ -257,15 +258,15 @@ msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status){
 	return status;
 }
 
-/*
-HDZERO expects:
-CH 1 - Roll
-CH 2 - Pitch
-CH 3 - Yaw
-CH 4 - Throttle
-*/
-
+// RC channels message (used for goggle menus)
 msp_rc_t construct_RC(const input_rc_s &input_rc,  const msp_dp_rc_sticks_t &sticks){
+	/*
+	HDZERO expects:
+	CH 1 - Roll
+	CH 2 - Pitch
+	CH 3 - Yaw
+	CH 4 - Throttle
+	*/
 	msp_rc_t msp_rc{0};
 	
 	for (int i=0; i < MSP_MAX_SUPPORTED_CHANNELS; ++i){
@@ -282,10 +283,11 @@ msp_rc_t construct_RC(const input_rc_s &input_rc,  const msp_dp_rc_sticks_t &sti
 	return msp_rc;
 }
 
+// OSD setup message
 msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
 	msp_dp_canvas_t msp_canvas{0};
 
-	// HD
+	// HD 5018
 	if (row > 49) row = 49;
 	if (col > 17) col = 17;
 	msp_canvas.row_max = row;
@@ -293,22 +295,22 @@ msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
 	return msp_canvas;
 }
 
-// Construct a HDZero OSD heartbeat command
+// Construct a heartbeat command
 displayportMspCommand_e construct_OSD_heartbeat(){
 	return MSP_DP_HEARTBEAT;
 }
 
-// Construct a HDZero OSD release command
+// Construct a release command
 displayportMspCommand_e construct_OSD_release(){
 	return MSP_DP_RELEASE;
 }
 
-// Construct a HDZero OSD clear command
+// Construct a clear command
 displayportMspCommand_e construct_OSD_clear(){
 	return MSP_DP_CLEAR_SCREEN;
 }
 
-// Construct a HDZero OSD write command into an output buffer given location, string, and # bytes to write 
+// Construct a write command into an output buffer given location, string, and # bytes to write 
 // WARNING: If input string has lowercase chars, they may be interpreted as symbols!
 uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len)
 {
@@ -324,12 +326,12 @@ uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *st
 	return 0;
 }
 
-// Construct a HDZero OSD draw command
+// Construct a draw command
 displayportMspCommand_e construct_OSD_draw(){
 	return MSP_DP_DRAW_SCREEN;
 }
 
-// Construct a HDZero OSD config command
+// Construct a config command
 msp_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType){
 	msp_dp_config_t msp_osd_dp_config;
 	msp_osd_dp_config.subcmd     = MSP_DP_CONFIG;
@@ -338,6 +340,7 @@ msp_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontTy
 	return msp_osd_dp_config;
 }
 
+// Construct Flight mode message
 const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
 	const char* flight_mode;
 	switch (vehicle_status.nav_state) {
@@ -432,7 +435,7 @@ const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
 	return flight_mode;
 }
 
-
+// Generate bearing symbol from value
 uint8_t get_symbol_from_bearing(float bearing){
 	uint8_t bearing_sybmol{SYM_ARROW_NORTH};
 	// NORTH

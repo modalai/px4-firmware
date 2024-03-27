@@ -52,7 +52,6 @@ struct msp_dp_canvas_t {
 
 // DISPLAYPORT CONFIG
 struct msp_dp_config_t {
-	// displayportMspCommand_e  subcmd;
 	uint8_t subcmd;
 	uint8_t fontType;
 	uint8_t resolution;
@@ -64,7 +63,6 @@ struct msp_dp_cmd_t {	// Message is added later since it can be variable size an
 	uint8_t row;	
 	uint8_t col;	
 	uint8_t attr{0};		// HDZero VTX doesn't support blinking
-	// uint8_t msg[MSP_OSD_MAX_STRING_LENGTH];
 } __attribute__((packed));
 
 struct msp_dp_rc_sticks_t {

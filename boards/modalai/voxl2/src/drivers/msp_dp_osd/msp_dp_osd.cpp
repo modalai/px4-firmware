@@ -78,7 +78,6 @@ MspDPOsd::MspDPOsd(const char *device) :
 	// back up device name for connection later
 	strcpy(_device, device);
 
-	// _is_initialized = true;
 	PX4_INFO("MSP OSD running on %s", _device);
 }
 
@@ -233,7 +232,7 @@ void MspDPOsd::Run()
 			// uint8_t battery_symbol = SYM_BATT_FULL;	// Could probably make this change based on battery level...
 			snprintf(batt, sizeof(batt), "%c%.2f%c", SYM_BATT_FULL, static_cast<double>(battery_status.voltage_v), SYM_VOLT);
 			uint8_t battery_output[sizeof(msp_dp_cmd_t) + sizeof(batt)+1]{0};	
-			msp_dp_osd::construct_OSD_write(_parameters.battery_col, _parameters.battery_row, false, batt, battery_output, sizeof(battery_output));	// col 0, row 17 (bottom left) in HD_5018
+			msp_dp_osd::construct_OSD_write(_parameters.battery_col, _parameters.battery_row, false, batt, battery_output, sizeof(battery_output));	
 			this->Send(MSP_CMD_DISPLAYPORT, &battery_output, MSP_DIRECTION_REPLY);
 		}
 
@@ -243,7 +242,7 @@ void MspDPOsd::Run()
 			// uint8_t battery_symbol = SYM_BATT_FULL;	// Could probably make this change based on battery level...
 			snprintf(batt_cell, sizeof(batt_cell), "%c%.2f%c", SYM_BATT_FULL, static_cast<double>(battery_status.voltage_v/battery_status.cell_count), SYM_VOLT);
 			uint8_t batt_cell_output[sizeof(msp_dp_cmd_t) + sizeof(batt_cell)+1]{0};	
-			msp_dp_osd::construct_OSD_write(_parameters.cell_battery_col, _parameters.cell_battery_row, false, batt_cell, batt_cell_output, sizeof(batt_cell_output));	// col BATT + 1 SPACE, row 17 (bottom left) in HD_5018
+			msp_dp_osd::construct_OSD_write(_parameters.cell_battery_col, _parameters.cell_battery_row, false, batt_cell, batt_cell_output, sizeof(batt_cell_output));	
 			this->Send(MSP_CMD_DISPLAYPORT, &batt_cell_output, MSP_DIRECTION_REPLY);
 		}
 
@@ -252,7 +251,7 @@ void MspDPOsd::Run()
 			char current_draw[8];
 			snprintf(current_draw, sizeof(current_draw), "%.3f%c", static_cast<double>(battery_status.current_filtered_a), SYM_AMP);
 			uint8_t current_draw_output[sizeof(msp_dp_cmd_t) + sizeof(current_draw)+1]{0};	
-			msp_dp_osd::construct_OSD_write(_parameters.current_draw_col, _parameters.current_draw_row, false, current_draw, current_draw_output, sizeof(current_draw_output));	// col Max column-sizeof(current_draw_messge), row 0 (top right BOTTOM) in HD_5018
+			msp_dp_osd::construct_OSD_write(_parameters.current_draw_col, _parameters.current_draw_row, false, current_draw, current_draw_output, sizeof(current_draw_output));	
 			this->Send(MSP_CMD_DISPLAYPORT, &current_draw_output, MSP_DIRECTION_REPLY);
 		}
 	}
@@ -266,17 +265,16 @@ void MspDPOsd::Run()
 		if(_parameters.longitude_col != -1 && _parameters.longitude_row != -1){
 			char longitude[11];
 			snprintf(longitude, sizeof(longitude), "%c%.7f", SYM_LON, static_cast<double>(vehicle_gps_position.lon)*1e-7);
-			uint8_t longitude_output[sizeof(msp_dp_cmd_t) + sizeof(longitude)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
-			msp_dp_osd::construct_OSD_write(_parameters.longitude_col, _parameters.longitude_row, false, longitude, longitude_output, sizeof(longitude_output));	// col X, row 15 (bottom right TOP) in HD_5018
-			this->Send(MSP_CMD_DISPLAYPORT, &longitude_output, MSP_DIRECTION_REPLY);
+			uint8_t longitude_output[sizeof(msp_dp_cmd_t) + sizeof(longitude)+1]{0};	
+			msp_dp_osd::construct_OSD_write(_parameters.longitude_col, _parameters.longitude_row, false, longitude, longitude_output, sizeof(longitude_output));	
 		}
 
 		// GPS Latitude
 		if(_parameters.latitude_col != -1 && _parameters.latitude_row != -1){
 			char latitude[11];
 			snprintf(latitude, sizeof(latitude), "%c%.7f", SYM_LAT, static_cast<double>(vehicle_gps_position.lat)*1e-7);
-			uint8_t latitude_output[sizeof(msp_dp_cmd_t) + sizeof(latitude)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
-			msp_dp_osd::construct_OSD_write(_parameters.latitude_col, _parameters.latitude_row, false, latitude, latitude_output, sizeof(latitude_output));	// col X, row 16 (bottom right BOTTOM) in HD_5018
+			uint8_t latitude_output[sizeof(msp_dp_cmd_t) + sizeof(latitude)+1]{0};	
+			msp_dp_osd::construct_OSD_write(_parameters.latitude_col, _parameters.latitude_row, false, latitude, latitude_output, sizeof(latitude_output));	
 			this->Send(MSP_CMD_DISPLAYPORT, &latitude_output, MSP_DIRECTION_REPLY);
 		}
 	}
@@ -325,8 +323,8 @@ void MspDPOsd::Run()
 		if(_parameters.heading_col != -1 && _parameters.heading_row != -1){
 			char heading[5];
 			snprintf(heading, sizeof(heading), "%c%i", bearing_to_home, (int16_t)vehicle_gps_position.heading);
-			uint8_t heading_output[sizeof(msp_dp_cmd_t) + sizeof(heading)+1]{0};	// size of battery_output buffer is size of OSD display port command struct and the buffer you want shown on OSD
-			msp_dp_osd::construct_OSD_write(_parameters.heading_col, _parameters.heading_row, false, heading, heading_output, sizeof(heading_output));	// col X, row 16 (bottom right BOTTOM) in HD_5018
+			uint8_t heading_output[sizeof(msp_dp_cmd_t) + sizeof(heading)+1]{0};	
+			msp_dp_osd::construct_OSD_write(_parameters.heading_col, _parameters.heading_row, false, heading, heading_output, sizeof(heading_output));	
 			this->Send(MSP_CMD_DISPLAYPORT, &heading_output, MSP_DIRECTION_REPLY);
 		}
 	}
@@ -406,11 +404,6 @@ void MspDPOsd::parameters_update()
 
 	this->_band = (uint8_t)band_t;
 	this->_channel = (uint8_t)channel_t;
-}
-
-bool MspDPOsd::enabled(const SymbolIndex &symbol)
-{
-	return _param_osd_symbols.get() & (1u << symbol);
 }
 
 int MspDPOsd::task_spawn(int argc, char *argv[])

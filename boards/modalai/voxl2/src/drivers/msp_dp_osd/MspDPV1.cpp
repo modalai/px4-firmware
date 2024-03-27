@@ -110,7 +110,6 @@ bool MspDPV1::Send(const uint8_t message_id, const void *payload, mspDirection_e
 		if (desc->message_id ==  MSP_CMD_DISPLAYPORT){
 			uint8_t subcmd[1]{0};
 			memcpy(subcmd, payload, 1);
-			// PX4_INFO("DP SUBCMD: %u", subcmd[0]);
 			if (subcmd[0] == MSP_DP_DRAW_SCREEN){
 				payload_size = 1;
 			} else if(subcmd[0] == MSP_DP_WRITE_STRING){	// Case when we write string.. payload size may vary 
@@ -133,8 +132,8 @@ bool MspDPV1::Send(const uint8_t message_id, const void *payload, mspDirection_e
 	uint8_t packet[MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE];
 	uint8_t crc;
 
-	packet[0] = '$';
-	packet[1] = 'M';
+	packet[0] = MSP_HEADER;
+	packet[1] = MSP_START;
 	packet[2] = direction ? MSP_CMD : MSP_REPLY;	// HDZero VTX firmware only supports 'replies'...
 	packet[3] = payload_size;
 	packet[4] = message_id;

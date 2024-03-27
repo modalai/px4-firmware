@@ -73,33 +73,6 @@ struct PerformanceData {
 	long unsigned int unsuccessful_sends{0};
 };
 
-// mapping from symbol name to bit in the parameter bitmask
-//  @TODO investigate params; it seems like this should be available directly?
-enum SymbolIndex : uint8_t {
-	CRAFT_NAME		= 0,
-	DISARMED		= 1,
-	GPS_LAT			= 2,
-	GPS_LON			= 3,
-	GPS_SATS		= 4,
-	GPS_SPEED		= 5,
-	HOME_DIST		= 6,
-	HOME_DIR		= 7,
-	MAIN_BATT_VOLTAGE	= 8,
-	CURRENT_DRAW		= 9,
-	MAH_DRAWN		= 10,
-	RSSI_VALUE		= 11,
-	ALTITUDE		= 12,
-	NUMERICAL_VARIO		= 13,
-	FLYMODE			= 14,
-	ESC_TMP			= 15,
-	PITCH_ANGLE		= 16,
-	ROLL_ANGLE		= 17,
-	CROSSHAIRS		= 18,
-	AVG_CELL_VOLTAGE	= 19,
-	HORIZON_SIDEBARS	= 20,
-	POWER			= 21
-};
-
 class MspDPOsd : public ModuleBase<MspDPOsd>, public ModuleParams, public px4::ScheduledWorkItem
 {
 public:
@@ -133,9 +106,6 @@ private:
 
 	// perform actions required for local updates
 	void parameters_update();
-
-	// convenience function to check if a given symbol is enabled
-	bool enabled(const SymbolIndex &symbol);
 
 	MspDPV1 _msp{0};
 	int _msp_fd{-1};

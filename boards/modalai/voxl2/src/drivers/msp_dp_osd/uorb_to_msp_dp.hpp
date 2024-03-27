@@ -78,43 +78,43 @@ msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
 				     const int log_level,
 				     msp_osd::MessageDisplay &display);
 
-/****** UPDATES TO WORK WITH HDZERO FREESTYLE V2 VTX ******/
-// Construct a MSP_VTX_CONFIG struct
+// Construct a vtx config struct
 msp_dp_vtx_config_t construct_vtx_config(uint8_t band, uint8_t channel);
 
-// Construct a HDZero STATUS struct
+// Construct a status struct
 msp_dp_status_t construct_status(const vehicle_status_s &vehicle_status);
 
-// Construct a HDZero RC struct
+// Construct a RC struct
 msp_rc_t construct_RC(const input_rc_s &input_rc, const msp_dp_rc_sticks_t &sticks);
 
-// Construct a HDZero canvas size reply struct
+// Construct a canvas struct
 msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col);
 
-// Construct a HDZero OSD heartbeat command
+// Construct a heartbeat command
 displayportMspCommand_e construct_OSD_heartbeat();
 
-// Construct a HDZero OSD release command
+// Construct a release command
 displayportMspCommand_e construct_OSD_release();
 
-// Construct a HDZero OSD clear command
+// Construct a clear command
 displayportMspCommand_e construct_OSD_clear();
 
-// Construct a HDZero OSD write struct given a string
+// Construct a write struct given a string
 uint8_t construct_OSD_write(uint8_t col, uint8_t row, bool blink, const char *string, uint8_t *output, uint8_t len);
 
-// Construct a HDZero OSD draw command
+// Construct a draw command
 displayportMspCommand_e construct_OSD_draw();
 
-// Construct a HDZero OSD config command
+// Construct a config command
 msp_dp_config_t construct_OSD_config(resolutionType_e resolution, uint8_t fontType);
 
 // Construct Flight mode Message
 const char* construct_flight_mode(const vehicle_status_s &vehicle_status);
 
+// Generate bearing symbol from direction
 uint8_t get_symbol_from_bearing(float bearing);
 
-// Convert warning message to upper case so HDZero OSD interprets the message as letters instead of symbols
+// Convert warning message to upper case so OSD interprets the message as letters instead of symbols
 void log_msg_to_upper(char* string);
 
 } // namespace msp_dp_osd
