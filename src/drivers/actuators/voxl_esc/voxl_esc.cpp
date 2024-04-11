@@ -111,7 +111,7 @@ int VoxlEsc::init()
 	}
 
 	// Open serial port
-	PX4_INFO("VOXL_ESC: Opening UART ESC device %s, baud rate %d", _device, _parameters.baud_rate);
+	PX4_INFO("VOXL_ESC: Opening UART ESC device %s, baud rate %" PRIi32, _device, _parameters.baud_rate);
 	if (!_uart_port->is_open()) {
 		if (_uart_port->uart_open(_device, _parameters.baud_rate) == PX4_OK) {
 			PX4_INFO("VOXL_ESC: Successfully opened UART ESC device");
@@ -171,7 +171,7 @@ int VoxlEsc::init()
 						memcpy(&ver, _fb_packet.buffer, packet_size);
 						
 						PX4_INFO("VOXL_ESC: \tESC ID     : %i", ver.id);
-						PX4_INFO("VOXL_ESC: \tBoard Type : %i: %s", ver.hw_version, board_id_to_name(ver.hw_version).c_str());
+						PX4_INFO("VOXL_ESC: \tBoard Type : %i: %s", ver.hw_version, board_id_to_name(ver.hw_version));
 
 						uint8_t *u = &ver.unique_id[0];
 						PX4_INFO("VOXL_ESC: \tUnique ID  : 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
@@ -179,7 +179,7 @@ int VoxlEsc::init()
 
 						PX4_INFO("VOXL_ESC: \tFirmware   : version %4d, hash %.12s", ver.sw_version, ver.firmware_git_version);
 						PX4_INFO("VOXL_ESC: \tBootloader : version %4d, hash %.12s", ver.bootloader_version, ver.bootloader_git_version);
-						PX4_INFO("VOXL_ESC: \tReply time : %uus",(uint32_t)response_time);
+						PX4_INFO("VOXL_ESC: \tReply time : %" PRIu32 "us",(uint32_t)response_time);
 						PX4_INFO("VOXL_ESC:");
 
 						if (ver.id == esc_id){
@@ -1511,22 +1511,22 @@ int VoxlEsc::print_status()
 	return 0;
 }
 
-std::string VoxlEsc::board_id_to_name(int board_id)
+const char * VoxlEsc::board_id_to_name(int board_id)
 {
 	switch(board_id){
-		case 31: return std::string("ModalAi 4-in-1 ESC V2 RevB (M0049)");
-		case 32: return std::string("Blheli32 4-in-1 ESC Type A (Tmotor F55A PRO F051)");
-		case 33: return std::string("Blheli32 4-in-1 ESC Type B (Tmotor F55A PRO G071)");
-		case 34: return std::string("ModalAi 4-in-1 ESC (M0117-1)");
-		case 35: return std::string("ModalAi I/O Expander (M0065)");
-		case 36: return std::string("ModalAi 4-in-1 ESC (M0117-3)");
-		case 37: return std::string("ModalAi 4-in-1 ESC (M0134-1)");
-		case 38: return std::string("ModalAi 4-in-1 ESC (M0134-3)");
-		case 39: return std::string("ModalAi 4-in-1 ESC (M0129-1)");
-		case 40: return std::string("ModalAi 4-in-1 ESC (M0129-3)");
-		case 41: return std::string("ModalAi 4-in-1 ESC (M0134-6)");
-		case 42: return std::string("ModalAi 4-in-1 ESC (M0138-1)");
-		default: return std::string("Unknown Board");
+		case 31: return "ModalAi 4-in-1 ESC V2 RevB (M0049)";
+		case 32: return "Blheli32 4-in-1 ESC Type A (Tmotor F55A PRO F051)";
+		case 33: return "Blheli32 4-in-1 ESC Type B (Tmotor F55A PRO G071)";
+		case 34: return "ModalAi 4-in-1 ESC (M0117-1)";
+		case 35: return "ModalAi I/O Expander (M0065)";
+		case 36: return "ModalAi 4-in-1 ESC (M0117-3)";
+		case 37: return "ModalAi 4-in-1 ESC (M0134-1)";
+		case 38: return "ModalAi 4-in-1 ESC (M0134-3)";
+		case 39: return "ModalAi 4-in-1 ESC (M0129-1)";
+		case 40: return "ModalAi 4-in-1 ESC (M0129-3)";
+		case 41: return "ModalAi 4-in-1 ESC (M0134-6)";
+		case 42: return "ModalAi 4-in-1 ESC (M0138-1)";
+		default: return "Unknown Board";
 	}
 }
 

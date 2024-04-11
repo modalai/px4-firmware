@@ -56,8 +56,6 @@
 #include "qc_esc_packet.h"
 #include "qc_esc_packet_types.h"
 
-#include <string>
-
 class VoxlEsc : public ModuleBase<VoxlEsc>, public OutputModuleInterface
 {
 public:
@@ -210,7 +208,7 @@ private:
 	voxl_esc_params_t	_parameters;
 	int			update_params();
 	int			load_params(voxl_esc_params_t *params, ch_assign_t *map);
-	std::string board_id_to_name(int board_id);
+	const char * board_id_to_name(int board_id);
 
 	bool			_turtle_mode_en{false};
 	int32_t			_rpm_turtle_min{0};
