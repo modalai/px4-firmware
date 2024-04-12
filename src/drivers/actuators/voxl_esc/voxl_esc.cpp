@@ -135,6 +135,13 @@ int VoxlEsc::device_init()
 	// Open serial port
 	PX4_INFO("VOXL_ESC: Opening UART ESC device %s, baud rate %" PRIi32, _device, _parameters.baud_rate);
 	if (!_uart_port->is_open()) {
+#ifndef __PX4_QURT
+		//warn user that unless DMA is enabled for UART RX, data can be lost due to high frequency of per char cpu interrupts
+		//at least at 2mbit, there are definitely losses, did not test other baud rates to find the cut off
+		if (_parameters.baud_rate > 250000){
+			PX4_WARN("VOXL_ESC: Baud rate is too high for non-DMA based UART, this can lead to loss of RX data");
+		}
+#endif
 		if (_uart_port->uart_open(_device, _parameters.baud_rate) == PX4_OK) {
 			PX4_INFO("VOXL_ESC: Successfully opened UART ESC device");
 
