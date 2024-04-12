@@ -104,10 +104,32 @@ int VoxlEsc::init()
 		return ret;
 	}
 
+	print_params();
+
 	_uart_port = new VoxlEscSerial();
 	if (!_uart_port){
 		PX4_ERR("VOXL_ESC: Failed allocating VoxlEscSerial");
 		return -1;
+	}
+
+	//WARING: uart port initialization and device detection does not happen here
+	//because init() is called from a different thread from Run(), so fd opened in init() cannot be used in Run()
+	//this is an issue (feature?) specific to nuttx where each thread group gets separate set of fds
+	//https://cwiki.apache.org/confluence/display/NUTTX/Detaching+File+Descriptors
+	//detaching file descriptors is not implemented in the current version of nuttx that px4 uses
+	//
+	//There is no problem when running on VOXL2, but in order to have the same logical flow on both systems, 
+	//we will initialize uart and query the device in Run()
+
+	ScheduleNow();
+
+	return 0;
+}
+
+int VoxlEsc::device_init()
+{
+	if (_device_initialized){
+		return 0;
 	}
 
 	// Open serial port
@@ -127,8 +149,9 @@ int VoxlEsc::init()
 
 	//reset the ESC version info before requesting
 	for (int esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; ++esc_id){
-		_version_info[esc_id].sw_version = 0;  //invalid
-		_version_info[esc_id].hw_version = 0;  //invalid
+		memset(&(_version_info[esc_id]), 0, sizeof(_version_info[esc_id]));
+		//_version_info[esc_id].sw_version = 0;  //invalid
+		//_version_info[esc_id].hw_version = 0;  //invalid
 		_version_info[esc_id].id         = esc_id;
 	}
 
@@ -222,15 +245,16 @@ int VoxlEsc::init()
 		}
 	}
 
-	PX4_INFO("VOXL_ESC: Use extened rpm packet : %d", _extended_rpm);
-
 	if (esc_detection_fault){
 		PX4_ERR("VOXL_ESC: Critical error during ESC initialization. Exiting");
 		return -1;
 	}
+
+	PX4_INFO("VOXL_ESC: Use extened rpm packet : %d", _extended_rpm);
+
 	PX4_INFO("VOXL_ESC: All ESCs successfully detected");
 
-	ScheduleNow();
+	_device_initialized =  true;
 
 	return 0;
 }
@@ -633,7 +657,7 @@ int VoxlEsc::custom_command(int argc, char *argv[])
 
 	const char *verb = argv[argc - 1];
 
-	/* start the FMU if not running */
+	/* start the driver if not running */
 	if (!strcmp(verb, "start")) {
 		if (!is_running()) {
 			return VoxlEsc::task_spawn(argc, argv);
@@ -1275,6 +1299,7 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 void VoxlEsc::Run()
 {
 	if (should_exit()) {
+		PX4_ERR("VOXL_ESC: Stopping the module");
 		ScheduleClear();
 		_mixing_output.unregister();
 
@@ -1283,6 +1308,20 @@ void VoxlEsc::Run()
 	}
 
 	perf_begin(_cycle_perf);
+
+	//check to see if we need to open uart port and query the device
+	//see comment in init() regarding why we do not initialize the device there
+	if (!_device_initialized){
+		int dev_init_ret = device_init();
+		if (dev_init_ret != 0){
+			PX4_ERR("VOXL_ESC: Failed to initialize device, exiting the module");
+			ScheduleClear();
+			_mixing_output.unregister();
+
+			exit_and_cleanup();
+			return;
+		}
+	}
 
 	_mixing_output.update();  //calls MixingOutput::limitAndUpdateOutputs which calls updateOutputs in this module
 
@@ -1464,16 +1503,10 @@ $ todo
 	return 0;
 }
 
-int VoxlEsc::print_status()
+void VoxlEsc::print_params()
 {
-	PX4_INFO("Max update rate: %i Hz", _current_update_rate);
-	PX4_INFO("Outputs on: %s", _outputs_on ? "yes" : "no");
-	PX4_INFO("UART port: %s", _device);
-	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
-
-	PX4_INFO("");
-
 	PX4_INFO("Params: VOXL_ESC_CONFIG: %" PRId32, _parameters.config);
+	PX4_INFO("Params: VOXL_ESC_MODE: %" PRId32, _parameters.mode);
 	PX4_INFO("Params: VOXL_ESC_BAUD: %" PRId32, _parameters.baud_rate);
 
 	PX4_INFO("Params: VOXL_ESC_FUNC1: %" PRId32, _parameters.function_map[0]);
@@ -1489,6 +1522,28 @@ int VoxlEsc::print_status()
 	PX4_INFO("Params: VOXL_ESC_RPM_MIN: %" PRId32, _parameters.rpm_min);
 	PX4_INFO("Params: VOXL_ESC_RPM_MAX: %" PRId32, _parameters.rpm_max);
 
+	PX4_INFO("Params: VOXL_ESC_T_PERC: %" PRId32, _parameters.turtle_motor_percent);
+	PX4_INFO("Params: VOXL_ESC_T_DEAD: %" PRId32, _parameters.turtle_motor_deadband);
+	PX4_INFO("Params: VOXL_ESC_T_EXPO: %" PRId32, _parameters.turtle_motor_expo);
+	PX4_INFO("Params: VOXL_ESC_T_MINF: %f",       (double)_parameters.turtle_stick_minf);
+	PX4_INFO("Params: VOXL_ESC_T_COSP: %f",       (double)_parameters.turtle_cosphi);
+
+	PX4_INFO("Params: VOXL_ESC_VLOG: %" PRId32,    _parameters.verbose_logging);
+	PX4_INFO("Params: VOXL_ESC_PUB_BST: %" PRId32, _parameters.publish_battery_status);
+	
+	PX4_INFO("Params: VOXL_ESC_T_WARN: %" PRId32, _parameters.esc_warn_temp_threshold);
+	PX4_INFO("Params: VOXL_ESC_T_OVER: %" PRId32, _parameters.esc_over_temp_threshold);
+}
+
+int VoxlEsc::print_status()
+{
+	PX4_INFO("Max update rate: %i Hz", _current_update_rate);
+	PX4_INFO("Outputs on: %s", _outputs_on ? "yes" : "no");
+	PX4_INFO("UART port: %s", _device);
+	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
+
+	PX4_INFO("");
+	print_params();
 	PX4_INFO("");
 
 	for( int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++){

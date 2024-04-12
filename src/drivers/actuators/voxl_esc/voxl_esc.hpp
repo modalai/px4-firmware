@@ -76,12 +76,14 @@ public:
 
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
+	void print_params();
 
 	/** @see OutputModuleInterface */
 	bool updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			   unsigned num_outputs, unsigned num_control_groups_updated) override;
 
 	virtual int	init();
+	int device_init(); // function where uart port is opened and ESC queried
 
 	struct Command {
 		uint16_t	id                 = 0;
@@ -225,7 +227,7 @@ private:
 	EscPacket		_fb_packet;
 
 	led_rsc_t	 	_led_rsc;
-	int			_fb_idx;
+	int				_fb_idx;
 	uint32_t		_rx_crc_error_count{0};
 	uint32_t		_rx_packet_count{0};
 
@@ -236,12 +238,14 @@ private:
 	static constexpr unsigned _battery_report_interval{100_ms};
 	hrt_abstime		_last_battery_report_time;
 
+	bool			_device_initialized{false};
+
 	void 			update_leds(vehicle_control_mode_s mode, led_control_s control);
 
 	int 			read_response(Command *out_cmd);
 	int 			parse_response(uint8_t *buf, uint8_t len, bool print_feedback);
-	int			flush_uart_rx();
-	int			check_for_esc_timeout();
+	int				flush_uart_rx();
+	int				check_for_esc_timeout();
 	void			mix_turtle_mode(uint16_t outputs[]);
 	void			handle_actuator_test();
 };
