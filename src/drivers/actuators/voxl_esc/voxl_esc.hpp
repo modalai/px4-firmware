@@ -80,14 +80,14 @@ public:
 
 	/** @see OutputModuleInterface */
 	bool updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
-			   unsigned num_outputs, unsigned num_control_groups_updated) override;
+				unsigned num_outputs, unsigned num_control_groups_updated) override;
 
 	virtual int	init();
 	int device_init(); // function where uart port is opened and ESC queried
 
 	struct Command {
 		uint16_t	id                 = 0;
-		uint8_t 	len                = 0;
+		uint8_t		len                = 0;
 		uint16_t	repeats            = 0;
 		uint16_t	repeat_delay_us    = 2000;
 		uint8_t		retries            = 0;
@@ -96,7 +96,7 @@ public:
 		bool		print_feedback     = false;
 
 		static const uint8_t BUF_SIZE = 128;
-		uint8_t 	buf[BUF_SIZE];
+		uint8_t		buf[BUF_SIZE];
 
 		bool valid() const { return len > 0; }
 		void clear() { len = 0; }
@@ -134,7 +134,7 @@ private:
 	//static constexpr uint16_t max_pwm(uint16_t pwm) { return math::min(pwm, VOXL_ESC_PWM_MAX); }
 	//static constexpr uint16_t max_rpm(uint16_t rpm) { return math::min(rpm, VOXL_ESC_RPM_MAX); }
 
-	VoxlEscSerial 		*_uart_port;
+	VoxlEscSerial		*_uart_port;
 
 	typedef struct {
 		int32_t		config{VOXL_ESC_UART_CONFIG};
@@ -151,9 +151,9 @@ private:
 		int32_t		motor_map[VOXL_ESC_OUTPUT_CHANNELS] {1, 2, 3, 4};
 		int32_t		direction_map[VOXL_ESC_OUTPUT_CHANNELS] {1, 1, 1, 1};
 		int32_t		verbose_logging{0};
-		int32_t 	publish_battery_status{0};
-		int32_t 	esc_warn_temp_threshold{0};
-		int32_t 	esc_over_temp_threshold{0};
+		int32_t		publish_battery_status{0};
+		int32_t		esc_warn_temp_threshold{0};
+		int32_t		esc_over_temp_threshold{0};
 	} voxl_esc_params_t;
 
 	struct EscChan {
@@ -163,7 +163,7 @@ private:
 		uint8_t		power_applied;
 		uint8_t		led;
 		uint8_t		cmd_counter;
-		float 		voltage;  //Volts
+		float		voltage;  //Volts
 		float		current;  //Amps
 		float		temperature; //deg C
 		hrt_abstime 	feedback_time;
@@ -184,7 +184,7 @@ private:
 	} led_rsc_t;
 
 	ch_assign_t		_output_map[VOXL_ESC_OUTPUT_CHANNELS] {{1, 1}, {2, 1}, {3, 1}, {4, 1}};
-	MixingOutput 		_mixing_output;
+	MixingOutput		_mixing_output;
 
 	perf_counter_t		_cycle_perf;
 	perf_counter_t		_output_update_perf;
@@ -195,8 +195,8 @@ private:
 
 	uORB::Subscription	_vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription	_manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
-	uORB::Subscription 	_parameter_update_sub{ORB_ID(parameter_update)};
-	uORB::Subscription 	_actuator_test_sub{ORB_ID(actuator_test)};
+	uORB::Subscription	_parameter_update_sub{ORB_ID(parameter_update)};
+	uORB::Subscription	_actuator_test_sub{ORB_ID(actuator_test)};
 	uORB::Subscription	_led_update_sub{ORB_ID(led_control)};
 	uORB::Subscription	_modal_io_data_sub{ORB_ID(modal_io_data)};
 
@@ -218,7 +218,7 @@ private:
 	manual_control_setpoint_s _manual_control_setpoint{};
 
 	uint16_t		_cmd_id{0};
-	Command 		_current_cmd;
+	Command			_current_cmd;
 	px4::atomic<Command *>	_pending_cmd{nullptr};
 
 	EscChan			_esc_chans[VOXL_ESC_OUTPUT_CHANNELS];
@@ -226,26 +226,26 @@ private:
 	esc_status_s		_esc_status;
 	EscPacket		_fb_packet;
 
-	led_rsc_t	 	_led_rsc;
-	int				_fb_idx;
+	led_rsc_t		_led_rsc;
+	int			_fb_idx;
 	uint32_t		_rx_crc_error_count{0};
 	uint32_t		_rx_packet_count{0};
 
-	static const uint8_t 	READ_BUF_SIZE = 128;
+	static const uint8_t	READ_BUF_SIZE = 128;
 	uint8_t			_read_buf[READ_BUF_SIZE];
 
-	Battery 		_battery;
+	Battery			_battery;
 	static constexpr unsigned _battery_report_interval{100_ms};
 	hrt_abstime		_last_battery_report_time;
 
 	bool			_device_initialized{false};
 
-	void 			update_leds(vehicle_control_mode_s mode, led_control_s control);
+	void			update_leds(vehicle_control_mode_s mode, led_control_s control);
 
-	int 			read_response(Command *out_cmd);
-	int 			parse_response(uint8_t *buf, uint8_t len, bool print_feedback);
-	int				flush_uart_rx();
-	int				check_for_esc_timeout();
+	int			read_response(Command *out_cmd);
+	int			parse_response(uint8_t *buf, uint8_t len, bool print_feedback);
+	int			flush_uart_rx();
+	int			check_for_esc_timeout();
 	void			mix_turtle_mode(uint16_t outputs[]);
 	void			handle_actuator_test();
 };
