@@ -133,8 +133,8 @@ int VoxlEsc::device_init()
 	}
 
 	// Open serial port
-	PX4_INFO("VOXL_ESC: Opening UART ESC device %s, baud rate %" PRIi32, _device, _parameters.baud_rate);
 	if (!_uart_port->is_open()) {
+		PX4_INFO("VOXL_ESC: Opening UART ESC device %s, baud rate %" PRIi32, _device, _parameters.baud_rate);
 #ifndef __PX4_QURT
 		//warn user that unless DMA is enabled for UART RX, data can be lost due to high frequency of per char cpu interrupts
 		//at least at 2mbit, there are definitely losses, did not test other baud rates to find the cut off
@@ -166,7 +166,7 @@ int VoxlEsc::device_init()
 	PX4_INFO("VOXL_ESC: Detecting ESCs...");
 	qc_esc_packet_init(&_fb_packet);
 
-    //request extended version info from each ESC and wait for reply
+	//request extended version info from each ESC and wait for reply
 	for (uint8_t esc_id=0; esc_id < VOXL_ESC_OUTPUT_CHANNELS; esc_id++){
 		Command cmd;
 		cmd.len = qc_esc_create_extended_version_request_packet(esc_id, cmd.buf, sizeof(cmd.buf));
@@ -253,7 +253,7 @@ int VoxlEsc::device_init()
 	}
 
 	if (esc_detection_fault){
-		PX4_ERR("VOXL_ESC: Critical error during ESC initialization. Exiting");
+		PX4_ERR("VOXL_ESC: Critical error during ESC initialization");
 		return -1;
 	}
 
@@ -1318,16 +1318,23 @@ void VoxlEsc::Run()
 
 	//check to see if we need to open uart port and query the device
 	//see comment in init() regarding why we do not initialize the device there
-	if (!_device_initialized){
+
+	int retries_left = VOXL_ESC_NUM_INIT_RETRIES;
+
+	while ((!_device_initialized) && (retries_left > 0)) {
+		retries_left--;
 		int dev_init_ret = device_init();
 		if (dev_init_ret != 0){
-			PX4_ERR("VOXL_ESC: Failed to initialize device, exiting the module");
-			ScheduleClear();
-			_mixing_output.unregister();
-
-			exit_and_cleanup();
-			return;
+			PX4_WARN("VOXL_ESC: Failed to initialize device, retries left %d", retries_left);
 		}
+	}
+
+	if (!_device_initialized){
+		PX4_ERR("VOXL_ESC: Failed to initialize device, exiting the module");
+		ScheduleClear();
+		_mixing_output.unregister();
+		exit_and_cleanup();
+		return;
 	}
 
 	_mixing_output.update();  //calls MixingOutput::limitAndUpdateOutputs which calls updateOutputs in this module
