@@ -126,6 +126,9 @@ qshell ist8310 start -R 10 -X -b 1
 /bin/echo "Looking for ist8308 magnetometer"
 # Rotation 12 = PITCH_180
 qshell ist8308 start -R 12 -X -b 1
+/bin/echo "Looking for iis2mdc magnetometer"
+# Note: Rotation may not be correct
+qshell iis2mdc start -R 10 -X -b 1
 
 # GPS and magnetometer
 if [ "$GPS" != "NONE" ]; then
