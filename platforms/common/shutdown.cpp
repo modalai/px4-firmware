@@ -150,13 +150,8 @@ int px4_unregister_shutdown_hook(shutdown_hook_t hook)
 	return -EINVAL;
 }
 
-/**
- * work queue callback method to shutdown.
- * @param arg unused
- */
-static void shutdown_worker(void *arg)
+bool px4_execute_shutdown_hooks()
 {
-	PX4_DEBUG("shutdown worker (%i)", shutdown_counter);
 	bool done = true;
 
 	pthread_mutex_lock(&shutdown_mutex);
@@ -168,6 +163,22 @@ static void shutdown_worker(void *arg)
 			}
 		}
 	}
+
+	pthread_mutex_unlock(&shutdown_mutex);
+
+	return done;
+}
+
+/**
+ * work queue callback method to shutdown.
+ * @param arg unused
+ */
+static void shutdown_worker(void *arg)
+{
+	PX4_DEBUG("shutdown worker (%i)", shutdown_counter);
+	bool done = px4_execute_shutdown_hooks();
+
+	pthread_mutex_lock(&shutdown_mutex);
 
 	const hrt_abstime now = hrt_absolute_time();
 	const bool delay_elapsed = (now > shutdown_time_us);

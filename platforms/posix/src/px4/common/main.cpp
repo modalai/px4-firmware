@@ -73,6 +73,7 @@
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/posix.h>
+#include <px4_platform_common/shutdown.h>
 
 #include "apps.h"
 #include "px4_daemon/client.h"
@@ -500,11 +501,9 @@ void register_sig_handler()
 	sigaction(SIGPIPE, &sig_pipe, nullptr);
 }
 
-extern "C" bool muorb_kill_slpi(void);
-
 void sig_int_handler(int sig_num)
 {
-	muorb_kill_slpi();
+	(void) px4_execute_shutdown_hooks();
 	fflush(stdout);
 	printf("\nPX4 Exiting in sig_int_handler\n");
 	fflush(stdout);
