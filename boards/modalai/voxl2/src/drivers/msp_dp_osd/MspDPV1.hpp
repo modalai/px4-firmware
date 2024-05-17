@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+ *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,56 +31,25 @@
  *
  ****************************************************************************/
 
-#include <px4_platform_common/shutdown.h>
-#include <string.h>
-#include "uORBAppsProtobufChannel.hpp"
-#include "uORB/uORBManager.hpp"
-#include "fc_sensor.h"
+#pragma once
 
-extern "C" {
-	__EXPORT int muorb_main(int argc, char *argv[]);
-	__EXPORT int muorb_init();
-	__EXPORT bool muorb_kill_slpi();
-}
+#define MSP_READ_BUFFER_SIZE 128
 
-static bool enable_debug = false;
+// MSP communication direction
+typedef enum __attribute__((packed)){
+    MSP_DIRECTION_REPLY = 0,
+    MSP_DIRECTION_REQUEST = 1
+} mspDirection_e;
 
-int
-muorb_main(int argc, char *argv[])
+
+class MspDPV1
 {
-	uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
+public:
+	MspDPV1(int fd);
+	int GetMessageSize(int message_type);
+	bool Send(const uint8_t message_id, const void *payload, mspDirection_e direction = MSP_DIRECTION_REQUEST);
 
-	if (channel) {
-		channel->PrintStatus();
-	}
+private:
+	int _fd{-1};
+};
 
-	return 0;
-}
-
-bool
-muorb_kill_slpi(void) {
-	PX4_ERR("Sending kill command to SLPI!!!");
-	fc_sensor_kill_slpi();
-	sleep(1);
-	return true;
-}
-
-int
-muorb_init()
-{
-	uORB::AppsProtobufChannel *channel = uORB::AppsProtobufChannel::GetInstance();
-
-	PX4_INFO("Got muorb init command");
-
-	if (channel && channel->Initialize(enable_debug)) {
-		uORB::Manager::get_instance()->set_uorb_communicator(channel);
-
-		px4_register_shutdown_hook(&muorb_kill_slpi);
-
-		if (channel->Test()) {
-			return OK;
-		}
-	}
-
-	return -EINVAL;
-}

@@ -20,7 +20,6 @@ adb shell chmod a+x /usr/bin/voxl-px4-hitl-start
 
 # Push configuration file
 adb shell mkdir -p /etc/modalai
-adb push boards/modalai/voxl2/target/voxl-px4-set-default-parameters.config /etc/modalai
 adb push boards/modalai/voxl2/target/voxl-px4-fake-imu-calibration.config /etc/modalai
 adb push boards/modalai/voxl2/target/voxl-px4-hitl-set-default-parameters.config /etc/modalai
 
@@ -79,6 +78,7 @@ adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-modalai_gps_timer"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-ms4525_airspeed"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-ms5525_airspeed"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-msp_osd"
+adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-msp_dp_osd"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-muorb"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-muorb_test"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-navigator"
