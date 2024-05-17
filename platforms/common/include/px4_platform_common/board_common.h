@@ -355,6 +355,22 @@ typedef enum PX4_SOC_ARCH_ID_t {
 
 } PX4_SOC_ARCH_ID_t;
 
+#define PX4_SOC_ARCH_ID_UNUSED         0x0000
+#define PX4_SOC_ARCH_ID_STM32F4        0x0001
+#define PX4_SOC_ARCH_ID_STM32F7        0x0002
+#define PX4_SOC_ARCH_ID_KINETISK66     0x0003
+#define PX4_SOC_ARCH_ID_SAMV7          0x0004
+#define PX4_SOC_ARCH_ID_NXPIMXRT1062   0x0005
+#define PX4_SOC_ARCH_ID_STM32H7        0x0006
+#define PX4_SOC_ARCH_ID_NXPS32K146     0x0007
+#define PX4_SOC_ARCH_ID_NXPS32K344     0x0008
+#define PX4_SOC_ARCH_ID_EAGLE          0x1001
+#define PX4_SOC_ARCH_ID_QURT           0x1002
+#define PX4_SOC_ARCH_ID_RPI            0x1004
+#define PX4_SOC_ARCH_ID_SIM            0x1005
+#define PX4_SOC_ARCH_ID_SITL           0x1006
+#define PX4_SOC_ARCH_ID_BBBLUE         0x1008
+#define PX4_SOC_ARCH_ID_VOXL2          0x100A
 
 /* UUID
  *
