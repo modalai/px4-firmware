@@ -84,14 +84,23 @@ void fc_heap_alloc_test(void) {
 	}
 	check_for_zero((uint8_t*) fc_heap_alloc_test_head, sizeof(struct mem_test_node));
 	struct mem_test_node* temp = (struct mem_test_node*) fc_heap_alloc(sizeof(struct mem_test_node));
+	void * alloc_min = (void *)0xFFFFFFFF;
+	void * alloc_max = (void *)0;
+
 	while (temp != NULL) {
 		counter++;
 		check_for_zero((uint8_t*) temp, sizeof(struct mem_test_node));
+		if (temp < alloc_min) {
+			alloc_min = temp;
+		}
+		else if (temp > alloc_max){
+			alloc_max = temp;
+		}
 		fc_heap_alloc_test_current->next = (void*) temp;
 		fc_heap_alloc_test_current = temp;
 		temp = (struct mem_test_node*) fc_heap_alloc(sizeof(struct mem_test_node));
 	}
-	PX4_INFO("fc_heap_alloc test allocated %u buffers", counter);
+	PX4_INFO("fc_heap_alloc test allocated %u buffers. min: %p, max: %p", counter, alloc_min, alloc_max);
 	fc_heap_alloc_test_current = fc_heap_alloc_test_head;
 	while (true) {
 		if (fc_heap_alloc_test_current->next != NULL) {
