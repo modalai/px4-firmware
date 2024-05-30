@@ -232,7 +232,9 @@ void LoadMon::cpuload()
 	} else {
 		double total, idle{0};
 		char cpu_line[256];
-		fgets(cpu_line, sizeof(line), stat_file);
+		if (fgets(cpu_line, sizeof(line), stat_file) == NULL) {
+			return;
+		}
 
 		// Assuming the first line in /proc/stat is the line with overall CPU usage
 		char *token = strtok(cpu_line, " ");
@@ -246,7 +248,7 @@ void LoadMon::cpuload()
 					idle = atof(token);
 				}
 				i++;
-			}	
+			}
 		}
 
 		total = total_time;
