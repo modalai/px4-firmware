@@ -115,14 +115,14 @@ int Voxl2IO::update_params()
 
 	updateParams();
 	ret = load_params(&_parameters);
-
+/*
 	if (ret == PX4_OK) {
 		_mixing_output.setAllDisarmedValues(_parameters.pwm_dis);
 		_mixing_output.setAllFailsafeValues(VOXL2_IO_MIXER_FAILSAFE);
 		_mixing_output.setAllMinValues(_parameters.pwm_min);
 		_mixing_output.setAllMaxValues(_parameters.pwm_max);
 	}
-
+*/
 	return ret;
 }
 	
@@ -134,15 +134,39 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 	for (int i = 0; i < VOXL2_IO_OUTPUT_CHANNELS; i++) {
 		params->function_map[i] = (int)OutputFunction::Disabled;
 	}
+
+	char param_name_buf[32];
+	for (int i = 0; i < VOXL2_IO_OUTPUT_CHANNELS; i++) {
+		snprintf(param_name_buf,sizeof(param_name_buf),"VOXL2_IO_FUNC%u",i+1);
+		param_get(param_find(param_name_buf),  &params->function_map[i]);
+		snprintf(param_name_buf,sizeof(param_name_buf),"VOXL2_IO_MIN%u",i+1);
+		param_get(param_find(param_name_buf),  &params->pwm_min_vals[i]);
+		snprintf(param_name_buf,sizeof(param_name_buf),"VOXL2_IO_MAX%u",i+1);
+		param_get(param_find(param_name_buf),  &params->pwm_max_vals[i]);
+		snprintf(param_name_buf,sizeof(param_name_buf),"VOXL2_IO_DIS%u",i+1);
+		param_get(param_find(param_name_buf),  &params->pwm_dis_vals[i]);
+		snprintf(param_name_buf,sizeof(param_name_buf),"VOXL2_IO_FAIL%u",i+1);
+		param_get(param_find(param_name_buf),  &params->pwm_fail_vals[i]);
+	}
+
+	int32_t rev = 0;
+	param_get(param_find("VOXL2_IO_REV"),  &rev);
+
+	PX4_INFO("VOXL2_IO: VOXL2_IO params:");
+	PX4_INFO("VOXL2_IO: IDX | FUNC | MIN  | MAX  | DIS  | FAIL | REV");
+	for (int i = 0; i < VOXL2_IO_OUTPUT_CHANNELS; i++) {
+		PX4_INFO("VOXL2_IO: %2d  | %3d  | %4d | %4d | %4d | %4d | %1d", i+1,
+			params->function_map[i], params->pwm_min_vals[i], params->pwm_max_vals[i],
+			params->pwm_dis_vals[i], params->pwm_fail_vals[i], (rev>>i) & 1);
+	}
 	
 	// UART config, PWM mode, and RC protocol
 	param_get(param_find("VOXL2_IO_BAUD"),    &params->baud_rate);
-	//param_get(param_find("RC_INPUT_PROTO"),    &params->param_rc_input_proto);
 
 	// PWM min, max, and failsafe values
-	param_get(param_find("VOXL2_IO_MIN"),  &params->pwm_min);
-	param_get(param_find("VOXL2_IO_MAX"),  &params->pwm_max);
-	param_get(param_find("VOXL2_IO_DIS"),  &params->pwm_dis);
+	//param_get(param_find("VOXL2_IO_MIN"),  &params->pwm_min);
+	//param_get(param_find("VOXL2_IO_MAX"),  &params->pwm_max);
+	//param_get(param_find("VOXL2_IO_DIS"),  &params->pwm_dis);
 	param_get(param_find("VOXL2_IO_CMIN"), &params->pwm_cal_min);
 	param_get(param_find("VOXL2_IO_CMAX"), &params->pwm_cal_max);
 
@@ -150,6 +174,7 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 	//0: disabled, 1: constant min, 2: constant max
 	//101-112: motors, 201-208: servos, 402: RC Roll, 403: RC Pitch, 404: RC Throttle, 
 	//405: RC Yaw, 406: RC Flaps, 407-412: RC AUX 1-6, 420-422: Gimbal RPY
+	/*
 	param_get(param_find("VOXL2_IO_FUNC1"),  &params->function_map[0]);
 	param_get(param_find("VOXL2_IO_FUNC2"),  &params->function_map[1]);
 	param_get(param_find("VOXL2_IO_FUNC3"),  &params->function_map[2]);
@@ -158,13 +183,16 @@ int Voxl2IO::load_params(voxl2_io_params_t *params)
 	param_get(param_find("VOXL2_IO_FUNC6"),  &params->function_map[5]);
 	param_get(param_find("VOXL2_IO_FUNC7"),  &params->function_map[6]);
 	param_get(param_find("VOXL2_IO_FUNC8"),  &params->function_map[7]);
+	*/
 	
 	// Validate PWM min and max values
+	/*
 	if (params->pwm_min > params->pwm_max){
 		PX4_ERR("VOXL2_IO: Invalid parameter VOXL2_IO_MIN.  Please verify parameters.");
 		params->pwm_min = 0;
 		ret = PX4_ERROR;
 	}
+	*/
 
 	return ret;
 }
@@ -298,7 +326,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 
 		//Do we even need this condition? mixer should handle stopping motors anyway by sending the disable command, right?
 		if (0){ //(!_pwm_on || stop_motors) {
-			output_cmds[i] = _parameters.pwm_dis * MIXER_OUTPUT_TO_CMD_SCALE; //0; //convert to ns
+			//output_cmds[i] = _parameters.pwm_dis * MIXER_OUTPUT_TO_CMD_SCALE; //0; //convert to ns
 		} else {
 			output_cmds[i] = ((uint32_t)outputs[i]) * MIXER_OUTPUT_TO_CMD_SCALE;  //convert to ns
 		}
@@ -822,9 +850,9 @@ void Voxl2IO::print_params()
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC6 : %" PRId32, _parameters.function_map[5]);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC7 : %" PRId32, _parameters.function_map[6]);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_FUNC8 : %" PRId32, _parameters.function_map[7]);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_DIS   : %" PRId32, _parameters.pwm_dis);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_MIN   : %" PRId32, _parameters.pwm_min);
-	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_MAX   : %" PRId32, _parameters.pwm_max);
+	//PX4_INFO("VOXL2_IO: Params: VOXL2_IO_DIS   : %" PRId32, _parameters.pwm_dis);
+	//PX4_INFO("VOXL2_IO: Params: VOXL2_IO_MIN   : %" PRId32, _parameters.pwm_min);
+	//PX4_INFO("VOXL2_IO: Params: VOXL2_IO_MAX   : %" PRId32, _parameters.pwm_max);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CMIN  : %" PRId32, _parameters.pwm_cal_min);
 	PX4_INFO("VOXL2_IO: Params: VOXL2_IO_CMAX  : %" PRId32, _parameters.pwm_cal_max);
 }

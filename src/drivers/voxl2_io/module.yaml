@@ -10,4 +10,9 @@ actuator_output:
       group_label: 'PWMs'
       channel_label: 'PWM Channel'
       num_channels: 8
+      standard_params:
+        disarmed: { min: 800, max: 2200, default: 900 }
+        min: { min: 800, max: 1400, default: 1000 }
+        max: { min: 1600, max: 2200, default: 2000 }
+        failsafe: { min: 800, max: 2200 }
 
