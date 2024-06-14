@@ -62,7 +62,7 @@
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/esc_status.h>
-
+#include <uORB/topics/distance_sensor.h>
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 #include <lib/drivers/magnetometer/PX4Magnetometer.hpp>
@@ -99,6 +99,7 @@ bool _send_odometry = false;
 
 uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
+uORB::PublicationMulti<distance_sensor_s>		_distance_sensor_pub{ORB_ID(distance_sensor)};
 uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
 uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
@@ -169,6 +170,7 @@ void handle_message_hil_gps_dsp(mavlink_message_t *msg);
 void handle_message_odometry_dsp(mavlink_message_t *msg);
 void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
 void handle_message_command_long_dsp(mavlink_message_t *msg);
+void handle_message_distance_sensor_dsp(mavlink_message_t * msg);
 
 void handle_message_dsp(mavlink_message_t *msg);
 void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
@@ -189,6 +191,9 @@ handle_message_dsp(mavlink_message_t *msg)
 		break;
 	case MAVLINK_MSG_ID_ODOMETRY:
 		if (_send_odometry) handle_message_odometry_dsp(msg);
+		break;
+	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
+		handle_message_distance_sensor_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long_dsp(msg);
@@ -423,6 +428,39 @@ void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
 	esc_status.esc_online_flags = (1u << esc_status.esc_count) - 1;
 
 	_esc_status_pub.publish(esc_status);
+}
+
+void
+handle_message_distance_sensor_dsp(mavlink_message_t *msg)
+{
+	mavlink_distance_sensor_t dist_sensor;
+	mavlink_msg_distance_sensor_decode(msg, &dist_sensor);
+
+	distance_sensor_s ds{};
+
+	device::Device::DeviceId device_id;
+	device_id.devid_s.bus_type = device::Device::DeviceBusType::DeviceBusType_MAVLINK;
+	device_id.devid_s.bus = 1;
+	device_id.devid_s.address = msg->sysid;
+	device_id.devid_s.devtype = DRV_DIST_DEVTYPE_MAVLINK;
+
+	ds.timestamp        = hrt_absolute_time(); /* Use system time for now, don't trust sender to attach correct timestamp */
+	ds.min_distance     = static_cast<float>(dist_sensor.min_distance) * 1e-2f;     /* cm to m */
+	ds.max_distance     = static_cast<float>(dist_sensor.max_distance) * 1e-2f;     /* cm to m */
+	ds.current_distance = static_cast<float>(dist_sensor.current_distance) * 1e-2f; /* cm to m */
+	ds.variance         = dist_sensor.covariance * 1e-4f;                           /* cm^2 to m^2 */
+	ds.h_fov            = dist_sensor.horizontal_fov;
+	ds.v_fov            = dist_sensor.vertical_fov;
+	ds.q[0]             = dist_sensor.quaternion[0];
+	ds.q[1]             = dist_sensor.quaternion[1];
+	ds.q[2]             = dist_sensor.quaternion[2];
+	ds.q[3]             = dist_sensor.quaternion[3];
+	ds.type             = dist_sensor.type;
+	ds.device_id        = device_id.devid;
+	ds.orientation      = dist_sensor.orientation;
+
+	ds.signal_quality = dist_sensor.signal_quality == 0 ? -1 : 100 * (dist_sensor.signal_quality - 1) / 99;
+	_distance_sensor_pub.publish(ds);
 }
 
 
