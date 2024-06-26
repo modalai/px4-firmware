@@ -164,8 +164,6 @@ void GhstRc::fill_rc_in(uint16_t raw_rc_count_local,
 
 	_rc_in.rc_failsafe = failsafe;
 	_rc_in.rc_lost = (valid_chans == 0);
-	_rc_in.rc_lost_frame_count = frame_drops;
-	_rc_in.rc_total_frame_count = 0;
 }
 
 void GhstRc::Run()
@@ -204,6 +202,10 @@ void GhstRc::Run()
 	// Read all available data from the serial RC input UART
 	int new_bytes = qurt_uart_read(_rc_fd, (char *) &_rcs_buf[0], RC_MAX_BUFFER_SIZE, 500);
 
+	// Use total frame count to store cumulative number of bytes received on UART. Can help with
+	// debugging RC loss issues.
+	_rc_in.rc_total_frame_count += new_bytes;
+
 	if (new_bytes > 0) {
 		_bytes_rx += new_bytes;
 		int8_t ghst_rssi = -1;
@@ -215,6 +217,10 @@ void GhstRc::Run()
 			// we have a new GHST frame. Publish it.
 			_rc_in.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_GHST;
 			fill_rc_in(_raw_rc_count, _raw_rc_values, cycle_timestamp, false, false, 0, ghst_rssi);
+
+			// Use lost frame count to store cumulative number of ghst packets received on UART.
+			// Can help with debugging RC loss issues.
+			_rc_in.rc_lost_frame_count++;
 
 			// ghst telemetry works on fmu-v5
 			// on other Pixhawk (-related) boards we cannot write to the RC UART
