@@ -88,6 +88,11 @@ VoxlEsc::~VoxlEsc()
 		_uart_port = nullptr;
 	}
 
+	if (debug_file) {
+		fclose(debug_file);
+		debug_file = NULL;
+	}
+
 	perf_free(_cycle_perf);
 	perf_free(_output_update_perf);
 }
@@ -260,6 +265,12 @@ int VoxlEsc::device_init()
 	PX4_INFO("VOXL_ESC: Use extened rpm packet : %d", _extended_rpm);
 
 	PX4_INFO("VOXL_ESC: All ESCs successfully detected");
+
+	//log will go to /usr/lib/rfsa/adsp, make sure directory is owned by system:system
+	if (1) {
+		debug_file = fopen("voxl_esc_log.bin", "wb");
+	}
+	
 
 	_device_initialized =  true;
 
@@ -1201,6 +1212,7 @@ void VoxlEsc::mix_turtle_mode(uint16_t outputs[MAX_ACTUATORS])
 bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			    unsigned num_outputs, unsigned num_control_groups_updated)
 {
+	uint64_t update_entry_time = hrt_absolute_time();
 	//in Run() we call _mixing_output.update(), which calls MixingOutput::limitAndUpdateOutputs which calls _interface.updateOutputs (this function)
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
 
@@ -1255,10 +1267,13 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			_extended_rpm);
 
 
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+	int uart_write_ret = 0;
+	uint64_t uart_write_start_time = hrt_absolute_time();
+	if ( (uart_write_ret = _uart_port->uart_write(cmd.buf, cmd.len)) != cmd.len) {
 		PX4_ERR("VOXL_ESC: Failed to send packet");
-		return false;
+		//return false;
 	}
+	uint64_t uart_write_end_time = hrt_absolute_time();
 
 	// Track and manage gpio command writes
 	bool write_gpio_command = false;
@@ -1314,10 +1329,28 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	 * uart_read is non-blocking and we will just parse whatever bytes came in up until this point
 	 */
 
-	int res = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+	uint64_t uart_read_start_time = hrt_absolute_time();
+	int uart_read_ret = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+	uint64_t uart_read_end_time   = hrt_absolute_time();
 
-	if (res > 0) {
-		parse_response(_read_buf, res, false);
+	if (debug_file){
+		uint64_t log_write_start = hrt_absolute_time();
+		fprintf(debug_file,"\r\n\n***[%" PRIu64 "](%" PRIu32 ",%d,%" PRIu32 ",%d,%d,%d): ", 
+			update_entry_time,
+			(uint32_t)(uart_write_end_time-uart_write_start_time), uart_write_ret,
+			(uint32_t)(uart_read_end_time-uart_read_start_time), uart_read_ret,
+			debug_file_last_write_dt,
+			update_outputs_last_update_dt);
+		fwrite(cmd.buf, 1, cmd.len, debug_file);         //save the raw packet that was sent out to the ESCs
+		if (uart_read_ret > 0){
+			fwrite(_read_buf, 1, uart_read_ret, debug_file); //save the raw data that was read from the UART port from ESCs
+		}
+		uint64_t log_write_end = hrt_absolute_time();
+		debug_file_last_write_dt = (int)(log_write_end-log_write_start); //us
+	}
+
+	if (uart_read_ret > 0) {
+		parse_response(_read_buf, uart_read_ret, false);
 	}
 
 	/* handle loss of comms / disconnect */
@@ -1358,6 +1391,7 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 
 	perf_count(_output_update_perf);
 
+	update_outputs_last_update_dt = (int)(hrt_absolute_time() - update_entry_time);
 	return true;
 }
 
