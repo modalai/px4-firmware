@@ -267,8 +267,18 @@ int VoxlEsc::device_init()
 	PX4_INFO("VOXL_ESC: All ESCs successfully detected");
 
 	//log will go to /usr/lib/rfsa/adsp, make sure directory is owned by system:system
-	if (1) {
-		debug_file = fopen("voxl_esc_log.bin", "wb");
+	for (int i=0; i<100; i++) {
+		char name_buf[32];
+		snprintf(name_buf,sizeof(name_buf),"voxl_esc_log_%03d.bin",i);
+		debug_file = fopen(name_buf, "r");
+		if (debug_file){ //file already exists
+			fclose(debug_file);
+			debug_file = NULL;
+			continue;
+		}
+
+		debug_file = fopen(name_buf, "wb");
+		break;
 	}
 	
 
