@@ -38,10 +38,117 @@
 #include "voxl_esc.hpp"
 #include "voxl_esc_serial.hpp"
 
+#include <pthread.h>
+static pthread_mutex_t    logger_mutex = PTHREAD_MUTEX_INITIALIZER;
+static const uint32_t     logger_buffer_size = 16*1024;
+static uint8_t            logger_buffer[logger_buffer_size];
+static volatile uint32_t  logger_write_cntr = 0;
+static volatile uint32_t  logger_read_cntr = 0;
+
 // future use:
 #define MODALAI_PUBLISH_ESC_STATUS	0
 
 const char *_device;
+
+
+//write the log data into the temporary buffer
+int logger_log_data(uint8_t * data, uint32_t size)
+{
+	if (size > logger_buffer_size){
+		size = logger_buffer_size;
+	}
+
+	pthread_mutex_lock(&logger_mutex);
+	uint8_t * write_addr = &(logger_buffer[logger_write_cntr]);
+	uint8_t * start_addr = &(logger_buffer[0]);
+	uint8_t * end_addr   = &(logger_buffer[logger_buffer_size]);
+
+	uint32_t diff = (uint32_t)(end_addr-write_addr);
+
+	if (size > diff)  //split into two copy operations
+	{
+		int32_t size1 = diff;
+		int32_t size2 = size - diff;
+
+		memcpy((void*)write_addr,data,size1);
+		memcpy((void*)start_addr,data+size1,size2);
+	}
+	else  //copy the data in one operation
+	{
+		memcpy((void*)write_addr,data,size);
+	}
+
+	logger_write_cntr = (logger_write_cntr+size) % logger_buffer_size;
+
+	pthread_mutex_unlock(&logger_mutex);
+
+	return 0;
+}
+
+
+void VoxlEsc::logger_task_main(void * args)
+{
+	PX4_INFO("VOXL_ESC: Starting logging thread");
+	FILE * debug_file = NULL;
+	char name_buf[32];
+
+	for (int i=0; i<100; i++) {
+		snprintf(name_buf,sizeof(name_buf),"voxl_esc_log_%03d.bin",i);
+		debug_file = fopen(name_buf, "r");
+		if (debug_file){ //file already exists
+			fclose(debug_file);
+			debug_file = NULL;
+			continue;
+		}
+
+		debug_file = fopen(name_buf, "wb");
+		break;
+	}
+
+	if (!debug_file){
+		PX4_INFO("VOXL_ESC: ERROR: Could not open debug file for writing");
+	} else {
+		PX4_INFO("VOXL_ESC: Opened debug file for writing: %s",name_buf);
+	}
+
+	while(1){
+		usleep(50000);
+
+		if (debug_file){
+			pthread_mutex_lock(&logger_mutex);
+			uint32_t tx_size = (logger_write_cntr - logger_read_cntr) % logger_buffer_size;
+			uint32_t diff    = logger_buffer_size - logger_read_cntr;
+			pthread_mutex_unlock(&logger_mutex);
+
+			if (tx_size < 1){
+				continue;
+			}
+
+/*
+			if (tx_size < 4096*2){
+				PX4_INFO("VOXL_ESC: logger skip %d",tx_size);
+				continue;
+			}
+
+			tx_size = 4096*2;
+*/
+
+			//uint64_t log_write_start_time = hrt_absolute_time();
+			if (tx_size > diff){ //split into two write operations
+				int32_t size1 = diff;
+				int32_t size2 = tx_size - diff;
+				fwrite(&logger_buffer[logger_read_cntr], 1, size1, debug_file);
+				fwrite(&logger_buffer[0],                1, size2, debug_file);
+			}
+			else{
+				fwrite(&logger_buffer[logger_read_cntr], 1, tx_size, debug_file);
+			}
+			//uint64_t log_write_end_time = hrt_absolute_time();
+			logger_read_cntr = (logger_read_cntr+tx_size) % logger_buffer_size;
+			//PX4_INFO("VOXL_ESC: logger wrote %d bytes, %dus",tx_size, (uint32_t)(log_write_end_time-log_write_start_time));
+		}
+	}
+}
 
 VoxlEsc::VoxlEsc() :
 	OutputModuleInterface(MODULE_NAME, px4::serial_port_to_wq(VOXL_ESC_DEFAULT_PORT)),
@@ -125,6 +232,18 @@ int VoxlEsc::init()
 	//
 	//There is no problem when running on VOXL2, but in order to have the same logical flow on both systems,
 	//we will initialize uart and query the device in Run()
+
+	_logger_task_handle = px4_task_spawn_cmd("logger_task_main",
+					  SCHED_DEFAULT,
+					  SCHED_PRIORITY_DEFAULT,
+					  2048,
+					  (px4_main_t) &VoxlEsc::logger_task_main,
+					  NULL);
+
+	if (_logger_task_handle < 0) {
+		PX4_ERR("VOXL_ESC: Failed to start task logger_task_main");
+		return -1;
+	}
 
 	ScheduleNow();
 
@@ -267,6 +386,7 @@ int VoxlEsc::device_init()
 	PX4_INFO("VOXL_ESC: All ESCs successfully detected");
 
 	//log will go to /usr/lib/rfsa/adsp, make sure directory is owned by system:system
+	/*
 	for (int i=0; i<100; i++) {
 		char name_buf[32];
 		snprintf(name_buf,sizeof(name_buf),"voxl_esc_log_%03d.bin",i);
@@ -280,7 +400,7 @@ int VoxlEsc::device_init()
 		debug_file = fopen(name_buf, "wb");
 		break;
 	}
-	
+	*/
 
 	_device_initialized =  true;
 
@@ -1339,6 +1459,7 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	 * uart_read is non-blocking and we will just parse whatever bytes came in up until this point
 	 */
 
+/*
 	uint64_t uart_read_start_time = hrt_absolute_time();
 	int uart_read_ret = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
 	uint64_t uart_read_end_time   = hrt_absolute_time();
@@ -1358,6 +1479,31 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 		uint64_t log_write_end = hrt_absolute_time();
 		debug_file_last_write_dt = (int)(log_write_end-log_write_start); //us
 	}
+*/
+
+	uint64_t uart_read_start_time = hrt_absolute_time();
+	int uart_read_ret = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+	uint64_t uart_read_end_time   = hrt_absolute_time();
+
+	if (1){
+		char header_buf[64];
+		uint64_t log_write_start = hrt_absolute_time();
+		int header_len = snprintf(header_buf,sizeof(header_buf),"\r\n\n***[%" PRIu64 "](%" PRIu32 ",%d,%" PRIu32 ",%d,%d,%d): ", 
+			update_entry_time,
+			(uint32_t)(uart_write_end_time-uart_write_start_time), uart_write_ret,
+			(uint32_t)(uart_read_end_time-uart_read_start_time), uart_read_ret,
+			debug_file_last_write_dt,
+			update_outputs_last_update_dt);
+		logger_log_data((uint8_t *)&(header_buf[0]), header_len);  //write the header
+		logger_log_data(cmd.buf,cmd.len);              //save the raw packet that was sent out to the ESCs
+		if (uart_read_ret > 0){
+			logger_log_data(_read_buf, uart_read_ret); //save the raw data that was read from the UART port from ESCs
+		}
+		uint64_t log_write_end = hrt_absolute_time();
+		debug_file_last_write_dt = (int)(log_write_end-log_write_start); //us
+	}
+
+	//logger_log_data
 
 	if (uart_read_ret > 0) {
 		parse_response(_read_buf, uart_read_ret, false);

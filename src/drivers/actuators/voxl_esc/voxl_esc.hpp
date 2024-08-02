@@ -265,7 +265,11 @@ private:
 	void			mix_turtle_mode(uint16_t outputs[]);
 	void			handle_actuator_test();
 
+	static void logger_task_main(void * args);
+
 	FILE * debug_file = NULL;
 	int debug_file_last_write_dt = 0;
 	int update_outputs_last_update_dt = 0;
+
+	px4_task_t _logger_task_handle = -1;
 };
