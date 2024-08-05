@@ -150,6 +150,9 @@ uint32_t flow_received_counter = 0;
 uint32_t flow_sent_counter = 0;
 uint32_t unknown_msg_received_counter = 0;
 
+uint32_t vio_reset_counter = 1;
+uint32_t vio_reset_recovery_count = 0;
+
 enum class position_source {GPS, VIO, FLOW, NUM_POSITION_SOURCES};
 
 struct position_source_data_s {
@@ -617,6 +620,21 @@ void handle_message_distance_sensor(mavlink_message_t *msg)
 	distance_sent_counter++;
 }
 
+void set_vio_blowup(vehicle_odometry_s *msg)
+{
+	msg->position[0] = msg->position[1] = msg->position[2] = 0.0;
+	msg->q[0] = 1.0;
+	msg->q[1] = msg->q[2] = msg->q[3] = 0.0;
+	msg->velocity[0] = msg->velocity[1] = msg->velocity[2] = 0.0;
+	msg->angular_velocity[0] = msg->angular_velocity[1] = msg->angular_velocity[2] = 0.0;
+	msg->position_variance[0] = msg->position_variance[1] = msg->position_variance[2] = NAN;
+	msg->orientation_variance[0] = msg->orientation_variance[1] = msg->orientation_variance[2] = NAN;
+	msg->velocity_variance[0] = msg->velocity_variance[1] = msg->velocity_variance[2] = NAN;
+	msg->velocity_frame = 3;
+
+	msg->quality = -1;
+}
+
 void
 handle_message_odometry_dsp(mavlink_message_t *msg)
 {
@@ -803,25 +821,28 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 		odom.angular_velocity[2] = odom_in.yawspeed;
 	}
 
-	odom.reset_counter = odom_in.reset_counter;
-	odom.quality = odom_in.quality;
+	odom.pose_frame = 2;
+	odom.reset_counter = vio_reset_counter;
+	odom.quality = 100;
 
 	int index = (int) position_source::VIO;
 	if (position_source_data[index].fail) {
 		uint32_t duration = position_source_data[index].failure_duration;
 		hrt_abstime start = position_source_data[index].failure_duration_start;
-		if (duration) {
-			if (hrt_elapsed_time(&start) > (duration * 1000000)) {
-				PX4_INFO("VIO failure ending");
-				position_source_data[index].fail = false;
-				position_source_data[index].failure_duration = 0;
-				position_source_data[index].failure_duration_start = 0;
-			} else {
-				odom.quality = 0;
-			}
-		} else {
-			odom.quality = 0;
+		if ((duration) && (hrt_elapsed_time(&start) > (duration * 1000000))) {
+			PX4_INFO("VIO failure ending");
+			vio_reset_counter++;
+			position_source_data[index].fail = false;
+			position_source_data[index].failure_duration = 0;
+			position_source_data[index].failure_duration_start = 0;
 		}
+
+		set_vio_blowup(&odom);
+	} else if (vio_reset_recovery_count) {
+		vio_reset_recovery_count--;
+		odom.position[0] += vio_reset_recovery_count;
+		odom.position[1] += vio_reset_recovery_count;
+		odom.position[2] += vio_reset_recovery_count;
 	}
 
 	switch (odom_in.estimator_type) {
@@ -1202,6 +1223,10 @@ process_failure(dsp_hitl::position_source src, int duration) {
 			if (position_source_data[index].fail) {
 				PX4_INFO("Ending indefinite %s failure", position_source_data[index].label);
 				position_source_data[index].fail = false;
+				if (src == position_source::VIO) {
+					vio_reset_counter++;
+					vio_reset_recovery_count = 100;
+				}
 			} else {
 				PX4_INFO("Starting indefinite %s failure", position_source_data[index].label);
 				position_source_data[index].fail = true;
