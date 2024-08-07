@@ -146,6 +146,7 @@ battery_status_s _battery_status{};
 sensor_accel_fifo_s accel_fifo{};
 sensor_gyro_fifo_s gyro_fifo{};
 
+pthread_mutex_t uart_write_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int openPort(const char *dev, speed_t speed);
 int closePort();
@@ -770,7 +771,13 @@ int writeResponse(void *buf, size_t len)
 		return -1;
 	}
 
-    return qurt_uart_write(_uart_fd, (const char*) buf, len);
+    int write_status = -1;
+
+	pthread_mutex_lock(&uart_write_mutex);
+	write_status = qurt_uart_write(_uart_fd, (const char*) buf, len);
+	pthread_mutex_unlock(&uart_write_mutex);
+
+	return write_status;
 }
 
 int start(int argc, char *argv[])
