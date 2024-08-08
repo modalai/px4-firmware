@@ -131,7 +131,6 @@ float x_gyro = 0;
 float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
-bool _use_software_mav_throttling{false};
 
 int heartbeat_counter = 0;
 int imu_counter = 0;
@@ -280,11 +279,8 @@ void task_main(int argc, char *argv[])
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "osdmgp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "odmgp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
-		case 's':
-			_use_software_mav_throttling = true;
-			break;
 		case 'd':
 			debug = true;
 			break;
