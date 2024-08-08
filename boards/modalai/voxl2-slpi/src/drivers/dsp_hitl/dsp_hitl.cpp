@@ -95,9 +95,7 @@ std::string port = "2";
 int baudrate = 921600;
 const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
-bool _send_gps = false;
 bool _send_mag = false;
-bool _send_odometry = false;
 
 uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
@@ -151,6 +149,25 @@ uint32_t unknown_msg_received_counter = 0;
 
 // uint64_t previous_odometry_timestamp;
 
+uint32_t vio_reset_counter = 1;
+uint32_t vio_reset_recovery_count = 0;
+
+enum class position_source {GPS, VIO, NUM_POSITION_SOURCES};
+
+struct position_source_data_s {
+	char label[8];
+	bool send;
+	bool fail;
+	uint32_t failure_duration;
+	uint64_t failure_duration_start;
+} position_source_data[(int) position_source::NUM_POSITION_SOURCES] = {
+					{"GPS", false, false, 0, 0},
+					{"VIO", false, false, 0, 0} };
+
+uint64_t first_sensor_msg_timestamp = 0;
+uint64_t first_sensor_report_timestamp = 0;
+uint64_t last_sensor_report_timestamp = 0;
+
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
 actuator_outputs_s _actuator_outputs{};
@@ -199,14 +216,14 @@ handle_message_dsp(mavlink_message_t *msg)
 		break;
 	case MAVLINK_MSG_ID_HIL_GPS:
 		gps_received_counter++;
-		if (_send_gps) handle_message_hil_gps_dsp(msg);
+		if (position_source_data[(int) position_source::GPS].send) handle_message_hil_gps_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
 		handle_message_vision_position_estimate_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_ODOMETRY:
 		odometry_received_counter++;
-		if (_send_odometry) handle_message_odometry_dsp(msg);
+		if (position_source_data[(int) position_source::VIO].send) handle_message_odometry_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long_dsp(msg);
@@ -312,10 +329,10 @@ void task_main(int argc, char *argv[])
 			_send_mag = true;
 			break;
 		case 'g':
-			_send_gps = true;
+			position_source_data[(int) position_source::GPS].send = true;
 			break;
 		case 'o':
-			_send_odometry = true;
+			position_source_data[(int) position_source::VIO].send = true;
 			break;
 		default:
 			break;
@@ -507,6 +524,21 @@ handle_message_vision_position_estimate_dsp(mavlink_message_t *msg)
 	_visual_odometry_pub.publish(odom);
 }
 
+void set_vio_blowup(vehicle_odometry_s *msg)
+{
+	msg->position[0] = msg->position[1] = msg->position[2] = 0.0;
+	msg->q[0] = 1.0;
+	msg->q[1] = msg->q[2] = msg->q[3] = 0.0;
+	msg->velocity[0] = msg->velocity[1] = msg->velocity[2] = 0.0;
+	msg->angular_velocity[0] = msg->angular_velocity[1] = msg->angular_velocity[2] = 0.0;
+	msg->position_variance[0] = msg->position_variance[1] = msg->position_variance[2] = NAN;
+	msg->orientation_variance[0] = msg->orientation_variance[1] = msg->orientation_variance[2] = NAN;
+	msg->velocity_variance[0] = msg->velocity_variance[1] = msg->velocity_variance[2] = NAN;
+	msg->velocity_frame = 3;
+
+	msg->quality = -1;
+}
+
 void
 handle_message_odometry_dsp(mavlink_message_t *msg)
 {
@@ -694,8 +726,29 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 		odom.angular_velocity[2] = odom_in.yawspeed;
 	}
 
-	odom.reset_counter = odom_in.reset_counter;
-	odom.quality = odom_in.quality;
+	odom.pose_frame = 2;
+	odom.reset_counter = vio_reset_counter;
+	odom.quality = 100;
+
+	int index = (int) position_source::VIO;
+	if (position_source_data[index].fail) {
+		uint32_t duration = position_source_data[index].failure_duration;
+		hrt_abstime start = position_source_data[index].failure_duration_start;
+		if ((duration) && (hrt_elapsed_time(&start) > (duration * 1000000))) {
+			PX4_INFO("VIO failure ending");
+			vio_reset_counter++;
+			position_source_data[index].fail = false;
+			position_source_data[index].failure_duration = 0;
+			position_source_data[index].failure_duration_start = 0;
+		}
+
+		set_vio_blowup(&odom);
+	} else if (vio_reset_recovery_count) {
+		vio_reset_recovery_count--;
+		odom.position[0] += vio_reset_recovery_count;
+		odom.position[1] += vio_reset_recovery_count;
+		odom.position[2] += vio_reset_recovery_count;
+	}
 
 	switch (odom_in.estimator_type) {
 	case MAV_ESTIMATOR_TYPE_UNKNOWN: // accept MAV_ESTIMATOR_TYPE_UNKNOWN for legacy support
@@ -843,7 +896,7 @@ int stop()
 
 void usage()
 {
-	PX4_INFO("Usage: dsp_hitl {start|info|status|stop}");
+	PX4_INFO("Usage: dsp_hitl {start|info|status|clear|failure|stop}");
 }
 
 void clear_status_counters()
@@ -889,10 +942,6 @@ int get_status()
 
 	return 0;
 }
-
-uint64_t first_sensor_msg_timestamp = 0;
-uint64_t first_sensor_report_timestamp = 0;
-uint64_t last_sensor_report_timestamp = 0;
 
 void
 handle_message_hil_sensor_dsp(mavlink_message_t *msg)
@@ -1030,7 +1079,29 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 
 	gps.s_variance_m_s = 0.25f;
 	gps.c_variance_rad = 0.5f;
+
+	gps.satellites_used = hil_gps.satellites_visible;
 	gps.fix_type = hil_gps.fix_type;
+
+	int index = (int) position_source::GPS;
+	if (position_source_data[index].fail) {
+		uint32_t duration = position_source_data[index].failure_duration;
+		hrt_abstime start = position_source_data[index].failure_duration_start;
+		if (duration) {
+			if (hrt_elapsed_time(&start) > (duration * 1000000)) {
+				PX4_INFO("GPS failure ending");
+				position_source_data[index].fail = false;
+				position_source_data[index].failure_duration = 0;
+				position_source_data[index].failure_duration_start = 0;
+			} else {
+				gps.satellites_used = 1;
+				gps.fix_type = 0;
+			}
+		} else {
+			gps.satellites_used = 1;
+			gps.fix_type = 0;
+		}
+	}
 
 	gps.eph = (float)hil_gps.eph * 1e-2f; // cm -> m
 	gps.epv = (float)hil_gps.epv * 1e-2f; // cm -> m
@@ -1055,8 +1126,6 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	gps.timestamp_time_relative = 0;
 	gps.time_utc_usec = hil_gps.time_usec;
 
-	gps.satellites_used = hil_gps.satellites_visible;
-
 	gps.heading = NAN;
 	gps.heading_offset = NAN;
 
@@ -1064,6 +1133,44 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 
 	_sensor_gps_pub.publish(gps);
 	gps_sent_counter++;
+}
+
+int
+process_failure(dsp_hitl::position_source src, int duration) {
+	if (src >= position_source::NUM_POSITION_SOURCES) {
+		return 1;
+	}
+
+	int index = (int) src;
+
+	if (position_source_data[index].send) {
+		if (duration <= 0) {
+			// Toggle state
+			if (position_source_data[index].fail) {
+				PX4_INFO("Ending indefinite %s failure", position_source_data[index].label);
+				position_source_data[index].fail = false;
+				if (src == position_source::VIO) {
+					vio_reset_counter++;
+					vio_reset_recovery_count = 100;
+				}
+			} else {
+				PX4_INFO("Starting indefinite %s failure", position_source_data[index].label);
+				position_source_data[index].fail = true;
+			}
+			position_source_data[index].failure_duration = 0;
+			position_source_data[index].failure_duration_start = 0;
+		} else {
+			PX4_INFO("%s failure for %d seconds", position_source_data[index].label, duration);
+			position_source_data[index].fail = true;
+			position_source_data[index].failure_duration = duration;
+			position_source_data[index].failure_duration_start = hrt_absolute_time();
+		}
+	} else {
+		PX4_ERR("%s not active, cannot create failure", position_source_data[index].label);
+		return 1;
+	}
+
+	return 0;
 }
 
 }
@@ -1093,6 +1200,28 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	else if (!strcmp(verb, "clear")) {
 		dsp_hitl::clear_status_counters();
+		return 0;
+	}
+
+	else if (!strcmp(verb, "failure")) {
+		if (argc != 4) {
+			dsp_hitl::usage();
+			return 1;
+		}
+		const char *source = argv[myoptind + 1];
+		int duration = atoi(argv[myoptind + 2]);
+
+		if (!strcmp(source, "gps")) {
+			return dsp_hitl::process_failure(dsp_hitl::position_source::GPS, duration);
+		}
+		else if (!strcmp(source, "vio")) {
+			return dsp_hitl::process_failure(dsp_hitl::position_source::VIO, duration);
+		}
+		else {
+			PX4_ERR("Unknown failure source %s, duration %d", source, duration);
+			dsp_hitl::usage();
+			return 1;
+		}
 		return 0;
 	}
 
