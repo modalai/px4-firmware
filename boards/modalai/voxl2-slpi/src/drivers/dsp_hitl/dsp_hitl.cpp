@@ -132,12 +132,22 @@ float y_gyro = 0;
 float z_gyro = 0;
 uint64_t gyro_accel_time = 0;
 
-int heartbeat_counter = 0;
-int imu_counter = 0;
-int hil_sensor_counter = 0;
-int vision_msg_counter = 0;
-int odometry_msg_counter = 0;
-int gps_counter = 0;
+// Status counters
+uint32_t heartbeat_received_counter = 0;
+uint32_t hil_sensor_counter = 0;
+uint32_t odometry_received_counter = 0;
+uint32_t gps_received_counter = 0;
+
+uint32_t imu_counter = 0;
+uint32_t mag_counter = 0;
+uint32_t baro_counter = 0;
+uint32_t gps_sent_counter = 0;
+uint32_t odometry_sent_counter = 0;
+
+uint32_t heartbeat_sent_counter = 0;
+uint32_t actuator_sent_counter = 0;
+
+uint32_t unknown_msg_received_counter = 0;
 
 // uint64_t previous_odometry_timestamp;
 
@@ -183,21 +193,25 @@ handle_message_dsp(mavlink_message_t *msg)
 {
 	switch (msg->msgid) {
 	case MAVLINK_MSG_ID_HIL_SENSOR:
+		hil_sensor_counter++;
 		handle_message_hil_sensor_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HIL_GPS:
+		gps_received_counter++;
 		if (_send_gps) handle_message_hil_gps_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
 		handle_message_vision_position_estimate_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_ODOMETRY:
+		odometry_received_counter++;
 		if (_send_odometry) handle_message_odometry_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long_dsp(msg);
 		break;
 	case MAVLINK_MSG_ID_HEARTBEAT:
+		heartbeat_received_counter++;
 		PX4_DEBUG("Heartbeat msg received");
 		break;
 	case MAVLINK_MSG_ID_SYSTEM_TIME:
@@ -205,6 +219,7 @@ handle_message_dsp(mavlink_message_t *msg)
 		break;
 	default:
 		PX4_DEBUG("Unknown msg ID: %d", msg->msgid);
+		unknown_msg_received_counter++;
 		break;
 	}
 }
@@ -252,6 +267,7 @@ void send_actuator_data(){
 				int writeRetval = writeResponse(&newBuf, newBufLen);
 				PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
 				first_sent = true;
+				actuator_sent_counter++;
 				send_esc_telemetry_dsp(hil_act_control);
 			}
 		} else if(!actuator_updated && first_sent && differential > 4000){
@@ -268,6 +284,7 @@ void send_actuator_data(){
 			//PX4_INFO("Sending from NOT UPDTE AND TIMEOUT: %i", differential);
 
 			PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
+			actuator_sent_counter++;
 			send_esc_telemetry_dsp(hil_act_control);
 		}
 		differential = hrt_absolute_time() - previous_timestamp;
@@ -376,7 +393,7 @@ void task_main(int argc, char *argv[])
 			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
 			(void) writeResponse(&hb_newBuf, hb_newBufLen);
 			last_heartbeat_timestamp = timestamp;
-			heartbeat_counter++;
+			heartbeat_sent_counter++;
 		}
 
 		bool vehicle_updated = false;
@@ -487,7 +504,6 @@ handle_message_vision_position_estimate_dsp(mavlink_message_t *msg)
 	odom.timestamp = hrt_absolute_time();
 
 	_visual_odometry_pub.publish(odom);
-	vision_msg_counter++;
 }
 
 void
@@ -495,8 +511,6 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 {
 	mavlink_odometry_t odom_in;
 	mavlink_msg_odometry_decode(msg, &odom_in);
-
-	odometry_msg_counter++;
 
 	// fill vehicle_odometry from Mavlink ODOMETRY
 	vehicle_odometry_s odom{};
@@ -688,6 +702,7 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	case MAV_ESTIMATOR_TYPE_VISION:
 	case MAV_ESTIMATOR_TYPE_VIO:
 		odom.timestamp = hrt_absolute_time();
+		odometry_sent_counter++;
 		_visual_odometry_pub.publish(odom);
 		break;
 
@@ -833,14 +848,28 @@ void usage()
 int get_status()
 {
 	PX4_INFO("Running: %s", _is_running ? "yes" : "no");
-	PX4_INFO("Status of IMU_Data counter: %i", imu_counter);
-	PX4_INFO("Value of current accel x, y, z data: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
-	PX4_INFO("Value of current gyro x, y, z data: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
-	PX4_INFO("Value of HIL_Sensor counter: %i", hil_sensor_counter);
-	PX4_INFO("Value of Heartbeat counter: %i", heartbeat_counter);
-	PX4_INFO("Value of Vision data counter: %i", vision_msg_counter);
-	PX4_INFO("Value of odometry counter: %i", odometry_msg_counter);
-	PX4_INFO("Value of GPS Data counter: %i", gps_counter);
+
+	PX4_INFO("Messages received from simulator:");
+	PX4_INFO("\tHeartbeat received: %i", heartbeat_received_counter);
+	PX4_INFO("\tHIL Sensor received: %i", hil_sensor_counter);
+	PX4_INFO("\tOdometry received: %i", odometry_received_counter);
+	PX4_INFO("\tGPS received: %i", gps_received_counter);
+
+	PX4_INFO("Outputs to PX4:");
+	PX4_INFO("\tIMU updates: %i", imu_counter);
+	PX4_INFO("\t\tCurrent accel x, y, z: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
+	PX4_INFO("\t\tCurrent gyro x, y, z: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
+	PX4_INFO("\tMagnetometer sent: %i", mag_counter);
+	PX4_INFO("\tBarometer sent: %i", baro_counter);
+	PX4_INFO("\tGPS sent: %i", gps_sent_counter);
+	PX4_INFO("\tOdometry sent: %i", odometry_sent_counter);
+
+	PX4_INFO("Outputs to simulator:");
+	PX4_INFO("\tHeartbeats sent: %i", heartbeat_sent_counter);
+	PX4_INFO("\tActuator updates sent: %i", actuator_sent_counter);
+
+	PX4_INFO("Unknown messages received: %i", unknown_msg_received_counter);
+
 	return 0;
 }
 
@@ -914,6 +943,7 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 				_px4_mag->set_temperature(temperature);
 			}
 
+			mag_counter++;
 			_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
 		}
 	}
@@ -928,6 +958,7 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 		sensor_baro.temperature = hil_sensor.temperature;
 		sensor_baro.error_count = 0;
 		sensor_baro.timestamp = hrt_absolute_time();
+		baro_counter++;
 		_sensor_baro_pub.publish(sensor_baro);
 	}
 
@@ -957,7 +988,6 @@ handle_message_hil_sensor_dsp(mavlink_message_t *msg)
 
 		_battery_pub.publish(hil_battery_status);
 	}
-	hil_sensor_counter++;
 }
 
 void
@@ -1016,7 +1046,7 @@ handle_message_hil_gps_dsp(mavlink_message_t *msg)
 	gps.timestamp = hrt_absolute_time();
 
 	_sensor_gps_pub.publish(gps);
-	gps_counter++;
+	gps_sent_counter++;
 }
 
 }
