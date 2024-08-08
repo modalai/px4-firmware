@@ -90,6 +90,8 @@ static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
 bool debug = false;
 std::string port = "2";
+// Valid choices: 9600, 38400, 57600, 115200, 230400, 250000, 420000, 460800,
+// 921600, 1000000, 1843200, 2000000. But 921600 seems to perform the best.
 int baudrate = 921600;
 const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
@@ -137,6 +139,8 @@ int hil_sensor_counter = 0;
 int vision_msg_counter = 0;
 int odometry_msg_counter = 0;
 int gps_counter = 0;
+
+// uint64_t previous_odometry_timestamp;
 
 vehicle_status_s _vehicle_status{};
 vehicle_control_mode_s _control_mode{};
@@ -502,6 +506,9 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	vehicle_odometry_s odom{};
 	uint64_t timestamp = hrt_absolute_time();
 	odom.timestamp_sample = timestamp;
+
+	// PX4_ERR("Elapsed time since last odometry: %llu", timestamp - previous_odometry_timestamp);
+	// previous_odometry_timestamp = timestamp;
 
 	const matrix::Vector3f odom_in_p(odom_in.x, odom_in.y, odom_in.z);
 
