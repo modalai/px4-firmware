@@ -170,6 +170,7 @@ int writeResponse(void *buf, size_t len);
 int start(int argc, char *argv[]);
 int stop();
 int get_status();
+void clear_status_counters();
 bool isOpen() { return _uart_fd >= 0; };
 
 void usage();
@@ -845,6 +846,22 @@ void usage()
 	PX4_INFO("Usage: dsp_hitl {start|info|status|stop}");
 }
 
+void clear_status_counters()
+{
+	heartbeat_received_counter = 0;
+	hil_sensor_counter = 0;
+	odometry_received_counter = 0;
+	gps_received_counter = 0;
+	imu_counter = 0;
+	mag_counter = 0;
+	baro_counter = 0;
+	gps_sent_counter = 0;
+	odometry_sent_counter = 0;
+	heartbeat_sent_counter = 0;
+	actuator_sent_counter = 0;
+	unknown_msg_received_counter = 0;
+}
+
 int get_status()
 {
 	PX4_INFO("Running: %s", _is_running ? "yes" : "no");
@@ -1072,6 +1089,11 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	else if(!strcmp(verb, "status")){
 		return dsp_hitl::get_status();
+	}
+
+	else if (!strcmp(verb, "clear")) {
+		dsp_hitl::clear_status_counters();
+		return 0;
 	}
 
 	else {
