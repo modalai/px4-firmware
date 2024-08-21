@@ -62,6 +62,7 @@
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/esc_status.h>
+#include <uORB/topics/modal_io_mavlink_data.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
@@ -89,6 +90,7 @@ volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
 int _uart_fd = -1;
 bool debug = false;
+uint32_t debug_odometry_forwarding = 0;
 std::string port = "2";
 // Valid choices: 9600, 38400, 57600, 115200, 230400, 250000, 420000, 460800,
 // 921600, 1000000, 1843200, 2000000. But 921600 seems to perform the best.
@@ -96,6 +98,7 @@ int baudrate = 921600;
 const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
 bool _send_mag = false;
+bool _export_odometry = false;
 
 uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
@@ -104,6 +107,7 @@ uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visu
 uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
 uORB::PublicationMulti<sensor_baro_s>			_sensor_baro_pub{ORB_ID(sensor_baro)};
 uORB::Publication<esc_status_s>					_esc_status_pub{ORB_ID(esc_status)};
+uORB::Publication<modal_io_mavlink_data_s>		_mav_odom_pub{ORB_ID(modal_io_mavlink_data)};
 uORB::Subscription 								_battery_status_sub{ORB_ID(battery_status)};
 
 int32_t _output_functions[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS] {};
@@ -314,8 +318,11 @@ void task_main(int argc, char *argv[])
 	int ch;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "odmgp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "eodmgp:b:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
+		case 'e':
+			_export_odometry = true;
+			break;
 		case 'd':
 			debug = true;
 			break;
@@ -539,15 +546,62 @@ void set_vio_blowup(vehicle_odometry_s *msg)
 	msg->quality = -1;
 }
 
+static uint32_t debug_quality = 100;
+
 void
 handle_message_odometry_dsp(mavlink_message_t *msg)
 {
 	mavlink_odometry_t odom_in;
 	mavlink_msg_odometry_decode(msg, &odom_in);
 
+	uint64_t timestamp = hrt_absolute_time();
+
+	debug_quality--;
+	if (debug_quality < 55) debug_quality = 100;
+	odom_in.quality = debug_quality;
+
+	// bool dump_message = (debug_odometry_forwarding == 0);
+	bool dump_message = false;
+
+	if (dump_message) {
+		// uint64_t time_usec; /*< [us] Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number.*/
+		// float x; /*< [m] X Position*/
+		// float y; /*< [m] Y Position*/
+		// float z; /*< [m] Z Position*/
+		// float q[4]; /*<  Quaternion components, w, x, y, z (1 0 0 0 is the null-rotation)*/
+		// float vx; /*< [m/s] X linear speed*/
+		// float vy; /*< [m/s] Y linear speed*/
+		// float vz; /*< [m/s] Z linear speed*/
+		// float rollspeed; /*< [rad/s] Roll angular speed*/
+		// float pitchspeed; /*< [rad/s] Pitch angular speed*/
+		// float yawspeed; /*< [rad/s] Yaw angular speed*/
+		// uint8_t frame_id; /*<  Coordinate frame of reference for the pose data.*/
+		// uint8_t child_frame_id; /*<  Coordinate frame of reference for the velocity in free space (twist) data.*/
+		// uint8_t reset_counter; /*<  Estimate reset counter. This should be incremented when the estimate resets in any of the dimensions (position, velocity, attitude, angular speed). This is designed to be used when e.g an external SLAM system detects a loop-closure and the estimate jumps.*/
+		// uint8_t estimator_type; /*<  Type of estimator that is providing the odometry.*/
+		// int8_t quality; /*< [%] Optional odometry quality metric as a percentage. -1 = odometry has failed, 0 = unknown/unset quality, 1 = worst quality, 100 = best quality*/
+
+		PX4_INFO("Timestamp: %llu", odom_in.time_usec);
+		PX4_INFO("x, y, z: %f, %f, %f", (double) odom_in.x, (double) odom_in.y, (double) odom_in.z);
+		PX4_INFO("q: %f, %f, %f, %f", (double) odom_in.q[0], (double) odom_in.q[1], (double) odom_in.q[2], (double) odom_in.q[3]);
+		PX4_INFO("vx, vy, vz: %f, %f, %f", (double) odom_in.vx, (double) odom_in.vy, (double) odom_in.vz);
+		PX4_INFO("quality %d", odom_in.quality);
+	}
+
+	if (_export_odometry) {
+		modal_io_mavlink_data_s odom_data;
+		odom_data.timestamp = timestamp;
+		odom_data.dump_message = (int) dump_message;
+		memcpy(&odom_data.odometry, &odom_in, sizeof(mavlink_odometry_t));
+		_mav_odom_pub.publish(odom_data);
+
+		if (debug_odometry_forwarding++ == 30) {
+			debug_odometry_forwarding = 0;
+		}
+	}
+
 	// fill vehicle_odometry from Mavlink ODOMETRY
 	vehicle_odometry_s odom{};
-	uint64_t timestamp = hrt_absolute_time();
 	odom.timestamp_sample = timestamp;
 
 	// PX4_ERR("Elapsed time since last odometry: %llu", timestamp - previous_odometry_timestamp);
@@ -728,7 +782,8 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 
 	odom.pose_frame = 2;
 	odom.reset_counter = vio_reset_counter;
-	odom.quality = 100;
+	// odom.quality = 100;
+	odom.quality = debug_quality;
 
 	int index = (int) position_source::VIO;
 	if (position_source_data[index].fail) {
@@ -757,7 +812,16 @@ handle_message_odometry_dsp(mavlink_message_t *msg)
 	case MAV_ESTIMATOR_TYPE_VIO:
 		odom.timestamp = hrt_absolute_time();
 		odometry_sent_counter++;
-		_visual_odometry_pub.publish(odom);
+
+		// If we are exporting VIO data for use in voxl-vision-hub
+		// then publish the data as mocap data so we have it in our log
+		// but it isn't actually used by px4. Otherwise log it normally as
+		// vio data.
+		if (_export_odometry) {
+			_mocap_odometry_pub.publish(odom);
+		} else {
+			_visual_odometry_pub.publish(odom);
+		}
 		break;
 
 	case MAV_ESTIMATOR_TYPE_MOCAP:
