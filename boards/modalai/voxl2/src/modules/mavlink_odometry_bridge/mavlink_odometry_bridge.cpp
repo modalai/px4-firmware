@@ -180,8 +180,8 @@ void MavlinkOdometryBridge::Run()
 			s.timestamp_ns = TimeMonotonic_ns();
 			// s.timestamp_ns = _mavlink_odometry.timestamp * 1000;
 
-			s.T_imu_wrt_vio[0] = -odom_in->x;
-			s.T_imu_wrt_vio[1] = -odom_in->y;
+			s.T_imu_wrt_vio[0] = odom_in->x;
+			s.T_imu_wrt_vio[1] = odom_in->y;
 			s.T_imu_wrt_vio[2] = odom_in->z;
 
 			float w = odom_in->q[0], x = odom_in->q[1], y = odom_in->q[2], z = odom_in->q[3];
@@ -204,7 +204,7 @@ void MavlinkOdometryBridge::Run()
 			float gravity_vector[3] = {0,0,1};
 			memcpy(s.gravity_vector, gravity_vector, sizeof(gravity_vector));
 
-			float linearVelocity[3] = {-odom_in->vx, -odom_in->vy, odom_in->vz};
+			float linearVelocity[3] = {odom_in->vx, odom_in->vy, odom_in->vz};
 			float angularVelocity[3] = {odom_in->rollspeed, odom_in->pitchspeed, odom_in->yawspeed};
 			
 			memcpy(s.vel_imu_wrt_vio,	linearVelocity,		sizeof(float)*3);
