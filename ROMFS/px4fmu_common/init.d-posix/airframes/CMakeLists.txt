@@ -93,4 +93,7 @@ px4_add_romfs_files(
 
 	17001_flightgear_tf-g1
 	17002_flightgear_tf-g2
+
+	# [22000, 22999] Reserve for custom models
+	22200_gazebo-classic_nhb_revB
 )

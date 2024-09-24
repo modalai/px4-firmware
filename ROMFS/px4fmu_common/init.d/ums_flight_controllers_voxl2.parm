@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# Flight Controlers Voxl2
+# Voxl2 only parameters
+#
+# This allows different platforms Voxl2, STM, NXP to inherit separatley
+
+# Disable Power Supply Checking
+# FIXME : This doesn't work yet on Voxl2
+# Note this check will prevent arming but will not print a message to QGC!
+param set-default CBRK_SUPPLY_CHK 894281
+
+# Allow arming without an SD Card and do not warn
+# FIXME Check this actually functions for voxl2 if you actually have an sdcard attached
+param set-default COM_ARM_SDCARD 0
+
+# FIXME this doesn't function yet as Modal needs to map the SLPI cpu usage to mUorb and then to PX4
+param set-default COM_CPU_MAX -1.0
+
+# Logging
+# To change the logging profile on a drone go into `/usr/bin/voxl-px4-start``
+# "logger start"
+# To change the log profile in the repo and all new firmware builds
+#  Change the line in `boards/modalai/voxl2/target/voxl-px4-start``
+
+# FIXME SDLOG_MODE is not able to be used yet on VOXL2
+# Log from first armed until shutdown
+# param set-default SDLOG_MODE 4
+
+
+#### THESE checks may not function on voxl2 ####
+
+# System Checks and Config
+# param set-default SYS_DM_BACKEND 1
+
+# Enables Stack checking
+# param set-default SYS_STCK_EN 1
+
+

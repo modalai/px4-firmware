@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Estimation and Control
+#
+# Description :  Enables only estimation and control params needed for altitude hold. All other sources are turned off
+#
+# Estimation Types :
+#	Baro : YES
+#	GPS : not fused
+#	Magnetometer : not fused or enabled (in all vehicles)
+#	External Vision : Yes
+#	Rangefinder : none onboard, not fused or enabled (in all vehicles)
+# Control Modes:
+#	Altitude Hold, Velocity controlled : YES (in all vehicles)
+#	Position Control : Yes
+
+### ESTIMATION ###
+
+# Turn on using external vision inputs to the EKF, they may have been turned off previously
+param set-default EKF2_EV_CTRL 15
+
+# Sets the height reference to be vision. Note the current modal AI vision system
+# fuses vison and barometer togther itself. That estimate is then fed into PX4
+# 0=baro 1=GPS 2=rangefinder 3=Vision
+param set-default EKF2_HGT_REF 3
+
+# External Vision Input
+
+########## From Modal indoor_vio.param ##########
+### From Modal indoor_vio.param
+# Located here : https://gitlab.com/voxl-public/voxl-sdk/utilities/voxl-px4-params/-/blob/master/params/v1.14/EKF2_helpers/indoor_vio.params
+#
+## set MD to 0 to allow covarience from VIO to be used
+param set-default EKF2_EV_NOISE_MD 0
+
+## default noise values
+param set-default EKF2_EVA_NOISE 0.1
+param set-default EKF2_EVP_GATE 5.0
+param set-default EKF2_EVP_NOISE 0.1
+param set-default EKF2_EVV_GATE 3.0
+param set-default EKF2_EVV_NOISE 0.1
+
+# Turn off EV Delay, VOXL will do proper timesyncing
+param set-default EKF2_EV_DELAY 0.0
+
+# FIXME once ModalAI has their own vio implementation released
+param set-default EKF2_EV_QMIN 1
+
+########## END : From Modal indoor_vio.param ##########
+
+
+### CONTROL ###
+
+# Flight Mode
+# Set Mode 6 to position control
+param set-default COM_FLTMODE6 2

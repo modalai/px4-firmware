@@ -56,4 +56,14 @@ px4_add_romfs_files(
 	rc.vehicle_setup
 	rc.vtol_apps
 	rc.vtol_defaults
+	ums_airframes_rev0.parm
+	ums_airframes_revB.parm
+	ums_all_vehicles.parm
+	ums_escs_modalai_tmotor_45A.parm
+	ums_estimation_and_control_altitude_hold_only.parm
+	ums_estimation_and_control_vio_pos_hold.parm
+	ums_flight_controllers_stm32.parm
+	ums_flight_controllers_voxl2.parm
+	ums_motors_xing_2207_1855kv.parm
+	ums_rc_control_crsf.parm
 )

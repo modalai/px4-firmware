@@ -1,0 +1,72 @@
+#!/bin/sh
+#
+# @name NHB_RevB_VOXL2
+#
+# @type Quadrotor x
+# @class Copter
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+# Parameters that apply to every vehicle SKU
+. ${R}etc/init.d/ums_all_vehicles.parm
+
+# Physical Airframe
+. ${R}etc/init.d/ums_airframes_revB.parm
+
+# Enable only estimation and control params needed for altitude hold.
+. ${R}etc/init.d/ums_estimation_and_control_altitude_hold_only.parm
+
+#####################################
+# Flight Controller
+# ModalAI : VOXL2
+# Qualcomm
+
+# CRSF RC_Input
+# PX4 Port Name :
+# Connector :
+
+# GPS
+# PX4 Port Name :
+# Connector :
+
+# For RC CRSF Input
+# MAV1_CONFIG Telem2
+
+# MSP OSD
+# MSP_OSD_CONFIG 101 ?? N/A on vehicle
+# param set-default MSP_OSD_CONFIG 101
+
+# Serial and sensor configuration is done in the startup script
+# located in /usr/bin/voxl-px4-start
+
+
+# Flight Controller Rotation : Yaw 180 deg
+param set-default SENS_BOARD_ROT 4
+
+# IMU position with respect to the CG
+# FIXME these values are the same for Rev0
+param set-default EKF2_IMU_POS_Y -0.0155
+param set-default EKF2_IMU_POS_Z 0.0040
+
+# FIXME this DGYRO is quite low
+param set-default IMU_DGYRO_CUTOFF 20.0000
+
+# ESC Motor Mapping & Directions
+
+# Motor Ordering
+# FUNC1 -> MOTOR3
+# FUNC2 -> MOTOR2
+# FUNC3 -> MOTOR4
+# FUNC4 -> MOTOR1
+#
+param set VOXL_ESC_FUNC1 103
+param set VOXL_ESC_FUNC2 102
+param set VOXL_ESC_FUNC3 104
+param set VOXL_ESC_FUNC4 101
+
+param set-default VOXL_ESC_SDIR1 1
+param set-default VOXL_ESC_SDIR2 1
+param set-default VOXL_ESC_SDIR3 1
+param set-default VOXL_ESC_SDIR4 1
+

@@ -1,0 +1,83 @@
+#!/bin/sh
+#
+# Airframe : RevB
+#
+#
+#
+
+# ESC
+. ${R}etc/init.d/ums_escs_modalai_tmotor_45A.parm
+
+# Motors
+. ${R}etc/init.d/ums_motors_xing_2207_1855kv.parm
+
+# Radio Control
+. ${R}etc/init.d/ums_rc_control_crsf.parm
+
+# Flight Controller
+# VOXL2 Base Parameters
+. ${R}etc/init.d/ums_flight_controllers_voxl2.parm
+
+# Control Allocator
+
+# PX4 Motor #1
+param set-default CA_ROTOR0_PX 0.14678
+param set-default CA_ROTOR0_PY 0.19140
+param set-default CA_ROTOR0_KM 0.050
+
+# PX4 Motor #2
+param set-default CA_ROTOR1_PX -0.14678
+param set-default CA_ROTOR1_PY -0.17110
+param set-default CA_ROTOR1_KM 0.050
+
+# PX4 Motor #3
+param set-default CA_ROTOR2_PX 0.14678
+param set-default CA_ROTOR2_PY -0.19140
+param set-default CA_ROTOR2_KM -0.05
+
+# PX4 Motor #4
+param set-default CA_ROTOR3_PX -0.14678
+param set-default CA_ROTOR3_PY 0.17110
+param set-default CA_ROTOR3_KM -0.05
+
+
+# PID controller tuning params
+
+param set-default MC_PITCH_P 13.5
+param set-default MC_PITCH_CUTOFF 20.160646
+param set-default MC_PITCHRATE_D 0.0015638
+param set-default MC_PITCHRATE_I 0.0551
+param set-default MC_PITCHRATE_MAX 1600
+param set-default MC_PITCHRATE_P 0.1102094
+param set-default MC_ACRO_PRATE_I 1.543
+
+param set-default MC_ROLL_P 13.5
+param set-default MC_ROLL_CUTOFF 17.518
+param set-default MC_ROLLRATE_D 0.0011429
+param set-default MC_ROLLRATE_I 0.05035
+param set-default MC_ROLLRATE_MAX 1600
+param set-default MC_ROLLRATE_P 0.10070770
+param set-default MC_ACRO_RRATE_I 1.410
+
+param set-default MC_YAW_P 1.5
+param set-default MC_YAW_CUTOFF 20.010
+param set-default MC_YAWRATE_I 6.3022708
+param set-default MC_YAWRATE_MAX 1300.0000
+param set-default MC_YAWRATE_P 0.1658710
+
+# Attitude Control Rate Feedforward settings
+param set-default MC_FF_FACTOR 1.0
+param set-default MC_MAX_FF_SPEED 1000.0
+param set-default MC_FF_TILT_TAU 0.04
+
+# XY Settings
+param set-default MPC_XY_P 0.80
+param set-default MPC_XY_VEL_D_ACC 0.0
+param set-default MPC_XY_VEL_I_ACC 0.4000
+param set-default MPC_XY_VEL_P_ACC 1.2000
+
+# Z (Altitude) Settings
+param set-default MPC_Z_P 0.3
+param set-default MPC_Z_VEL_D_ACC 0.0
+param set-default MPC_Z_VEL_I_ACC 4.8
+param set-default MPC_Z_VEL_P_ACC 5.7000
