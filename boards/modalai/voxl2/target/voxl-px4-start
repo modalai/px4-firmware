@@ -84,10 +84,7 @@ else
 	# to log only when armed. Caution must be used with the "-e" option
 	# because if power is removed without stopping the logger gracefully then
 	# the log file may be corrupted.
-	#logger start -t
-
-	# We dont use -t because -t doesn't currently ensure sequentially ordered log file numbering when GPS time is un
-	# logger start
+	logger start -t
 fi
 
 # IMU (accelerometer / gyroscope)
