@@ -200,7 +200,7 @@ private:
 
 	// prepend a root directory to each file/dir access to avoid enumerating the full FS tree (e.g. on Linux).
 	// Note that requests can still fall outside of the root dir by using ../..
-#ifdef MAVLINK_FTP_UNIT_TEST
+#if defined(MAVLINK_FTP_UNIT_TEST) || defined(__PX4_QURT)
 	static constexpr const char _root_dir[] = "";
 #else
 	static constexpr const char _root_dir[] = PX4_ROOTFSDIR;

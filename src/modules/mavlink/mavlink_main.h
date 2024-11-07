@@ -47,13 +47,12 @@
 
 #ifdef __PX4_NUTTX
 #include <nuttx/fs/fs.h>
-#else
+#endif
+
+#if defined(CONFIG_NET) || defined(__PX4_LINUX)
 #include <arpa/inet.h>
 #include <drivers/device/device.h>
 #include <sys/socket.h>
-#endif
-
-#if defined(CONFIG_NET) || !defined(__PX4_NUTTX)
 #include <net/if.h>
 #include <netinet/in.h>
 #endif
@@ -91,7 +90,7 @@
 
 #define HASH_PARAM              "_HASH_CHECK"
 
-#if defined(CONFIG_NET) || defined(__PX4_POSIX)
+#if defined(CONFIG_NET) || defined(__PX4_LINUX)
 # define MAVLINK_UDP
 # define DEFAULT_REMOTE_PORT_UDP 14550 ///< GCS port per MAVLink spec
 #endif // CONFIG_NET || __PX4_POSIX

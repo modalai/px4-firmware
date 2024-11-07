@@ -40,6 +40,10 @@
 #include <time.h>
 #include <systemlib/err.h>
 
+#ifndef PX4_STORAGEDIR
+#define PX4_STORAGEDIR ""
+#endif
+
 #define MOUNTPOINT PX4_STORAGEDIR
 
 static const char *kLogRoot    = MOUNTPOINT "/log";

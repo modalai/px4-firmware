@@ -43,6 +43,10 @@
 
 #include <math.h>
 
+#ifndef PX4_STORAGEDIR
+#define PX4_STORAGEDIR ""
+#endif
+
 class MavlinkStreamStorageInformation : public MavlinkStream
 {
 public:

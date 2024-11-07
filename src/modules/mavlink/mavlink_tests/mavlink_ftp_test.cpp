@@ -63,6 +63,10 @@ const MavlinkFtpTest::DownloadTestCase MavlinkFtpTest::_rgDownloadTestCases[] = 
 	{ _test_files[2], MAX_DATA_LEN + 1, false, false },	// Read take two packets
 };
 
+#ifndef PX4_STORAGEDIR
+#define PX4_STORAGEDIR ""
+#endif
+
 const char MavlinkFtpTest::_unittest_microsd_dir[] = PX4_STORAGEDIR "/ftp_unit_test_dir";
 const char MavlinkFtpTest::_unittest_microsd_file[] = PX4_STORAGEDIR "/ftp_unit_test_dir/file";
 
