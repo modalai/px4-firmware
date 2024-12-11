@@ -224,6 +224,7 @@ fi
 qshell manual_control start
 qshell control_allocator start
 qshell load_mon start
+#qshell temperature_compensation start
 
 # Only start the rc_update module if an actual RC driver
 # is publishing input_rc topics. Otherwise for external RC
