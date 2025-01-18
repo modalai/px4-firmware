@@ -66,7 +66,7 @@ struct I2C::_bus_mutex_t I2C::_bus_mutex[I2C::MAX_I2C_BUS] = {
 	{5, PTHREAD_MUTEX_INITIALIZER}
 };
 
-uint8_t I2C::_bus_addr[I2C::MAX_I2C_BUS_ID];
+int I2C::_bus_addr[I2C::MAX_I2C_BUS_ID];
 
 I2C::I2C(uint8_t device_type, const char *name, const int bus, const uint16_t address, const uint32_t frequency) :
 	CDev(name, nullptr),

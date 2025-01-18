@@ -128,7 +128,7 @@ private:
 
 	static const int MAX_I2C_BUS{4};
 	static const int MAX_I2C_BUS_ID{8};
-	static uint8_t _bus_addr[MAX_I2C_BUS_ID];
+	static int _bus_addr[MAX_I2C_BUS_ID];
 
 	static _config_i2c_bus_func_t  _config_i2c_bus;
 	static _set_i2c_address_func_t _set_i2c_address;
