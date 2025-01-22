@@ -393,6 +393,15 @@ private:
 	hrt_abstime _heartbeat_component_udp_bridge{0};
 	hrt_abstime _heartbeat_component_uart_bridge{0};
 
+	int32_t _turtle_on_button{0};
+	int32_t _turtle_off_button{0};
+	float_t _turtle_pwm_value{0.0f};
+
+	int32_t _vfc_fm1_map{0};
+	int32_t _vfc_fm2_map{0};
+	int32_t _vfc_fm3_map{0};
+	float_t _vfc_pwm_value{1010.0f};
+
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::BAT_CRIT_THR>)     _param_bat_crit_thr,
 		(ParamFloat<px4::params::BAT_EMERGEN_THR>)  _param_bat_emergen_thr,
