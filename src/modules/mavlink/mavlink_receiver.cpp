@@ -2062,6 +2062,7 @@ MavlinkReceiver::handle_message_manual_control(mavlink_message_t *msg)
 	manual_control_setpoint.timestamp = manual_control_setpoint.timestamp_sample = hrt_absolute_time();
 
 	// PX4_INFO("Buttons: 0x%x 0x%x", mavlink_manual_control.buttons, mavlink_manual_control.buttons2);
+	float_t _turtle_pwm_value;
 
 	if (mavlink_manual_control.buttons & (1 << _turtle_button)) {
 		_turtle_pwm_value = 1.0f; // TODO: Make this a parameter?
