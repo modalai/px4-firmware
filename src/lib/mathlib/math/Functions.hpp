@@ -77,7 +77,7 @@ T sq(T val)
  * @param value [-1,1] input value to function
  * @param e [0,1] function parameter to set ratio between linear and cubic shape
  * 		0 - pure linear function
- * 		1 - pure cubic function
+ * 		1 - pure x^5 function
  * @return result of function output
  */
 template<typename T>
@@ -85,7 +85,7 @@ const T expo(const T &value, const T &e)
 {
 	T x = constrain(value, (T) - 1, (T) 1);
 	T ec = constrain(e, (T) 0, (T) 1);
-	return (1 - ec) * x + ec * x * x * x;
+	return (1 - ec) * x + ec * x * x * x * x * x;
 }
 
 /*
