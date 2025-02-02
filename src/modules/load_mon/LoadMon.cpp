@@ -225,6 +225,7 @@ void LoadMon::cpuload()
 
 	cpuload.process_load = interval_spent_time / interval;
 
+#if !defined(CONFIG_ARCH_BOARD_PX4_SITL) && (PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2)
 	FILE *stat_file = fopen("/proc/stat", "r");
 	if (!stat_file) {
 		PX4_ERR("Failed to open /proc/stat");
@@ -254,6 +255,9 @@ void LoadMon::cpuload()
 		float total_usage = (total - idle) / total;
 		cpuload.system_load = total_usage;
 	}
+#else
+	cpuload.system_load = 0;
+#endif
 
 	strncpy(cpuload.platform, "POSIX", sizeof(cpuload.platform));
 #elif defined(__PX4_NUTTX)

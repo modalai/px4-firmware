@@ -500,11 +500,15 @@ void register_sig_handler()
 	sigaction(SIGPIPE, &sig_pipe, nullptr);
 }
 
+#if !defined(CONFIG_ARCH_BOARD_PX4_SITL) && (PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2)
 extern "C" bool muorb_kill_slpi(void);
+#endif
 
 void sig_int_handler(int sig_num)
 {
+#if !defined(CONFIG_ARCH_BOARD_PX4_SITL) && (PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2)
 	muorb_kill_slpi();
+#endif
 	fflush(stdout);
 	printf("\nPX4 Exiting in sig_int_handler\n");
 	fflush(stdout);

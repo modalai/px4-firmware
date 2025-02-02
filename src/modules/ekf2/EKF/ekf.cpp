@@ -42,15 +42,20 @@
 #include "ekf.h"
 
 #include <mathlib/mathlib.h>
+
+#if !defined(CONFIG_ARCH_BOARD_PX4_SITL)
 #include <lib/parameters/param.h>
+#endif
 
 bool Ekf::init(uint64_t timestamp)
 {
 	bool ret = initialise_interface(timestamp);
 	reset();
 
+#if !defined(CONFIG_ARCH_BOARD_PX4_SITL)
 	param_get(param_find("MODALAI_CONFIG"), &_modalai_config);
 	_range_sensor.setModalAIConfig(_modalai_config);
+#endif
 
 	return ret;
 }

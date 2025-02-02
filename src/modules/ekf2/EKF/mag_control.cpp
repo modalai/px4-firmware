@@ -63,10 +63,10 @@ void Ekf::get_NED_heading(float mag_value)
                 	resetQuatStateYaw(avg_mag_heading, 0);
                     has_ev_heading_ned = true;
 
-                    PX4_ERR("====> GLOBAL R to Earth: %f (%d)", (double) avg_mag_heading * 180.0 / 3.141, sample_ctn );
+                    ECL_ERR("====> GLOBAL R to Earth: %f (%d)", (double) avg_mag_heading * 180.0 / 3.141, sample_ctn );
             }
 //            else
-//            		PX4_ERR("Mag %f (%d)", (double) mag_value * 180.0 / 3.141, sample_ctn );
+//            		ECL_ERR("Mag %f (%d)", (double) mag_value * 180.0 / 3.141, sample_ctn );
     }
 }
 

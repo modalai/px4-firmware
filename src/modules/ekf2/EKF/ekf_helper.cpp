@@ -454,7 +454,7 @@ bool Ekf::setEkfGlobalOrigin(const double latitude, const double longitude, cons
 			_gps_hgt_b_est.setBias(gps_hgt_bias);
 		}
 
-		PX4_WARN("Forcing user based origin in NED");
+		ECL_WARN("Forcing user based origin in NED");
 		_NED_origin_initialised = true;
 
 		return true;
