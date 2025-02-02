@@ -45,6 +45,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdio.h>
+#include <stdint.h>
 #include <poll.h>
 #include <fcntl.h>
 #include <unistd.h>

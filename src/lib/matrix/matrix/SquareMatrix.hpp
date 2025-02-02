@@ -343,6 +343,8 @@ bool inv(const SquareMatrix<Type, M> &A, SquareMatrix<Type, M> &inv, size_t rank
 		// if diagonal is zero, swap with row below
 		if (std::fabs(U(n, n)) < Type(FLT_EPSILON)) {
 			//printf("trying pivot for row %d\n",n);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
 			for (size_t i = n + 1; i < rank; i++) {
 
 				//printf("\ttrying row %d\n",i);
@@ -355,6 +357,7 @@ bool inv(const SquareMatrix<Type, M> &A, SquareMatrix<Type, M> &inv, size_t rank
 					break;
 				}
 			}
+#pragma GCC diagnostic pop
 		}
 
 #ifdef MATRIX_ASSERT
@@ -371,6 +374,8 @@ bool inv(const SquareMatrix<Type, M> &A, SquareMatrix<Type, M> &inv, size_t rank
 		}
 
 		// for all rows below diagonal
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
 		for (size_t i = (n + 1); i < rank; i++) {
 			L(i, n) = U(i, n) / U(n, n);
 
@@ -380,6 +385,7 @@ bool inv(const SquareMatrix<Type, M> &A, SquareMatrix<Type, M> &inv, size_t rank
 				U(i, k) -= L(i, n) * U(n, k);
 			}
 		}
+#pragma GCC diagnostic pop
 	}
 
 	//printf("L:\n"); L.print();
