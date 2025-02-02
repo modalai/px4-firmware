@@ -34,6 +34,8 @@
 px4_add_module(
 	MODULE drivers__actuators__voxl_esc
 	MAIN voxl_esc
+	INCLUDES
+		${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/common
 	SRCS
 		crc16.c
 		crc16.h
