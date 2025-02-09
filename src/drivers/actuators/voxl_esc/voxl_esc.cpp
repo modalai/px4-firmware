@@ -309,6 +309,8 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 	param_get(param_find("VOXL_ESC_T_WARN"), &params->esc_warn_temp_threshold);
 	param_get(param_find("VOXL_ESC_T_OVER"), &params->esc_over_temp_threshold);
 
+	param_get(param_find("GPIO_CTL_CH"), &params->gpio_ctl_channel);
+
 	if (params->rpm_min >= params->rpm_max) {
 		PX4_ERR("VOXL_ESC: Invalid parameter VOXL_ESC_RPM_MIN.  Please verify parameters.");
 		params->rpm_min = 0;
@@ -342,6 +344,12 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 	if (params->turtle_cosphi < 0.0f || params->turtle_cosphi > 100.0f) {
 		PX4_ERR("VOXL_ESC: Invalid parameter VOXL_ESC_T_COSP.  Please verify parameters.");
 		params->turtle_cosphi = 0.0f;
+		ret = PX4_ERROR;
+	}
+
+	if (params->gpio_ctl_channel < 0 || params->gpio_ctl_channel > 6) {
+		PX4_ERR("VOXL_ESC: Invalid parameter GPIO_CTL_CH.  Please verify parameters.");
+		params->gpio_ctl_channel = 0;
 		ret = PX4_ERROR;
 	}
 
@@ -472,8 +480,7 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 						int32_t  current     = fb.current * 8;
 						int32_t  temperature = fb.temperature / 100;
 						PX4_INFO("VOXL_ESC: [%" PRId64 "] ID_RAW=%d ID=%d, RPM=%5d, PWR=%3d%%, V=%5dmV, I=%+5dmA, T=%+3dC", tnow, (int)id,
-							 motor_idx + 1,
-							 (int)rpm, (int)power, (int)voltage, (int)current, (int)temperature);
+							 motor_idx + 1, (int)rpm, (int)power, (int)voltage, (int)current, (int)temperature);
 					}
 
 					_esc_chans[id].rate_meas     = fb.rpm;
@@ -1195,6 +1202,12 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	//in Run() we call _mixing_output.update(), which calls MixingOutput::limitAndUpdateOutputs which calls _interface.updateOutputs (this function)
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
 
+	// counter to track how many times uart_write has been called with gpio data
+	static int gpio_write_counter = 0;
+
+	// store the previous state of _gpio_ctl_high
+	static bool prev_gpio_ctl_high = _gpio_ctl_high;
+
 	if (num_outputs != VOXL_ESC_OUTPUT_CHANNELS) {
 		return false;
 	}
@@ -1246,9 +1259,52 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 		return false;
 	}
 
+	// Track and manage gpio command writes
+	bool write_gpio_command = false;
+
+	if (_gpio_ctl_en) {
+		if (_gpio_ctl_high != prev_gpio_ctl_high) {
+			gpio_write_counter = 0;
+		}
+
+		if (gpio_write_counter < 10) {
+			write_gpio_command = true;
+			gpio_write_counter++;
+		}
+
+		prev_gpio_ctl_high = _gpio_ctl_high;
+
+		if (write_gpio_command) {
+			Command gpio_cmd;
+			const int ESC_PACKET_TYPE_GPIO_CMD = 15;
+			uint8_t data[5];
+
+			int esc_id = 0; // In future un-hardcode
+			int val = 0;
+
+			if ( _gpio_ctl_high ) {
+				val = 1;
+			}
+
+			data[0] = esc_id; // esc id
+			data[1] = 80; // 01010000 : pin F0
+			data[2] = 0; // 0: output, 1: input
+			data[3] = val; //cmd LSB
+			data[4] = 0; // cmd MSB
+
+			// type, data, size
+			gpio_cmd.len = qc_esc_create_packet(ESC_PACKET_TYPE_GPIO_CMD, (uint8_t *) & (data[0]), 5, gpio_cmd.buf, sizeof(gpio_cmd.buf));
+
+			if (_uart_port.write(gpio_cmd.buf, gpio_cmd.len) != gpio_cmd.len) {
+				PX4_ERR("VOXL_ESC: Failed to send gpio packet");
+				return false;
+			}
+		}
+
+	}
+
 	// increment ESC id from which to request feedback in round robin order
 	_fb_idx = (_fb_idx + 1) % VOXL_ESC_OUTPUT_CHANNELS;
-
 
 	/*
 	 * Here we read and parse response from ESCs. Since the latest command has just been sent out,
@@ -1374,11 +1430,12 @@ void VoxlEsc::Run()
 		update_leds(_led_rsc.mode, _led_rsc.control);
 	}
 
-	if (_parameters.mode > 0) {
-		/* if turtle mode enabled, we go straight to the sticks, no mix */
-		if (_manual_control_setpoint_sub.updated()) {
+	/* check whether sticks have been updated */
+	if (_manual_control_setpoint_sub.updated()) {
+		_manual_control_setpoint_sub.copy(&_manual_control_setpoint);
 
-			_manual_control_setpoint_sub.copy(&_manual_control_setpoint);
+		// if turtle mode enabled, we go straight to the sticks, no mix
+		if (_parameters.mode > 0) {
 
 			if (!_outputs_on) {
 
@@ -1400,6 +1457,39 @@ void VoxlEsc::Run()
 			}
 		}
 
+		// check if gpio control is enabled
+		if (_parameters.gpio_ctl_channel > 0) {
+
+			_gpio_ctl_en = true;
+			float gpio_setpoint = VOXL_ESC_GPIO_CTL_DISABLED_SETPOINT;
+
+			switch (_parameters.gpio_ctl_channel) {
+				case VOXL_ESC_GPIO_CTL_AUX1:
+					gpio_setpoint = _manual_control_setpoint.aux1;
+					break;
+				case VOXL_ESC_GPIO_CTL_AUX2:
+					gpio_setpoint = _manual_control_setpoint.aux2;
+					break;
+				case VOXL_ESC_GPIO_CTL_AUX3:
+					gpio_setpoint = _manual_control_setpoint.aux3;
+					break;
+				case VOXL_ESC_GPIO_CTL_AUX4:
+					gpio_setpoint = _manual_control_setpoint.aux4;
+					break;
+				case VOXL_ESC_GPIO_CTL_AUX5:
+					gpio_setpoint = _manual_control_setpoint.aux5;
+					break;
+				case VOXL_ESC_GPIO_CTL_AUX6:
+					gpio_setpoint = _manual_control_setpoint.aux6;
+					break;
+			}
+
+			if (gpio_setpoint > VOXL_ESC_GPIO_CTL_THRESHOLD) {
+				_gpio_ctl_high = false;
+			} else {
+				_gpio_ctl_high = true;
+			}
+		}
 	}
 
 	if (!_outputs_on) {
@@ -1550,6 +1640,8 @@ void VoxlEsc::print_params()
 	
 	PX4_INFO("Params: VOXL_ESC_T_WARN: %" PRId32, _parameters.esc_warn_temp_threshold);
 	PX4_INFO("Params: VOXL_ESC_T_OVER: %" PRId32, _parameters.esc_over_temp_threshold);
+
+	PX4_INFO("Params: GPIO_CTL_CH: %" PRId32, _parameters.gpio_ctl_channel);
 }
 
 int VoxlEsc::print_status()
