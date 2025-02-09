@@ -8,7 +8,7 @@ module_name: Control Allocation
 parameters:
     - group: Geometry
       definitions:
-        CA_AIRFRAME:
+        CA_AIRFRAMES:
             description:
                 short: Airframe selection
                 long: |
@@ -36,7 +36,7 @@ parameters:
                 15: Spacecraft 3D
             default: 14
 
-        CA_METHOD:
+        CA_METHODS:
             description:
                 short: Control allocation method
                 long: |
@@ -49,7 +49,7 @@ parameters:
                 2: Automatic
             default: 1
 
-        CA_R_REV:
+        CA_R_REVS:
             description:
                 short: Bidirectional/Reversible motors
                 long: |
