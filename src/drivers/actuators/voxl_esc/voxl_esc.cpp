@@ -1339,22 +1339,6 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 
 	_esc_status_pub.publish(_esc_status);
 
-	// If any extra external modal io data has been received then
-	// send it over as well
-	while (_voxl2_io_data_sub.updated()) {
-		buffer128_s io_data{};
-		_voxl2_io_data_sub.copy(&io_data);
-
-		// PX4_INFO("Got Modal IO data: %u bytes", io_data.len);
-		// PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
-		// 		 io_data.data[0], io_data.data[1], io_data.data[2], io_data.data[3],
-		// 		 io_data.data[4], io_data.data[5], io_data.data[6], io_data.data[7]);
-		if (_uart_port.write(io_data.data, io_data.len) != io_data.len) {
-			PX4_ERR("VOXL_ESC: Failed to send modal io data to esc");
-			return false;
-		}
-	}
-
 	perf_count(_output_update_perf);
 
 	return true;
