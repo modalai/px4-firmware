@@ -45,6 +45,10 @@ Voxl2IO::Voxl2IO() :
 	_mixing_output.setMaxNumOutputs(VOXL2_IO_OUTPUT_CHANNELS);
 	_uart_port = new Voxl2IoSerial();
 	voxl2_io_packet_init(&_sbus_packet);
+
+	//set low rate scheduling interval to 200hz so that RC can be updated even if all actuators are disabled
+	//otherwise, the default low rate scheduling interval is 300ms and RC packets are delayed and lost
+	_mixing_output.setLowrateSchedulingInterval(5_ms);
 }
 
 Voxl2IO::~Voxl2IO()
