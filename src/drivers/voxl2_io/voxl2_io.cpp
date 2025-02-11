@@ -318,8 +318,8 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 
 	//in Run() we call _mixing_output.update(), which calls MixingOutput::limitAndUpdateOutputs which calls _interface.updateOutputs (this function)
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
-	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	uint8_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
+	uint8_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 	int32_t _fb_idx = -1;
 
 	if (num_outputs != VOXL2_IO_OUTPUT_CHANNELS) {
@@ -782,8 +782,8 @@ int Voxl2IO::task_spawn(int argc, char *argv[])
 
 bool Voxl2IO::stop_all_pwms()
 {
-	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
-	int16_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+	int16_t _rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
+	int16_t _led_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 	uint8_t _fb_idx = 0;
 
 	Command cmd;
@@ -1013,7 +1013,7 @@ int Voxl2IO::custom_command(int argc, char *argv[])
 
 		if (output_channel < VOXL2_IO_OUTPUT_CHANNELS) {
 			PX4_INFO("Request PWM for Output Channel: %i - PWM: %i", output_channel, rate);
-			int16_t rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0};
+			int16_t rate_req[VOXL2_IO_OUTPUT_CHANNELS] = {0, 0, 0, 0, 0, 0, 0, 0};
 			uint8_t id_fb = 0;
 
 			if (output_channel ==
