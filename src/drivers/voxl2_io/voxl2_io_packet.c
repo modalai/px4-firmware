@@ -58,7 +58,7 @@ int32_t voxl2_io_create_reset_packet(uint8_t id, uint8_t *out, uint16_t out_size
 
 
 int32_t voxl2_io_create_sound_packet(uint8_t frequency, uint8_t duration, uint8_t power, uint8_t mask, uint8_t *out,
-				     uint16_t out_size)
+				   uint16_t out_size)
 {
 	uint8_t data[4] = {frequency, duration, power, mask};
 	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_SOUND_CMD, (uint8_t *) & (data[0]), 4, out, out_size);
@@ -76,15 +76,15 @@ int32_t voxl2_io_create_set_id_packet(uint8_t id, uint8_t *out, uint16_t out_siz
 }
 
 int32_t voxl2_io_create_pwm_packet4(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3,
-				    uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
-				    uint8_t *out, uint16_t out_size)
+				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+				  uint8_t *out, uint16_t out_size)
 {
 	return voxl2_io_create_pwm_packet4_fb(pwm0, pwm1, pwm2, pwm3, led0, led1, led2, led3, -1, out, out_size);
 }
 
 int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2, int16_t pwm3,
-				       uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
-				       int32_t fb_id, uint8_t *out, uint16_t out_size)
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+				     int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
 	uint16_t data[5];
 	uint16_t leds = 0;
@@ -119,15 +119,15 @@ int32_t voxl2_io_create_pwm_packet4_fb(int16_t pwm0, int16_t pwm1, int16_t pwm2,
 
 
 int32_t voxl2_io_create_rpm_packet4(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
-				    uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
-				    uint8_t *out, uint16_t out_size)
+				  uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+				  uint8_t *out, uint16_t out_size)
 {
 	return voxl2_io_create_rpm_packet4_fb(rpm0, rpm1, rpm2, rpm3, led0, led1, led2, led3, -1, out, out_size);
 }
 
 int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2, int16_t rpm3,
-				       uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
-				       int32_t fb_id, uint8_t *out, uint16_t out_size)
+				     uint8_t led0, uint8_t led1, uint8_t led2, uint8_t led3,
+				     int32_t fb_id, uint8_t *out, uint16_t out_size)
 {
 	uint16_t data[5];
 	uint16_t leds = 0;
@@ -148,6 +148,32 @@ int32_t voxl2_io_create_rpm_packet4_fb(int16_t rpm0, int16_t rpm1, int16_t rpm2,
 
 	data[0] = rpm0; data[1] = rpm1; data[2] = rpm2; data[3] = rpm3; data[4] = leds;
 	return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_RPM_CMD, (uint8_t *) & (data[0]), 10, out, out_size);
+}
+
+typedef struct
+{
+  uint8_t  command_type;
+  //uint8_t  channel_offset;
+  uint16_t vals[8]; //could be 1,2,4,6,8
+} __attribute__((__packed__)) pwm_hires_cmd_t;
+
+pwm_hires_cmd_t hires_cmd;
+
+int32_t voxl2_io_create_hires_pwm_packet(uint32_t * pwm_val_ns, uint32_t cmd_cnt, uint8_t *out, uint16_t out_size)
+{
+  if (cmd_cnt > 8)
+    return -1;
+
+  hires_cmd.command_type   = 0;
+  //hires_cmd.channel_offset = 0;
+
+  //resolution of commands in the packet is 0.05us = 50ns
+  for (uint32_t idx=0; idx<cmd_cnt; idx++)
+  {
+  	hires_cmd.vals[idx] = pwm_val_ns[idx] / 50;
+  }
+
+  return voxl2_io_create_packet(VOXL2_IO_PACKET_TYPE_PWM_HIRES_CMD, (uint8_t *) &hires_cmd, (cmd_cnt*2+1), out, out_size);
 }
 
 int32_t voxl2_io_create_packet(uint8_t type, uint8_t *data, uint16_t size, uint8_t *out, uint16_t out_size)
