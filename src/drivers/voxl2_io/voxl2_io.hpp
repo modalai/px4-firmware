@@ -35,6 +35,7 @@
 
 #include <float.h>
 #include <math.h>
+#include <string>
 
 #include <board_config.h>
 
@@ -49,17 +50,16 @@
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/module.h>
+#include <px4_platform_common/Serial.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/input_rc.h>
 
-#include "voxl2_io_serial.hpp"
-
 #include "voxl2_io_packet.h"
 #include "voxl2_io_packet_types.h"
 
-#include <string>
+using namespace device;
 
 using namespace time_literals;
 
@@ -170,8 +170,8 @@ private:
 	} _rc_mode{RC_MODE::SCAN};
 
 	char 				_device[10]{VOXL2_IO_DEFAULT_PORT};
-	Voxl2IoSerial 		*_uart_port;
-	
+	Serial				_uart_port{};
+
 	/* Mixer output */
 	MixingOutput 	_mixing_output;
 
@@ -205,7 +205,6 @@ private:
 
 	int	load_params(voxl2_io_params_t *params);
 	int update_params();
-	int	flush_uart_rx();
 	int calibrate_escs();
 	std::string board_id_to_name(int board_id);
 };

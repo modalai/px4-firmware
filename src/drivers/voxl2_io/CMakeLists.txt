@@ -37,8 +37,6 @@ px4_add_module(
 	SRCS
 		voxl2_io_crc16.c
 		voxl2_io_crc16.h
-		voxl2_io_serial.cpp
-		voxl2_io_serial.hpp
 		voxl2_io_packet.c
 		voxl2_io_packet.h
 		voxl2_io_packet_types.h

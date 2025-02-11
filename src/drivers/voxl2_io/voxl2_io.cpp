@@ -41,7 +41,6 @@ Voxl2IO::Voxl2IO() :
 	_output_update_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": output update interval"))
 {
 	_mixing_output.setMaxNumOutputs(VOXL2_IO_OUTPUT_CHANNELS);
-	_uart_port = new Voxl2IoSerial();
 	voxl2_io_packet_init(&_voxl2_io_packet);
 
 	//set low rate scheduling interval to 200hz so that RC can be updated even if all actuators are disabled
@@ -51,11 +50,7 @@ Voxl2IO::Voxl2IO() :
 
 Voxl2IO::~Voxl2IO()
 {
-	if (_uart_port) {
-		_uart_port->uart_close();
-		delete _uart_port;
-		_uart_port = nullptr;
-	}
+	_uart_port.close();
 
 	perf_free(_cycle_perf);
 	perf_free(_output_update_perf);
@@ -79,13 +74,25 @@ int Voxl2IO::init()
 
 	PX4_INFO("VOXL2_IO: ");
 	
-	PX4_INFO("VOXL2_IO: Opening UART device %s, baud rate %d", _device, _parameters.baud_rate);
-	if (!_uart_port->is_open()) {
-		if (_uart_port->uart_open((const char*)_device, _parameters.baud_rate) == PX4_OK) {
-			PX4_INFO("VOXL2_IO: Successfully opened UART device");
-		} else {
-			PX4_ERR("VOXL2_IO: Failed openening UART device");
-			return PX4_ERROR;
+	// Open serial port
+	if (!_uart_port.isOpen()) {
+		PX4_INFO("VOXL2_IO: Opening UART ESC device %s, baud rate %" PRIi32, _device, _parameters.baud_rate);
+
+		// Configure UART port
+		if (! _uart_port.setPort(_device)) {
+			PX4_ERR("Error configuring serial device on port %s", _device);
+			return -1;
+		}
+
+		if (! _uart_port.setBaudrate(_parameters.baud_rate)) {
+			PX4_ERR("Error setting baudrate to %d on %s", (int) _parameters.baud_rate, _device);
+			return -1;
+		}
+
+		// Open the UART. If this is successful then the UART is ready to use.
+		if (! _uart_port.open()) {
+			PX4_ERR("Error opening serial device  %s", _device);
+			return -1;
 		}
 	}
 
@@ -95,9 +102,9 @@ int Voxl2IO::init()
 		PX4_ERR("VOXL2_IO: Could not detect the board");
 		PX4_ERR("VOXL2_IO: Driver initialization failed. Exiting");
 
-		if (_uart_port->is_open()) {
+		if (_uart_port.open()) {
 			PX4_INFO("VOXL2_IO: Closing uart port");
-			_uart_port->uart_close();
+			_uart_port.close();
 		}
 		return -1;
 	}
@@ -184,7 +191,7 @@ int Voxl2IO::get_version_info()
 		retries_left--;
 
 		//send the version request command to the board
-	    if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len)
+	    if (_uart_port.write(cmd.buf, cmd.len) != cmd.len)
 		{
 			PX4_ERR("VOXL2_IO: Could not write version request packet to UART port");
 			return -1;
@@ -201,7 +208,7 @@ int Voxl2IO::get_version_info()
 		while( (!got_response) && (hrt_elapsed_time(&t_request) < t_timeout) ){
 			px4_usleep(500); //sleep a bit while waiting for the board to respond
 
-			int nread = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+			int nread = _uart_port.read(_read_buf, sizeof(_read_buf));
 
 			for (int i = 0; i < nread; i++) {
 				int16_t parse_ret = voxl2_io_packet_process_char(_read_buf[i], &_voxl2_io_packet);
@@ -307,7 +314,7 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	Command cmd;
 	cmd.len = voxl2_io_create_hires_pwm_packet(output_cmds, VOXL2_IO_OUTPUT_CHANNELS, cmd.buf, sizeof(cmd.buf));   
 	
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+	if (_uart_port.write(cmd.buf, cmd.len) != cmd.len) {
 		PX4_ERR("VOXL2_IO: Failed to send packet");
 		return false;
 	} else {
@@ -325,13 +332,6 @@ bool Voxl2IO::updateOutputs(bool stop_motors, uint16_t outputs[input_rc_s::RC_IN
 	perf_count(_output_update_perf);
 
 	return true;
-}
-
-int Voxl2IO::flush_uart_rx()
-{
-	while (_uart_port->uart_read(_read_buf, sizeof(_read_buf)) > 0) {}
-
-	return 0;
 }
 
 static bool valid_port(int port){
@@ -492,7 +492,7 @@ int Voxl2IO::parse_sbus_packet(uint8_t * raw_data, uint32_t data_len)
 
 int Voxl2IO::receive_uart_packets()
 {
-	int nread = _uart_port->uart_read(_read_buf, READ_BUF_SIZE);
+	int nread = _uart_port.read(_read_buf, READ_BUF_SIZE);
 	if (nread > 0) {
 		if(_debug) {
 			PX4_INFO("VOXL2_IO: receive_uart_packets read %d bytes", nread);
@@ -663,7 +663,7 @@ int Voxl2IO::calibrate_escs(){
 	cmd.len = voxl2_io_create_hires_pwm_packet(max_pwm_cmds, VOXL2_IO_OUTPUT_CHANNELS, cmd.buf, sizeof(cmd.buf));
 	start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 5000000){
-		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+		if (_uart_port.write(cmd.buf, cmd.len) != cmd.len) {
 			PX4_ERR("VOXL2_IO: ESC Calibration failed: Failed to send PWM MAX packet");
 			_outputs_disabled = false;
 			return -1;
@@ -683,7 +683,7 @@ int Voxl2IO::calibrate_escs(){
 	
 	start = hrt_absolute_time();
 	while (hrt_elapsed_time(&start) < 5000000){
-		if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+		if (_uart_port.write(cmd.buf, cmd.len) != cmd.len) {
 			PX4_ERR("VOXL2_IO: ESC Calibration failed: Failed to send PWM MIN packet");
 			_outputs_disabled = false;
 			return -1;
@@ -753,7 +753,7 @@ int Voxl2IO::print_status()
 	PX4_INFO("VOXL2_IO: RC Connected   : %s",  hrt_absolute_time() - _rc_last_valid_time > 500000 ? "no" : "yes");
 	PX4_INFO("VOXL2_IO: RC Packets Rxd : %"    PRIu16, _sbus_total_frames);
 	PX4_INFO("VOXL2_IO: UART port      : %s", _device);
-	PX4_INFO("VOXL2_IO: UART open      : %s", _uart_port->is_open() ? "yes" : "no");
+	PX4_INFO("VOXL2_IO: UART open      : %s", _uart_port.open() ? "yes" : "no");
 	PX4_INFO("VOXL2_IO: Packets sent   : %"    PRIu32, _packets_sent);
 	PX4_INFO("VOXL2_IO: ");
 	print_params();
