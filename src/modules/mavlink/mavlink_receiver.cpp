@@ -855,6 +855,10 @@ MavlinkReceiver::handle_message_set_mode(mavlink_message_t *msg)
 
 	/* copy the content of mavlink_command_long_t cmd_mavlink into command_t cmd */
 	vcmd.param1 = (float)new_mode.base_mode;
+	// Hack since cannot have 2 buttons be the same flight mode in QGC
+	if (custom_mode.main_mode == PX4_CUSTOM_MAIN_MODE_RATTITUDE_LEGACY) {
+		custom_mode.main_mode = PX4_CUSTOM_MAIN_MODE_OFFBOARD;
+	}
 	vcmd.param2 = (float)custom_mode.main_mode;
 	vcmd.param3 = (float)custom_mode.sub_mode;
 
