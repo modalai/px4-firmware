@@ -32,7 +32,13 @@
  ****************************************************************************/
 
 #include <inttypes.h>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wcast-align"
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #include <mavlink.h>
+#pragma GCC diagnostic pop
 
 #include <px4_platform_common/getopt.h>
 
