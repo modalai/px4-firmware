@@ -1351,12 +1351,11 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	while (_mavlink_tunnel_sub.updated()) {
 		mavlink_tunnel_s uart_passthru{};
 		_mavlink_tunnel_sub.copy(&uart_passthru);
-		if ((uart_passthru.payload_type == 0xfff1) ||
-			(uart_passthru.payload_type == MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_ESC_UART_PASSTHRU)) {
-			PX4_INFO("Got UART Passthru: %u bytes", uart_passthru.payload_length);
-			PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
-					 uart_passthru.payload[0], uart_passthru.payload[1], uart_passthru.payload[2], uart_passthru.payload[3],
-					 uart_passthru.payload[4], uart_passthru.payload[5], uart_passthru.payload[6], uart_passthru.payload[7]);
+		if (uart_passthru.payload_type == MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_ESC_UART_PASSTHRU) {
+			// PX4_INFO("Got UART Passthru: %u bytes", uart_passthru.payload_length);
+			// PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
+			// 		 uart_passthru.payload[0], uart_passthru.payload[1], uart_passthru.payload[2], uart_passthru.payload[3],
+			// 		 uart_passthru.payload[4], uart_passthru.payload[5], uart_passthru.payload[6], uart_passthru.payload[7]);
 			if (_uart_port->uart_write(uart_passthru.payload, uart_passthru.payload_length) != uart_passthru.payload_length) {
 				PX4_ERR("VOXL_ESC: Failed to send mavlink tunnel data to esc");
 				return false;
