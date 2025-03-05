@@ -196,8 +196,8 @@ set(msg_files
 	TrajectoryWaypoint.msg
 	TransponderReport.msg
 	TuneControl.msg
-	UavcanParameterRequest.msg
-	UavcanParameterValue.msg
+	# UavcanParameterRequest.msg
+	# UavcanParameterValue.msg
 	UlogStream.msg
 	UlogStreamAck.msg
 	UwbDistance.msg

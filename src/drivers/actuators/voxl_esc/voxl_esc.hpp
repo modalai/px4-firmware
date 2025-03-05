@@ -211,7 +211,7 @@ private:
 	uORB::Subscription	_parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription	_actuator_test_sub{ORB_ID(actuator_test)};
 	uORB::Subscription	_led_update_sub{ORB_ID(led_control)};
-	uORB::Subscription	_mavlink_tunnel_sub{ORB_ID(mavlink_tunnel)};
+	uORB::Subscription	_esc_serial_passthru_sub{ORB_ID(esc_serial_passthru)};
 
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};
@@ -253,6 +253,7 @@ private:
 	Battery			_battery;
 	static constexpr unsigned _battery_report_interval{100_ms};
 	hrt_abstime		_last_battery_report_time;
+	hrt_abstime		_last_uart_passthru{0};
 
 	bool			_device_initialized{false};
 

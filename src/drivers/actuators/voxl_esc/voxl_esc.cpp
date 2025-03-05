@@ -33,13 +33,6 @@
 
 #include <inttypes.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpragmas"
-#pragma GCC diagnostic ignored "-Wcast-align"
-#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
-#include <mavlink.h>
-#pragma GCC diagnostic pop
-
 #include <px4_platform_common/getopt.h>
 
 #include "voxl_esc.hpp"
@@ -1348,18 +1341,23 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 
 	_esc_status_pub.publish(_esc_status);
 
-	while (_mavlink_tunnel_sub.updated()) {
-		mavlink_tunnel_s uart_passthru{};
-		_mavlink_tunnel_sub.copy(&uart_passthru);
-		if (uart_passthru.payload_type == MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_ESC_UART_PASSTHRU) {
-			// PX4_INFO("Got UART Passthru: %u bytes", uart_passthru.payload_length);
-			// PX4_INFO("   0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
-			// 		 uart_passthru.payload[0], uart_passthru.payload[1], uart_passthru.payload[2], uart_passthru.payload[3],
-			// 		 uart_passthru.payload[4], uart_passthru.payload[5], uart_passthru.payload[6], uart_passthru.payload[7]);
+	uint8_t num_writes = 0;
+
+	// Don't do these faster than 20Hz
+	if (hrt_elapsed_time(&_last_uart_passthru) > 50_ms) {
+		_last_uart_passthru = hrt_absolute_time();
+
+		// Don't do more than a few writes each check
+		while (_esc_serial_passthru_sub.updated() && (num_writes < 4)) {
+			mavlink_tunnel_s uart_passthru{};
+			_esc_serial_passthru_sub.copy(&uart_passthru);
+
 			if (_uart_port->uart_write(uart_passthru.payload, uart_passthru.payload_length) != uart_passthru.payload_length) {
-				PX4_ERR("VOXL_ESC: Failed to send mavlink tunnel data to esc");
+				PX4_ERR("Failed to send mavlink tunnel data to esc");
 				return false;
 			}
+
+			num_writes++;
 		}
 	}
 
