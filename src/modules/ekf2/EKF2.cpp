@@ -499,14 +499,22 @@ void EKF2::Run()
 						_instance, latitude, longitude, static_cast<double>(altitude));
 				}
 
-				PX4_WARN("Reset global YAW for new origin!");
-				// TODO fix EV yaw value as it becomes used as global not local.
-				if (vehicle_command.param4 <= FP_ZERO)
+				PX4_WARN("Reset global YAW for new origin to %f", (double)vehicle_command.param4);
+				// TODO fix EV yaw value as it becomes used as global not local
+
+				static int32_t has_mag = -1;
+				if (has_mag < 0)
+					param_get(param_find("SYS_HAS_MAG"), &has_mag);
+
+				if (!has_mag || vehicle_command.param4 <= FP_ZERO)
 				{
-					PX4_WARN("Attempting to reset EKF global Yaw rotation to %f", (double)vehicle_command.param4);
 					_ekf.avg_mag_heading = vehicle_command.param4;   // TODO make get/setter for this attribute
+					PX4_WARN("Explicit attempting to reset EKF global Yaw rotation to %f / %f", (double)vehicle_command.param4, (double)_ekf.avg_mag_heading);
 					_ekf.forceResetQuatStateYaw();
-	//				 TODO fix EV yaw value as it becomes used as global not local.
+					_ekf.has_ev_heading_ned = true;
+
+					if (_ekf.enable_NED_convert(true))
+						_preflt_checker.reset();
 				}
 
 			}
@@ -1462,6 +1470,7 @@ void EKF2::PublishLocalPosition(const hrt_abstime &timestamp)
 	lpos.az = vel_deriv(2);
 
 	lpos.xy_valid = _ekf.local_position_is_valid();
+        PX4_WARN("lpos.xy_valid = _ekf.local_position_is_valid %d\n", lpos.xy_valid);
 	lpos.v_xy_valid = _ekf.local_position_is_valid();
 
 	// TODO: some modules (e.g.: mc_pos_control) don't handle v_z_valid != z_valid properly
