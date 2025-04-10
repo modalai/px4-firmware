@@ -232,7 +232,8 @@ void MspDPOsd::Run()
 		if(vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED
 			&& _parameters.disarmed_row != -1 && _parameters.disarmed_col != -1)
 		{
-			const char* disarmed_msg = "DISARMED";
+			char disarmed_msg[9];
+			strcpy(disarmed_msg, "DISARMED");
 			uint8_t disarmed_output[sizeof(msp_dp_cmd_t) + sizeof(disarmed_msg)+1]{0};	// size of output buffer is size of OSD display port command struct and the buffer you want shown on OSD
 			msp_dp_osd::construct_OSD_write(_parameters.disarmed_col, _parameters.disarmed_row, false, disarmed_msg, disarmed_output, sizeof(disarmed_output));	
 			this->Send(MSP_CMD_DISPLAYPORT, &disarmed_output, MSP_DIRECTION_REPLY);

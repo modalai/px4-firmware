@@ -127,7 +127,6 @@ set(msg_files
 	Mission.msg
 	MissionResult.msg
 	MountOrientation.msg
-	ModalIoData.msg
 	ModalIoMavlinkData.msg
 	ModeCompleted.msg
 	NavigatorMissionItem.msg
@@ -197,8 +196,8 @@ set(msg_files
 	TrajectoryWaypoint.msg
 	TransponderReport.msg
 	TuneControl.msg
-	UavcanParameterRequest.msg
-	UavcanParameterValue.msg
+	# UavcanParameterRequest.msg
+	# UavcanParameterValue.msg
 	UlogStream.msg
 	UlogStreamAck.msg
 	UwbDistance.msg
