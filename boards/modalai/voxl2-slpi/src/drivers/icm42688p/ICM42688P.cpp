@@ -65,6 +65,12 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 	} else {
 		ConfigureSampleRate(0);
 	}
+
+	// temperature rate of change coefficient compensation
+	//param_t dt_comp_coeff_handle = param_find("ICM42688_DT_COMP");
+	//param_get(dt_comp_coeff_handle, &_dt_comp_coeff);
+	_dt_comp_coeff = -0.33;
+	PX4_INFO("fetched param %f\n", (double)_dt_comp_coeff);
 }
 
 ICM42688P::~ICM42688P()
@@ -334,6 +340,8 @@ void ICM42688P::ConfigureSampleRate(int sample_rate)
 	_fifo_empty_interval_us = _fifo_gyro_samples * (1e6f / GYRO_RATE);
 
 	ConfigureFIFOWatermark(_fifo_gyro_samples);
+
+	return;
 }
 
 void ICM42688P::ConfigureFIFOWatermark(uint8_t samples)
@@ -686,10 +694,12 @@ static constexpr int32_t reassemble_20bit(const uint32_t a, const uint32_t b, co
 	return static_cast<int32_t>(x);
 }
 
+
 void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples)
 {
 	float accel_x = 0.0, accel_y = 0.0, accel_z = 0.0;
 	float gyro_x = 0.0,  gyro_y = 0.0,  gyro_z = 0.0;
+	static int ctr = 0;
 
 	for (int i = 0; i < samples; i++) {
 		_imu_server_decimator++;
@@ -744,7 +754,16 @@ void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA
 				gyro_x *= gyro_scale_factor;
 				gyro_y *= gyro_scale_factor;
 				gyro_z *= gyro_scale_factor;
-			
+
+				// correct for rate of change of temperature
+				ctr++;
+				if(ctr>100){
+					ctr = 0;
+					PX4_INFO("%6.2f %6.2f %6.2f %6.2f", (double)_current_temp_gradient, double(accel_z), (double)_current_temp_correction, (double)(accel_z + _current_temp_correction));
+				}
+				accel_z += _current_temp_correction;
+
+
 				// Store the data in our array
 				_imu_server_data.accel_x[_imu_server_index] = accel_x;
 				_imu_server_data.accel_y[_imu_server_index] = accel_y;
@@ -960,31 +979,73 @@ bool ICM42688P::ProcessTemperature(const FIFO::DATA fifo[], const uint8_t sample
 		}
 	}
 
-	if (valid_samples > 0) {
-		const float temperature_avg = temperature_sum / valid_samples;
+	if (valid_samples <= 0) {
+		return false;
+	}
 
-		for (int i = 0; i < valid_samples; i++) {
-			// temperature changing wildly is an indication of a transfer error
-			if (fabsf(temperature[i] - temperature_avg) > 1000) {
-				perf_count(_bad_transfer_perf);
-				return false;
-			}
-		}
+	const float temperature_avg = temperature_sum / valid_samples;
 
-		// use average temperature reading
-		const float TEMP_degC = (temperature_avg / TEMPERATURE_SENSITIVITY) + TEMPERATURE_OFFSET;
-
-		if (PX4_ISFINITE(TEMP_degC)) {
-			if (!hitl_mode) {
-				_px4_accel.set_temperature(TEMP_degC);
-				_px4_gyro.set_temperature(TEMP_degC);
-				return true;
-			}
-
-		} else {
+	for (int i = 0; i < valid_samples; i++) {
+		// temperature changing wildly is an indication of a transfer error
+		if (fabsf(temperature[i] - temperature_avg) > 1000) {
 			perf_count(_bad_transfer_perf);
+			return false;
 		}
 	}
 
-	return false;
+	// use average temperature reading
+	const float TEMP_degC = (temperature_avg / TEMPERATURE_SENSITIVITY) + TEMPERATURE_OFFSET;
+
+
+	if (!PX4_ISFINITE(TEMP_degC)){
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	if (hitl_mode) return false;
+
+	// report latest temp reading
+	_px4_accel.set_temperature(TEMP_degC);
+	_px4_gyro.set_temperature(TEMP_degC);
+
+	// no need to do rate of change temperature compensation
+	if (_dt_comp_coeff == 0.0f) return true;
+
+	// filter this temperature for the temperature rate of change compensation
+	static const float dt = (float)_fifo_empty_interval_us / 1e6f;
+	// number of fifo reads between updating the temp rise rate
+	static const int temp_compensation_counter_limit = 50000/_fifo_empty_interval_us;
+	static const float temp_compensation_dt_s = (float)(temp_compensation_counter_limit * _fifo_empty_interval_us)/1e6f;
+
+	if (!PX4_ISFINITE(_last_temp_filtered)) {
+		float tau = 1.0; // Roughly 1 second rise time
+		float alpha = dt / (tau + dt); // Filter coefficient
+		_temp_compensation_filter.setAlpha(alpha);
+		_temp_compensation_filter.reset(TEMP_degC);  // or do a first-time update
+		_last_temp_filtered = TEMP_degC;
+		_temp_filtered = TEMP_degC;
+		_current_temp_gradient = TEMP_degC;
+		_temp_compensation_counter = 0;
+		return true;
+	}
+
+	_temp_filtered = _temp_compensation_filter.update(TEMP_degC);
+	_temp_compensation_counter++;
+
+	if(_temp_compensation_counter >= temp_compensation_counter_limit){
+		_current_temp_gradient = (_temp_filtered - _last_temp_filtered) / temp_compensation_dt_s;
+		_last_temp_filtered = _temp_filtered;
+		_temp_compensation_counter = 0;
+		float new_correction = _dt_comp_coeff * _current_temp_gradient;
+		// bound correction for safety
+		if(new_correction > 0.5f)  new_correction =  0.5f;
+		if(new_correction < -0.5f) new_correction = -0.5f;
+		_current_temp_correction = new_correction;
+		//PX4_INFO("T: %6.2f Tfilt: %6.2f dTdt %6.2f cor: %6.2f", (double)TEMP_degC, (double)_temp_filtered, (double)_current_temp_gradient, (double)_current_temp_correction);
+	}
+
+	// PX4_INFO("%6.3f %6.3f", (double)TEMP_degC, (double)_temp_filtered);
+
+
+	return true;
 }

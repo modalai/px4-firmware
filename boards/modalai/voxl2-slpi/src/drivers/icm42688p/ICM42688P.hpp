@@ -48,11 +48,13 @@
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 #include <lib/geo/geo.h>
 #include <lib/perf/perf_counter.h>
+#include <lib/mathlib/math/filter/AlphaFilter.hpp>
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <uORB/topics/imu_server.h>
 #include <uORB/topics/sensor_accel_fifo.h>
 #include <uORB/topics/sensor_gyro_fifo.h>
+#include <px4_platform_common/module_params.h>
 #include <memory>
 
 using namespace InvenSense_ICM42688P;
@@ -195,7 +197,7 @@ private:
 		{ Register::BANK_0::FIFO_CONFIG,          FIFO_CONFIG_BIT::FIFO_MODE_STOP_ON_FULL, 0 },
 		{ Register::BANK_0::GYRO_CONFIG0,         GYRO_CONFIG0_BIT::GYRO_FS_SEL_2000_DPS | GYRO_CONFIG0_BIT::GYRO_ODR_8KHZ_SET, GYRO_CONFIG0_BIT::GYRO_ODR_8KHZ_CLEAR },
 		{ Register::BANK_0::ACCEL_CONFIG0,        ACCEL_CONFIG0_BIT::ACCEL_FS_SEL_16G | ACCEL_CONFIG0_BIT::ACCEL_ODR_8KHZ_SET, ACCEL_CONFIG0_BIT::ACCEL_ODR_8KHZ_CLEAR },
-		{ Register::BANK_0::GYRO_CONFIG1,         0, GYRO_CONFIG1_BIT::GYRO_UI_FILT_ORD },
+		{ Register::BANK_0::GYRO_CONFIG1,         GYRO_CONFIG1_BIT::TEMP_FILT_BW_5HZ, GYRO_CONFIG1_BIT::GYRO_UI_FILT_ORD },
 		{ Register::BANK_0::GYRO_ACCEL_CONFIG0,   0, GYRO_ACCEL_CONFIG0_BIT::ACCEL_UI_FILT_BW | GYRO_ACCEL_CONFIG0_BIT::GYRO_UI_FILT_BW },
 		{ Register::BANK_0::ACCEL_CONFIG1,        0, ACCEL_CONFIG1_BIT::ACCEL_UI_FILT_ORD },
 		{ Register::BANK_0::FIFO_CONFIG1,         FIFO_CONFIG1_BIT::FIFO_WM_GT_TH | FIFO_CONFIG1_BIT::FIFO_HIRES_EN | FIFO_CONFIG1_BIT::FIFO_TEMP_EN | FIFO_CONFIG1_BIT::FIFO_GYRO_EN | FIFO_CONFIG1_BIT::FIFO_ACCEL_EN, 0 },
@@ -231,5 +233,14 @@ private:
 	uint32_t _imu_server_decimator{0};
 	imu_server_s _imu_server_data;
 	uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
+
+	// temperature rate of change compensation stuff
+	AlphaFilter<float> _temp_compensation_filter;
+	float _dt_comp_coeff{0.0f};
+	float _last_temp_filtered{NAN};
+	float _temp_filtered{NAN};
+	float _current_temp_gradient{0.0f};
+	int _temp_compensation_counter{0};
+	float _current_temp_correction{0.0f};
 
 };

@@ -211,6 +211,7 @@ enum ACCEL_CONFIG0_BIT : uint8_t {
 // GYRO_CONFIG1
 enum GYRO_CONFIG1_BIT : uint8_t {
 	GYRO_UI_FILT_ORD = Bit3 | Bit2, // 00: 1st Order
+	TEMP_FILT_BW_5HZ = Bit6 | Bit7  // 5hz DLPF
 };
 
 // GYRO_ACCEL_CONFIG0
