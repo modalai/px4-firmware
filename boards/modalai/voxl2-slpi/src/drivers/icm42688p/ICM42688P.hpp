@@ -53,6 +53,7 @@
 #include <uORB/topics/imu_server.h>
 #include <uORB/topics/sensor_accel_fifo.h>
 #include <uORB/topics/sensor_gyro_fifo.h>
+#include <lib/parameters/param.h>
 #include <memory>
 
 using namespace InvenSense_ICM42688P;
@@ -232,4 +233,5 @@ private:
 	imu_server_s _imu_server_data;
 	uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
 
+	param_t _param_test;
 };

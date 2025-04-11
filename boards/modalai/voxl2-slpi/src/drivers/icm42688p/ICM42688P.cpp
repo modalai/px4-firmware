@@ -368,6 +368,8 @@ void ICM42688P::SelectRegisterBank(enum REG_BANK_SEL_BIT bank, bool force)
 
 bool ICM42688P::Configure()
 {
+	_param_test = param_find("ICM42688P_TEST");
+
 	// first set and clear all configured register bits
 	for (const auto &reg_cfg : _register_bank0_cfg) {
 		RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits);
