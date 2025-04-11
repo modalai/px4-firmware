@@ -39,10 +39,13 @@ set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
 
 add_library(drivers_board
 	board_config.h
+	i2c.cpp
 	init.c
+	spi.cpp
     )
 
 # Add custom drivers
 add_subdirectory(${PX4_BOARD_DIR}/../src/drivers/msp_dp_osd ${PX4_BOARD_DIR}/src/drivers/msp_dp_osd)
+add_subdirectory(${PX4_BOARD_DIR}/../voxl2-slpi/src/drivers/icm42688p ${PX4_BOARD_DIR}/src/drivers/icm42688p)
 add_subdirectory(${PX4_BOARD_DIR}/src/drivers/apps_sbus)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/mavlink_odometry_bridge)
