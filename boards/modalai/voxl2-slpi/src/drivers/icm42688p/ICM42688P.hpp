@@ -54,7 +54,7 @@
 #include <uORB/topics/imu_server.h>
 #include <uORB/topics/sensor_accel_fifo.h>
 #include <uORB/topics/sensor_gyro_fifo.h>
-#include <px4_platform_common/module_params.h>
+#include <lib/parameters/param.h>
 #include <memory>
 
 using namespace InvenSense_ICM42688P;
@@ -247,6 +247,7 @@ private:
 	uORB::Publication<imu_server_s> _imu_server_pub{ORB_ID(imu_server)};
 
 	// temperature rate of change compensation stuff
+	param_t dt_comp_coeff_handle;
 	AlphaFilter<float> _temp_compensation_filter;
 	float _dt_comp_coeff{0.0f};
 	float _last_temp_filtered{NAN};

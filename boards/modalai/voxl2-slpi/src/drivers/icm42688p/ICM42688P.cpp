@@ -67,9 +67,9 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 	}
 
 	// temperature rate of change coefficient compensation
-	//param_t dt_comp_coeff_handle = param_find("ICM42688_DT_COMP");
-	//param_get(dt_comp_coeff_handle, &_dt_comp_coeff);
-	_dt_comp_coeff = 0.55;
+	dt_comp_coeff_handle = param_find("ICM42688_DT_COMP");
+	param_get(dt_comp_coeff_handle, &_dt_comp_coeff);
+	//_dt_comp_coeff = 0.55;
 	PX4_INFO("fetched param %f\n", (double)_dt_comp_coeff);
 }
 
