@@ -69,8 +69,6 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 	// temperature rate of change coefficient compensation
 	dt_comp_coeff_handle = param_find("ICM42688_DT_COMP");
 	param_get(dt_comp_coeff_handle, &_dt_comp_coeff);
-	//_dt_comp_coeff = 0.55;
-	PX4_INFO("fetched param %f\n", (double)_dt_comp_coeff);
 }
 
 ICM42688P::~ICM42688P()
@@ -324,6 +322,8 @@ void ICM42688P::RunImpl()
 	}
 }
 
+
+// This sets up the polling interval for the FIFO buffer, not the ODR of the sensor
 void ICM42688P::ConfigureSampleRate(int sample_rate)
 {
 	if (sample_rate == 0) {
@@ -331,7 +331,7 @@ void ICM42688P::ConfigureSampleRate(int sample_rate)
 	}
 
 	// round down to nearest FIFO sample dt
-	const float min_interval = FIFO_SAMPLE_DT;
+	const float min_interval = FIFO_SAMPLE_DT_US;
 	_fifo_empty_interval_us = math::max(roundf((1e6f / (float)sample_rate) / min_interval) * min_interval, min_interval);
 
 	_fifo_gyro_samples = roundf(math::min((float)_fifo_empty_interval_us / (1e6f / GYRO_RATE), (float)FIFO_MAX_SAMPLES));
@@ -790,11 +790,11 @@ void ICM42688P::ProcessIMU(const hrt_abstime &timestamp_sample, const FIFO::DATA
 
 void ICM42688P::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], uint8_t samples)
 {
-	static int ctr = 0;
+	//static int ctr = 0;
 	sensor_accel_fifo_s accel{};
 	accel.timestamp_sample = timestamp_sample;
 	accel.samples = 0;
-	accel.dt = FIFO_SAMPLE_DT;
+	accel.dt = FIFO_SAMPLE_DT_US;
 	accel.scale = ACCEL_SCALE_16BIT_16G;
 
 	// SensorAccelFifo message only has arrays 32 items long, prevent overflow
@@ -862,9 +862,7 @@ void ICM42688P::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DA
 			accel.z[i] = -combine(fifo[i].ACCEL_DATA_Z1, fifo[i].ACCEL_DATA_Z0);
 			accel.samples++;
 
-			// accel.x[i] = accel_x;
-			// accel.y[i] = accel_y;
-			// accel.z[i] = accel_z;
+			/*
 			ctr++;
 			if(ctr>1000){
 				ctr = 0;
@@ -873,6 +871,7 @@ void ICM42688P::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DA
 					 (double)_current_temp_correction,\
 					  (double)(accel.z[i]*ACCEL_SCALE_16BIT_16G - _current_temp_correction));
 			}
+			*/
 			accel.z[i] -= (int)(_current_temp_correction/ACCEL_SCALE_16BIT_16G);
 		}
 
@@ -916,7 +915,7 @@ void ICM42688P::ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DAT
 	sensor_gyro_fifo_s gyro{};
 	gyro.timestamp_sample = timestamp_sample;
 	gyro.samples = 0;
-	gyro.dt = FIFO_SAMPLE_DT;
+	gyro.dt = FIFO_SAMPLE_DT_US;
 	gyro.scale = GYRO_SCALE_16BIT_2000DPS;
 
 	// SensorGyroFifo message only has arrays 32 items long, prevent overflow
@@ -1047,7 +1046,7 @@ bool ICM42688P::ProcessTemperature(const FIFO::DATA fifo[], const uint8_t sample
 	_px4_gyro.set_temperature(TEMP_degC);
 
 	// no need to do rate of change temperature compensation
-	if (_dt_comp_coeff == 0.0f) return true;
+	if (fabsf(_dt_comp_coeff) < EPSILON) return true;
 
 	// filter this temperature for the temperature rate of change compensation
 	static const float dt = (float)_fifo_empty_interval_us / 1e6f;
@@ -1079,12 +1078,14 @@ bool ICM42688P::ProcessTemperature(const FIFO::DATA fifo[], const uint8_t sample
 		if(new_correction > 0.5f)  new_correction =  0.5f;
 		if(new_correction < -0.5f) new_correction = -0.5f;
 		_current_temp_correction = new_correction;
-		// PX4_INFO("dt: %0.4f T: %6.2f Tfilt: %6.2f dTdt %6.2f cor: %6.2f", \
-		// 			(double)temp_compensation_dt_s, \
-		// 			(double)TEMP_degC, \
-		// 			(double)_temp_filtered, \
-		// 			(double)_current_temp_gradient, \
-		// 			(double)_current_temp_correction);
+		/*
+		PX4_INFO("dt: %0.4f T: %6.2f Tfilt: %6.2f dTdt %6.2f cor: %6.2f", \
+					(double)temp_compensation_dt_s, \
+					(double)TEMP_degC, \
+					(double)_temp_filtered, \
+					(double)_current_temp_gradient, \
+					(double)_current_temp_correction);
+					*/
 	}
 
 	// PX4_INFO("%6.3f %6.3f", (double)TEMP_degC, (double)_temp_filtered);

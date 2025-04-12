@@ -39,5 +39,6 @@
  * @min -1.0
  * @max 1.0
  * @decimal 3
+ * @reboot_required
  */
-PARAM_DEFINE_FLOAT(ICM42688_DT_COMP, 0.0f);
+PARAM_DEFINE_FLOAT(ICM42688_DT_COMP, 0.55f);
