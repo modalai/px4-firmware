@@ -854,7 +854,7 @@ void Ekf::updateHorizontalDeadReckoningstatus()
 
 	if (!_horizontal_deadreckon_time_exceeded && deadreckon_time_exceeded) {
 		// deadreckon time now exceeded
-		PX4_WARN("dead reckon time exceeded");
+		ECL_WARN("dead reckon time exceeded");
 	}
 
 	_horizontal_deadreckon_time_exceeded = deadreckon_time_exceeded;
