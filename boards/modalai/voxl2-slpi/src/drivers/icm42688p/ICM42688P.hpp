@@ -55,6 +55,7 @@
 #include <uORB/topics/sensor_accel_fifo.h>
 #include <uORB/topics/sensor_gyro_fifo.h>
 #include <lib/parameters/param.h>
+#include <uORB/topics/parameter_update.h>
 #include <memory>
 
 using namespace InvenSense_ICM42688P;
@@ -263,6 +264,8 @@ private:
 
 	// temperature rate of change compensation stuff
 	param_t dt_comp_coeff_handle;
+	struct parameter_update_s param_update;
+	int param_sub;
 	AlphaFilter<float> _temp_compensation_filter;
 	float _dt_comp_coeff{0.0f};
 	float _last_temp_filtered{NAN};

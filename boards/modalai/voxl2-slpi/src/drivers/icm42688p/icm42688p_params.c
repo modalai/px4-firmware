@@ -34,11 +34,9 @@
 /**
  * Coefficient for temperature rate of change compensation for ICM42688 IMU AZ axis.
  *
- * @category system
  * @group Sensors
  * @min -1.0
  * @max 1.0
  * @decimal 3
- * @reboot_required
  */
-PARAM_DEFINE_FLOAT(ICM42688_DT_COMP, 0.55f);
+PARAM_DEFINE_FLOAT(ICM42688_DT_COMP, 0.0f);
