@@ -61,7 +61,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Barometer Test Script')
     parser.add_argument('-n','--num-samples',   type=int, required=False, default=1250)
     parser.add_argument('-p','--path',   type=str, required=False, default='.')
-    parser.add_argument('-c','--num-cpus',   type=int, required=False, default=4)
+    parser.add_argument('-c','--num-cpus',   type=int, required=False, default=7)
     parser.add_argument('-i','--num-iter',   type=int, required=False, default=1)
     parser.add_argument('-s','--sleep-interval',   type=int, required=False, default=300)
     parser.add_argument('-t','--enable-plots',   type=int, required=False, default=0)
@@ -89,7 +89,8 @@ if __name__ == '__main__':
         if keep_going==0:
             print('Exiting')
             sys.exit(0)
-        print(f'Starting iteration #{i}')
+
+        print(f'Starting iteration #{i}\n')
 
         tlast = 0
         sample_count = 0
@@ -102,18 +103,42 @@ if __name__ == '__main__':
         fname = log_path + '/baro_log_%d_%d.txt' % (i,time_start)
         f     = open(fname, 'w')
 
+
+
+        # wait for temp to be low enough
+        needs_fan_turning_off = False
+        while True:
+            if keep_going==0:
+                print('Exiting')
+                sys.exit(0)
+
+            (timestamp, device_id, pressure, temperature) = get_px4_baro()
+            if temperature<35 :
+                break
+            print(f"\rBaro too hot ({temperature:5.1f}C) cool the VOXL with a fan until <35C", end="", flush=True);
+            needs_fan_turning_off = True
+            time.sleep(1);
+
+        if needs_fan_turning_off:
+            input("\nPlease turn the fan OFF, then press Enter to continue.\n")
+
+
         # Create and start CPU hog processes
         if num_cpu_stress:
-            print('Starting stress tasks')
+            print('\nStarting stress tasks')
             for j in range(num_cpu_stress):
                 proc = multiprocessing.Process(target=hogcpu)
                 procs.append(proc)
                 proc.start()
-
         print('Starting data capture')
 
         # Start the data collection loop
         while (sample_count < max_sample_count and keep_going==1):
+
+            if keep_going==0:
+                print('Exiting')
+                sys.exit(0)
+
             (timestamp, device_id, pressure, temperature) = get_px4_baro()
 
             #make sure we got new data
@@ -285,6 +310,14 @@ if __name__ == '__main__':
             # if enable_reference:
             #     fig.add_trace(go.Scatter(x=ts_plot2 , y=p_plot2, name=f'[{log_cntr}] Pressure Ref (Pa)'),  row=5, col=1)
             #     fig.add_trace(go.Scatter(x=ts_plot2 , y=t_plot2, name=f'[{log_cntr}] Temperature Ref (Pa)'),  row=6, col=1)
+
+
+            # min temp should be very low to allow extrapolation of calibration in cold weather
+            # cal was usually done on a bench with no airflow in a warm room
+            # increase t_max a little bit to allow extrapolation outdoors in the sun
+            t_min = 0
+            t_max = t_max + 10
+
 
             # print the PX4 params
             print('param set TC_B_ENABLE 1')
