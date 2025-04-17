@@ -451,8 +451,9 @@ void EKF2::Run()
 		param_get(param_find("EKF2_MAG_TYPE"), &mag_used);
 		mag_used = has_mag && (mag_used == 5);
 		if (_ekf.enable_NED_convert(mag_used))
+		{
 			_preflt_checker.reset();
-
+		}
 	}
 
 	if (!_callback_registered) {
@@ -498,9 +499,8 @@ void EKF2::Run()
 				PX4_WARN("Reset global YAW for new origin to %f", (double)vehicle_command.param4);
 				// TODO fix EV yaw value as it becomes used as global not local
 
-				static int32_t has_mag = -1;
-				if (has_mag < 0)
-					param_get(param_find("SYS_HAS_MAG"), &has_mag);
+				int32_t has_mag = -1;
+				param_get(param_find("SYS_HAS_MAG"), &has_mag);
 
 				if (!has_mag || vehicle_command.param4 <= FP_ZERO)
 				{
@@ -510,7 +510,9 @@ void EKF2::Run()
 					_ekf.has_ev_heading_ned = true;
 
 					if (_ekf.enable_NED_convert(true))
+					{
 						_preflt_checker.reset();
+					}
 				}
 
 			}
