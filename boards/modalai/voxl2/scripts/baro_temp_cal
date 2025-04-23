@@ -140,7 +140,7 @@ if __name__ == '__main__':
             if start_temp < 35.0:
                 break
 
-            print(f"\rBaro too hot ({start_temp:5.1f}C) cool the VOXL with a fan until <35C", end="", flush=True);
+            print(f"\rBaro too hot [{start_temp:5.1f}C] cool the VOXL with a fan until <35C", end="", flush=True);
             needs_fan_turning_off = True
             time.sleep(1);
 
@@ -275,7 +275,7 @@ if __name__ == '__main__':
             t_plot   = data[3,:]
             p_plot   = data[2,:]
             p_comp   = p_plot.copy() #-p_plot[i_ref]
-            
+
             #print(i_ref)
 
             if enable_reference:
@@ -303,7 +303,7 @@ if __name__ == '__main__':
             t_ref = (t_max+t_min)/2
             #i_ref = np.where(t_plot > ref_temp)[0][0]
             i_ref = np.where(t_plot > t_ref)[0][0]
-            
+
             p_comp = p_comp-p_comp[i_ref]
 
             #p_plot -= p_plot[i_ref]
@@ -326,7 +326,7 @@ if __name__ == '__main__':
             print(p)
 
             # fig.add_trace(go.Scatter(x=t_plot ,  y=p_comp-zz,  name=f'[{log_cntr}] Fit Error (Pa)'), row=4, col=1)
-            # 
+            #
             # if enable_reference:
             #     fig.add_trace(go.Scatter(x=ts_plot2 , y=p_plot2, name=f'[{log_cntr}] Pressure Ref (Pa)'),  row=5, col=1)
             #     fig.add_trace(go.Scatter(x=ts_plot2 , y=t_plot2, name=f'[{log_cntr}] Temperature Ref (Pa)'),  row=6, col=1)
