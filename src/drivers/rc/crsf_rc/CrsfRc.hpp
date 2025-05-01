@@ -96,6 +96,12 @@ private:
 	uint8_t _rcs_buf[RC_MAX_BUFFER_SIZE] {};
 	uint32_t _bytes_rx{0};
 
+	static constexpr int MAX_PWM_MAPPINGS{8};
+	int32_t _pwm_button[MAX_PWM_MAPPINGS];
+	int32_t _pwm_channel[MAX_PWM_MAPPINGS];
+	int32_t _pwm_value[MAX_PWM_MAPPINGS];
+	uint32_t _last_button_state;
+
 	hrt_abstime _last_packet_seen{0};
 
 	CrsfParserStatistics_t _packet_parser_statistics{0};

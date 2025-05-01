@@ -176,6 +176,31 @@ void CrsfRc::Run()
 			// tcflush(_rc_fd, TCIOFLUSH);
 
 			Crc8Init(0xd5);
+
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[0]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[0]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[0]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[1]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[1]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[1]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[2]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[2]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[2]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[3]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[3]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[3]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[4]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[4]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[4]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[5]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[5]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[5]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[6]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[6]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[6]);
+			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[7]);
+			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[7]);
+			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[7]);
 		}
 
 		_input_rc.rssi_dbm = NAN;
@@ -358,7 +383,20 @@ void CrsfRc::Run()
 	if (_manual_control_input_sub.update(&manual_control_input)) {
 		uint16_t buttons1 = (uint16_t) manual_control_input.aux5;
 		uint16_t buttons2 = (uint16_t) manual_control_input.aux6;
-		PX4_INFO("CRSF sees buttons1: 0x%0.4x, buttons2: 0x%0.4x", buttons1, buttons2);
+		uint32_t all_buttons = buttons1 | (buttons2 << 16);
+
+		if (all_buttons != _last_button_state) {
+			for (int i = 0; i < MAX_PWM_MAPPINGS; i++) {
+				if (_pwm_button[i]) {
+					uint32_t button_mask = (1 << (_pwm_button[i] - 1));
+					if (button_mask & all_buttons) {
+						// TODO: Send PWM value to mapped PWM channel
+						PX4_INFO("CRSF_RC sending pwm value %u for pwm output %u", _pwm_value[i], _pwm_channel[i]);
+					}
+				}
+			}
+			_last_button_state = all_buttons;
+		}
 	}
 
 	// If no communication
