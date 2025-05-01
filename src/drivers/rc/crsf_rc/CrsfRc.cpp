@@ -353,6 +353,14 @@ void CrsfRc::Run()
 		}
 	}
 
+	// Handle custom pwm override functionality
+	manual_control_setpoint_s manual_control_input{};
+	if (_manual_control_input_sub.update(&manual_control_input)) {
+		uint16_t buttons1 = (uint16_t) manual_control_input.aux5;
+		uint16_t buttons2 = (uint16_t) manual_control_input.aux6;
+		PX4_INFO("CRSF sees buttons1: 0x%0.4x, buttons2: 0x%0.4x", buttons1, buttons2);
+	}
+
 	// If no communication
 	if (time_now_us - _last_packet_seen > 100_ms) {
 		// Invalidate link statistics
