@@ -104,7 +104,7 @@ private:
 		bool    enabled;
 	} _pwm_out[MAX_PWM_MAPPINGS];
 	hrt_abstime _last_pwm_cmd_sent{0};
-	hrt_abstime _last_pwm_dbg_sent{0};
+	// hrt_abstime _last_pwm_dbg_sent{0};
 
 	hrt_abstime _last_packet_seen{0};
 

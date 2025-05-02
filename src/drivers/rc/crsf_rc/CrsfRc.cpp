@@ -406,10 +406,10 @@ void CrsfRc::Run()
 	if (hrt_elapsed_time(&_last_pwm_cmd_sent) > 100_ms) {
 		_last_pwm_cmd_sent = hrt_absolute_time();
 		const int cmd_len = 10;
-		int cmd_num = 0;
+		// int cmd_num = 0;
 		uint8_t buf[cmd_len * MAX_PWM_MAPPINGS];
 		int offset = 0;
-		bool sending_pwm_dbg = false;
+		// bool sending_pwm_dbg = false;
 		// Put all pwm commands into a single UART transmission
 		for (int i = 0; i < MAX_PWM_MAPPINGS; i++) {
 			if (_pwm_out[i].enabled) {
@@ -424,20 +424,21 @@ void CrsfRc::Run()
 				write_uint16_t(buf, offset, _pwm_out[i].value);
 				int tmp_offset = offset - start_offset;
 				WriteFrameCrc(&buf[start_offset], tmp_offset, cmd_len);
-				if (hrt_elapsed_time(&_last_pwm_dbg_sent) > 2000_ms) {
-					sending_pwm_dbg = true;
-					PX4_INFO("PWM CMD #%d: 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x",
-							  ++cmd_num, buf[start_offset], buf[start_offset + 1], buf[start_offset + 2], buf[start_offset + 3],
-							  buf[start_offset + 4], buf[start_offset + 5], buf[start_offset + 6], buf[start_offset + 7],
-							  buf[start_offset + 8], buf[start_offset + 9]);
-				}
+				offset += 1;
+				// if (hrt_elapsed_time(&_last_pwm_dbg_sent) > 2000_ms) {
+				// 	sending_pwm_dbg = true;
+				// 	PX4_INFO("PWM CMD #%d: 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x",
+				// 			  ++cmd_num, buf[start_offset], buf[start_offset + 1], buf[start_offset + 2], buf[start_offset + 3],
+				// 			  buf[start_offset + 4], buf[start_offset + 5], buf[start_offset + 6], buf[start_offset + 7],
+				// 			  buf[start_offset + 8], buf[start_offset + 9]);
+				// }
 			}
 		}
 		if (offset) qurt_uart_write(_rc_fd, (char *) &buf[0], offset);
-		if (sending_pwm_dbg) {
-			PX4_INFO("*************************************************************");
- 			_last_pwm_dbg_sent = hrt_absolute_time();
-		}
+		// if (sending_pwm_dbg) {
+		// 	PX4_INFO("*************************************************************");
+ 		// 	_last_pwm_dbg_sent = hrt_absolute_time();
+		// }
 	}
 
 	// If no communication
