@@ -177,30 +177,30 @@ void CrsfRc::Run()
 
 			Crc8Init(0xd5);
 
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[0]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[0]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[0]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[1]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[1]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[1]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[2]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[2]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[2]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[3]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[3]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[3]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[4]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[4]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[4]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[5]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[5]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[5]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[6]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[6]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[6]);
-			param_get(param_find("CRSF_RC_BUTTON1"), &_pwm_button[7]);
-			param_get(param_find("CRSF_RC_PWMCHN1"), &_pwm_channel[7]);
-			param_get(param_find("CRSF_RC_PWMVAL1"), &_pwm_value[7]);
+			param_get(param_find("RC_CRSF_BUTTON1"), &_pwm_button[0]);
+			param_get(param_find("RC_CRSF_PWMCHN1"), &_pwm_channel[0]);
+			param_get(param_find("RC_CRSF_PWMVAL1"), &_pwm_value[0]);
+			param_get(param_find("RC_CRSF_BUTTON2"), &_pwm_button[1]);
+			param_get(param_find("RC_CRSF_PWMCHN2"), &_pwm_channel[1]);
+			param_get(param_find("RC_CRSF_PWMVAL2"), &_pwm_value[1]);
+			param_get(param_find("RC_CRSF_BUTTON3"), &_pwm_button[2]);
+			param_get(param_find("RC_CRSF_PWMCHN3"), &_pwm_channel[2]);
+			param_get(param_find("RC_CRSF_PWMVAL3"), &_pwm_value[2]);
+			param_get(param_find("RC_CRSF_BUTTON4"), &_pwm_button[3]);
+			param_get(param_find("RC_CRSF_PWMCHN4"), &_pwm_channel[3]);
+			param_get(param_find("RC_CRSF_PWMVAL4"), &_pwm_value[3]);
+			param_get(param_find("RC_CRSF_BUTTON5"), &_pwm_button[4]);
+			param_get(param_find("RC_CRSF_PWMCHN5"), &_pwm_channel[4]);
+			param_get(param_find("RC_CRSF_PWMVAL5"), &_pwm_value[4]);
+			param_get(param_find("RC_CRSF_BUTTON6"), &_pwm_button[5]);
+			param_get(param_find("RC_CRSF_PWMCHN6"), &_pwm_channel[5]);
+			param_get(param_find("RC_CRSF_PWMVAL6"), &_pwm_value[5]);
+			param_get(param_find("RC_CRSF_BUTTON7"), &_pwm_button[6]);
+			param_get(param_find("RC_CRSF_PWMCHN7"), &_pwm_channel[6]);
+			param_get(param_find("RC_CRSF_PWMVAL7"), &_pwm_value[6]);
+			param_get(param_find("RC_CRSF_BUTTON8"), &_pwm_button[7]);
+			param_get(param_find("RC_CRSF_PWMCHN8"), &_pwm_channel[7]);
+			param_get(param_find("RC_CRSF_PWMVAL8"), &_pwm_value[7]);
 		}
 
 		_input_rc.rssi_dbm = NAN;

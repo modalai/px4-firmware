@@ -38,12 +38,12 @@
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON1, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON1, 0);
 
 /**
  * CRSF button 2 input configuration
@@ -52,12 +52,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON1, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON2, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON2, 0);
 
 /**
  * CRSF button 3 input configuration
@@ -66,12 +66,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON2, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON3, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON3, 0);
 
 /**
  * CRSF button 3 input configuration
@@ -80,12 +80,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON3, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON4, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON4, 0);
 
 /**
  * CRSF button 5 input configuration
@@ -94,12 +94,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON4, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON5, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON5, 0);
 
 /**
  * CRSF button 6 input configuration
@@ -108,12 +108,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON5, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON6, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON6, 0);
 
 /**
  * CRSF button 7 input configuration
@@ -122,12 +122,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON6, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON7, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON7, 0);
 
 /**
  * CRSF button 8 input configuration
@@ -136,12 +136,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON7, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_BUTTON8, 0);
+PARAM_DEFINE_INT32(RC_CRSF_BUTTON8, 0);
 
 /**
  * CRSF button 1 output mapping
@@ -150,12 +150,12 @@ PARAM_DEFINE_INT32(CRSF_RC_BUTTON8, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN1, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN1, 0);
 
 /**
  * CRSF button 2 output mapping
@@ -164,12 +164,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN1, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN2, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN2, 0);
 
 /**
  * CRSF button 3 output mapping
@@ -178,12 +178,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN2, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN3, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN3, 0);
 
 /**
  * CRSF button 4 output mapping
@@ -192,12 +192,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN3, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN4, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN4, 0);
 
 /**
  * CRSF button 5 output mapping
@@ -206,12 +206,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN4, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN5, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN5, 0);
 
 /**
  * CRSF button 6 output mapping
@@ -220,12 +220,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN5, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN6, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN6, 0);
 
 /**
  * CRSF button 7 output mapping
@@ -234,12 +234,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN6, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN7, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN7, 0);
 
 /**
  * CRSF button 8 output mapping
@@ -248,12 +248,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN7, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 32
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMCHN8, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMCHN8, 0);
 
 /**
  * CRSF button 1 output value
@@ -262,12 +262,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMCHN8, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL1, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL1, 0);
 
 /**
  * CRSF button 2 output value
@@ -276,12 +276,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL1, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL2, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL2, 0);
 
 /**
  * CRSF button 3 output value
@@ -290,12 +290,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL2, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL3, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL3, 0);
 
 /**
  * CRSF button 4 output value
@@ -304,12 +304,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL3, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL4, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL4, 0);
 
 /**
  * CRSF button 5 output value
@@ -318,12 +318,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL4, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL5, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL5, 0);
 
 /**
  * CRSF button 6 output value
@@ -332,12 +332,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL5, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL6, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL6, 0);
 
 /**
  * CRSF button 7 output value
@@ -346,12 +346,12 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL6, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL7, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL7, 0);
 
 /**
  * CRSF button 8 output value
@@ -360,10 +360,10 @@ PARAM_DEFINE_INT32(CRSF_RC_PWMVAL7, 0);
  *
  * @reboot_required true
  *
- * @group CRSF_RC
+ * @group RC
  * @value 0 - Disabled
  * @min 0
  * @max 2000
  */
-PARAM_DEFINE_INT32(CRSF_RC_PWMVAL8, 0);
+PARAM_DEFINE_INT32(RC_CRSF_PWMVAL8, 0);
 
