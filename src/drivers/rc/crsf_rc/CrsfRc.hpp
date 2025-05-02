@@ -97,10 +97,14 @@ private:
 	uint32_t _bytes_rx{0};
 
 	static constexpr int MAX_PWM_MAPPINGS{8};
-	int32_t _pwm_button[MAX_PWM_MAPPINGS];
-	int32_t _pwm_channel[MAX_PWM_MAPPINGS];
-	int32_t _pwm_value[MAX_PWM_MAPPINGS];
-	uint32_t _last_button_state;
+	struct pwm_button {
+		int32_t button;
+		int32_t channel;
+		int32_t value;
+		bool    enabled;
+	} _pwm_out[MAX_PWM_MAPPINGS];
+	hrt_abstime _last_pwm_cmd_sent{0};
+	hrt_abstime _last_pwm_dbg_sent{0};
 
 	hrt_abstime _last_packet_seen{0};
 

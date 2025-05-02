@@ -51,6 +51,11 @@ using namespace time_literals;
 #define CRSF_BAUDRATE 420000
 uint32_t CrsfRc::baudrate = CRSF_BAUDRATE;
 
+static void write_uint8_t(uint8_t *buf, int &offset, uint8_t value);
+static void write_uint16_t(uint8_t *buf, int &offset, uint16_t value);
+static void write_uint24_t(uint8_t *buf, int &offset, int value);
+static void write_int32_t(uint8_t *buf, int &offset, int32_t value);
+
 CrsfRc::CrsfRc(const char *device) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq("/dev/ttyS0"))
@@ -177,30 +182,30 @@ void CrsfRc::Run()
 
 			Crc8Init(0xd5);
 
-			param_get(param_find("RC_CRSF_BUTTON1"), &_pwm_button[0]);
-			param_get(param_find("RC_CRSF_PWMCHN1"), &_pwm_channel[0]);
-			param_get(param_find("RC_CRSF_PWMVAL1"), &_pwm_value[0]);
-			param_get(param_find("RC_CRSF_BUTTON2"), &_pwm_button[1]);
-			param_get(param_find("RC_CRSF_PWMCHN2"), &_pwm_channel[1]);
-			param_get(param_find("RC_CRSF_PWMVAL2"), &_pwm_value[1]);
-			param_get(param_find("RC_CRSF_BUTTON3"), &_pwm_button[2]);
-			param_get(param_find("RC_CRSF_PWMCHN3"), &_pwm_channel[2]);
-			param_get(param_find("RC_CRSF_PWMVAL3"), &_pwm_value[2]);
-			param_get(param_find("RC_CRSF_BUTTON4"), &_pwm_button[3]);
-			param_get(param_find("RC_CRSF_PWMCHN4"), &_pwm_channel[3]);
-			param_get(param_find("RC_CRSF_PWMVAL4"), &_pwm_value[3]);
-			param_get(param_find("RC_CRSF_BUTTON5"), &_pwm_button[4]);
-			param_get(param_find("RC_CRSF_PWMCHN5"), &_pwm_channel[4]);
-			param_get(param_find("RC_CRSF_PWMVAL5"), &_pwm_value[4]);
-			param_get(param_find("RC_CRSF_BUTTON6"), &_pwm_button[5]);
-			param_get(param_find("RC_CRSF_PWMCHN6"), &_pwm_channel[5]);
-			param_get(param_find("RC_CRSF_PWMVAL6"), &_pwm_value[5]);
-			param_get(param_find("RC_CRSF_BUTTON7"), &_pwm_button[6]);
-			param_get(param_find("RC_CRSF_PWMCHN7"), &_pwm_channel[6]);
-			param_get(param_find("RC_CRSF_PWMVAL7"), &_pwm_value[6]);
-			param_get(param_find("RC_CRSF_BUTTON8"), &_pwm_button[7]);
-			param_get(param_find("RC_CRSF_PWMCHN8"), &_pwm_channel[7]);
-			param_get(param_find("RC_CRSF_PWMVAL8"), &_pwm_value[7]);
+			param_get(param_find("RC_CRSF_BUTTON1"), &_pwm_out[0].button);
+			param_get(param_find("RC_CRSF_PWMCHN1"), &_pwm_out[0].channel);
+			param_get(param_find("RC_CRSF_PWMVAL1"), &_pwm_out[0].value);
+			param_get(param_find("RC_CRSF_BUTTON2"), &_pwm_out[1].button);
+			param_get(param_find("RC_CRSF_PWMCHN2"), &_pwm_out[1].channel);
+			param_get(param_find("RC_CRSF_PWMVAL2"), &_pwm_out[1].value);
+			param_get(param_find("RC_CRSF_BUTTON3"), &_pwm_out[2].button);
+			param_get(param_find("RC_CRSF_PWMCHN3"), &_pwm_out[2].channel);
+			param_get(param_find("RC_CRSF_PWMVAL3"), &_pwm_out[2].value);
+			param_get(param_find("RC_CRSF_BUTTON4"), &_pwm_out[3].button);
+			param_get(param_find("RC_CRSF_PWMCHN4"), &_pwm_out[3].channel);
+			param_get(param_find("RC_CRSF_PWMVAL4"), &_pwm_out[3].value);
+			param_get(param_find("RC_CRSF_BUTTON5"), &_pwm_out[4].button);
+			param_get(param_find("RC_CRSF_PWMCHN5"), &_pwm_out[4].channel);
+			param_get(param_find("RC_CRSF_PWMVAL5"), &_pwm_out[4].value);
+			param_get(param_find("RC_CRSF_BUTTON6"), &_pwm_out[5].button);
+			param_get(param_find("RC_CRSF_PWMCHN6"), &_pwm_out[5].channel);
+			param_get(param_find("RC_CRSF_PWMVAL6"), &_pwm_out[5].value);
+			param_get(param_find("RC_CRSF_BUTTON7"), &_pwm_out[6].button);
+			param_get(param_find("RC_CRSF_PWMCHN7"), &_pwm_out[6].channel);
+			param_get(param_find("RC_CRSF_PWMVAL7"), &_pwm_out[6].value);
+			param_get(param_find("RC_CRSF_BUTTON8"), &_pwm_out[7].button);
+			param_get(param_find("RC_CRSF_PWMCHN8"), &_pwm_out[7].channel);
+			param_get(param_find("RC_CRSF_PWMVAL8"), &_pwm_out[7].value);
 		}
 
 		_input_rc.rssi_dbm = NAN;
@@ -378,24 +383,60 @@ void CrsfRc::Run()
 		}
 	}
 
-	// Handle custom pwm override functionality
+	// Check for pwm output command updates
 	manual_control_setpoint_s manual_control_input{};
 	if (_manual_control_input_sub.update(&manual_control_input)) {
 		uint16_t buttons1 = (uint16_t) manual_control_input.aux5;
 		uint16_t buttons2 = (uint16_t) manual_control_input.aux6;
-		uint32_t all_buttons = buttons1 | (buttons2 << 16);
+		uint32_t buttons_state = buttons1 | (buttons2 << 16);
 
-		if (all_buttons != _last_button_state) {
-			for (int i = 0; i < MAX_PWM_MAPPINGS; i++) {
-				if (_pwm_button[i]) {
-					uint32_t button_mask = (1 << (_pwm_button[i] - 1));
-					if (button_mask & all_buttons) {
-						// TODO: Send PWM value to mapped PWM channel
-						PX4_INFO("CRSF_RC sending pwm value %u for pwm output %u", _pwm_value[i], _pwm_channel[i]);
-					}
+		for (int i = 0; i < MAX_PWM_MAPPINGS; i++) {
+			if (_pwm_out[i].button) {
+				uint32_t button_mask = (1 << (_pwm_out[i].button - 1));
+				if (button_mask & buttons_state) {
+					_pwm_out[i].enabled = true;
+				} else {
+					_pwm_out[i].enabled = false;
 				}
 			}
-			_last_button_state = all_buttons;
+		}
+	}
+
+	// Send pwm commands every 100ms
+	if (hrt_elapsed_time(&_last_pwm_cmd_sent) > 100_ms) {
+		_last_pwm_cmd_sent = hrt_absolute_time();
+		const int cmd_len = 10;
+		int cmd_num = 0;
+		uint8_t buf[cmd_len * MAX_PWM_MAPPINGS];
+		int offset = 0;
+		bool sending_pwm_dbg = false;
+		// Put all pwm commands into a single UART transmission
+		for (int i = 0; i < MAX_PWM_MAPPINGS; i++) {
+			if (_pwm_out[i].enabled) {
+				int start_offset = offset;
+				write_uint8_t(buf, offset, 0xEC);
+				write_uint8_t(buf, offset, 0x08);
+				write_uint8_t(buf, offset, 0x32);
+				write_uint8_t(buf, offset, 0xEC);
+				write_uint8_t(buf, offset, 0xC8);
+				write_uint8_t(buf, offset, 0xF4);
+				write_uint8_t(buf, offset, _pwm_out[i].channel);
+				write_uint16_t(buf, offset, _pwm_out[i].value);
+				int tmp_offset = offset - start_offset;
+				WriteFrameCrc(&buf[start_offset], tmp_offset, cmd_len);
+				if (hrt_elapsed_time(&_last_pwm_dbg_sent) > 2000_ms) {
+					sending_pwm_dbg = true;
+					PX4_INFO("PWM CMD #%d: 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x 0x%0.2x",
+							  ++cmd_num, buf[start_offset], buf[start_offset + 1], buf[start_offset + 2], buf[start_offset + 3],
+							  buf[start_offset + 4], buf[start_offset + 5], buf[start_offset + 6], buf[start_offset + 7],
+							  buf[start_offset + 8], buf[start_offset + 9]);
+				}
+			}
+		}
+		if (offset) qurt_uart_write(_rc_fd, (char *) &buf[0], offset);
+		if (sending_pwm_dbg) {
+			PX4_INFO("*************************************************************");
+ 			_last_pwm_dbg_sent = hrt_absolute_time();
 		}
 	}
 
