@@ -48,6 +48,10 @@
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 
+extern "C" {
+	__EXPORT void fc_uninitialize_i2c_bus(int fd);
+}
+
 namespace device
 {
 
@@ -145,6 +149,10 @@ I2C::init()
 	// PX4_INFO("on I2C bus %d at 0x%02x", get_device_bus(), get_device_address());
 
 out:
+
+	if ((ret != OK) && (_i2c_fd != PX4_ERROR)) {
+		fc_uninitialize_i2c_bus(_i2c_fd);
+	}
 
 	return ret;
 }
