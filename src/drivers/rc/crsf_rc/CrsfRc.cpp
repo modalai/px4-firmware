@@ -143,7 +143,7 @@ void CrsfRc::Run()
 
 		if (_rc_fd >= 0) {
 // 			struct termios t;
-// 
+//
 // 			tcgetattr(_rc_fd, &t);
 // 			cfsetspeed(&t, CRSF_BAUDRATE);
 // 			t.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
@@ -151,13 +151,13 @@ void CrsfRc::Run()
 // 			t.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
 // 			t.c_oflag = 0;
 // 			tcsetattr(_rc_fd, TCSANOW, &t);
-// 
+//
 // 			if (board_rc_swap_rxtx(_device)) {
 // #if defined(TIOCSSWAP)
 // 				ioctl(_rc_fd, TIOCSSWAP, SER_SWAP_ENABLED);
 // #endif // TIOCSSWAP
 // 			}
-// 
+//
 // 			if (board_rc_singlewire(_device)) {
 // 				_is_singlewire = true;
 // #if defined(TIOCSSINGLEWIRE)
@@ -165,7 +165,7 @@ void CrsfRc::Run()
 // #endif // TIOCSSINGLEWIRE
 // 			}
 
-			_is_singlewire = true;
+			//_is_singlewire = true;
 
 			PX4_INFO("Crsf serial opened sucessfully");
 
@@ -191,7 +191,7 @@ void CrsfRc::Run()
 	// fds[0].fd = _rc_fd;
 	// fds[0].events = POLLIN;
 	// int ret = ::poll(fds, 1, 100);
-	// 
+	//
 	// if (ret < 0) {
 	// 	PX4_ERR("poll error");
 	// 	// try again with delay
@@ -450,7 +450,8 @@ bool CrsfRc::SendTelemetryBattery(const uint16_t voltage, const uint16_t current
 	write_uint24_t(buf, offset, fuel);
 	write_uint8_t(buf, offset, remaining);
 	WriteFrameCrc(buf, offset, sizeof(buf));
-	return write(_rc_fd, buf, offset) == offset;
+	// return write(_rc_fd, buf, offset) == offset;
+	return qurt_uart_write(_rc_fd, (char *) &buf[0], offset) == offset;
 }
 
 bool CrsfRc::SendTelemetryGps(const int32_t latitude, const int32_t longitude, const uint16_t groundspeed,
@@ -466,7 +467,8 @@ bool CrsfRc::SendTelemetryGps(const int32_t latitude, const int32_t longitude, c
 	write_uint16_t(buf, offset, altitude);
 	write_uint8_t(buf, offset, num_satellites);
 	WriteFrameCrc(buf, offset, sizeof(buf));
-	return write(_rc_fd, buf, offset) == offset;
+	// return write(_rc_fd, buf, offset) == offset;
+	return qurt_uart_write(_rc_fd, (char *) &buf[0], offset) == offset;
 }
 
 bool CrsfRc::SendTelemetryAttitude(const int16_t pitch, const int16_t roll, const int16_t yaw)
@@ -478,7 +480,8 @@ bool CrsfRc::SendTelemetryAttitude(const int16_t pitch, const int16_t roll, cons
 	write_uint16_t(buf, offset, roll);
 	write_uint16_t(buf, offset, yaw);
 	WriteFrameCrc(buf, offset, sizeof(buf));
-	return write(_rc_fd, buf, offset) == offset;
+	// return write(_rc_fd, buf, offset) == offset;
+	return qurt_uart_write(_rc_fd, (char *) &buf[0], offset) == offset;
 }
 
 bool CrsfRc::SendTelemetryFlightMode(const char *flight_mode)
@@ -497,7 +500,8 @@ bool CrsfRc::SendTelemetryFlightMode(const char *flight_mode)
 	offset += length;
 	buf[offset - 1] = 0; // ensure null-terminated string
 	WriteFrameCrc(buf, offset, length + 4);
-	return write(_rc_fd, buf, offset) == offset;
+	// return write(_rc_fd, buf, offset) == offset;
+	return qurt_uart_write(_rc_fd, (char *) &buf[0], offset) == offset;
 }
 
 int CrsfRc::print_status()

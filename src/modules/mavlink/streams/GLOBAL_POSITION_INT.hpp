@@ -36,7 +36,7 @@
 
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/vehicle_air_data.h>
-#include <uORB/topics/vehicle_global_position.h>
+#include <sensors/vehicle_gps_position/VehicleGPSPosition.hpp>
 #include <uORB/topics/vehicle_local_position.h>
 
 class MavlinkStreamGlobalPositionInt : public MavlinkStream
@@ -58,7 +58,7 @@ public:
 private:
 	explicit MavlinkStreamGlobalPositionInt(Mavlink *mavlink) : MavlinkStream(mavlink) {}
 
-	uORB::Subscription _gpos_sub{ORB_ID(vehicle_global_position)};
+	uORB::Subscription _gpos_sub{ORB_ID(vehicle_gps_position)};
 	uORB::Subscription _lpos_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _home_sub{ORB_ID(home_position)};
 	uORB::Subscription _air_data_sub{ORB_ID(vehicle_air_data)};
