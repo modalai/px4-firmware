@@ -139,14 +139,14 @@ set(msg_files
 	OrbTest.msg
 	OrbTestLarge.msg
 	OrbTestMedium.msg
-	ParameterClientResetRequest.msg
-	ParameterClientResetResponse.msg
-	ParameterClientSetValueRequest.msg
-	ParameterClientSetValueResponse.msg
-	ParameterServerSetUsedResponse.msg
-	ParameterServerSetUsedRequest.msg
-	ParameterServerSetValueRequest.msg
-	ParameterServerSetValueResponse.msg
+	# ParameterClientResetRequest.msg
+	# ParameterClientResetResponse.msg
+	# ParameterClientSetValueRequest.msg
+	# ParameterClientSetValueResponse.msg
+	# ParameterServerSetUsedResponse.msg
+	# ParameterServerSetUsedRequest.msg
+	# ParameterServerSetValueRequest.msg
+	# ParameterServerSetValueResponse.msg
 	ParameterUpdate.msg
 	Ping.msg
 	PositionControllerLandingStatus.msg
@@ -196,8 +196,8 @@ set(msg_files
 	TrajectoryWaypoint.msg
 	TransponderReport.msg
 	TuneControl.msg
-	# UavcanParameterRequest.msg
-	# UavcanParameterValue.msg
+	UavcanParameterRequest.msg
+	UavcanParameterValue.msg
 	UlogStream.msg
 	UlogStreamAck.msg
 	UwbDistance.msg
