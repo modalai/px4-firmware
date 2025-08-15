@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+#   Copyright (c) 2025 ModalAI, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,21 +31,11 @@
 #
 ############################################################################
 
-# Need to make sure that the Linux processor on VOXL2
-# knows about all parameters since it is acting as the
-# parameter server for other processors that may define
-# parameters that it doesn't normally know about.
-set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
-
-add_library(drivers_board
-	board_config.h
-	i2c.cpp
-	init.c
-	spi.cpp
-    )
-
-# Add custom drivers
-add_subdirectory(${PX4_BOARD_DIR}/../voxl2-slpi/src/drivers/icm42688p ${PX4_BOARD_DIR}/src/drivers/icm42688p)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/apps_sbus)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/vfc_status_logger)
-add_subdirectory(${PX4_BOARD_DIR}/src/modules/mavlink_odometry_bridge)
+px4_add_module(
+	MODULE drivers__vfc_status_logger
+	MAIN vfc_status_logger
+	COMPILE_FLAGS
+		-Wno-cast-align # TODO: fix and enable
+	SRCS
+		vfc_status_logger.cpp
+	)
