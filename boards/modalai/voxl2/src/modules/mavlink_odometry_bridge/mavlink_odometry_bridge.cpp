@@ -30,6 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+#include <modal_pipe.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -40,8 +41,6 @@
 #include <uORB/uORB.h>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/modal_io_mavlink_data.h>
-
-#include <modal_pipe.h>
 
 class MavlinkOdometryBridge : public ModuleBase<MavlinkOdometryBridge>, public px4::WorkItem
 {
