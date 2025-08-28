@@ -3,11 +3,6 @@
 # ModalAI FC-v2 specific board sensors init
 #------------------------------------------------------------------------------
 
-if param greater VOXL_ESC_CONFIG 0
-then
-	voxl_esc start
-fi
-
 board_adc start
 
 # VOXL Power Module
@@ -25,3 +20,9 @@ icm42688p -s -b 2 -R 12 start
 
 # Internal I2C baro
 icp201xx -I start
+
+if param greater VOXL_ESC_CONFIG 0
+then
+	usleep 1500000
+	voxl_esc start
+fi
