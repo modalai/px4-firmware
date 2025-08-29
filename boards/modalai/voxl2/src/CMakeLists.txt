@@ -39,11 +39,15 @@ set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
 
 add_library(drivers_board
 	board_config.h
+	i2c.cpp
 	init.c
+	spi.cpp
+	boardctl.c
     )
 
 # Add custom drivers
 add_subdirectory(${PX4_BOARD_DIR}/src/drivers/apps_sbus)
+add_subdirectory(${PX4_BOARD_DIR}/../src/drivers/msp_dp_osd)
 
 # Add custom modules
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/voxl_save_cal_params)

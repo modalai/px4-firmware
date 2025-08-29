@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+ *   Copyright (c) 2025 ModalAI, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,37 +31,16 @@
  *
  ****************************************************************************/
 
-/**
- * @file board_config.h
- *
- * VOXL2 internal definitions
- */
+#include <unistd.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-#pragma once
+extern bool muorb_kill_slpi(void);
 
-#define CONFIG_BOARDCTL_RESET
-#define BOARD_HAS_NO_BOOTLOADER
-
-// Define this as empty since there are no I2C buses
-#define BOARD_I2C_BUS_CLOCK_INIT
-
-/*
- * I2C buses
- */
-#define CONFIG_I2C 1
-#define PX4_NUMBER_I2C_BUSES    1
-
-/*
- * SPI buses
- */
-#define CONFIG_SPI 1
-#define BOARD_SPI_BUS_MAX_BUS_ITEMS 1
-
-#include <system_config.h>
-#include <px4_platform_common/board_common.h>
-
-#define BOARD_OVERRIDE_UUID "MODALAIVOXL20000" // must be of length 16
-#define PX4_SOC_ARCH_ID PX4_SOC_ARCH_ID_VOXL2
-
-#define VOXL_ESC_DEFAULT_PORT 	"2"
-#define VOXL2_IO_DEFAULT_PORT 	"2"
+int boardctl(unsigned int cmd, uintptr_t arg) {
+	muorb_kill_slpi();
+	sleep(2);
+	exit(-1);
+	return 0;
+}
