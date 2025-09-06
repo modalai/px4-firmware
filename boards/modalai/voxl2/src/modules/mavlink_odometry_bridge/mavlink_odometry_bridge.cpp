@@ -86,6 +86,7 @@ bool MavlinkOdometryBridge::init()
 
 	char pipe_name[] = "hitl_vio";
 	if (MPA::PipeCreate(pipe_name) == -1) {
+		PX4_ERR("Pipe create failed for %s", pipe_name);
 		return false;
 	}
 
@@ -204,10 +205,7 @@ void MavlinkOdometryBridge::Run()
 			s.quality = quality;
 			s.n_feature_points = 25;
 
-			int result = MPA::PipeWrite(pipe_ch, (void*)&s, sizeof(vio_data_t));
-
-			// write was good!
-			if(result != sizeof(vio_data_t)) {
+			if (MPA::PipeWrite(pipe_ch, (void*)&s, sizeof(vio_data_t)) == -1) {
 				PX4_ERR("Pipe write failed!");
 			}
 		}
