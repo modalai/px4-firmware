@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2025 ModalAI, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,43 +31,11 @@
 #
 ############################################################################
 
+px4_add_git_submodule(TARGET git_fc_libfc-sensor-api PATH "libfc-sensor-api")
 
-add_subdirectory(px4_daemon)
-add_subdirectory(lockstep_scheduler)
+px4_add_library(fc fc.cpp)
 
-set(EXTRA_DEPENDS)
-
-# Add in include path for fc sensor api header
-if("${PX4_BOARD}" MATCHES "voxl2")
-	include_directories(${PX4_BOARD_DIR}/src/lib/fc/libfc-sensor-api/inc)
-endif()
-
-add_library(px4_layer
-	px4_posix_impl.cpp
-	tasks.cpp
-	px4_sem.cpp
-	px4_init.cpp
-	lib_crc32.c
-	drv_hrt.cpp
-	cpuload.cpp
-	print_load.cpp
+target_include_directories(fc PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/libfc-sensor-api/inc
 )
-target_compile_definitions(px4_layer PRIVATE MODULE_NAME="px4")
-target_compile_options(px4_layer PRIVATE -Wno-cast-align) # TODO: fix and enable
-target_link_libraries(px4_layer PRIVATE work_queue px4_work_queue)
-target_link_libraries(px4_layer PRIVATE px4_daemon drivers_board)
 
-if(ENABLE_LOCKSTEP_SCHEDULER)
-	target_link_libraries(px4_layer PRIVATE lockstep_scheduler)
-endif()
-
-
-if(EXTRA_DEPENDS)
-	add_dependencies(px4_layer ${EXTRA_DEPENDS})
-endif()
-
-
-if(BUILD_TESTING)
-	add_subdirectory(test_stubs)
-	add_subdirectory(gtest_runner)
-endif()

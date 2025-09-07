@@ -45,4 +45,7 @@ px4_add_module(
 		muorb_main.cpp
 		../test/MUORBTest.cpp
 		../aggregator/mUORBAggregator.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/../../lib/mpa
+	DEPENDS
+		fc
 	)

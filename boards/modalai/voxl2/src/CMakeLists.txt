@@ -47,6 +47,7 @@ add_library(drivers_board
 
 # Add custom drivers
 add_subdirectory(${PX4_BOARD_DIR}/src/lib/mpa)
+add_subdirectory(${PX4_BOARD_DIR}/src/lib/fc)
 add_subdirectory(${PX4_BOARD_DIR}/../voxl2-slpi/src/drivers/icm42688p ${PX4_BOARD_DIR}/src/drivers/icm42688p)
 add_subdirectory(${PX4_BOARD_DIR}/src/drivers/apps_sbus)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/mavlink_odometry_bridge)
