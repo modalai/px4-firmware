@@ -465,6 +465,8 @@ public:
 	static bool is_advertised(const void *node_handle);
 #endif
 
+	void stop_communicator(void);
+
 #ifdef CONFIG_ORB_COMMUNICATOR
 	/**
 	 * Method to set the uORBCommunicator::IChannel instance.

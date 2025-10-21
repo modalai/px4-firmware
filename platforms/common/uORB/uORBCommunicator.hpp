@@ -129,6 +129,10 @@ public:
 
 	virtual int16_t send_message(const char *messageName, int32_t length, uint8_t *data) = 0;
 
+	virtual void stop_communicator(void) = 0;
+
+	virtual bool communicator_stopped(void) = 0;
+
 };
 
 /**

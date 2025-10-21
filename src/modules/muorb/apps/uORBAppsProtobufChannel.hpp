@@ -158,6 +158,10 @@ public:
 
 	void PrintStatus();
 
+	void stop_communicator(void) {}
+
+	bool communicator_stopped(void) { return false; }
+
 private:
 	/**
 	 * Data Members

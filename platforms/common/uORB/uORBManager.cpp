@@ -576,6 +576,16 @@ int uORB::Manager::node_open(const struct orb_metadata *meta, bool advertiser, i
 	return fd;
 }
 
+void uORB::Manager::stop_communicator(void)
+{
+#ifdef CONFIG_ORB_COMMUNICATOR
+	if (_comm_channel != nullptr) {
+		_comm_channel->stop_communicator();
+	}
+#endif
+}
+
+
 #ifdef CONFIG_ORB_COMMUNICATOR
 void uORB::Manager::set_uorb_communicator(uORBCommunicator::IChannel *channel)
 {

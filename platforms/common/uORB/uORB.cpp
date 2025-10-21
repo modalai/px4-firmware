@@ -194,6 +194,11 @@ int orb_get_interval(int handle, unsigned *interval)
 	return uORB::Manager::get_instance()->orb_get_interval(handle, interval);
 }
 
+void uorb_stop_muorb(void)
+{
+	uORB::Manager::get_instance()->stop_communicator();
+}
+
 const char *orb_get_c_type(unsigned char short_type)
 {
 	// this matches with the uorb o_fields generator
