@@ -175,6 +175,16 @@ public:
 
 	static void keepalive() { _last_keepalive = hrt_absolute_time(); }
 
+	void stop_communicator(void)
+	{
+		_simulate_apps_to_slpi_link_failure = true;
+	}
+
+	bool apps_to_slpi_link_failed(void)
+	{
+		return _simulate_apps_to_slpi_link_failure;
+	}
+
 private:
 	/**
 	 * Data Members
@@ -186,6 +196,7 @@ private:
 	static pthread_mutex_t                      _tx_mutex;
 	static pthread_mutex_t                      _rx_mutex;
 	static bool                                 _debug;
+	static bool                                 _simulate_apps_to_slpi_link_failure;
 
 	/*
 	 * Status

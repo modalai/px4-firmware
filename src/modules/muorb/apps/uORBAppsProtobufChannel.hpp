@@ -169,6 +169,8 @@ public:
 	 */
 	bool Test();
 
+	void stop_communicator(void) {}
+
 private:
 
 	static void keepalive_task();

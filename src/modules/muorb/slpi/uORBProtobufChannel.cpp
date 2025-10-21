@@ -74,6 +74,7 @@ hrt_abstime uORB::ProtobufChannel::_last_status_check_time = 0;
 hrt_abstime uORB::ProtobufChannel::_last_keepalive = 0;
 char uORB::ProtobufChannel::_keepalive_filename[] = "/data/px4/slpi/keepalive_fail";
 
+bool uORB::ProtobufChannel::_simulate_apps_to_slpi_link_failure = false;
 bool _px4_muorb_debug = false;
 static bool px4muorb_orb_initialized = false;
 
@@ -602,6 +603,10 @@ int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 	uORB::ProtobufChannel *channel = uORB::ProtobufChannel::GetInstance();
 
 	if (channel) {
+		if (channel->apps_to_slpi_link_failed()) {
+			return 0;
+		}
+
 		if (strcmp("keepalive", topic_name) == 0) {
 			uORB::ProtobufChannel::keepalive();
 			return 0;
@@ -615,7 +620,6 @@ int px4muorb_send_topic_data(const char *topic_name, const uint8_t *data,
 			return rxHandler->process_received_message(topic_name,
 					data_len_in_bytes,
 					(uint8_t *) data);
-
 		} else {
 			PX4_ERR("Null rx handler in %s", __FUNCTION__);
 		}

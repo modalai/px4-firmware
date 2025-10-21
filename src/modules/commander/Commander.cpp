@@ -588,6 +588,14 @@ int Commander::custom_command(int argc, char *argv[])
 		return (ret ? 0 : 1);
 	}
 
+	if (!strcmp(argv[0], "apps-fail-sim")) {
+
+		// Trigger apps to SLPI link failure simulation.
+		PX4_ERR("Triggering apps to SLPI link failure simulation!");
+		uORB::Manager::get_instance()->stop_communicator();
+
+		return 0;
+	}
 
 #endif
 
