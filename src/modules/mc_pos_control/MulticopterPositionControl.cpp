@@ -41,6 +41,10 @@
 
 using namespace matrix;
 
+bool MulticopterPositionControl::_blind_land = false;
+
+void MulticopterPositionControl::trigger_blind_land(void) { _blind_land = true; };
+
 MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
 	SuperBlock(nullptr, "MPC"),
 	ModuleParams(nullptr),
@@ -425,6 +429,10 @@ void MulticopterPositionControl::Run()
 			}
 		}
 
+		if (_blind_land) {
+			_setpoint = generateFailsafeSetpoint(hrt_absolute_time(), states, false);
+		}
+
 		if (_vehicle_control_mode.flag_multicopter_position_control_enabled
 		    && (_setpoint.timestamp >= _time_position_control_enabled)) {
 
@@ -678,6 +686,15 @@ int MulticopterPositionControl::task_spawn(int argc, char *argv[])
 
 int MulticopterPositionControl::custom_command(int argc, char *argv[])
 {
+	if (!strcmp(argv[0], "trigger-blind-land")) {
+
+		// Trigger apps processor failure simulation
+		PX4_ERR("Triggering blind landing!");
+		trigger_blind_land();
+
+		return 0;
+	}
+
 	return print_usage("unknown command");
 }
 
