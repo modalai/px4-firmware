@@ -104,3 +104,5 @@ mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
 /bin/sleep 1
 
 mavlink boot_complete
+
+vehicle_air_data_bridge start
