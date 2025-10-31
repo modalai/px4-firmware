@@ -214,6 +214,13 @@ void CrsfRc::Run()
 		CrsfPacket_t new_crsf_packet;
 
 		while (CrsfParser_TryParseCrsfPacket(&new_crsf_packet, &_packet_parser_statistics)) {
+			// Publish validated raw CRSF packet
+			crsf_raw_s raw_msg{};
+			raw_msg.timestamp = time_now_us;
+			raw_msg.len = new_crsf_packet.raw_frame_len;
+			memcpy(raw_msg.data, new_crsf_packet.raw_frame, raw_msg.len);
+			_crsf_raw_pub.publish(raw_msg);
+
 			switch (new_crsf_packet.message_type) {
 			case CRSF_MESSAGE_TYPE_RC_CHANNELS:
 				_input_rc.timestamp_last_signal = time_now_us;

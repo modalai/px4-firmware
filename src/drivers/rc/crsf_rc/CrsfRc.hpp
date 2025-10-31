@@ -44,7 +44,9 @@
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>
 #include <uORB/PublicationMulti.hpp>
+#include <uORB/Publication.hpp>
 #include <uORB/topics/input_rc.h>
+#include <uORB/topics/crsf_raw.h>
 
 // telemetry
 #include <uORB/Subscription.hpp>
@@ -75,6 +77,7 @@ private:
 	void Run() override;
 
 	uORB::PublicationMulti<input_rc_s> _input_rc_pub{ORB_ID(input_rc)};
+	uORB::Publication<crsf_raw_s> _crsf_raw_pub{ORB_ID(crsf_raw)};
 
 	input_rc_s _input_rc{};
 
