@@ -107,3 +107,4 @@ mavlink boot_complete
 
 vehicle_air_data_bridge start
 sensor_baro_bridge start
+crsf_bridge start

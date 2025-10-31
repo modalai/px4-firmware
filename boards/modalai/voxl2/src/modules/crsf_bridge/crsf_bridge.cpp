@@ -39,14 +39,14 @@
 #include <px4_platform_common/module.h>
 #include <uORB/uORB.h>
 #include <uORB/SubscriptionCallback.hpp>
-#include <uORB/topics/vehicle_air_data.h>
+#include <uORB/topics/crsf_raw.h>
 
-class VehicleAirDataBridge : public ModuleBase<VehicleAirDataBridge>, public px4::WorkItem
+class CrsfBridge : public ModuleBase<CrsfBridge>, public px4::WorkItem
 {
 public:
 
-	VehicleAirDataBridge();
-	~VehicleAirDataBridge() override = default;
+	CrsfBridge();
+	~CrsfBridge() override = default;
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);
@@ -62,77 +62,77 @@ public:
 private:
 	void Run() override;
 
-	uORB::SubscriptionCallbackWorkItem _vehicle_air_data_sub{this, ORB_ID(vehicle_air_data)};
+	uORB::SubscriptionCallbackWorkItem _crsf_raw_sub{this, ORB_ID(crsf_raw)};
 
-	vehicle_air_data_s _vehicle_air_data{};
+	crsf_raw_s _crsf_raw{};
 
-	int baro_pipe_ch{0};
+	int crsf_pipe_ch{0};
 
 };
 
-VehicleAirDataBridge::VehicleAirDataBridge() :
+CrsfBridge::CrsfBridge() :
 	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers)
 {
 }
 
-bool VehicleAirDataBridge::init()
+bool CrsfBridge::init()
 {
 	if (MPA::Initialize() == -1) {
 		PX4_ERR("MPA init failed");
 		return false;
 	}
 
-	char baro_pipe_name[] = "px4_vehicle_air_data";
-	baro_pipe_ch = MPA::PipeCreate(baro_pipe_name);
-	if (baro_pipe_ch == -1) {
-		PX4_ERR("Pipe create failed for %s", baro_pipe_name);
+	char crsf_pipe_name[] = "crsf_raw";
+	crsf_pipe_ch = MPA::PipeCreate(crsf_pipe_name);
+	if (crsf_pipe_ch == -1) {
+		PX4_ERR("Pipe create failed for %s", crsf_pipe_name);
 		return false;
 	}
 
-	if (!_vehicle_air_data_sub.registerCallback()) {
-		PX4_ERR("callback registration failed");
+	if (!_crsf_raw_sub.registerCallback()) {
+		PX4_ERR("crsf_raw callback registration failed");
 		return false;
 	}
 
 	return true;
 }
 
-void VehicleAirDataBridge::Run()
+void CrsfBridge::Run()
 {
 	if (should_exit()) {
-		_vehicle_air_data_sub.unregisterCallback();
+		_crsf_raw_sub.unregisterCallback();
 		exit_and_cleanup();
 		return;
 	}
 
-	if (_vehicle_air_data_sub.updated()) {
-		if (_vehicle_air_data_sub.update(&_vehicle_air_data)) {
-			baro_data_t baro;
-			memset(&baro, 0, sizeof(baro));
+	if (_crsf_raw_sub.updated()) {
+		if (_crsf_raw_sub.update(&_crsf_raw)) {
+			crsf_raw_data_t crsf;
+			memset(&crsf, 0, sizeof(crsf));
 
-			baro.magic_number = BARO_MAGIC_NUMBER;
-			baro.pressure_pa = _vehicle_air_data.baro_pressure_pa;
-			baro.temp_c = _vehicle_air_data.baro_temp_celcius;
-			baro.alt_amsl_m = _vehicle_air_data.baro_alt_meter;
-			baro.timestamp_ns = _vehicle_air_data.timestamp * 1000; // Convert µs to ns
-			baro.reserved_1 = 0;
-			baro.reserved_2 = 0;
+			crsf.magic_number = CRSF_RAW_MAGIC_NUMBER;
+			crsf.timestamp_ns = _crsf_raw.timestamp * 1000; // Convert µs to ns
+			crsf.len = _crsf_raw.len;
+			memcpy(crsf.data, _crsf_raw.data, sizeof(crsf.data));
+			crsf.reserved_1 = 0;
+			crsf.reserved_2 = 0;
+			crsf.reserved_3 = 0;
 
-			if (MPA::PipeWrite(baro_pipe_ch, (void*)&baro, sizeof(baro_data_t)) == -1) {
-				PX4_ERR("Pipe %d write failed!", baro_pipe_ch);
+			if (MPA::PipeWrite(crsf_pipe_ch, (void*)&crsf, sizeof(crsf_raw_data_t)) == -1) {
+				PX4_ERR("Pipe %d write failed!", crsf_pipe_ch);
 			}
 		}
 	}
 }
 
-int VehicleAirDataBridge::custom_command(int argc, char *argv[])
+int CrsfBridge::custom_command(int argc, char *argv[])
 {
 	return print_usage("unknown command");
 }
 
-int VehicleAirDataBridge::task_spawn(int argc, char *argv[])
+int CrsfBridge::task_spawn(int argc, char *argv[])
 {
-	VehicleAirDataBridge *instance = new VehicleAirDataBridge();
+	CrsfBridge *instance = new CrsfBridge();
 
 	if (instance) {
 		_object.store(instance);
@@ -153,7 +153,7 @@ int VehicleAirDataBridge::task_spawn(int argc, char *argv[])
 	return PX4_ERROR;
 }
 
-int VehicleAirDataBridge::print_usage(const char *reason)
+int CrsfBridge::print_usage(const char *reason)
 {
 	if (reason) {
 		PX4_WARN("%s\n", reason);
@@ -162,18 +162,18 @@ int VehicleAirDataBridge::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-Vehicle air data bridge
+CRSF raw data bridge - forwards raw CRSF frames from uORB to MPA pipe
 
 )DESCR_STR");
 
-	PRINT_MODULE_USAGE_NAME("vehicle_air_data_bridge", "system");
+	PRINT_MODULE_USAGE_NAME("crsf_bridge", "system");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
 }
 
-extern "C" __EXPORT int vehicle_air_data_bridge_main(int argc, char *argv[])
+extern "C" __EXPORT int crsf_bridge_main(int argc, char *argv[])
 {
-	return VehicleAirDataBridge::main(argc, argv);
+	return CrsfBridge::main(argc, argv);
 }
