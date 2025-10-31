@@ -40,6 +40,7 @@
 #include <uORB/uORB.h>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/vehicle_air_data.h>
+#include <uORB/topics/crsf_raw.h>
 
 class VehicleAirDataBridge : public ModuleBase<VehicleAirDataBridge>, public px4::WorkItem
 {
@@ -57,16 +58,22 @@ public:
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
+	/** @see ModuleBase */
+	int print_status() override;
+
 	bool init();
 
 private:
 	void Run() override;
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_air_data_sub{this, ORB_ID(vehicle_air_data)};
+	uORB::SubscriptionCallbackWorkItem _crsf_raw_sub{this, ORB_ID(crsf_raw)};
 
 	vehicle_air_data_s _vehicle_air_data{};
+	crsf_raw_s _crsf_raw{};
 
 	int baro_pipe_ch{0};
+	int crsf_pipe_ch{0};
 
 };
 
@@ -89,8 +96,20 @@ bool VehicleAirDataBridge::init()
 		return false;
 	}
 
+	char crsf_pipe_name[] = "crsf_raw";
+	crsf_pipe_ch = MPA::PipeCreate(crsf_pipe_name);
+	if (crsf_pipe_ch == -1) {
+		PX4_ERR("Pipe create failed for %s", crsf_pipe_name);
+		return false;
+	}
+
 	if (!_vehicle_air_data_sub.registerCallback()) {
-		PX4_ERR("callback registration failed");
+		PX4_ERR("vehicle_air_data callback registration failed");
+		return false;
+	}
+
+	if (!_crsf_raw_sub.registerCallback()) {
+		PX4_ERR("crsf_raw callback registration failed");
 		return false;
 	}
 
@@ -101,6 +120,7 @@ void VehicleAirDataBridge::Run()
 {
 	if (should_exit()) {
 		_vehicle_air_data_sub.unregisterCallback();
+		_crsf_raw_sub.unregisterCallback();
 		exit_and_cleanup();
 		return;
 	}
@@ -123,6 +143,33 @@ void VehicleAirDataBridge::Run()
 			}
 		}
 	}
+
+	if (_crsf_raw_sub.updated()) {
+		if (_crsf_raw_sub.update(&_crsf_raw)) {
+			crsf_raw_data_t crsf;
+			memset(&crsf, 0, sizeof(crsf));
+
+			crsf.magic_number = CRSF_RAW_MAGIC_NUMBER;
+			crsf.timestamp_ns = _crsf_raw.timestamp * 1000; // Convert µs to ns
+			crsf.len = _crsf_raw.len;
+			memcpy(crsf.data, _crsf_raw.data, sizeof(crsf.data));
+			crsf.reserved_1 = 0;
+			crsf.reserved_2 = 0;
+			crsf.reserved_3 = 0;
+
+			if (MPA::PipeWrite(crsf_pipe_ch, (void*)&crsf, sizeof(crsf_raw_data_t)) == -1) {
+				PX4_ERR("Pipe %d write failed!", crsf_pipe_ch);
+			}
+		}
+	}
+}
+
+int VehicleAirDataBridge::print_status()
+{
+	PX4_INFO("Subscribed topics:");
+	PX4_INFO("  - vehicle_air_data -> barometer MPA pipe");
+	PX4_INFO("  - crsf_raw -> crsf_raw MPA pipe");
+	return 0;
 }
 
 int VehicleAirDataBridge::custom_command(int argc, char *argv[])
