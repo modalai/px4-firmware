@@ -64,10 +64,13 @@ private:
 
 	static void control_callback(int ch, char* data, int bytes, void* context);
 
-	uORB::SubscriptionCallbackWorkItem _crsf_raw_sub{this, ORB_ID(crsf_raw)};
+	// Subscribe to RX topic (from serial) to forward to MPA
+	uORB::SubscriptionCallbackWorkItem _crsf_raw_rx_sub{this, ORB_ID(crsf_raw_rx)};
 
-	crsf_raw_s _crsf_raw{};
-	orb_advert_t _crsf_raw_pub{nullptr};
+	crsf_raw_s _crsf_raw_rx{};
+
+	// Publish to TX topic (to serial) from MPA control pipe
+	orb_advert_t _crsf_raw_tx_pub{nullptr};
 
 	int crsf_pipe_ch{0};
 
@@ -96,8 +99,8 @@ bool CrsfBridge::init()
 		return false;
 	}
 
-	if (!_crsf_raw_sub.registerCallback()) {
-		PX4_ERR("crsf_raw callback registration failed");
+	if (!_crsf_raw_rx_sub.registerCallback()) {
+		PX4_ERR("crsf_raw_rx callback registration failed");
 		return false;
 	}
 
@@ -107,20 +110,20 @@ bool CrsfBridge::init()
 void CrsfBridge::Run()
 {
 	if (should_exit()) {
-		_crsf_raw_sub.unregisterCallback();
+		_crsf_raw_rx_sub.unregisterCallback();
 		exit_and_cleanup();
 		return;
 	}
 
-	if (_crsf_raw_sub.updated()) {
-		if (_crsf_raw_sub.update(&_crsf_raw)) {
+	if (_crsf_raw_rx_sub.updated()) {
+		if (_crsf_raw_rx_sub.update(&_crsf_raw_rx)) {
 			crsf_raw_data_t crsf;
 			memset(&crsf, 0, sizeof(crsf));
 
 			crsf.magic_number = CRSF_RAW_MAGIC_NUMBER;
-			crsf.timestamp_ns = _crsf_raw.timestamp * 1000; // Convert µs to ns
-			crsf.len = _crsf_raw.len;
-			memcpy(crsf.data, _crsf_raw.data, sizeof(crsf.data));
+			crsf.timestamp_ns = _crsf_raw_rx.timestamp * 1000; // Convert µs to ns
+			crsf.len = _crsf_raw_rx.len;
+			memcpy(crsf.data, _crsf_raw_rx.data, sizeof(crsf.data));
 			crsf.reserved_1 = 0;
 			crsf.reserved_2 = 0;
 			crsf.reserved_3 = 0;
@@ -138,17 +141,17 @@ void CrsfBridge::control_callback(int ch, char* data, int bytes, void* context)
 	CrsfBridge* bridge = static_cast<CrsfBridge*>(context);
 	crsf_raw_data_t* crsf_data = reinterpret_cast<crsf_raw_data_t*>(data);
 
-	// Convert from MPA format to uORB format
+	// Convert from MPA format to uORB format and publish to TX topic (to serial)
 	crsf_raw_s msg{};
 	msg.timestamp = crsf_data->timestamp_ns / 1000; // Convert ns to µs
 	msg.len = crsf_data->len;
 	memcpy(msg.data, crsf_data->data, sizeof(msg.data));
 
-	// Advertise and publish to uORB
-	if (bridge->_crsf_raw_pub == nullptr) {
-		bridge->_crsf_raw_pub = orb_advertise(ORB_ID(crsf_raw), &msg);
+	// Advertise and publish to crsf_raw_tx (CrsfRc will read and send to serial)
+	if (bridge->_crsf_raw_tx_pub == nullptr) {
+		bridge->_crsf_raw_tx_pub = orb_advertise(ORB_ID(crsf_raw_tx), &msg);
 	} else {
-		orb_publish(ORB_ID(crsf_raw), bridge->_crsf_raw_pub, &msg);
+		orb_publish(ORB_ID(crsf_raw_tx), bridge->_crsf_raw_tx_pub, &msg);
 	}
 }
 
