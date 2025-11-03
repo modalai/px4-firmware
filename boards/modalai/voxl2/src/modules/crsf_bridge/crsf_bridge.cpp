@@ -62,9 +62,12 @@ public:
 private:
 	void Run() override;
 
+	static void control_callback(int ch, char* data, int bytes, void* context);
+
 	uORB::SubscriptionCallbackWorkItem _crsf_raw_sub{this, ORB_ID(crsf_raw)};
 
 	crsf_raw_s _crsf_raw{};
+	orb_advert_t _crsf_raw_pub{nullptr};
 
 	int crsf_pipe_ch{0};
 
@@ -82,8 +85,12 @@ bool CrsfBridge::init()
 		return false;
 	}
 
+	// Set control callback to receive CRSF data from external clients
+	MPA::PipeServerSetControlCb(0, &CrsfBridge::control_callback, this);
+
+	// Create pipe with control pipe enabled so clients can send data back
 	char crsf_pipe_name[] = "crsf_raw";
-	crsf_pipe_ch = MPA::PipeCreate(crsf_pipe_name);
+	crsf_pipe_ch = MPA::PipeCreate(crsf_pipe_name, SERVER_FLAG_EN_CONTROL_PIPE);
 	if (crsf_pipe_ch == -1) {
 		PX4_ERR("Pipe create failed for %s", crsf_pipe_name);
 		return false;
@@ -122,6 +129,26 @@ void CrsfBridge::Run()
 				PX4_ERR("Pipe %d write failed!", crsf_pipe_ch);
 			}
 		}
+	}
+}
+
+void CrsfBridge::control_callback(int ch, char* data, int bytes, void* context)
+{
+	// context is the 'this' pointer we passed during callback registration
+	CrsfBridge* bridge = static_cast<CrsfBridge*>(context);
+	crsf_raw_data_t* crsf_data = reinterpret_cast<crsf_raw_data_t*>(data);
+
+	// Convert from MPA format to uORB format
+	crsf_raw_s msg{};
+	msg.timestamp = crsf_data->timestamp_ns / 1000; // Convert ns to µs
+	msg.len = crsf_data->len;
+	memcpy(msg.data, crsf_data->data, sizeof(msg.data));
+
+	// Advertise and publish to uORB
+	if (bridge->_crsf_raw_pub == nullptr) {
+		bridge->_crsf_raw_pub = orb_advertise(ORB_ID(crsf_raw), &msg);
+	} else {
+		orb_publish(ORB_ID(crsf_raw), bridge->_crsf_raw_pub, &msg);
 	}
 }
 
