@@ -95,7 +95,7 @@ private:
 	};
 
 	// ensure no struct padding
-	static_assert(sizeof(FIFOReadBuffer) == (2 + FIFO_MAX_SAMPLES *sizeof(FIFO::Data)));
+	static_assert(sizeof(FIFOReadBuffer) == (2 + FIFO_MAX_SAMPLES *sizeof(FIFO::Data)), "FIFOReadBuffer incorrect size");
 
 	struct register_config_t {
 		Register reg;
