@@ -135,9 +135,9 @@ void MulticopterHoverThrustEstimator::Run()
 	}
 
 	// new local position setpoint needed every iteration
-	if (!_vehicle_local_position_setpoint_sub.updated()) {
-		return;
-	}
+	// if (!_vehicle_local_position_setpoint_sub.updated()) {
+	// 	return;
+	// }
 
 	// check for parameter updates
 	if (_parameter_update_sub.updated()) {
@@ -161,6 +161,10 @@ void MulticopterHoverThrustEstimator::Run()
 
 	const float dt = (local_pos.timestamp - _timestamp_last) * 1e-6f;
 	_timestamp_last = local_pos.timestamp;
+
+	if (dt <= 0.001f) {
+		PX4_ERR("DT: %f", (double) dt);
+	}
 
 	if (_armed && _in_air && (dt > 0.001f) && (dt < 1.f) && PX4_ISFINITE(local_pos.az)) {
 
