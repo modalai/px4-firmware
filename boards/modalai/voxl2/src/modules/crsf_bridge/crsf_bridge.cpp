@@ -88,9 +88,6 @@ bool CrsfBridge::init()
 		return false;
 	}
 
-	// Set control callback to receive CRSF data from external clients
-	MPA::PipeServerSetControlCb(0, &CrsfBridge::control_callback, this);
-
 	// Create pipe with control pipe enabled so clients can send data back
 	char crsf_pipe_name[] = "crsf_raw";
 	crsf_pipe_ch = MPA::PipeCreate(crsf_pipe_name, SERVER_FLAG_EN_CONTROL_PIPE);
@@ -98,6 +95,12 @@ bool CrsfBridge::init()
 		PX4_ERR("Pipe create failed for %s", crsf_pipe_name);
 		return false;
 	}
+
+	PX4_INFO("Created pipe '%s' on channel %d with control pipe enabled", crsf_pipe_name, crsf_pipe_ch);
+
+	// Set control callback to receive CRSF data from external clients
+	// MUST be set AFTER pipe creation and on the correct channel
+	MPA::PipeServerSetControlCb(crsf_pipe_ch, &CrsfBridge::control_callback, this);
 
 	if (!_crsf_raw_rx_sub.registerCallback()) {
 		PX4_ERR("crsf_raw_rx callback registration failed");
@@ -137,13 +140,30 @@ void CrsfBridge::Run()
 
 void CrsfBridge::control_callback(int ch, char* data, int bytes, void* context)
 {
+	// PX4_INFO("CRSF control callback triggered: ch=%d, bytes=%d", ch, bytes);
+
 	// context is the 'this' pointer we passed during callback registration
 	CrsfBridge* bridge = static_cast<CrsfBridge*>(context);
+
+	if (bytes != sizeof(crsf_raw_data_t)) {
+		PX4_WARN("Invalid control data size: %d bytes (expected %zu)", bytes, sizeof(crsf_raw_data_t));
+		return;
+	}
+
 	crsf_raw_data_t* crsf_data = reinterpret_cast<crsf_raw_data_t*>(data);
+
+	// Verify magic number
+	if (crsf_data->magic_number != CRSF_RAW_MAGIC_NUMBER) {
+		PX4_WARN("Invalid magic number: 0x%08x (expected 0x%08x)",
+		         crsf_data->magic_number, CRSF_RAW_MAGIC_NUMBER);
+		return;
+	}
+
+	// PX4_INFO("Publishing to crsf_raw_tx: len=%u", crsf_data->len);
 
 	// Convert from MPA format to uORB format and publish to TX topic (to serial)
 	crsf_raw_s msg{};
-	msg.timestamp = crsf_data->timestamp_ns / 1000; // Convert ns to µs
+	msg.timestamp = hrt_absolute_time(); // Use PX4's monotonic time
 	msg.len = crsf_data->len;
 	memcpy(msg.data, crsf_data->data, sizeof(msg.data));
 
