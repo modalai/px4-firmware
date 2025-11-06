@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2022 ModalAI, Inc. All rights reserved.
+#   Copyright (c) 2022 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,26 +31,18 @@
 #
 ############################################################################
 
-# Need to make sure that the DSP processor on VOXL2
-# knows about all parameters since some modules need parameters
-# from other modules that are not running on the DSP.
-set(DISABLE_PARAMS_MODULE_SCOPING TRUE PARENT_SCOPE)
-
-add_library(drivers_board
-	board_config.h
-	i2c.cpp
-	init.c
-	spi.cpp
-    )
-
-# Add custom drivers for SLPI
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/icm42688p)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/bmi270)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/rc_controller)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/mavlink_rc_in)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/spektrum_rc)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/ghst_rc)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/dsp_hitl)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/dsp_sbus)
-add_subdirectory(${PX4_BOARD_DIR}/src/drivers/elrs_led)
-add_subdirectory(${PX4_BOARD_DIR}/../src/drivers/msp_dp_osd ${PX4_BOARD_DIR}/src/drivers/msp_dp_osd)
+px4_add_module(
+	MODULE drivers__imu__bosch__voxl_bmi270
+	MAIN voxl_bmi270
+	COMPILE_FLAGS
+		#-DDEBUG_BUILD
+	SRCS
+		voxl_bmi270_main.cpp
+		VOXL_BMI270.cpp
+		VOXL_BMI270.hpp
+		Bosch_BMI270_registers.hpp
+	DEPENDS
+		drivers_accelerometer
+		drivers_gyroscope
+		px4_work_queue
+	)
