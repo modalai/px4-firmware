@@ -277,6 +277,9 @@ if __name__ == '__main__':
                         #enable_reference = True
 
             data   = data[:,0:ndata]
+            if ndata == 0 or np.allclose(data[2:4, :], 0):      # add a simple check that will exit if the data is all 0s 
+                print("ERROR: captured baro pressure/temperature data is empty or all zeros, aborting calibration.")
+                sys.exit(1)
 
             ts_plot  = data[1,:]
             t_off    = ts_plot[0]
