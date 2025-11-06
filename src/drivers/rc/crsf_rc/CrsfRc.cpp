@@ -388,9 +388,6 @@ void CrsfRc::Run()
 		}
 	}
 
-}
-}
-
 	// Check for pwm output command updates
 	manual_control_setpoint_s manual_control_input{};
 	if (_manual_control_input_sub.update(&manual_control_input)) {
@@ -410,33 +407,6 @@ void CrsfRc::Run()
 		}
 	}
 
-	// Send pwm commands every 100ms
-	if (hrt_elapsed_time(&_last_pwm_cmd_sent) > 100_ms) {
-		_last_pwm_cmd_sent = hrt_absolute_time();
-		const int cmd_len = 10;
-		uint8_t buf[cmd_len * MAX_PWM_MAPPINGS];
-		int offset = 0;
-		// Put all pwm commands into a single UART transmission
-		for (int i = 0; i < MAX_PWM_MAPPINGS; i++) {
-			if (_pwm_out[i].enabled) {
-				int start_offset = offset;
-				write_uint8_t(buf, offset, 0xEC);
-				write_uint8_t(buf, offset, 0x08);
-				write_uint8_t(buf, offset, 0x32);
-				write_uint8_t(buf, offset, 0xEC);
-				write_uint8_t(buf, offset, 0xC8);
-				write_uint8_t(buf, offset, 0xF4);
-				write_uint8_t(buf, offset, _pwm_out[i].channel);
-				write_uint16_t(buf, offset, _pwm_out[i].value);
-				int tmp_offset = offset - start_offset;
-				WriteFrameCrc(&buf[start_offset], tmp_offset, cmd_len);
-				offset += 1;
-			}
-		}
-
-		if (offset) qurt_uart_write(_rc_fd, (char *) &buf[0], offset);
-	}
-
 	// Check for TX data to send out serial (from external sources like crsf_bridge)
 	crsf_raw_s tx_msg;
 	if (_crsf_raw_tx_sub.update(&tx_msg)) {
@@ -448,11 +418,7 @@ void CrsfRc::Run()
 			}
 		}
 	}
-			}
-		}
-	}
 
-<<<<<<< HEAD
 	// Send pwm commands every 100ms
 	if (hrt_elapsed_time(&_last_pwm_cmd_sent) > 100_ms) {
 		_last_pwm_cmd_sent = hrt_absolute_time();
@@ -480,8 +446,6 @@ void CrsfRc::Run()
 		if (offset) qurt_uart_write(_rc_fd, (char *) &buf[0], offset);
 	}
 
-=======
->>>>>>> 84114da882 (split crsf_raw into crsf_raw_tx and crsf_raw_rx. tx to uart and rx to pipe)
 	// If no communication
 	if (time_now_us - _last_packet_seen > 100_ms) {
 		// Invalidate link statistics
