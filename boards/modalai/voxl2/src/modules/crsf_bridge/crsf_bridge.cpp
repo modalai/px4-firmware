@@ -129,7 +129,6 @@ void CrsfBridge::Run()
 			memcpy(crsf.data, _crsf_raw_rx.data, sizeof(crsf.data));
 			crsf.reserved_1 = 0;
 			crsf.reserved_2 = 0;
-			crsf.reserved_3 = 0;
 
 			if (MPA::PipeWrite(crsf_pipe_ch, (void*)&crsf, sizeof(crsf_raw_data_t)) == -1) {
 				PX4_ERR("Pipe %d write failed!", crsf_pipe_ch);
