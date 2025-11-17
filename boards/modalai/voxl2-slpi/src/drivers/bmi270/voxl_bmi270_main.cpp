@@ -51,7 +51,7 @@ extern "C" int voxl_bmi270_main(int argc, char *argv[])
 	int ch;
 	using ThisDriver = VOXL_BMI270;
 	BusCLIArguments cli{false, true};
-	cli.default_spi_frequency = SPI_SPEED;
+	cli.default_spi_frequency = SPI_SPEED;        
 
 	while ((ch = cli.getOpt(argc, argv, "R:")) != EOF) {
 		switch (ch) {

@@ -55,7 +55,7 @@
  * SPI buses
  */
 #define CONFIG_SPI 1
-#define BOARD_SPI_BUS_MAX_BUS_ITEMS 1
+#define BOARD_SPI_BUS_MAX_BUS_ITEMS 2
 
 #include <system_config.h>
 #include <px4_platform_common/board_common.h>

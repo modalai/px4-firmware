@@ -70,10 +70,10 @@ param load
 # IMU (accelerometer / gyroscope)
 if [ "$PLATFORM" == "M0104" ]; then
     /bin/echo "Starting IMU driver with rotation 12"
-    qshell icm42688p start -s -R 12
+    qshell voxl_bmi270 start -s -R 12
 else
     /bin/echo "Starting IMU driver with no rotation"
-    qshell icm42688p start -s
+    qshell voxl_bmi270 start -s 
 fi
 
 # First look for any external barometers connected to the apps proc
@@ -263,7 +263,7 @@ mavlink boot_complete
 if [ "$OSD" == "ENABLE" ] || [ "$OSD" == "DJI" ]; then
     /bin/echo "Starting DJI OSD driver"
     msp_osd start -d /dev/ttyHS1
-elif [ "$PLATFORM" == "M0054" ] && [ "$OSD" == "HDZERO" ] || [ "$OSD" == "DJI_MSP_DP" ]; then 
+elif [ "$PLATFORM" == "M0054" ] && [ "$OSD" == "HDZERO" ] || [ "$OSD" == "DJI_MSP_DP" ]; then
     /bin/echo "Starting $OSD OSD driver for $PLATFORM"
     msp_dp_osd start -d /dev/ttyHS1
 elif [ "$PLATFORM" == "M0104" ] && [ "$OSD" == "HDZERO" ] || [ "$OSD" == "DJI_MSP_DP" ] ; then

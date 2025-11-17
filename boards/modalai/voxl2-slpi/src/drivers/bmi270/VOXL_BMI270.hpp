@@ -131,6 +131,9 @@ private:
 	bool DataReadyInterruptDisable();
 
 	bool RegisterCheck(const register_config_t &reg_cfg);
+	
+	
+	bool LoadFeatureConfigAndVerify(); 
 
 	uint8_t RegisterRead(Register reg);
 	void RegisterWrite(Register reg, uint8_t value);

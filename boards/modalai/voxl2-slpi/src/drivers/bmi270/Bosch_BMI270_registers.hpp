@@ -55,7 +55,8 @@ static constexpr uint8_t Bit7 = (1 << 7);
 
 namespace Bosch_BMI270
 {
-static constexpr uint32_t SPI_SPEED = 10 * 1000 * 1000; // 10MHz SPI serial interface
+static constexpr uint32_t SPI_SPEED = 24 * 1000 * 1000; // 24 MHz SPI
+
 static constexpr uint8_t DIR_READ = 0x80;
 
 static constexpr uint8_t chip_id = 0x24;
@@ -87,9 +88,15 @@ enum class Register : uint8_t {
 
 	// controls interrupt pin behaviour
 	INT1_IO_CTRL       = 0x53,
+	INTERNAL_ERR    = 0x2A,   
+	ERR_REG_MSK     = 0x02,   
+	IF_CONF         = 0x6B,  
 
 	INT_MAP_DATA       = 0x58,
-	CONFIG1            = 0x59,
+	INIT_CTRL            = 0x59,
+	INIT_ADDR_0		   = 0x5B,
+	INIT_ADDR_1		   = 0x5C,
+	INIT_DATA 		   = 0x5E,
 
 	CONFIG2            = 0x5E,
 	PWR_CONF           = 0x7C,

@@ -51,7 +51,7 @@
  * SPI buses
  */
 #define CONFIG_SPI 1
-#define BOARD_SPI_BUS_MAX_BUS_ITEMS 1
+#define BOARD_SPI_BUS_MAX_BUS_ITEMS 2
 
 /*
  * Include these last to make use of the definitions above

@@ -35,12 +35,14 @@ px4_add_module(
 	MODULE drivers__imu__bosch__voxl_bmi270
 	MAIN voxl_bmi270
 	COMPILE_FLAGS
-		#-DDEBUG_BUILD
+		-DDEBUG_BUILD
 	SRCS
 		voxl_bmi270_main.cpp
 		VOXL_BMI270.cpp
 		VOXL_BMI270.hpp
 		Bosch_BMI270_registers.hpp
+		bmi270_config.cpp
+		bmi270_config.hpp
 	DEPENDS
 		drivers_accelerometer
 		drivers_gyroscope
