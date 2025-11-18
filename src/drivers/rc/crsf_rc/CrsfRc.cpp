@@ -65,6 +65,7 @@ CrsfRc::~CrsfRc()
 {
 	perf_free(_cycle_interval_perf);
 	perf_free(_publish_interval_perf);
+	perf_free(_elapsed_perf);
 }
 
 int CrsfRc::task_spawn(int argc, char *argv[])
@@ -124,6 +125,8 @@ int CrsfRc::task_spawn(int argc, char *argv[])
 
 void CrsfRc::Run()
 {
+	perf_begin(_elapsed_perf);
+
 	if (should_exit()) {
 		ScheduleClear();
 		// ::close(_rc_fd);
@@ -199,6 +202,16 @@ void CrsfRc::Run()
 
 	const hrt_abstime time_now_us = hrt_absolute_time();
 	perf_count_interval(_cycle_interval_perf, time_now_us);
+
+	// Check for TX data to send out serial FIRST (from external sources like crsf_bridge)
+	// This ensures commands get priority over incoming RC data
+	crsf_raw_s tx_msg;
+	if (_crsf_raw_tx_sub.update(&tx_msg)) {
+		// Write raw CRSF frame to serial port
+		if (_rc_fd >= 0 && tx_msg.len > 0 && tx_msg.len <= sizeof(tx_msg.data)) {
+			qurt_uart_write(_rc_fd, (const char*)tx_msg.data, tx_msg.len);
+		}
+	}
 
 	// Read all available data from the serial RC input UART
 	// int new_bytes = ::read(_rc_fd, &_rcs_buf[0], RC_MAX_BUFFER_SIZE);
@@ -358,18 +371,6 @@ void CrsfRc::Run()
 		}
 	}
 
-	// Check for TX data to send out serial (from external sources like crsf_bridge)
-	crsf_raw_s tx_msg;
-	if (_crsf_raw_tx_sub.update(&tx_msg)) {
-		// Write raw CRSF frame to serial port
-		if (_rc_fd >= 0 && tx_msg.len > 0 && tx_msg.len <= sizeof(tx_msg.data)) {
-			int bytes_written = qurt_uart_write(_rc_fd, (const char*)tx_msg.data, tx_msg.len);
-			if (bytes_written != (int)tx_msg.len) {
-				PX4_WARN("CRSF TX write failed: wrote %d of %d bytes", bytes_written, tx_msg.len);
-			}
-		}
-	}
-
 	// If no communication
 	if (time_now_us - _last_packet_seen > 100_ms) {
 		// Invalidate link statistics
@@ -396,6 +397,7 @@ void CrsfRc::Run()
 
 	perf_count(_publish_interval_perf);
 
+	perf_end(_elapsed_perf);
 	ScheduleDelayed(4_ms);
 }
 
@@ -538,6 +540,7 @@ int CrsfRc::print_status()
 
 	perf_print_counter(_cycle_interval_perf);
 	perf_print_counter(_publish_interval_perf);
+	perf_print_counter(_elapsed_perf);
 
 	PX4_INFO("Disposed bytes: %li",  _packet_parser_statistics.disposed_bytes);
 	PX4_INFO("Valid known packet CRCs: %li",  _packet_parser_statistics.crcs_valid_known_packets);
