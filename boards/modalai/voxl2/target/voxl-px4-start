@@ -73,7 +73,7 @@ if [ "$PLATFORM" == "M0104" ]; then
     qshell voxl_bmi270 start -s -R 12
 else
     /bin/echo "Starting IMU driver with no rotation"
-    qshell voxl_bmi270 start -s 
+	qshell voxl_bmi270 start -s 
 fi
 
 # First look for any external barometers connected to the apps proc

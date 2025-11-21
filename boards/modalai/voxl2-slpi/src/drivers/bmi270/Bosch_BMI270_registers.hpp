@@ -55,7 +55,7 @@ static constexpr uint8_t Bit7 = (1 << 7);
 
 namespace Bosch_BMI270
 {
-static constexpr uint32_t SPI_SPEED = 24 * 1000 * 1000; // 24 MHz SPI
+static constexpr uint32_t SPI_SPEED = 10 * 1000 * 1000; // 24 MHz SPI
 
 static constexpr uint8_t DIR_READ = 0x80;
 
@@ -79,6 +79,7 @@ enum class Register : uint8_t {
 	ACC_CONF           = 0x40,
 	ACC_RANGE          = 0x41,
 	GYR_CONF           = 0x42,
+	GYR_RANGE		   = 0x43,
 
 	FIFO_DOWNS         = 0x45,
 	FIFO_WTM_0         = 0x46,
@@ -93,7 +94,7 @@ enum class Register : uint8_t {
 	IF_CONF         = 0x6B,  
 
 	INT_MAP_DATA       = 0x58,
-	INIT_CTRL            = 0x59,
+	INIT_CTRL          = 0x59,
 	INIT_ADDR_0		   = 0x5B,
 	INIT_ADDR_1		   = 0x5C,
 	INIT_DATA 		   = 0x5E,
@@ -111,8 +112,10 @@ enum GYR_CONF_BIT : uint8_t {
 	// 1.6 or 3.2kHz sample rate
 	gyr_odr_1k6 = Bit3 | Bit2,
 	gyr_odr_3k2 = Bit3 | Bit2 | Bit0,
+	gyr_odr_800  = Bit3 | Bit1 | Bit0, // ODR 800Hz
 	// set LPF to normal mode
 	gyr_flt_mode_normal = Bit5,
+	gyr_bwp_OSR4 = Bit7,
 	// set noise profile to high performance mode
 	gyr_noise_hp = Bit6,
 	// set filter profile to high performance mode
@@ -129,9 +132,11 @@ enum PWR_CTRL_BIT : uint8_t {
 enum ACC_CONF_BIT : uint8_t {
 	// [7:4] acc_bwp
 	acc_bwp_Normal = Bit7 | Bit5,        // Filter setting normal
+	acc_bwp_OSR4 = Bit7,  
 
 	// [3:0] acc_odr
 	acc_odr_1600   = Bit3 | Bit2,        // ODR 1600 Hz
+	acc_odr_800    = Bit3 | Bit1 | Bit0, // ODR 800 Hz
 };
 
 // ACC_RANGE
@@ -140,6 +145,13 @@ enum ACC_RANGE_BIT : uint8_t {
 	acc_range_4g  = Bit0,        // ±4g
 	acc_range_8g = Bit1,        // ±8g
 	acc_range_16g = Bit1 | Bit0, // ±16g
+};
+enum GYR_RANGE_BIT : uint8_t {
+	gyr_range_2000_dps = 0x00, // ±2000 dps
+	gyr_range_1000_dps = 0x01, // ±1000 dps
+	gyr_range_500_dps  = 0x02, // ±500 dps
+	gyr_range_250_dps  = 0x03, // ±250 dps
+	gyr_range_125_dps  = 0x04, // ±125 dps
 };
 
 // FIFO_CONFIG_0
@@ -153,6 +165,9 @@ enum FIFO_CONFIG_1_BIT : uint8_t {
 	Acc_en      = Bit6,
 	Gyr_en      = Bit7,
 	BIT4_ALWAYS = Bit4, // This bit must always be ‘1’.
+};
+enum FIFO_DOWNS_BIT : uint8_t {
+	fifo_no_downsampling = 0x00, // filtered data, no downsampling
 };
 
 // INT1_IO_CONF

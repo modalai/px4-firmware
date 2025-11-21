@@ -264,21 +264,21 @@ void VOXL_BMI270::RunImpl()
 		
 		if ((RegisterRead(Register::CHIP_ID) == chip_id)) {
 			PX4_DEBUG("Read from CHIP_ID register and the IDs match, trying again");
-			if ((RegisterRead(Register::CHIP_ID) == chip_id)) {
-				PX4_DEBUG("chip Id read correctly again");
-			}
-			else {
-				PX4_DEBUG("SECOND CHIP ID READ FAILED"); 
-			}
 			// 1. Disable PWR_CONF.adv_power_save and wait for 450u
-			PX4_DEBUG("TEST: NOT skipping PWR_CONF write before MICROCODE_LOAD");
+			PX4_DEBUG("Disabling Advanced Power Save mode");
+
 
 			uint8_t pwr = RegisterRead(Register::PWR_CONF);
 			PX4_DEBUG("PWR_CONF before: 0x%02hhX", pwr);
 
-			//PX4_DEBUG("TEST FOR BREAKING : write IF_CONF=0x00 (4-wire SPI)");
-			//RegisterWrite(Register::PWR_CONF, 0x00);
-			//RegisterWrite(Register::IF_CONF, 0x00);
+			RegisterWrite(Register::PWR_CONF, 0x00);
+			px4_usleep(1000); 
+			uint8_t pwr_after = RegisterRead(Register::PWR_CONF);
+			PX4_DEBUG("PWR_CONF AFTER: 0x%02hhX", pwr_after);
+
+
+			uint8_t chip_i = RegisterRead(Register::CHIP_ID); 
+			PX4_DEBUG("CHIP_ID AFTER: 0x%02hhX", chip_i ); 
 			_state = STATE::MICROCODE_LOAD;
 			ScheduleDelayed(450_us);
 
@@ -299,56 +299,7 @@ void VOXL_BMI270::RunImpl()
 
 		
 	case STATE::MICROCODE_LOAD:
-		PX4_DEBUG("STATE: MICROCODE_LOAD (test stub, no config load)");
-		if (RegisterRead(Register::CHIP_ID) == chip_id){
-			PX4_DEBUG("CHIP ID READ IN MICROLOAD");
-		}
-		else {
-			PX4_DEBUG("CHIP ID NOT ABLE TO READ IN MICROLOAD"); 
-		}
-		/*
-		for (int i = 0; i < 10; ++i) {
-			px4_usleep(1000);
-			uint8_t cid = RegisterRead(Register::CHIP_ID);
-			uint8_t err = RegisterRead(Register::ERR_REG);
-			PX4_DEBUG("MICROCODE_LOAD test: CHIP_ID=0x%02hhX ERR_REG=0x%02hhX (i=%d)",
-					cid, err, i);
-		}
-
-		_state = STATE::RESET;
-		ScheduleDelayed(10_ms);
-		break;
-
-		
-		{
-
-			// 2. Write 0x00 to INIT_CTRL
-
-			RegisterWrite(Register::INIT_CTRL, 0x00);
-			// give it the maximum FIFO config file
-			PX4_DEBUG("attempting to upload initialization file onto VOXL_BMI270");
-
-			//  3. Burst write initialization file to INIT_DATA
-
-			int res = transfer(bmi270_config_file, nullptr, bmi270_config_file_len);
-
-			if (res == PX4_OK) {
-				RegisterWrite(Register::INIT_CTRL, 1);
-				PX4_DEBUG("Successfully uploaded initialization file onto VOXL_BMI270");
-				PX4_DEBUG("Preparing to read INTERNAL_STATUS register");
-				_state = STATE::CONFIGURE;
-				ScheduleDelayed(150_ms);
-
-
-			} else {
-				PX4_DEBUG("Failed to upload initialization file onto VOXL_BMI270, resetting");
-				_state = STATE::RESET;
-				ScheduleDelayed(10_ms);
-			}
-
-			break;
-		}
-		*/
+		PX4_DEBUG("STATE: MICROCODE_LOAD");
 
 		if (LoadFeatureConfigAndVerify()) {
 			PX4_DEBUG("feature config uploaded & verified; proceeding to CONFIGURE");
@@ -403,7 +354,6 @@ void VOXL_BMI270::RunImpl()
 
 	case STATE::FIFO_READ: {
 			PX4_DEBUG("STATE: FIFO");
-			PX4_DEBUG("reading from FIFO");
 
 			hrt_abstime timestamp_sample = now;
 
@@ -426,44 +376,53 @@ void VOXL_BMI270::RunImpl()
 
 
 			bool success = false;
+		
+
 			const uint16_t fifo_count = FIFOReadCount();
+			PX4_DEBUG("[FIFO] fifo_count = %u bytes", fifo_count);
+
+
 
 			// more bytes than what the buffer takes so an overflow
 			if (fifo_count >= FIFO::SIZE) {
+				PX4_DEBUG("[FIFO] OVERFLOW (%u >= %u), resetting FIFO", fifo_count, FIFO::SIZE);
 				FIFOReset();
 				perf_count(_fifo_overflow_perf);
 
 			} else if (fifo_count == 0) {
+				PX4_DEBUG("[FIFO] FIFO EMPTY");
 				perf_count(_fifo_empty_perf);
 
 			} else {
+				// With mixed gyro (6.4kHz) and accel (1.6kHz) rates, we have variable frame sizes:
+				// - Gyro-only frame: 1 header + 6 gyro bytes = 7 bytes
+				// - Accel+Gyro frame: 1 header + 6 gyro + 6 accel = 13 bytes
+				// Use a minimum byte threshold to ensure we have at least a few samples
+				static constexpr uint16_t MIN_READ_THRESHOLD = 14; // At least 2 gyro frames
 
-				uint8_t samples = fifo_count / sizeof(FIFO::Data);
+				PX4_DEBUG("[FIFO] fifo_count=%d bytes (threshold=%d)", fifo_count, MIN_READ_THRESHOLD);
 
-				// tolerate minor jitter, leave sample to next iteration if behind by only 1
-				if (samples == _fifo_gyro_samples + 1) {
-					timestamp_sample -= static_cast<int>(FIFO_SAMPLE_DT);
-					samples--;
-				}
+				// Read FIFO if we have at least minimum data
+				if (fifo_count >= MIN_READ_THRESHOLD) {
+					PX4_DEBUG("[FIFO] reading FIFO (%d bytes >= %d threshold)", fifo_count, MIN_READ_THRESHOLD);
 
-				if (samples > FIFO_MAX_SAMPLES) {
-					// not technically an overflow, but more samples than we expected or can publish
-					FIFOReset();
-					perf_count(_fifo_overflow_perf);
-
-				} else if (samples >= _fifo_gyro_samples) {
 					if (FIFORead(timestamp_sample, fifo_count)) {
+						PX4_DEBUG("[FIFO] FIFORead SUCCESS");
+
 						success = true;
 
 						if (_failure_count > 0) {
 							_failure_count--;
 						}
 					}
+				} else {
+					PX4_DEBUG("[FIFO] waiting for more data (%d bytes < %d threshold)", fifo_count, MIN_READ_THRESHOLD);
 				}
 
 			}
 
 			if (!success) {
+				PX4_DEBUG("[FIFO] fifo iteration unsuccessful, failure_count=%d", _failure_count);
 				_failure_count++;
 
 				// full reset if things are failing consistently
@@ -475,6 +434,7 @@ void VOXL_BMI270::RunImpl()
 			}
 
 			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
+				PX4_DEBUG("[FIFO] Checking register %d", _checked_register);
 				// check configuration registers periodically or immediately following any failure
 				if (RegisterCheck(_register_cfg[_checked_register])) {
 					_last_config_check_timestamp = now;
@@ -529,117 +489,13 @@ void VOXL_BMI270::SetAccelScaleAndRange()
 	}
 }
 
-/*
-bool VOXL_BMI270::LoadFeatureConfigAndVerify()
-{
-    // 1) Soft reset (already done in RESET state, but harmless here if you want it here too)
-    RegisterWrite(Register::CMD, 0xB6); 
-	px4_usleep(3000);
-
-    // 2) Ensure 4-wire SPI if needed (optional; keep if your HW requires it)
-    RegisterWrite(Register::IF_CONF, 0x00); // BMI270_4_WIRE_SPI_CMD
-    px4_usleep(2000);
-
-    // 3) Disable Advanced Power Save
-    RegisterWrite(Register::PWR_CONF, 0x00);
-    px4_usleep(2000);
-
-    // 4) Put INIT engine into config-write mode
-    RegisterWrite(Register::INIT_CTRL, 0x00);
-
-    // 5) Upload in chunks (exactly like your apps driver)
-    static constexpr uint16_t CHUNK = 2; // even, safe
-    int res = PX4_OK;
-
-    for (uint32_t i = 0; i < bmi270_config_file_len; i += CHUNK) {
-        uint16_t wlen = (uint16_t)((bmi270_config_file_len - i < CHUNK) ? (bmi270_config_file_len - i) : CHUNK);
-        if (wlen & 1) { wlen -= 1; } // keep even length
-
-        if (wlen == 0){
-			PX4_DEBUG("wlen == 0 breaking"); 
-			break;
-		} 
-
-        // Address packing to MATCH your working apps-side code:
-        // low nibble first, then the upper bits (word address = i/2)
-		uint8_t addr_bytes[2];
-        addr_bytes[0] = (uint8_t)((i / 2) & 0x0F);     // low 4 bits
-        addr_bytes[1] = (uint8_t)((i / 2) >> 4);       // upper bits
-
-        // Write INIT_ADDR_0 + INIT_ADDR_1 in one burst starting at INIT_ADDR_0
-        uint8_t tx_addr[3];
-		tx_addr[0] = (((uint8_t)Register::INIT_ADDR_0) & (0x7F)); // clear read/write bit
-		tx_addr[1] = addr_bytes[0];
-		tx_addr[2] = addr_bytes[1];
-		uint8_t dummy_rx[sizeof(tx_addr)];
-		res = transfer(tx_addr, dummy_rx, sizeof(tx_addr));
-		if (res != PX4_OK) {
-			PX4_DEBUG("INIT_ADDR write failed @i=%u", (unsigned)i);
-			break;
-		}
-		px4_usleep(100); 
-		uint8_t tx_data[1 + CHUNK];
-		tx_data[0] = (((uint8_t)Register::INIT_DATA) & (0x7F));   // clear read/write bit
-		memcpy(&tx_data[1], &bmi270_config_file[i], wlen);
-		uint8_t dummy_rx2[1 + CHUNK];
-		res = transfer(tx_data, dummy_rx2, (size_t)(1 + wlen));
-		if (res != PX4_OK) {
-			PX4_DEBUG("INIT_DATA write failed @i=%u", (unsigned)i);
-			break;
-		}
-	
-    }
-
-    if (res != PX4_OK) {
-		PX4_DEBUG("res != ok, exiting");
-        return false;
-    }
-	
-
-    // 6) Trigger load
-    RegisterWrite(Register::INIT_CTRL, 0x01);
-
-    // 7) Poll INTERNAL_STATUS until 0x01 or timeout (your exact behavior)
-    uint8_t istat = 0;
-    const int max_tries = 200; // 1 ms each ~ 200 ms
-    int tries = 0;
-
-    do {
-        px4_usleep(1000);
-        istat = RegisterRead(Register::INTERNAL_STATUS);
-        tries++;
-    } while (istat != 0x01 && tries < max_tries);
-
-    PX4_DEBUG("INTERNAL_STATUS after load: 0x%02hhX (tries=%d)", istat, tries);
-
-    if (istat != 0x01) {
-        // Mirror your extra debug on failure
-        uint8_t ierr = 0;     // INTERNAL_ERR (Bosch naming)
-        uint8_t emsk = 0;     // ERR_REG_MSK (Bosch naming)
-        uint8_t ictrl = 0;    // INIT_CTRL/INIT_CTRL
-
-        // These three enum names must map to your actual register addresses:
-        // INTERNAL_ERR (0x2A), ERR_REG_MSK (0x02?), INIT_CTRL (0x59)
-        // If you don’t have INTERNAL_ERR / ERR_REG_MSK in your enum, add them.
-        // Fallback: just don’t print them if you prefer minimal changes.
-       
-            // only if you’ve defined them in your Register enum:
-    	ierr  = RegisterRead(Register::INTERNAL_ERR);
-    	emsk  = RegisterRead(Register::ERR_REG_MSK);
-    
-        ictrl = RegisterRead(Register::INIT_CTRL);
-
-        PX4_DEBUG("Config load FAILED. INTERNAL_ERR=0x%02hhX ERR_REG_MSK=0x%02hhX INIT_CTRL=0x%02hhX",
-                  ierr, emsk, ictrl);
-        return false;
-    }
-
-    return true;
-}*/
-
 bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 {
 	PX4_DEBUG("=== LoadFeatureConfigAndVerify() BEGIN ===");
+	PX4_DEBUG("INIT_ADDR_0 enum value: 0x%02hhX", (uint8_t)Register::INIT_ADDR_0);
+	PX4_DEBUG("INIT_ADDR_1 enum value: 0x%02hhX", (uint8_t)Register::INIT_ADDR_1);
+	PX4_DEBUG("INIT_DATA   enum value: 0x%02hhX", (uint8_t)Register::INIT_DATA);
+
 	px4_usleep(1000);
 	// 0) Snapshot some state before we touch anything
 	const uint8_t chip_id_read   = RegisterRead(Register::CHIP_ID);
@@ -650,38 +506,7 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 
 	const uint8_t if_config = RegisterRead(Register::IF_CONF); 
 	PX4_DEBUG("IF_CONF at start of load config: 0x%02hhX", if_config); 
-	if (chip_id_read != chip_id) {   // 'chip_id' is the Bosch_BMI270::chip_id constant
-        PX4_DEBUG("CHIP_ID mismatch at entry (got 0x%02hhX, expect 0x%02hhX) - polling...",
-                  chip_id_read, chip_id);
-
-        bool chip_ok = false;
-
-        for (int tries = 0; tries < 20; ++tries) { // 20 x 1 ms = ~20 ms
-            px4_usleep(1000);
-
-            uint8_t chip_poll = RegisterRead(Register::CHIP_ID);
-            uint8_t err_poll  = RegisterRead(Register::ERR_REG);
-
-            // Log first few and then a couple of spaced-out samples so we don't spam too hard
-            if (tries < 3 || tries == 9 || tries == 19 || chip_poll == chip_id) {
-                PX4_DEBUG("CHIP_ID poll[%d]: CHIP_ID=0x%02hhX ERR_REG=0x%02hhX",
-                          tries, chip_poll, err_poll);
-            }
-
-            if (chip_poll == chip_id) {
-                PX4_DEBUG("CHIP_ID became valid (0x%02hhX) after %d ms",
-                          chip_poll, (tries + 1));
-                chip_ok = true;
-                break;
-            }
-        }
-
-        if (!chip_ok) {
-            PX4_DEBUG("CHIP_ID never became valid during poll; continuing anyway");
-        }
-    }
-
-
+	
 	const uint8_t istat_after_reset = RegisterRead(Register::INTERNAL_STATUS);
 	PX4_DEBUG("After soft reset: INTERNAL_STATUS=0x%02hhX", istat_after_reset);
 
@@ -692,40 +517,39 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 	const uint8_t if_conf_read = RegisterRead(Register::IF_CONF);
 	PX4_DEBUG("IF_CONF readback: 0x%02hhX", if_conf_read);
 
-	// 3) Disable Advanced Power Save
-	PX4_DEBUG("Step 3: write PWR_CONF=0x02 (DISABLE APS AND leaves FSW as 1) and SLEEP FOR A LONG TIME BEFORE TRYING ANYTHING ELSE");
-	RegisterWrite(Register::PWR_CONF, 0x02);
-	px4_usleep(1000);
-
-	const uint8_t pwr_conf_read = RegisterRead(Register::PWR_CONF);
-	PX4_DEBUG("PWR_CONF readback (EXPECTING 0x02): 0x%02hhX", pwr_conf_read);
-
-
-	// 3) Disable Advanced Power Save
-	PX4_DEBUG("Step 3 (REPEAT): write PWR_CONF=0x02 (DISABLE APS AND leaves FSW as 1) and SLEEP FOR A LONG TIME BEFORE TRYING ANYTHING ELSE");
-	RegisterWrite(Register::PWR_CONF, 0x02);
-	px4_usleep(1000);
-	
-	const uint8_t pwr_conf_read_again = RegisterRead(Register::PWR_CONF);
-	PX4_DEBUG("PWR_CONF readback (REPEAT) (EXPECTING 0x02): 0x%02hhX", pwr_conf_read_again);
-
 	// 4) Put INIT engine into config-write mode
 	PX4_DEBUG("Step 4: write INIT_CTRL=0x00 (config-write mode)");
 	RegisterWrite(Register::INIT_CTRL, 0x00);
 	const uint8_t init_ctrl_0 = RegisterRead(Register::INIT_CTRL);
 	PX4_DEBUG("INIT_CTRL readback after 0x00: 0x%02hhX", init_ctrl_0);
-
+	
 	// 5) Upload in chunks (exactly like your apps driver)
-	static constexpr uint16_t CHUNK = 2; // even, safe
+	static constexpr uint16_t CHUNK = 32; // even, safe
 	int res = PX4_OK;
 
 	PX4_DEBUG("Step 5: starting config upload, len=%u bytes, CHUNK=%u",
 	          (unsigned)bmi270_config_file_len, (unsigned)CHUNK);
 
+	const uint8_t start_init_addr0_rb = RegisterRead(Register::INIT_ADDR_0);
+	const uint8_t start_init_addr1_rb = RegisterRead(Register::INIT_ADDR_1);
+	PX4_DEBUG("START (SHOULD BE 0) CFG: INIT_ADDR readback: [0]=0x%02hhX [1]=0x%02hhX",
+		          start_init_addr0_rb, start_init_addr1_rb);
+	RegisterWrite(Register::INIT_ADDR_0, 0x05);
+	RegisterWrite(Register::INIT_ADDR_1, 0x06);
+	px4_usleep(500); 
+	const uint8_t start2_init_addr0_rb = RegisterRead(Register::INIT_ADDR_0);
+	const uint8_t start2_init_addr1_rb = RegisterRead(Register::INIT_ADDR_1);
+	uint16_t word_addr1 = ((uint16_t)start2_init_addr1_rb << 4) | (start2_init_addr0_rb& 0x0F);
+
+	PX4_DEBUG("INIT_ADDR raw: [0]=0x%02hhX [1]=0x%02hhX, decoded word_addr=%u",
+          start2_init_addr0_rb, start2_init_addr1_rb, word_addr1);
+
+
+	
 	for (uint32_t i = 0; i < bmi270_config_file_len; i += CHUNK) {
 
 		uint16_t wlen = (uint16_t)((bmi270_config_file_len - i < CHUNK) ? (bmi270_config_file_len - i) : CHUNK);
-		if (wlen & 1) { wlen -= 1; } // keep even length
+	//	if (wlen & 1) { wlen -= 1; } // keep even length
 
 		if (wlen == 0) {
 			PX4_DEBUG("CFG: wlen == 0, breaking at i=%u", (unsigned)i);
@@ -742,26 +566,14 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 		          (unsigned)i, (unsigned)wlen, (unsigned)word_addr,
 		          addr_bytes[0], addr_bytes[1]);
 
-		// Write INIT_ADDR_0 + INIT_ADDR_1 in one burst starting at INIT_ADDR_0
-		uint8_t tx_addr[3];
-		tx_addr[0] = (((uint8_t)Register::INIT_ADDR_0) & 0x7F); // clear read/write bit
-		tx_addr[1] = addr_bytes[0];
-		tx_addr[2] = addr_bytes[1];
-
-		uint8_t dummy_rx[sizeof(tx_addr)];
-		res = transfer(tx_addr, dummy_rx, sizeof(tx_addr));
+		RegisterWrite(Register::INIT_ADDR_0, addr_bytes[0]); 
+		RegisterWrite(Register::INIT_ADDR_1, addr_bytes[1]); 
 
 		if (res != PX4_OK) {
 			PX4_DEBUG("CFG ERROR: INIT_ADDR write failed @i=%u, res=%d", (unsigned)i, res);
 			break;
 		}
-
-		// Optional readback of INIT_ADDR_0/1 (more SPI traffic but useful)
-		const uint8_t init_addr0_rb = RegisterRead(Register::INIT_ADDR_0);
-		const uint8_t init_addr1_rb = RegisterRead(Register::INIT_ADDR_1);
-		PX4_DEBUG("CFG: INIT_ADDR readback: [0]=0x%02hhX [1]=0x%02hhX",
-		          init_addr0_rb, init_addr1_rb);
-
+		
 		px4_usleep(100);
 
 		// Prepare data write
@@ -775,15 +587,14 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 		PX4_DEBUG("CFG: DATA[0..1] @i=%u: %02hhX %02hhX",
 				(unsigned)i, d0, d1);
 
-		uint8_t dummy_rx2[1 + CHUNK];
-		res = transfer(tx_data, dummy_rx2, (size_t)(1 + wlen));
+		res = transfer(tx_data, tx_data, sizeof(tx_data));
 
 		if (res != PX4_OK) {
 			PX4_DEBUG("CFG ERROR: INIT_DATA write failed @i=%u, res=%d", (unsigned)i, res);
 			break;
 		}
 	}
-
+	
 	if (res != PX4_OK) {
 		PX4_DEBUG("CFG ERROR: res != PX4_OK at end of upload, exiting");
 		return false;
@@ -794,9 +605,6 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 	// 6) Trigger load
 	PX4_DEBUG("Step 6: write INIT_CTRL=0x01 (start feature engine)");
 	RegisterWrite(Register::INIT_CTRL, 0x01);
-	const uint8_t init_ctrl_1 = RegisterRead(Register::INIT_CTRL);
-	PX4_DEBUG("INIT_CTRL readback after 0x01: 0x%02hhX", init_ctrl_1);
-
 	// 7) Poll INTERNAL_STATUS until 0x01 or timeout
 	uint8_t istat = 0;
 	const int max_tries = 200; // 1 ms each ~ 200 ms
@@ -844,7 +652,7 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 void VOXL_BMI270::SetGyroScale()
 {
 	// data is 16 bits with 2000dps range
-	const float scale = math::radians(2000.0f) / 32767.0f;
+	const float scale = math::radians(2000.0f) / 32768.0f;
 	_px4_gyro.set_scale(scale);
 
 }
@@ -861,7 +669,7 @@ void VOXL_BMI270::ConfigureSampleRate(int sample_rate)
 	// recompute FIFO empty interval (us) with actual sample limit
 	_fifo_empty_interval_us = _fifo_gyro_samples * (1e6f / RATE);
 
-	ConfigureFIFOWatermark(_fifo_gyro_samples);
+	//ConfigureFIFOWatermark(_fifo_gyro_samples);
 }
 
 // for printing clean names for debugging 
@@ -880,6 +688,8 @@ static const char *RegName(Register r)
 	case Register::INT1_IO_CTRL:    return "INT1_IO_CTRL";
 	case Register::INT_MAP_DATA:    return "INT_MAP_DATA";
 	case Register::INTERNAL_STATUS: return "INTERNAL_STATUS";
+	case Register::GYR_RANGE:   	return "GYR_RANGE";
+	case Register::FIFO_DOWNS:  	return "FIFO_DOWNS";
 	default:                        return "UNKNOWN";
 	}
 }
@@ -905,54 +715,6 @@ void VOXL_BMI270::ConfigureFIFOWatermark(uint8_t samples)
 		}
 	}
 }
-/*
-bool VOXL_BMI270::Configure()
-{
-
-	bool success = false;
-
-	// check internal status first as per datasheet
-	uint8_t internal_status = RegisterRead(Register::INTERNAL_STATUS);
-	PX4_DEBUG("Internal status register value: 0x%02hhX", internal_status);
-
-	if ((internal_status & 1) == 1) {
-		PX4_DEBUG("INTERNAL_STATUS 0x01, ready for configure");
-
-	} else {
-
-		PX4_DEBUG("INTERNAL_STATUS check failed, resetting");
-		_state = STATE::RESET;
-		ScheduleDelayed(10_ms);
-
-	};
-
-
-	// first set and clear all configured register bits
-	for (const auto &reg_cfg : _register_cfg) {
-		RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits);
-	}
-
-	// now check that all are configured
-
-	SetAccelScaleAndRange();
-	SetGyroScale();
-
-	for (const auto &reg_cfg : _register_cfg) {
-		if (!RegisterCheck(reg_cfg)) {
-			success = false;
-		}
-	}
-
-	if (success == true){
-		PX4_DEBUG("STATE: configure success"); 
-	}
-	else {
-		PX4_DEBUG("STATE: configure fail");
-	}
-	//success = true;
-	return success;
-}
-*/
 bool VOXL_BMI270::Configure()
 {
 	bool success = true;  // start optimistic
@@ -968,14 +730,21 @@ bool VOXL_BMI270::Configure()
 		PX4_DEBUG("INTERNAL_STATUS check failed, resetting");
 		_state = STATE::RESET;
 		ScheduleDelayed(10_ms);
+		return false; 
 		// continue so we can still see current reg snapshots
 	}
 
 	// program registers
 	for (const auto &reg_cfg : _register_cfg) {
 		RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits);
+		if (reg_cfg.reg == Register::PWR_CTRL) {
+			PX4_DEBUG("PWR_CTRL written, sleeping 2 ms for BMI270 start-up");
+			px4_usleep(2000);
+		}
+		px4_usleep(1000);
 	}
-
+	PX4_DEBUG("All config registers written, sleeping 3 ms before verify/FIFO");
+	px4_usleep(3000);
 	// apply scale/range that may affect subsequent checks
 	SetAccelScaleAndRange();
 	SetGyroScale();
@@ -1022,59 +791,35 @@ bool VOXL_BMI270::DataReadyInterruptDisable()
 
 	return px4_arch_gpiosetevent(_drdy_gpio, false, false, false, nullptr, nullptr) == 0;
 }
-/*
 bool VOXL_BMI270::RegisterCheck(const register_config_t &reg_cfg)
 {
-	bool success = true;
+    const uint8_t reg_value = RegisterRead(reg_cfg.reg);
 
-	const uint8_t reg_value = RegisterRead(reg_cfg.reg);
+    // Bits we expect to be 1 but are 0
+    const uint8_t missing_set = (uint8_t)(reg_cfg.set_bits & ~reg_value);
+    const bool set_ok = (missing_set == 0);
 
-	PX4_DEBUG("0x%02hhX: 0x%02hhX", (uint8_t)reg_cfg.reg, reg_value);
+    // Optional: still compute unexpected_set for debug, but don't fail on it
+    const uint8_t unexpected_set = (uint8_t)(reg_cfg.clear_bits & reg_value);
 
-	if (reg_cfg.set_bits && ((reg_value & reg_cfg.set_bits) != reg_cfg.set_bits)) {
-		PX4_DEBUG("0x%02hhX: 0x%02hhX (0x%02hhX not set)", (uint8_t)reg_cfg.reg, reg_value, reg_cfg.set_bits);
-		success = false;
-	}
+    const bool ok = set_ok;
 
-	if (reg_cfg.clear_bits && ((reg_value & reg_cfg.clear_bits) != 0)) {
-		PX4_DEBUG("0x%02hhX: 0x%02hhX (0x%02hhX not cleared)", (uint8_t)reg_cfg.reg, reg_value, reg_cfg.clear_bits);
-		success = false;
-	}
+    PX4_DEBUG("CFG %s (0x%02hhX): val=0x%02hhX, want_set=0x%02hhX -> %s",
+              RegName(reg_cfg.reg), (uint8_t)reg_cfg.reg, reg_value,
+              reg_cfg.set_bits,
+              ok ? "PASS" : "FAIL");
 
-	return success;
-}*/
-bool VOXL_BMI270::RegisterCheck(const register_config_t &reg_cfg)
-{
-	const uint8_t reg_value = RegisterRead(reg_cfg.reg);
+    if (!ok) {
+        PX4_DEBUG("    missing_set=0x%02hhX (bits expected=1 but are 0)", missing_set);
+    }
 
-	// Bits we expect to be 1 but are 0
-	const uint8_t missing_set = (uint8_t)(reg_cfg.set_bits & ~reg_value);
-	// Bits we expect to be 0 but are 1
-	const uint8_t unexpected_set = (uint8_t)(reg_cfg.clear_bits & reg_value);
+    // purely informational: if you want to see extra 1-bits that you asked to clear
+    if (unexpected_set) {
+        PX4_DEBUG("    (info) unexpected_set=0x%02hhX (bits we asked to clear but are 1)", unexpected_set);
+    }
 
-	const bool set_ok   = (missing_set == 0);
-	const bool clear_ok = (unexpected_set == 0);
-	const bool ok = set_ok && clear_ok;
-
-	// Single, always-on summary line per register
-	PX4_DEBUG("CFG %s (0x%02hhX): val=0x%02hhX, want_set=0x%02hhX, want_clr=0x%02hhX -> %s",
-	          RegName(reg_cfg.reg), (uint8_t)reg_cfg.reg, reg_value,
-	          reg_cfg.set_bits, reg_cfg.clear_bits,
-	          ok ? "PASS" : "FAIL");
-
-	// If mismatch, add explicit masks for quick diagnosis
-	if (!ok) {
-		if (!set_ok) {
-			PX4_DEBUG("    missing_set=0x%02hhX (bits expected=1 but are 0)", missing_set);
-		}
-		if (!clear_ok) {
-			PX4_DEBUG("    unexpected_set=0x%02hhX (bits expected=0 but are 1)", unexpected_set);
-		}
-	}
-
-	return ok;
+    return ok;
 }
-
 uint8_t VOXL_BMI270::RegisterRead(Register reg)
 {
 	// 6.1.2 SPI interface of accelerometer part
@@ -1105,28 +850,22 @@ void VOXL_BMI270::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t
 		RegisterWrite(reg, val);
 	}
 }
-
-
-// Checks how many bytes are in the FIFO
 uint16_t VOXL_BMI270::FIFOReadCount()
 {
-	CheckErrorRegister();
-	PX4_DEBUG("Attempting to determine FIFO fill level");
+	PX4_DEBUG("Attempting to determine FIFO fill level (direct reg reads)");
 
-	// FIFO length registers FIFO_LENGTH_1 and FIFO_LENGTH_0 contain the 14 bit FIFO byte
-	FIFOLengthReadBuffer buffer {};
+	// Direct reads of the FIFO length registers
+	const uint8_t len0 = RegisterRead(Register::FIFO_LENGTH_0);
+	const uint8_t len1 = RegisterRead(Register::FIFO_LENGTH_1);
 
-	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, sizeof(buffer)) != PX4_OK) {
-		PX4_DEBUG("Bad transfer");
-		perf_count(_bad_transfer_perf);
-		return 0;
-	}
+	// Combine according to datasheet (14 bits, LEN[13:8] in LEN1[5:0])
+	const uint16_t fifo_fill_level = ((len1 & 0x3F) << 8) | len0;
 
-	uint16_t fifo_fill_level = combine(buffer.FIFO_LENGTH_1 & 0x3F, buffer.FIFO_LENGTH_0);
+	PX4_DEBUG("FIFO_LENGTH raw: LEN0=0x%02X LEN1=0x%02X -> %u bytes",
+		 len0, len1, fifo_fill_level);
 
 	return fifo_fill_level;
 }
-
 
 // writes a gyro frame into the FIFO buffer the first argument points to
 void VOXL_BMI270::ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *frame)
@@ -1141,6 +880,9 @@ void VOXL_BMI270::ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *frame)
 	gyro->x[samples] = gyro_x;
 	gyro->y[samples] = (gyro_y == INT16_MIN) ? INT16_MAX : -gyro_y;
 	gyro->z[samples] = (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z;
+
+	PX4_DEBUG("[ProcessGyro] sample %d: x=%d y=%d z=%d",
+          samples, gyro_x, gyro_y, gyro_z);
 
 	gyro->samples++;
 }
@@ -1160,19 +902,25 @@ void VOXL_BMI270::ProcessAccel(sensor_accel_fifo_s *accel, FIFO::Data *frame)
 	accel->y[samples] = (accel_y == INT16_MIN) ? INT16_MAX : -accel_y;
 	accel->z[samples] = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
 
+	PX4_DEBUG("[ProcessAccel] sample %d: x=%d y=%d z=%d",
+          samples, accel_x, accel_y, accel_z);
+
 	accel->samples++;
 }
 
 
 bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_bytes)
 {
-
+	PX4_DEBUG("[FIFORead] START (fifo_bytes=%u)", fifo_bytes);
 	uint8_t err = RegisterRead(Register::ERR_REG);
+	PX4_DEBUG("[FIFORead] ERR_REG=0x%02X", err);
 
 	if ((err >> 6 & 1) == 1) {
+		PX4_DEBUG("[FIFORead] FIFO_ERR bit set → FIFOReset()");
 		FIFOReset();
 		return false;
 	}
+	PX4_DEBUG("[FIFORead] Allocating buffer of %u bytes", fifo_bytes + 2);
 
 	FIFOReadBuffer buffer{};
 
@@ -1186,20 +934,45 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	sensor_accel_fifo_s accel_buffer{};
 	accel_buffer.timestamp_sample = timestamp_sample;
-	accel_buffer.dt = FIFO_SAMPLE_DT;
+	accel_buffer.samples = 0;
+	accel_buffer.dt = ACCEL_SAMPLE_DT; // 625 us for 1.6kHz
 
 	sensor_gyro_fifo_s gyro_buffer{};
 	gyro_buffer.timestamp_sample = timestamp_sample;
-	gyro_buffer.dt = FIFO_SAMPLE_DT;
+	gyro_buffer.samples = 0;
+	gyro_buffer.dt = GYRO_SAMPLE_DT; // 156.25 us for 6.4kHz
+
+	static hrt_abstime last_timestamp_sample = 0;
+	static uint32_t publish_count = 0;
+	publish_count++;
+
+	// Log timestamp info every 100 publishes to debug timestamp errors
+	if (publish_count % 100 == 0) {
+		hrt_abstime delta = (last_timestamp_sample > 0) ? (timestamp_sample - last_timestamp_sample) : 0;
+		PX4_DEBUG("TS: sample=%llu, delta=%llu us, gyro_dt=%.1f us, accel_dt=%.1f us, fifo_bytes=%u",
+		         (unsigned long long)timestamp_sample,
+		         (unsigned long long)delta,
+		         (double)GYRO_SAMPLE_DT,
+		         (double)ACCEL_SAMPLE_DT,
+		         fifo_bytes);
+	}
+	last_timestamp_sample = timestamp_sample;
 
 	uint8_t *data_buffer = (uint8_t *)&buffer.f[0];
 	unsigned fifo_buffer_index = 0; // start of buffer
+
+	// Track header counts for debugging
+	static uint32_t accel_header_count = 0;
+	static uint32_t gyro_header_count = 0;
+	static uint32_t combined_header_count = 0;
 
 	while (fifo_buffer_index < fifo_bytes) {
 		// look for header signature (first 6 bits) followed by two bits indicating the status of INT1 and INT2
 		switch (data_buffer[fifo_buffer_index]) {
 		case ((uint8_t)FIFO::Header::sensor_accel_frame | (uint8_t)FIFO::Header::sensor_gyro_frame): {
-				// Move past header and padding for Aux
+				combined_header_count++;
+				PX4_DEBUG("[FIFORead] Combined frame 0x%02X - gyro then accel", data_buffer[fifo_buffer_index]);
+				// Move past header
 				fifo_buffer_index += 1;
 				VOXL_BMI270::ProcessGyro(&gyro_buffer, (FIFO::Data *)&data_buffer[fifo_buffer_index]);
 				// Move forward to next record
@@ -1211,6 +984,8 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 			break;
 
 		case (uint8_t)FIFO::Header::sensor_gyro_frame: {
+				gyro_header_count++;
+				PX4_DEBUG("[FIFORead] Gyro frame 0x%02X (0x88)", data_buffer[fifo_buffer_index]);
 				// Move past header.
 				fifo_buffer_index += 1;
 				VOXL_BMI270::ProcessGyro(&gyro_buffer, (FIFO::Data *)&data_buffer[fifo_buffer_index]);
@@ -1220,6 +995,8 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 			break;
 
 		case (uint8_t)FIFO::Header::sensor_accel_frame: {
+				accel_header_count++;
+				PX4_DEBUG("[FIFORead] Accel frame 0x%02X (0x84)", data_buffer[fifo_buffer_index]);
 				// Move past header.
 				fifo_buffer_index += 1;
 				VOXL_BMI270::ProcessAccel(&accel_buffer, (FIFO::Data *)&data_buffer[fifo_buffer_index]);
@@ -1229,6 +1006,7 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 			break;
 
 		case (uint8_t)FIFO::Header::skip_frame:
+			PX4_DEBUG("[FIFORead] skip_frame");
 			// Skip Frame
 			// Frame length: 2 bytes (1 byte header + 1 byte payload)
 			PX4_DEBUG("Skip Frame");
@@ -1236,6 +1014,7 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 			break;
 
 		case (uint8_t)FIFO::Header::sensor_time_frame:
+			PX4_DEBUG("[FIFORead] sensor_time_frame");
 			// Sensortime Frame
 			// Frame length: 4 bytes (1 byte header + 3 bytes payload)
 			PX4_DEBUG("Sensortime Frame");
@@ -1257,6 +1036,8 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 			break;
 
 		default:
+		    PX4_DEBUG("[FIFORead] unknown byte 0x%02X", data_buffer[fifo_buffer_index]);
+
 			fifo_buffer_index++;
 			break;
 		}
@@ -1265,17 +1046,33 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 	_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
 				   perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
 
+	_px4_gyro.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
+				  perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
+
+	PX4_DEBUG("[FIFORead] DONE: accel_samples=%d gyro_samples=%d",
+          accel_buffer.samples, gyro_buffer.samples);
 
 	if ((accel_buffer.samples == 0) && (gyro_buffer.samples == 0)) {
-
+		PX4_DEBUG("[Publish] No samples to publish");
 		return false;
 
 	} else {
+		// Log sample count every 100 publishes
+		if (publish_count % 100 == 0) {
+			PX4_DEBUG("Samples: accel=%d, gyro=%d | Headers: A=%u G=%u C=%u",
+				accel_buffer.samples, gyro_buffer.samples,
+				accel_header_count, gyro_header_count, combined_header_count);
+		}
+
 		if (accel_buffer.samples > 0) {
+		    PX4_DEBUG("[Publish] pushing accel FIFO (%d samples)", accel_buffer.samples);
+
 			_px4_accel.updateFIFO(accel_buffer);
 		}
 
 		if (gyro_buffer.samples > 0) {
+			PX4_DEBUG("[Publish] pushing gyro FIFO (%d samples)", gyro_buffer.samples);
+
 			_px4_gyro.updateFIFO(gyro_buffer);
 		}
 
