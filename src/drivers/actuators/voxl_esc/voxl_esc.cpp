@@ -616,6 +616,8 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 				QC_ESC_FB_POWER_STATUS packet;
 				memcpy(&packet,_fb_packet.buffer, packet_size);
 
+				_rx_power_status_count++;
+
 				float voltage = packet.voltage * 0.001f; // Voltage is reported at 1 mV resolution
 				float current = packet.current * 0.008f; // Total current is reported at 8mA resolution
 
@@ -1737,6 +1739,10 @@ int VoxlEsc::print_status()
 	PX4_INFO("Outputs on: %s", _outputs_on ? "yes" : "no");
 	PX4_INFO("UART port: %s", _device);
 	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
+
+	PX4_INFO("CRC error count: %u", _rx_crc_error_count);
+	PX4_INFO("Packet RX count: %u", _rx_packet_count);
+	PX4_INFO("Power status count: %u", _rx_power_status_count);
 
 	PX4_INFO("");
 	print_params();
