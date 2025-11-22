@@ -1740,9 +1740,9 @@ int VoxlEsc::print_status()
 	PX4_INFO("UART port: %s", _device);
 	PX4_INFO("UART open: %s", _uart_port->is_open() ? "yes" : "no");
 
-	PX4_INFO("CRC error count: %u", _rx_crc_error_count);
-	PX4_INFO("Packet RX count: %u", _rx_packet_count);
-	PX4_INFO("Power status count: %u", _rx_power_status_count);
+	PX4_INFO("CRC error count: %lu", (long unsigned int) _rx_crc_error_count);
+	PX4_INFO("Packet RX count: %lu", (long unsigned int) _rx_packet_count);
+	PX4_INFO("Power status count: %lu", (long unsigned int) _rx_power_status_count);
 
 	PX4_INFO("");
 	print_params();
