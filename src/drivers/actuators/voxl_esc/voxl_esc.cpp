@@ -402,18 +402,23 @@ int VoxlEsc::task_spawn(int argc, char *argv[])
 	int ch;
 	const char *myoptarg = nullptr;
 
-	while ((ch = px4_getopt(argc, argv, "dv", &myoptind, &myoptarg)) != EOF) {
-		switch (ch) {
-		case 'd':
-			_device = argv[myoptind];
-			break;
+	VoxlEsc *instance = new VoxlEsc();
 
-		default:
-			break;
+	// Parse any passed in options
+	if ((argc > 1) && (argv[1] != nullptr)) {
+		while ((ch = px4_getopt(argc - 1, &argv[1], "d:", &myoptind, &myoptarg)) != EOF) {
+			switch (ch) {
+			case 'd':
+				_device = argv[myoptind];
+				PX4_INFO("Configuring device as %s", _device);
+				break;
+
+			default:
+				PX4_ERR("Unkown option: %c", ch);
+				break;
+			}
 		}
 	}
-
-	VoxlEsc *instance = new VoxlEsc();
 
 	if (instance) {
 		_object.store(instance);
