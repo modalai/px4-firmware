@@ -38,7 +38,7 @@
         "editor.wordWrapColumn": 120,
         "explorer.openEditors.visible": 0,
         "files.insertFinalNewline": true,
-        "files.trimTrailingWhitespace": true,
+        "files.trimTrailingWhitespace": false,
         "files.watcherExclude": {
                 "**/build/**": true
         },
@@ -127,5 +127,6 @@
         "terminal.integrated.scrollback": 15000,
         "yaml.schemas": {
                 "${workspaceFolder}/validation/module_schema.yaml": "${workspaceFolder}/src/modules/*/module.yaml"
-        }
+        },
+        "files.trimTrailingWhitespaceInRegexAndStrings": false
 }
