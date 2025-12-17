@@ -185,33 +185,41 @@ void CrsfBridge::control_callback(int ch, char* data, int bytes, void* context)
 	// context is the 'this' pointer we passed during callback registration
 	CrsfBridge* bridge = static_cast<CrsfBridge*>(context);
 
-	if (bytes != sizeof(crsf_raw_data_t)) {
-		PX4_WARN("Invalid control data size: %d bytes (expected %zu)", bytes, sizeof(crsf_raw_data_t));
+	// Check if bytes is a multiple of crsf_raw_data_t size
+	const size_t packet_size = sizeof(crsf_raw_data_t);
+	if (bytes % packet_size != 0) {
+		PX4_WARN("Invalid control data size: %d bytes (not a multiple of %zu)", bytes, packet_size);
 		return;
 	}
 
-	crsf_raw_data_t* crsf_data = reinterpret_cast<crsf_raw_data_t*>(data);
+	// Calculate number of packets
+	int num_packets = bytes / packet_size;
 
-	// Verify magic number
-	if (crsf_data->magic_number != CRSF_RAW_MAGIC_NUMBER) {
-		PX4_WARN("Invalid magic number: 0x%08x (expected 0x%08x)",
-		         crsf_data->magic_number, CRSF_RAW_MAGIC_NUMBER);
-		return;
-	}
+	// Process each packet
+	for (int i = 0; i < num_packets; i++) {
+		crsf_raw_data_t* crsf_data = reinterpret_cast<crsf_raw_data_t*>(data + (i * packet_size));
 
-	// PX4_INFO("Publishing to crsf_raw_tx: len=%u", crsf_data->len);
+		// Verify magic number
+		if (crsf_data->magic_number != CRSF_RAW_MAGIC_NUMBER) {
+			PX4_WARN("Invalid magic number in packet %d: 0x%08x (expected 0x%08x)",
+			         i, crsf_data->magic_number, CRSF_RAW_MAGIC_NUMBER);
+			continue; // Skip this packet but process others
+		}
 
-	// Convert from MPA format to uORB format and publish to TX topic (to serial)
-	crsf_raw_s msg{};
-	msg.timestamp = hrt_absolute_time(); // Use PX4's monotonic time
-	msg.len = crsf_data->len;
-	memcpy(msg.data, crsf_data->data, sizeof(msg.data));
+		// PX4_INFO("Publishing to crsf_raw_tx: len=%u (packet %d/%d)", crsf_data->len, i+1, num_packets);
 
-	// Advertise and publish to crsf_raw_tx (CrsfRc will read and send to serial)
-	if (bridge->_crsf_raw_tx_pub == nullptr) {
-		bridge->_crsf_raw_tx_pub = orb_advertise(ORB_ID(crsf_raw_tx), &msg);
-	} else {
-		orb_publish(ORB_ID(crsf_raw_tx), bridge->_crsf_raw_tx_pub, &msg);
+		// Convert from MPA format to uORB format and publish to TX topic (to serial)
+		crsf_raw_s msg{};
+		msg.timestamp = hrt_absolute_time(); // Use PX4's monotonic time
+		msg.len = crsf_data->len;
+		memcpy(msg.data, crsf_data->data, sizeof(msg.data));
+
+		// Advertise and publish to crsf_raw_tx (CrsfRc will read and send to serial)
+		if (bridge->_crsf_raw_tx_pub == nullptr) {
+			bridge->_crsf_raw_tx_pub = orb_advertise(ORB_ID(crsf_raw_tx), &msg);
+		} else {
+			orb_publish(ORB_ID(crsf_raw_tx), bridge->_crsf_raw_tx_pub, &msg);
+		}
 	}
 }
 
