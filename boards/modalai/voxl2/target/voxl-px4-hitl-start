@@ -111,3 +111,4 @@ vfc_logger start
 vehicle_air_data_bridge start
 sensor_baro_bridge start
 crsf_bridge start
+vehicle_local_position_bridge start
