@@ -283,7 +283,7 @@ private:
 
 		{Register::FIFO_CONFIG_1, FIFO_CONFIG_1_BIT::BIT4_ALWAYS | FIFO_CONFIG_1_BIT::Acc_en | FIFO_CONFIG_1_BIT::Gyr_en, 0},
 
-		{Register::INT1_IO_CTRL, INT1_IO_CONF_BIT::int1_out, 0}, // Enable INT1 output
+		{Register::INT1_IO_CTRL, 0x08, 0}, // Enable INT1 output
 
 		{Register::INT_MAP_DATA, INT1_INT2_MAP_DATA_BIT::int1_fwm, 0}, // Map FIFO watermark to INT1
 	};

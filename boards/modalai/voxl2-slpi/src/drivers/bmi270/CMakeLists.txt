@@ -35,7 +35,7 @@ px4_add_module(
 	MODULE drivers__imu__bosch__voxl_bmi270
 	MAIN voxl_bmi270
 	COMPILE_FLAGS
-		-DDEBUG_BUILD
+		#-DDEBUG_BUILD
 	SRCS
 		voxl_bmi270_main.cpp
 		VOXL_BMI270.cpp
