@@ -114,7 +114,6 @@ void VehicleLocalPositionBridge::Run()
 			}
 
 			pose_vel_6dof_t pose;
-			memset(&pose, 0, sizeof(pose));
 
 			pose.magic_number = POSE_VEL_6DOF_MAGIC_NUMBER;
 			pose.timestamp_ns = _vehicle_local_position.timestamp * 1000; // Convert µs to ns
@@ -123,9 +122,14 @@ void VehicleLocalPositionBridge::Run()
 			if (_vehicle_local_position.xy_valid) {
 				pose.T_child_wrt_parent[0] = _vehicle_local_position.x;
 				pose.T_child_wrt_parent[1] = _vehicle_local_position.y;
+			} else {
+				pose.T_child_wrt_parent[0] = NAN;
+				pose.T_child_wrt_parent[1] = NAN;
 			}
 			if (_vehicle_local_position.z_valid) {
 				pose.T_child_wrt_parent[2] = _vehicle_local_position.z;
+			} else {
+				pose.T_child_wrt_parent[2] = NAN;
 			}
 
 			// Rotation matrix from heading (yaw rotation around Z axis)
@@ -148,13 +152,20 @@ void VehicleLocalPositionBridge::Run()
 			if (_vehicle_local_position.v_xy_valid) {
 				pose.v_child_wrt_parent[0] = _vehicle_local_position.vx;
 				pose.v_child_wrt_parent[1] = _vehicle_local_position.vy;
+			} else {
+				pose.v_child_wrt_parent[0] = NAN;
+				pose.v_child_wrt_parent[1] = NAN;
 			}
 			if (_vehicle_local_position.v_z_valid) {
 				pose.v_child_wrt_parent[2] = _vehicle_local_position.vz;
+			} else {
+				pose.v_child_wrt_parent[2] = NAN;
 			}
 
 			// Angular velocity not available in vehicle_local_position
-			// Already zeroed by memset
+			pose.w_child_wrt_child[0] = NAN;
+			pose.w_child_wrt_child[1] = NAN;
+			pose.w_child_wrt_child[2] = NAN;
 
 			if (MPA::PipeWrite(_pipe_ch, (void*)&pose, sizeof(pose_vel_6dof_t)) == -1) {
 				PX4_ERR("Pipe %d write failed!", _pipe_ch);
