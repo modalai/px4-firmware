@@ -279,10 +279,7 @@ void VOXL_BMI270::RunImpl()
 	static uint32_t runimpl_count = 0;
 	static uint32_t fifo_read_case_count = 0;
 	const hrt_abstime now = hrt_absolute_time();
-
-	if (_state == STATE::FIFO_READ) {
-		PX4_DEBUG("[RunImpl #%u] Called, state=FIFO_READ", ++runimpl_count);
-	}
+	PX4_DEBUG("[RunImpl #%u] Called, state=%d", ++runimpl_count, (int)_state);
 
 	switch (_state) {
 	case STATE::RESET:
@@ -404,6 +401,7 @@ void VOXL_BMI270::RunImpl()
 			PX4_DEBUG("[FIFO_READ #%u] Entered case", ++fifo_read_case_count);
 
 			hrt_abstime timestamp_sample = now;
+			uint32_t samples = 0;
 
 			// Track time between FIFO reads for debugging
 			hrt_abstime read_interval = 0;
@@ -424,7 +422,7 @@ void VOXL_BMI270::RunImpl()
 					(read_interval - expected_interval) : (expected_interval - read_interval);
 
 				if (deviation > (expected_interval / 4)) { // >25% deviation
-					PX4_WARN("[TIMING] deviation: actual=%llu us (expected=%u us, +%.1f%%)",
+					PX4_DEBUG("[TIMING] deviation: actual=%llu us (expected=%u us, +%.1f%%)",
 						(unsigned long long)read_interval,
 						expected_interval,
 						(double)(deviation * 100) / expected_interval);
@@ -433,27 +431,40 @@ void VOXL_BMI270::RunImpl()
 			_last_fifo_read_timestamp = now;
 			_fifo_read_count++;
 
+			bool drdy_missed = false;
+
 			if (_data_ready_interrupt_enabled) {
-				// scheduled from interrupt if _drdy_timestamp_sample was set as expected
-				const hrt_abstime drdy_timestamp_sample = _drdy_timestamp_sample.fetch_and(0);
+				const uint32_t irq_samples = _drdy_fifo_read_samples.fetch_and(0);
+				PX4_DEBUG("[FIFO_READ] irq_samples=%u, expected=%u", irq_samples, (uint32_t)_fifo_gyro_samples);
 
-				if ((now - drdy_timestamp_sample) < _fifo_empty_interval_us) {
-					timestamp_sample = drdy_timestamp_sample;
-
+				if (irq_samples != static_cast<uint32_t>(_fifo_gyro_samples)){
+					drdy_missed = true;
 				} else {
-					perf_count(_drdy_missed_perf);
+					samples = _fifo_gyro_samples;
 				}
 
-				// push backup schedule back
-				ScheduleDelayed(_fifo_empty_interval_us * 2);
-			}
+				const hrt_abstime drdy_timestamp_sample = _drdy_timestamp_sample.fetch_and(0);
 
+				if ((drdy_timestamp_sample != 0) && ((now - drdy_timestamp_sample) < _fifo_empty_interval_us)) {
+					timestamp_sample = drdy_timestamp_sample;
+				} else {
+					drdy_missed = true;
+				}
+
+				if (drdy_missed) {
+					perf_count(_drdy_missed_perf);
+					samples = 0; // important: don't "claim" a fixed batch if anything didn't line up
+				}
+
+				// Removed ScheduleDelayed - rely purely on interrupts for watermark-driven reads
+			}
 
 
 			bool success = false;
 
 
 			const uint16_t fifo_count = FIFOReadCount();
+			PX4_DEBUG("[FIFO_READ] fifo_count=%u bytes", fifo_count);
 
 			// Track FIFO byte statistics
 			if (fifo_count > 0) {
@@ -478,11 +489,39 @@ void VOXL_BMI270::RunImpl()
 				perf_count(_fifo_empty_perf);
 
 			} else {
-				static constexpr uint16_t MIN_READ_THRESHOLD = 14;
+				static constexpr uint16_t MIN_READ_THRESHOLD = 13;
+
+				// Decide how many bytes to read
+				uint16_t read_bytes = fifo_count;
+
+				// --- STEP 3: if we are interrupt-driven and we "claimed" an IRQ batch, read a fixed batch ---
+				// NOTE: this assumes you added `uint32_t samples = 0;` earlier in FIFO_READ and set it from
+				// _drdy_fifo_read_samples.fetch_and(0) like the ICM42688 pattern.
+				if (_data_ready_interrupt_enabled && (samples > 0)) {
+					const uint16_t expected_bytes = samples * 13;
+					const uint16_t watermark_threshold = (samples * 13) - 1;
+					// Safety limit: never read more than FIFO_MAX_SAMPLES worth of combined frames
+					const uint16_t max_safe_bytes = FIFO_MAX_SAMPLES * 13;
+
+					if (fifo_count >= watermark_threshold) {
+						if (_sensors_synchronized) {
+							// After sync: read exactly expected amount to avoid sample count mismatch
+							read_bytes = expected_bytes;
+						} else {
+							// Before sync: read available data but cap at buffer size to avoid overflow
+							read_bytes = (fifo_count > max_safe_bytes) ? max_safe_bytes : fifo_count;
+						}
+					} else {
+						// IRQ came early or duplicate; don't read a partial remainder
+						read_bytes = 0;
+						success = true;
+					}
+				}
+				// -----------------------------------------------------------------------------------------
 
 				// Read FIFO if we have at least minimum data
-				if (fifo_count >= MIN_READ_THRESHOLD) {
-					if (FIFORead(timestamp_sample, fifo_count)) {
+				if (read_bytes >= MIN_READ_THRESHOLD) {
+					if (FIFORead(timestamp_sample, read_bytes)) {
 						success = true;
 
 						if (_failure_count > 0) {
@@ -494,6 +533,7 @@ void VOXL_BMI270::RunImpl()
 
 			if (!success) {
 				_failure_count++;
+				PX4_DEBUG("[FIFO_READ] FAILED (failure_count=%u)", _failure_count);
 
 				// full reset if things are failing consistently
 				if (_failure_count > 10) {
@@ -501,6 +541,8 @@ void VOXL_BMI270::RunImpl()
 					Reset();
 					return;
 				}
+			} else {
+				PX4_DEBUG("[FIFO_READ] SUCCESS (failure_count=%u)", _failure_count);
 			}
 
 			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
@@ -525,13 +567,12 @@ void VOXL_BMI270::RunImpl()
 
 		}
 
-		PX4_DEBUG("[FIFO_READ #%u] Exiting case", fifo_read_case_count);
+		PX4_DEBUG("[FIFO_READ #%u] Exiting case normally", fifo_read_case_count);
 		break;
 	}
 
-	if (_state == STATE::FIFO_READ) {
-		PX4_DEBUG("[RunImpl #%u] Exiting", runimpl_count);
-	}
+	PX4_DEBUG("[RunImpl #%u] About to exit function", runimpl_count);
+	PX4_DEBUG("[RunImpl #%u] Exiting function, state=%d", runimpl_count, (int)_state);
 }
 
 void VOXL_BMI270::SetAccelScaleAndRange()
@@ -746,7 +787,7 @@ void VOXL_BMI270::ConfigureSampleRate(int sample_rate)
 	*/
 
 	// Set to 10 samples for consistent interrupt-driven operation
-	_fifo_gyro_samples = 6;
+	_fifo_gyro_samples = 2;
 
 	// recompute FIFO empty interval (us) with actual sample limit
 	_fifo_empty_interval_us = _fifo_gyro_samples * (1e6f / RATE);
@@ -887,18 +928,30 @@ int VOXL_BMI270::DataReadyInterruptCallback(int irq, void *context, void *arg)
 		int_type = "FIFO_FULL";
 	}
 
-	PX4_INFO("INT fired: status=0x%02X (%s)", int_status, int_type);
+	PX4_DEBUG("INT fired: status=0x%02X (%s)", int_status, int_type);
 
-	instance->DataReady();
+	if (int_status & Bit1) { // FIFO_WTM
+    instance->DataReady();
+}	
 	return 0;
 }
-
 void VOXL_BMI270::DataReady()
 {
 	static uint32_t dataready_count = 0;
-	PX4_DEBUG("[DataReady #%u] Scheduling RunImpl", ++dataready_count);
-	_drdy_timestamp_sample.store(hrt_absolute_time());
-	ScheduleNow();
+	PX4_DEBUG("[DataReady #%u] Called", ++dataready_count);
+
+	uint32_t expected = 0;
+
+	// ICM42688 pattern: only schedule once until FIFO_READ consumes it
+	if (_drdy_fifo_read_samples.compare_exchange(&expected, _fifo_gyro_samples)) {
+		PX4_DEBUG("[DataReady #%u] compare_exchange SUCCESS, scheduling RunImpl", dataready_count);
+		_drdy_timestamp_sample.store(hrt_absolute_time());
+		ScheduleNow();
+		PX4_DEBUG("[DataReady #%u] ScheduleNow() completed", dataready_count);
+	} else {
+		// optional: helps confirm you're suppressing duplicate IRQs
+		PX4_DEBUG("[DataReady #%u] suppressed duplicate interrupt (pending=%lu)", dataready_count, (unsigned long)expected);
+	}
 }
 
 bool VOXL_BMI270::DataReadyInterruptConfigure()
@@ -1111,7 +1164,7 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 		if (accel_buffer.samples > _max_accel_samples) {
 			_max_accel_samples = accel_buffer.samples;
 			if (_max_accel_samples > FIFO_MAX_SAMPLES) {
-				PX4_WARN("Accel samples (%u) > FIFO_MAX (%d)", _max_accel_samples, FIFO_MAX_SAMPLES);
+				PX4_DEBUG("Accel samples (%u) > FIFO_MAX (%d)", _max_accel_samples, FIFO_MAX_SAMPLES);
 			}
 		}
 	}
@@ -1138,7 +1191,7 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 		if (sample_diff > 1) {
 			inconsistent_count++;
 			if (inconsistent_count % 20 == 1) {
-				PX4_WARN("Sample count varies: prev=%u curr=%u (x%u)",
+				PX4_DEBUG("Sample count varies: prev=%u curr=%u (x%u)",
 					last_accel_samples, accel_buffer.samples, inconsistent_count);
 			}
 		}
@@ -1147,33 +1200,46 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	if ((accel_buffer.samples == 0) && (gyro_buffer.samples == 0)) {
 		return false;
-
-	} else {
-		// Print FIFO read details on every read for debugging
-		PX4_INFO("[FIFO Read] bytes=%u, accel_samples=%u, gyro_samples=%u",
-			fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
-
-		// Compact per-read summary every 50 reads
-		if (_fifo_read_count % 50 == 0) {
-			PX4_DEBUG("[#%u] %uB → A:%u G:%u | interval: %llu-%llu us | samples: A:%u-%u G:%u-%u",
-				_fifo_read_count, fifo_bytes,
-				accel_buffer.samples, gyro_buffer.samples,
-				(unsigned long long)_min_read_interval,
-				(unsigned long long)_max_read_interval,
-				_min_accel_samples, _max_accel_samples,
-				_min_gyro_samples, _max_gyro_samples);
-		}
-
-		if (accel_buffer.samples > 0) {
-			_px4_accel.updateFIFO(accel_buffer);
-		}
-
-		if (gyro_buffer.samples > 0) {
-			_px4_gyro.updateFIFO(gyro_buffer);
-		}
-
-		return true;
 	}
+
+	// Skip data until we have matching accel and gyro sample counts
+	if (accel_buffer.samples != gyro_buffer.samples) {
+		PX4_DEBUG("[FIFO Read] Skipping mismatched data (bytes=%u, accel=%u, gyro=%u) - waiting for sync",
+			fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
+		_sensors_synchronized = false;  // Lost sync
+		return true;  // FIFO was drained successfully, just not publishing data
+	}
+
+	// We have matching samples - mark as synchronized
+	if (!_sensors_synchronized) {
+		PX4_DEBUG("[FIFO Read] Sensors SYNCHRONIZED (accel=%u, gyro=%u)", accel_buffer.samples, gyro_buffer.samples);
+		_sensors_synchronized = true;
+	}
+
+	// Print FIFO read details on every read for debugging
+	PX4_DEBUG("[FIFO Read] bytes=%u, accel_samples=%u, gyro_samples=%u",
+		fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
+
+	// Compact per-read summary every 50 reads
+	if (_fifo_read_count % 50 == 0) {
+		PX4_DEBUG("[#%u] %uB → A:%u G:%u | interval: %llu-%llu us | samples: A:%u-%u G:%u-%u",
+			_fifo_read_count, fifo_bytes,
+			accel_buffer.samples, gyro_buffer.samples,
+			(unsigned long long)_min_read_interval,
+			(unsigned long long)_max_read_interval,
+			_min_accel_samples, _max_accel_samples,
+			_min_gyro_samples, _max_gyro_samples);
+	}
+
+	if (accel_buffer.samples > 0) {
+		_px4_accel.updateFIFO(accel_buffer);
+	}
+
+	if (gyro_buffer.samples > 0) {
+		_px4_gyro.updateFIFO(gyro_buffer);
+	}
+
+	return true;
 
 }
 
@@ -1189,6 +1255,7 @@ void VOXL_BMI270::FIFOReset()
 
 	// reset while FIFO is disabled
 	_drdy_timestamp_sample.store(0);
+	_drdy_fifo_read_samples.store(0);
 }
 
 void VOXL_BMI270::UpdateTemperature()

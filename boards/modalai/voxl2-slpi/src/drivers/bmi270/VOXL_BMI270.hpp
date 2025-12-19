@@ -108,8 +108,9 @@ private:
 	static constexpr uint8_t ID_088 = 0x1E;
 	static constexpr uint8_t ID_090L = 0x1A;
 
-	// Match ICM42688P's FIFO_MAX_SAMPLES for consistent behavior
-	static constexpr int32_t FIFO_MAX_SAMPLES{10};
+	// Increased from 10 to handle accel-only startup phase
+	// With 10-sample watermark (130 bytes), accel-only frames (7 bytes) = ~19 samples
+	static constexpr int32_t FIFO_MAX_SAMPLES{20};
 
 	hrt_abstime _temperature_update_timestamp{0};
 
@@ -181,7 +182,8 @@ private:
 	void UpdateTemperature();
 
 	const spi_drdy_gpio_t _drdy_gpio;
-
+	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
+	
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
 
@@ -199,6 +201,7 @@ private:
 
 	px4::atomic<hrt_abstime> _drdy_timestamp_sample{0};
 	bool _data_ready_interrupt_enabled{false};
+	bool _sensors_synchronized{false}; // true after first successful matching accel/gyro read
 
 	enum class STATE : uint8_t
 	{
@@ -283,7 +286,7 @@ private:
 
 		{Register::FIFO_CONFIG_1, FIFO_CONFIG_1_BIT::BIT4_ALWAYS | FIFO_CONFIG_1_BIT::Acc_en | FIFO_CONFIG_1_BIT::Gyr_en, 0},
 
-		{Register::INT1_IO_CTRL, 0x08, 0}, // Enable INT1 output
+		{Register::INT1_IO_CTRL, INT1_IO_CONF_BIT::int1_out, 0}, // Enable INT1 output
 
 		{Register::INT_MAP_DATA, INT1_INT2_MAP_DATA_BIT::int1_fwm, 0}, // Map FIFO watermark to INT1
 	};
