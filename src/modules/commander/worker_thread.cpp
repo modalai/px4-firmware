@@ -50,16 +50,25 @@
 
 using namespace time_literals;
 
+WorkerThread::WorkerThread()
+{
+	px4_sem_init(&_work_sem, 0, 0);
+	px4_sem_init(&_exit_sem, 0, 0);
+}
+
 WorkerThread::~WorkerThread()
 {
-	if (_state.load() == (int)State::Running) {
-		/* wait for thread to complete */
-		int ret = pthread_join(_thread_handle, nullptr);
+	if (_task_started) {
+		// Signal shutdown and wake the thread
+		_shutdown.store(true);
+		px4_sem_post(&_work_sem);
 
-		if (ret) {
-			PX4_ERR("join failed: %d", ret);
-		}
+		// Wait for thread to signal it has exited
+		px4_sem_wait(&_exit_sem);
 	}
+
+	px4_sem_destroy(&_work_sem);
+	px4_sem_destroy(&_exit_sem);
 }
 
 void WorkerThread::startTask(Request request)
@@ -69,132 +78,144 @@ void WorkerThread::startTask(Request request)
 	}
 
 	_request = request;
+	_state.store((int)State::Running);
 
-	/* initialize low priority thread */
-	pthread_attr_t low_prio_attr;
-	pthread_attr_init(&low_prio_attr);
-	pthread_attr_setstacksize(&low_prio_attr, PX4_STACK_ADJUSTED(4804));
+	if (!_task_started) {
+		// First time: create the persistent task
+		_task_handle = px4_task_spawn_cmd(
+					"commander_worker",
+					SCHED_DEFAULT,
+					SCHED_PRIORITY_DEFAULT - 50,
+					PX4_STACK_ADJUSTED(4804),
+					&WorkerThread::taskTrampoline,
+					(char *const *)this);
 
-	struct sched_param param;
-	pthread_attr_getschedparam(&low_prio_attr, &param);
+		if (_task_handle < 0) {
+			PX4_ERR("px4_task_spawn_cmd failed: %d", _task_handle);
+			_state.store((int)State::Finished);
+			_ret_value = _task_handle;
+			return;
+		}
 
-	/* low priority */
-	param.sched_priority = SCHED_PRIORITY_DEFAULT - 50;
-	pthread_attr_setschedparam(&low_prio_attr, &param);
-
-	int ret = pthread_create(&_thread_handle, &low_prio_attr, &threadEntryTrampoline, this);
-	pthread_attr_destroy(&low_prio_attr);
-
-	if (ret == 0) {
-		_state.store((int)State::Running);
-
-	} else {
-		PX4_ERR("Failed to start thread (%i)", ret);
-		_state.store((int)State::Finished);
-		_ret_value = ret;
+		_task_started = true;
 	}
+
+	// Wake the worker thread
+	px4_sem_post(&_work_sem);
 }
 
-void *WorkerThread::threadEntryTrampoline(void *arg)
+int WorkerThread::taskTrampoline(int argc, char *argv[])
 {
-	WorkerThread *worker_thread = (WorkerThread *)arg;
-	worker_thread->threadEntry();
-	return nullptr;
+	// Recover 'this' pointer passed via argv
+	WorkerThread *worker = reinterpret_cast<WorkerThread *>(argv);
+	worker->workerLoop();
+	return 0;
 }
 
-void WorkerThread::threadEntry()
+void WorkerThread::workerLoop()
 {
-	px4_prctl(PR_SET_NAME, "commander_low_prio", px4_getpid());
+	while (!_shutdown.load()) {
+		// Wait for work
+		px4_sem_wait(&_work_sem);
 
-	switch (_request) {
-	case Request::GyroCalibration:
-		_ret_value = do_gyro_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::MagCalibration:
-		_ret_value = do_mag_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::RCTrimCalibration:
-		_ret_value = do_trim_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::AccelCalibration:
-		_ret_value = do_accel_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::LevelCalibration:
-		_ret_value = do_level_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::AccelCalibrationQuick:
-		_ret_value = do_accel_calibration_quick(&_mavlink_log_pub);
-		break;
-
-	case Request::AirspeedCalibration:
-		_ret_value = do_airspeed_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::ESCCalibration:
-		_ret_value = do_esc_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::MagCalibrationQuick:
-		_ret_value = do_mag_calibration_quick(&_mavlink_log_pub, _heading_radians, _latitude, _longitude);
-		break;
-
-	case Request::BaroCalibration:
-		_ret_value = do_baro_calibration(&_mavlink_log_pub);
-		break;
-
-	case Request::ParamLoadDefault:
-		_ret_value = param_load_default();
-
-		if (_ret_value != 0) {
-			mavlink_log_critical(&_mavlink_log_pub, "Error loading settings\t");
-			events::send(events::ID("commander_load_param_failed"), events::Log::Critical, "Error loading settings");
-		}
-
-		break;
-
-	case Request::ParamSaveDefault:
-		_ret_value = param_save_default();
-
-		if (_ret_value != 0) {
-			mavlink_log_critical(&_mavlink_log_pub, "Error saving settings\t");
-			events::send(events::ID("commander_save_param_failed"), events::Log::Critical, "Error saving settings");
-		}
-
-		break;
-
-	case Request::ParamResetAll:
-		param_reset_all();
-		_ret_value = 0;
-		break;
-
-	case Request::ParamResetSensorFactory: {
-			const char *reset_cal[] = { "CAL_ACC*", "CAL_GYRO*", "CAL_MAG*" };
-			param_reset_specific(reset_cal, sizeof(reset_cal) / sizeof(reset_cal[0]));
-			_ret_value = param_save_default();
-#if defined(CONFIG_BOARDCTL_RESET)
-			px4_reboot_request(false, 400_ms);
-#endif // CONFIG_BOARDCTL_RESET
+		if (_shutdown.load()) {
 			break;
 		}
 
-	case Request::ParamResetAllConfig: {
-			const char *exclude_list[] = {
-				"LND_FLIGHT_T_HI",
-				"LND_FLIGHT_T_LO",
-				"COM_FLIGHT_UUID"
-			};
-			param_reset_excludes(exclude_list, sizeof(exclude_list) / sizeof(exclude_list[0]));
+		// Execute the requested task
+		switch (_request) {
+		case Request::GyroCalibration:
+			_ret_value = do_gyro_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::MagCalibration:
+			_ret_value = do_mag_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::RCTrimCalibration:
+			_ret_value = do_trim_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::AccelCalibration:
+			_ret_value = do_accel_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::LevelCalibration:
+			_ret_value = do_level_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::AccelCalibrationQuick:
+			_ret_value = do_accel_calibration_quick(&_mavlink_log_pub);
+			break;
+
+		case Request::AirspeedCalibration:
+			_ret_value = do_airspeed_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::ESCCalibration:
+			_ret_value = do_esc_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::MagCalibrationQuick:
+			_ret_value = do_mag_calibration_quick(&_mavlink_log_pub, _heading_radians, _latitude, _longitude);
+			break;
+
+		case Request::BaroCalibration:
+			_ret_value = do_baro_calibration(&_mavlink_log_pub);
+			break;
+
+		case Request::ParamLoadDefault:
+			_ret_value = param_load_default();
+
+			if (_ret_value != 0) {
+				mavlink_log_critical(&_mavlink_log_pub, "Error loading settings\t");
+				events::send(events::ID("commander_load_param_failed"), events::Log::Critical, "Error loading settings");
+			}
+
+			break;
+
+		case Request::ParamSaveDefault:
+			_ret_value = param_save_default();
+
+			if (_ret_value != 0) {
+				mavlink_log_critical(&_mavlink_log_pub, "Error saving settings\t");
+				events::send(events::ID("commander_save_param_failed"), events::Log::Critical, "Error saving settings");
+			}
+
+			break;
+
+		case Request::ParamResetAll:
+			param_reset_all();
 			_ret_value = 0;
 			break;
+
+		case Request::ParamResetSensorFactory: {
+				const char *reset_cal[] = { "CAL_ACC*", "CAL_GYRO*", "CAL_MAG*" };
+				param_reset_specific(reset_cal, sizeof(reset_cal) / sizeof(reset_cal[0]));
+				_ret_value = param_save_default();
+#if defined(CONFIG_BOARDCTL_RESET)
+				px4_reboot_request(false, 400_ms);
+#endif // CONFIG_BOARDCTL_RESET
+				break;
+			}
+
+		case Request::ParamResetAllConfig: {
+				const char *exclude_list[] = {
+					"LND_FLIGHT_T_HI",
+					"LND_FLIGHT_T_LO",
+					"COM_FLIGHT_UUID"
+				};
+				param_reset_excludes(exclude_list, sizeof(exclude_list) / sizeof(exclude_list[0]));
+				_ret_value = 0;
+				break;
+			}
 		}
+
+		_state.store((int)State::Finished);
 	}
 
-	_state.store((int)State::Finished); // set this last to signal the main thread we're done
+	// Signal destructor that we've exited
+	px4_sem_post(&_exit_sem);
 }
 
 void WorkerThread::setMagQuickData(float heading_rad, float lat, float lon)

@@ -36,6 +36,8 @@
 
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/posix.h>
+#include <px4_platform_common/sem.h>
+#include <px4_platform_common/tasks.h>
 #include <systemlib/mavlink_log.h>
 #include <uORB/uORB.h>
 
@@ -67,7 +69,7 @@ public:
 		ParamResetAllConfig
 	};
 
-	WorkerThread() = default;
+	WorkerThread();
 	~WorkerThread();
 
 	void setMagQuickData(float heading_rad, float lat, float lon);
@@ -85,19 +87,25 @@ private:
 		Finished
 	};
 
-	static void *threadEntryTrampoline(void *arg);
-	void threadEntry();
+	static int taskTrampoline(int argc, char *argv[]);
+	void workerLoop();
 
 	px4::atomic_int _state{(int)State::Idle};
-	pthread_t _thread_handle{};
+	px4_task_t _task_handle{-1};
 	int _ret_value{};
-	Request _request;
+	Request _request{};
 	orb_advert_t _mavlink_log_pub{nullptr};
 
+	// Persistent thread synchronization
+	px4_sem_t _work_sem;
+	px4_sem_t _exit_sem;
+	bool _task_started{false};
+	px4::atomic_bool _shutdown{false};
+
 	// extra arguments
-	float _heading_radians;
-	float _latitude;
-	float _longitude;
+	float _heading_radians{0.0f};
+	float _latitude{0.0f};
+	float _longitude{0.0f};
 
 };
 
