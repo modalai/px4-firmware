@@ -36,6 +36,7 @@
 
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/posix.h>
+#include <px4_platform_common/tasks.h>
 #include <systemlib/mavlink_log.h>
 #include <uORB/uORB.h>
 
@@ -85,11 +86,13 @@ private:
 		Finished
 	};
 
-	static void *threadEntryTrampoline(void *arg);
+	static int threadEntryTrampoline(int argc, char *argv[]);
 	void threadEntry();
 
+	static WorkerThread *s_instance;
+
 	px4::atomic_int _state{(int)State::Idle};
-	pthread_t _thread_handle{};
+	px4_task_t _task_id{-1};
 	int _ret_value{};
 	Request _request;
 	orb_advert_t _mavlink_log_pub{nullptr};

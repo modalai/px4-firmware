@@ -50,14 +50,14 @@
 
 using namespace time_literals;
 
+WorkerThread *WorkerThread::s_instance{nullptr};
+
 WorkerThread::~WorkerThread()
 {
 	if (_state.load() == (int)State::Running) {
-		/* wait for thread to complete */
-		int ret = pthread_join(_thread_handle, nullptr);
-
-		if (ret) {
-			PX4_ERR("join failed: %d", ret);
+		/* wait for task to complete */
+		while (px4_task_is_running("commander_low_prio")) {
+			px4_usleep(10000); // 10ms
 		}
 	}
 }
@@ -69,43 +69,33 @@ void WorkerThread::startTask(Request request)
 	}
 
 	_request = request;
+	s_instance = this;
 
-	/* initialize low priority thread */
-	pthread_attr_t low_prio_attr;
-	pthread_attr_init(&low_prio_attr);
-	pthread_attr_setstacksize(&low_prio_attr, PX4_STACK_ADJUSTED(4804));
+	_task_id = px4_task_spawn_cmd("commander_low_prio",
+				      SCHED_DEFAULT,
+				      SCHED_PRIORITY_DEFAULT - 50,
+				      PX4_STACK_ADJUSTED(4804),
+				      &threadEntryTrampoline,
+				      nullptr);
 
-	struct sched_param param;
-	pthread_attr_getschedparam(&low_prio_attr, &param);
-
-	/* low priority */
-	param.sched_priority = SCHED_PRIORITY_DEFAULT - 50;
-	pthread_attr_setschedparam(&low_prio_attr, &param);
-
-	int ret = pthread_create(&_thread_handle, &low_prio_attr, &threadEntryTrampoline, this);
-	pthread_attr_destroy(&low_prio_attr);
-
-	if (ret == 0) {
+	if (_task_id >= 0) {
 		_state.store((int)State::Running);
 
 	} else {
-		PX4_ERR("Failed to start thread (%i)", ret);
+		PX4_ERR("Failed to start task (%i)", _task_id);
 		_state.store((int)State::Finished);
-		_ret_value = ret;
+		_ret_value = _task_id;
 	}
 }
 
-void *WorkerThread::threadEntryTrampoline(void *arg)
+int WorkerThread::threadEntryTrampoline(int argc, char *argv[])
 {
-	WorkerThread *worker_thread = (WorkerThread *)arg;
-	worker_thread->threadEntry();
-	return nullptr;
+	s_instance->threadEntry();
+	return s_instance->_ret_value;
 }
 
 void WorkerThread::threadEntry()
 {
-	px4_prctl(PR_SET_NAME, "commander_low_prio", px4_getpid());
-
 	switch (_request) {
 	case Request::GyroCalibration:
 		_ret_value = do_gyro_calibration(&_mavlink_log_pub);
