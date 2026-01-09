@@ -36,6 +36,7 @@
 
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/posix.h>
+#include <px4_platform_common/sem.h>
 #include <systemlib/mavlink_log.h>
 #include <uORB/uORB.h>
 
@@ -89,7 +90,10 @@ private:
 	void threadEntry();
 
 	px4::atomic_int _state{(int)State::Idle};
+	px4::atomic_bool _should_exit{false};
+	bool _thread_started{false};
 	pthread_t _thread_handle{};
+	px4_sem_t _work_sem;
 	int _ret_value{};
 	Request _request;
 	orb_advert_t _mavlink_log_pub{nullptr};
