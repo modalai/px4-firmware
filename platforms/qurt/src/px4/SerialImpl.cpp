@@ -39,6 +39,14 @@
 
 #define MODULE_NAME "SerialImpl"
 
+/*
+  These are the UART utility functions exported by the SLPI DSP image.
+*/
+extern "C" {
+	int fc_uart_rx_available(int fd, uint32_t *data);
+	int fc_uart_flush_rx(int fd);
+}
+
 namespace device
 {
 
@@ -160,9 +168,19 @@ bool SerialImpl::close()
 
 ssize_t SerialImpl::bytesAvailable()
 {
-	// TODO:
-	PX4_WARN("bytesAvailable not implemented!");
-	return 0;
+	if (!_open) {
+		PX4_ERR("Cannot check bytesAvailable from serial device until it has been opened");
+		return -1;
+	}
+
+	uint32_t available = 0;
+	int ret = fc_uart_rx_available(_serial_fd, &available);
+
+	if (ret == 0) {
+		return (ssize_t) available;
+	}
+
+	return ret;
 }
 
 ssize_t SerialImpl::read(uint8_t *buffer, size_t buffer_size)
@@ -267,7 +285,13 @@ ssize_t SerialImpl::write(const void *buffer, size_t buffer_size)
 
 void SerialImpl::flush()
 {
-	// TODO: Flush not implemented yet on Qurt
+	if (!_open) {
+		PX4_ERR("Cannot flush from serial device until it has been opened");
+		return;
+	}
+
+	// TODO: TX Flush not implemented yet on Qurt, only RX
+	(void) fc_uart_flush_rx(_serial_fd);
 }
 
 const char *SerialImpl::getPort() const
