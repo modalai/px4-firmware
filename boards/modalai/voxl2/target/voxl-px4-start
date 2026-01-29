@@ -238,14 +238,7 @@ fi
 qshell manual_control start
 qshell control_allocator start
 qshell load_mon start
-
-# Only start the rc_update module if an actual RC driver
-# is publishing input_rc topics. Otherwise for external RC
-# over Mavlink this isn't needed.
-if [ "$RC" != "EXTERNAL" ]; then
-	qshell rc_update start
-fi
-
+qshell rc_update start
 qshell commander start
 
 # This is needed for altitude and position hold modes
