@@ -40,11 +40,30 @@ static constexpr int16_t combine(uint8_t msb, uint8_t lsb)
 	return (msb << 8u) | lsb;
 }
 
-QMC5883L::QMC5883L(const I2CSPIDriverConfig &config) :
+QMC5883L::QMC5883L(const I2CSPIDriverConfig &config, bool fake_mode) :
 	I2C(config),
 	I2CSPIDriver(config),
-	_px4_mag(get_device_id(), config.rotation)
+	_px4_mag(get_device_id(), config.rotation),
+	_fake_mode(fake_mode)
 {
+}
+
+I2CSPIDriverBase *QMC5883L::instantiate(const I2CSPIDriverConfig &config, int runtime_instance)
+{
+	bool fake_mode = config.custom1 == 1;
+	QMC5883L *instance = new QMC5883L(config, fake_mode);
+
+	if (!instance) {
+		PX4_ERR("alloc failed");
+		return nullptr;
+	}
+
+	if (OK != instance->init()) {
+		delete instance;
+		return nullptr;
+	}
+
+	return instance;
 }
 
 QMC5883L::~QMC5883L()
@@ -101,11 +120,22 @@ int QMC5883L::probe()
 		}
 	}
 
+	if (_fake_mode) {
+		_probe_failed = true;
+		PX4_WARN("QMC5883L probe failed but fake mode enabled");
+		return PX4_OK;
+	}
+
 	return PX4_ERROR;
 }
 
 void QMC5883L::RunImpl()
 {
+	if (_probe_failed) {
+		ScheduleDelayed(100_ms);
+		return;
+	}
+
 	const hrt_abstime now = hrt_absolute_time();
 
 	switch (_state) {

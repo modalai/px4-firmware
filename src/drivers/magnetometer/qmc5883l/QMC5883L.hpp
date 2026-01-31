@@ -53,10 +53,11 @@ using namespace QST_QMC5883L;
 class QMC5883L : public device::I2C, public I2CSPIDriver<QMC5883L>
 {
 public:
-	QMC5883L(const I2CSPIDriverConfig &config);
+	QMC5883L(const I2CSPIDriverConfig &config, bool fake_mode = false);
 	~QMC5883L() override;
 
 	static void print_usage();
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 
 	void RunImpl();
 
@@ -110,4 +111,7 @@ private:
 		{ Register::CNTL2,            CNTL2_BIT::ROL_PNT, CNTL2_BIT::SOFT_RST},
 		{ Register::SET_RESET_PERIOD, SET_RESET_PERIOD_BIT::FBR, 0 },
 	};
+
+	bool _fake_mode{false};
+	bool _probe_failed{false};
 };

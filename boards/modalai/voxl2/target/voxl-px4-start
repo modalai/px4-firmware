@@ -120,7 +120,11 @@ fi
 # are not connected it will fail but not cause any harm.
 # Rotation 10 = ROLL_180_YAW_90
 /bin/echo "Looking for qmc5883l magnetometer"
-qshell qmc5883l start -R 10 -X -b 1
+if [ "$PLATFORM" == "M0197" ]; then
+    qshell qmc5883l start -R 10 -X -b 1 -F
+else
+    qshell qmc5883l start -R 10 -X -b 1
+fi
 /bin/echo "Looking for ist8310 magnetometer"
 qshell ist8310 start -R 10 -X -b 1
 /bin/echo "Looking for ist8308 magnetometer"
