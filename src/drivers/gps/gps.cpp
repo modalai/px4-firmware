@@ -1034,6 +1034,11 @@ GPS::run()
 				receive_timeout = TIMEOUT_1HZ;
 			}
 
+			if (_mode == gps_driver_mode_t::NMEA) {
+				/* NMEA GPS modules often default to 1Hz output rate */
+				receive_timeout = TIMEOUT_1HZ;
+			}
+
 			while ((helper_ret = _helper->receive(receive_timeout)) > 0 && !should_exit()) {
 
 				if (helper_ret & 1) {
