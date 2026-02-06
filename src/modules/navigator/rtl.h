@@ -68,6 +68,8 @@ public:
 		RTL_TYPE_MISSION_LANDING,
 		RTL_TYPE_MISSION_LANDING_REVERSED,
 		RTL_TYPE_CLOSEST,
+		// 4 is reserved (used upstream for RTL_TYPE_MISSION_LANDING_REVERSED variant)
+		RTL_TYPE_SAFE_POINT_ONLY = 5,
 	};
 
 	enum RTLDestinationType {

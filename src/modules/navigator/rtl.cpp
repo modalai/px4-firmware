@@ -42,6 +42,7 @@
 
 #include "rtl.h"
 #include "navigator.h"
+#include <cfloat>
 #include <dataman/dataman.h>
 #include <px4_platform_common/events.h>
 
@@ -121,6 +122,84 @@ void RTL::find_RTL_destination()
 		double lon_diff_scaled =  lon_scale * matrix::wrap(lon_diff, -180., 180.);
 		return lat_diff * lat_diff + lon_diff_scaled * lon_diff_scaled;
 	};
+
+	// RTL_TYPE 5: only consider safe/rally points, skip home and mission landing
+	if (_param_rtl_type.get() == RTL_TYPE_SAFE_POINT_ONLY) {
+		double min_dist_squared = DBL_MAX;
+		mission_safe_point_s closest_safe_point {};
+		mission_stats_entry_s stats;
+		int ret = dm_read(DM_KEY_SAFE_POINTS, 0, &stats, sizeof(mission_stats_entry_s));
+		int num_safe_points = 0;
+
+		if (ret == sizeof(mission_stats_entry_s)) {
+			num_safe_points = stats.num_items;
+		}
+
+		int closest_index = 0;
+
+		for (int current_seq = 1; current_seq <= num_safe_points; ++current_seq) {
+			mission_safe_point_s mission_safe_point;
+
+			if (dm_read(DM_KEY_SAFE_POINTS, current_seq, &mission_safe_point, sizeof(mission_safe_point_s)) !=
+			    sizeof(mission_safe_point_s)) {
+				PX4_ERR("dm_read failed");
+				continue;
+			}
+
+			// Only consider safe points with supported frames
+			if (mission_safe_point.frame != 0 && mission_safe_point.frame != 3) {
+				continue;
+			}
+
+			dlat = mission_safe_point.lat - global_position.lat;
+			dlon = mission_safe_point.lon - global_position.lon;
+			double dist_squared = coord_dist_sq(dlat, dlon);
+
+			if (dist_squared < min_dist_squared) {
+				closest_index = current_seq;
+				min_dist_squared = dist_squared;
+				closest_safe_point = mission_safe_point;
+			}
+		}
+
+		if (closest_index > 0) {
+			_destination.type = RTL_DESTINATION_SAFE_POINT;
+
+			if (closest_safe_point.frame == 0) { // MAV_FRAME_GLOBAL
+				_destination.lat = closest_safe_point.lat;
+				_destination.lon = closest_safe_point.lon;
+				_destination.alt = closest_safe_point.alt;
+				_destination.yaw = home_landing_position.yaw;
+
+			} else { // MAV_FRAME_GLOBAL_RELATIVE_ALT (frame == 3)
+				_destination.lat = closest_safe_point.lat;
+				_destination.lon = closest_safe_point.lon;
+				_destination.alt = closest_safe_point.alt + home_landing_position.alt;
+				_destination.yaw = home_landing_position.yaw;
+			}
+
+			// Rally point found: climb to RTL altitude before flying to it
+			_rtl_alt = max(global_position.alt, _destination.alt + _param_rtl_return_alt.get());
+
+		} else {
+			// No valid safe point found — descend at current position.
+			// Use home altitude as ground reference so the state machine has a
+			// stable landing altitude that doesn't change on repeated calls.
+			_destination.lat = global_position.lat;
+			_destination.lon = global_position.lon;
+			_destination.alt = home_landing_position.alt;
+			_destination.yaw = _navigator->get_local_position()->heading;
+			_destination.type = RTL_DESTINATION_SAFE_POINT;
+
+			// No rally point: descend from current altitude, don't climb
+			_rtl_alt = global_position.alt;
+
+			mavlink_log_critical(_navigator->get_mavlink_log_pub(), "RTL: no safe point, descending at current position\t");
+			events::send(events::ID("rtl_no_safe_point_descend"), events::Log::Warning,
+				     "RTL: no safe point defined, descending at current position");
+		}
+		return;
+	}
 
 	double min_dist_squared = coord_dist_sq(dlat, dlon);
 
