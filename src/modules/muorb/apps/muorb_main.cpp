@@ -32,15 +32,12 @@
  ****************************************************************************/
 
 #include <string.h>
-#include <px4_platform_common/shutdown.h>
 #include "uORBAppsProtobufChannel.hpp"
 #include "uORB/uORBManager.hpp"
-#include "fc_sensor.h"
 
 extern "C" {
 	__EXPORT int muorb_main(int argc, char *argv[]);
 	__EXPORT int muorb_init();
-	__EXPORT bool muorb_kill_slpi();
 }
 
 static bool enable_debug = false;
@@ -49,15 +46,6 @@ int
 muorb_main(int argc, char *argv[])
 {
 	return muorb_init();
-}
-
-bool
-muorb_kill_slpi(void)
-{
-	PX4_ERR("Sending kill command to SLPI!!!");
-	fc_sensor_kill_slpi();
-	sleep(1);
-	return true;
 }
 
 int
@@ -70,11 +58,7 @@ muorb_init()
 	if (channel && channel->Initialize(enable_debug)) {
 		uORB::Manager::get_instance()->set_uorb_communicator(channel);
 
-		px4_register_shutdown_hook(&muorb_kill_slpi);
-
-		if (channel->Test()) {
-			return OK;
-		}
+		if (channel->Test()) { return OK; }
 	}
 
 	return -EINVAL;
