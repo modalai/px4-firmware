@@ -268,7 +268,7 @@ PARAM_DEFINE_INT32(VOXL_ESC_T_OVER, 0);
  *
  * @reboot_required true
  *
- * @group VOXL ESC
+ * @group VOXL_ESC
  * @value 0 - Button 1
  * @min 0
  * @max 17
@@ -281,7 +281,7 @@ PARAM_DEFINE_INT32(VOXL_ESC_T_ON, 9);
  *
  * @reboot_required true
  *
- * @group VOXL ESC
+ * @group VOXL_ESC
  * @value 0 - Disabled
  * @min 0
  * @max 6
