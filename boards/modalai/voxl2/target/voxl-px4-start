@@ -89,11 +89,12 @@ fi
 # First try to start external barometer on DSP (new GPS module with onboard DPS368 baro)
 EXTERNAL_BAROMETER=0
 
-/bin/echo "Looking for external DPS368 barometer on DSP"
-if qshell dps310 start -X -b 1; then
-	/bin/echo "Detected external DPS368 barometer on DSP"
-	EXTERNAL_BAROMETER=1
-fi
+
+ /bin/echo "Looking for external DPS368 barometer on DSP"
+ if qshell dps310 start -X -b 1; then
+ 	/bin/echo "Detected external DPS368 barometer on DSP"
+ 	EXTERNAL_BAROMETER=1
+ fi
 
 # If no DSP barometer, look for external barometers connected to the apps proc
 if (( EXTERNAL_BAROMETER == 0 )); then
@@ -129,7 +130,7 @@ fi
 # are not connected it will fail but not cause any harm.
 # Try BMM150 first (new GPS module magnetometer)
 /bin/echo "Looking for bmm150 magnetometer"
-qshell bmm150 start -R 0 -X -b 1
+qshell bmm150 start -R 14 -X -b 1
 # Rotation 10 = ROLL_180_YAW_90
 /bin/echo "Looking for qmc5883l magnetometer"
 qshell qmc5883l start -R 10 -X -b 1
@@ -147,9 +148,9 @@ if [ "$GPS" != "NONE" ]; then
     if [ "$PLATFORM" == "M0197" ]; then
 	gps start -d /dev/ttyHS7
     else
-	# Try NMEA protocol first (for TESEO LIV4 GPS module at 9600 baud)
+	# Try NMEA protocol first (for TESEO LIV4 GPS module at 115200 baud)
 	/bin/echo "Trying to start GPS with NMEA protocol"
-	if ! qshell gps start -p nmea -b 9600; then
+	if ! qshell gps start -p nmea -b 115200; then
 	    /bin/echo "NMEA GPS not detected, trying auto-detect"
 	    qshell gps start
 	fi
