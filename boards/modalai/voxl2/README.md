@@ -9,13 +9,13 @@ When running PX4 directly on the QRB5165 SoC it runs partially on the Sensor Low
 The portion running on the DSP hosts the flight critical portions of PX4 such as
 the IMU, barometer, magnetometer, GPS, ESC, and power management drivers, and the
 state estimation. The DSP acts as the real time portion of the system. Non flight
-critical applications such as Mavlink, logging, and commander are running on the
+critical applications such as Mavlink, dataman, and logging are running on the
 ARM CPU cluster (aka apps proc). The DSP and ARM CPU cluster communicate via a
-Qualcomm proprietary shared memory interface.
+Qualcomm proprietary shared memory interface called QMI.
 
 ## Build environment
 
-In order to build for this platform both the Qualcomm Hexagon (DSP) toolchain and the Linaro ARM64 toolchain need to be installed. The (nearly) complete setup including the ARM64 toolchain is provided in the base Docker image provided by ModalAI, but since ModalAI is not allowed to redistribute the Qualcomm Hexagon DSP SDK this must be added by the end user.
+In order to build for this platform both the Qualcomm Hexagon (DSP) toolchain and the Linaro ARM64 toolchain need to be installed. The (nearly) complete setup including the ARM64 toolchain is provided in the base Docker image provided by ModalAI, but since the Qualcomm Hexagon DSP SDK requires each user to agree to the licensing terms this must be added by the end user.
 
 The full instructions are available here:
 - https://gitlab.com/voxl-public/rb5-flight/rb5-flight-px4-build-docker
@@ -66,16 +66,7 @@ INFO  [px4] Startup script returned successfully
 pxh>
 ```
 
-## Notes
-
-You cannot cleanly shutdown PX4 with the shutdown command on VOXL 2. You have
-to power cycle the board and restart everything.
-
 ## Tips
-
-Start with a VOXL 2 that only has the system image installed, not the SDK
-
-Run the command ```voxl-px4 -s``` on target to run the self-test
 
 In order to see DSP specific debug messages the mini-dm tool in the Hexagon SDK
 can be used:
