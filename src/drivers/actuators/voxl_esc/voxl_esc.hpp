@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2026 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,10 @@
 
 #include "qc_esc_packet.h"
 #include "qc_esc_packet_types.h"
+
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+#include "uart_debug_logger.hpp"
+#endif
 
 class VoxlEsc : public ModuleBase<VoxlEsc>, public OutputModuleInterface
 {
@@ -274,4 +278,10 @@ private:
 	int			check_for_esc_timeout();
 	void			mix_turtle_mode(uint16_t outputs[]);
 	void			handle_actuator_test();
+
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	UartDebugLogger		_uart_debug_logger;
+	int			_debug_log_write_dt{0};
+	int			_update_outputs_dt{0};
+#endif
 };

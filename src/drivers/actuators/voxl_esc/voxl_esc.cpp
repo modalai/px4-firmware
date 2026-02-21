@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2026 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -83,6 +83,10 @@ VoxlEsc::~VoxlEsc()
 {
 	_outputs_on = false;
 
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	_uart_debug_logger.stop();
+#endif
+
 	if (_uart_port) {
 		_uart_port->uart_close();
 		_uart_port = nullptr;
@@ -120,6 +124,14 @@ int VoxlEsc::init()
 	//
 	//There is no problem when running on VOXL2, but in order to have the same logical flow on both systems,
 	//we will initialize uart and query the device in Run()
+
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+
+	if (_uart_debug_logger.start("voxl_esc_log") != 0) {
+		PX4_ERR("Failed to start UART debug logger");
+	}
+
+#endif
 
 	ScheduleNow();
 
@@ -1261,6 +1273,10 @@ void VoxlEsc::mix_turtle_mode(uint16_t outputs[MAX_ACTUATORS])
 bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			    unsigned num_outputs, unsigned num_control_groups_updated)
 {
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	uint64_t update_entry_time = hrt_absolute_time();
+#endif
+
 	//in Run() we call _mixing_output.update(), which calls MixingOutput::limitAndUpdateOutputs which calls _interface.updateOutputs (this function)
 	//So, if Run() is blocked by a custom command, this function will not be called until Run is running again
 
@@ -1335,7 +1351,17 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 				sizeof(cmd.buf));
 	}
 
-	if (_uart_port->uart_write(cmd.buf, cmd.len) != cmd.len) {
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	uint64_t uart_write_start_time = hrt_absolute_time();
+#endif
+
+	int uart_write_ret = _uart_port->uart_write(cmd.buf, cmd.len);
+
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	uint64_t uart_write_end_time = hrt_absolute_time();
+#endif
+
+	if (uart_write_ret != cmd.len) {
 		PX4_ERR("Failed to send packet");
 		return false;
 	}
@@ -1394,7 +1420,39 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	 * uart_read is non-blocking and we will just parse whatever bytes came in up until this point
 	 */
 
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	uint64_t uart_read_start_time = hrt_absolute_time();
+#endif
+
 	int res = _uart_port->uart_read(_read_buf, sizeof(_read_buf));
+
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	uint64_t uart_read_end_time = hrt_absolute_time();
+
+	{
+		char header_buf[96];
+		uint64_t log_write_start = hrt_absolute_time();
+		int header_len = snprintf(header_buf, sizeof(header_buf),
+					  "\r\n\n***[%" PRIu64 "](%" PRIu32 ",%d,%" PRIu32 ",%d,%d,%d): ",
+					  update_entry_time,
+					  (uint32_t)(uart_write_end_time - uart_write_start_time),
+					  uart_write_ret,
+					  (uint32_t)(uart_read_end_time - uart_read_start_time),
+					  res,
+					  _debug_log_write_dt,
+					  _update_outputs_dt);
+
+		_uart_debug_logger.log_data((const uint8_t *)header_buf, header_len);
+		_uart_debug_logger.log_data(cmd.buf, cmd.len);
+
+		if (res > 0) {
+			_uart_debug_logger.log_data(_read_buf, res);
+		}
+
+		uint64_t log_write_end = hrt_absolute_time();
+		_debug_log_write_dt = (int)(log_write_end - log_write_start);
+	}
+#endif
 
 	if (res > 0) {
 		parse_response(_read_buf, res, false);
@@ -1442,6 +1500,10 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	}
 
 	perf_count(_output_update_perf);
+
+#ifdef CONFIG_VOXL_ESC_UART_DEBUG_LOG
+	_update_outputs_dt = (int)(hrt_absolute_time() - update_entry_time);
+#endif
 
 	return true;
 }

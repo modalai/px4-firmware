@@ -3,3 +3,16 @@ menuconfig DRIVERS_ACTUATORS_VOXL_ESC
 	default n
 	---help---
 		Enable support for voxl_esc
+
+if DRIVERS_ACTUATORS_VOXL_ESC
+
+	config VOXL_ESC_UART_DEBUG_LOG
+		bool "UART debug logging"
+		default n
+		---help---
+			Enable UART communication debug logging for the VOXL ESC
+			driver. Instruments uart_write/uart_read with timestamps
+			and logs raw bytes to a binary file via a background
+			flush thread. Adds ~16KB buffer and one background thread.
+
+endif
