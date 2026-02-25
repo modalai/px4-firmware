@@ -104,6 +104,8 @@ set(msg_files
 	Gripper.msg
 	HealthReport.msg
 	HeaterStatus.msg
+	HilSensorImu.msg
+	HilSensorMagBaro.msg
 	HomePosition.msg
 	HoverThrustEstimate.msg
 	InputRc.msg
@@ -236,6 +238,13 @@ set(msg_files
 	YawEstimatorStatus.msg
 )
 list(SORT msg_files)
+
+# ModalAI boards: swap OrbTestMedium for HilSensor msgs to keep ORB_ID enum within uint8_t
+if("${PX4_BOARD_VENDOR}" STREQUAL "modalai")
+	list(REMOVE_ITEM msg_files OrbTestMedium.msg)
+else()
+	list(REMOVE_ITEM msg_files HilSensorImu.msg HilSensorMagBaro.msg)
+endif()
 
 px4_list_make_absolute(msg_files ${CMAKE_CURRENT_SOURCE_DIR} ${msg_files})
 

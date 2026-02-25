@@ -111,7 +111,11 @@ private:
 				}
 			}
 
+#if PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2
+			msg.flags = 0x0F;  // Quad: motors on channels 0-3
+#else
 			msg.flags = 0;
+#endif
 
 			mavlink_msg_hil_actuator_controls_send_struct(_mavlink->get_channel(), &msg);
 

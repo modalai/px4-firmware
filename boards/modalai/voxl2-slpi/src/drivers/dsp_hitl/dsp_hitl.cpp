@@ -31,898 +31,241 @@
  *
  ****************************************************************************/
 
-#include <iostream>
-#include <string>
-#include <pthread.h>
+/**
+ * @file dsp_hitl.cpp
+ *
+ * DSP-side HITL driver for all sensors (IMU, MAG, BARO).
+ * Subscribes to hil_sensor_imu and hil_sensor_mag_baro (from apps proc via MUORB)
+ * and republishes as sensor_accel/sensor_gyro/sensor_mag/sensor_baro with fresh DSP timestamps.
+ */
 
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/getopt.h>
+#include <px4_platform_common/module.h>
+#include <px4_log.h>
 
-#include <drivers/device/qurt/uart.h>
-
-#include <commander/px4_custom_mode.h>
-
-#include <drivers/drv_pwm_output.h>
 #include <drivers/drv_hrt.h>
 
-#include <mavlink.h>
-
 #include <uORB/uORB.h>
-#include <uORB/Publication.hpp>
-#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
-#include <uORB/topics/sensor_gps.h>
-#include <uORB/topics/battery_status.h>
-#include <uORB/topics/differential_pressure.h>
-#include <uORB/topics/actuator_outputs.h>
-#include <uORB/topics/vehicle_control_mode.h>
-#include <uORB/topics/vehicle_status.h>
-#include <uORB/topics/telemetry_status.h>
-#include <uORB/topics/vehicle_odometry.h>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/hil_sensor_imu.h>
+#include <uORB/topics/hil_sensor_mag_baro.h>
+#include <uORB/topics/sensor_accel.h>
+#include <uORB/topics/sensor_gyro.h>
+#include <uORB/topics/sensor_mag.h>
 #include <uORB/topics/sensor_baro.h>
-#include <uORB/topics/esc_status.h>
-#include <uORB/topics/modal_io_mavlink_data.h>
-
-#include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
-#include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
-#include <lib/drivers/magnetometer/PX4Magnetometer.hpp>
-#include <lib/drivers/device/Device.hpp> // For DeviceId union
-
-#include <px4_log.h>
-#include <px4_platform_common/module.h>
-
-#include <uORB/topics/vehicle_control_mode.h>
+#include <uORB/topics/vehicle_status.h>
 
 #include <unistd.h>
-
-#define ASYNC_UART_READ_WAIT_US 2000
 
 extern "C" { __EXPORT int dsp_hitl_main(int argc, char *argv[]); }
 
 namespace dsp_hitl
 {
 
-using matrix::wrap_2pi;
-
 static bool _is_running = false;
 volatile bool _task_should_exit = false;
 static px4_task_t _task_handle = -1;
-int _uart_fd = -1;
-bool debug = false;
-uint32_t debug_odometry_forwarding = 0;
-std::string port = "2";
-// Valid choices: 9600, 38400, 57600, 115200, 230400, 250000, 420000, 460800,
-// 921600, 1000000, 1843200, 2000000. But 921600 seems to perform the best.
-int baudrate = 921600;
-const unsigned mode_flag_custom = 1;
-const unsigned mode_flag_armed = 128;
-bool _send_mag = false;
-bool _export_odometry = false;
 
-uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
-uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
-uORB::Publication<differential_pressure_s>		_differential_pressure_pub{ORB_ID(differential_pressure)};
-uORB::Publication<vehicle_odometry_s>			_visual_odometry_pub{ORB_ID(vehicle_visual_odometry)};
-uORB::Publication<vehicle_odometry_s>			_mocap_odometry_pub{ORB_ID(vehicle_mocap_odometry)};
-uORB::PublicationMulti<sensor_baro_s>			_sensor_baro_pub{ORB_ID(sensor_baro)};
-uORB::Publication<esc_status_s>					_esc_status_pub{ORB_ID(esc_status)};
-uORB::Publication<modal_io_mavlink_data_s>		_mav_odom_pub{ORB_ID(modal_io_mavlink_data)};
-uORB::Subscription 								_battery_status_sub{ORB_ID(battery_status)};
+// Direct uORB publications - bypass PX4Accelerometer/PX4Gyroscope to have full timestamp control
+uORB::Publication<sensor_accel_s> _sensor_accel_pub{ORB_ID(sensor_accel)};
+uORB::Publication<sensor_gyro_s> _sensor_gyro_pub{ORB_ID(sensor_gyro)};
+uORB::Publication<sensor_mag_s> _sensor_mag_pub{ORB_ID(sensor_mag)};
+uORB::Publication<sensor_baro_s> _sensor_baro_pub{ORB_ID(sensor_baro)};
 
-int32_t _output_functions[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS] {};
+bool got_first_imu_msg = false;
+bool got_first_mag_baro_msg = false;
 
-// hil_sensor and hil_state_quaternion
-enum SensorSource {
-	ACCEL		= 0b111,
-	GYRO		= 0b111000,
-	MAG		= 0b111000000,
-	BARO		= 0b1101000000000,
-	DIFF_PRESS	= 0b10000000000
-};
-
-PX4Accelerometer *_px4_accel{nullptr};
-PX4Gyroscope *_px4_gyro{nullptr};
-PX4Magnetometer *_px4_mag{nullptr};
-
-bool got_first_sensor_msg = false;
+// IMU data
 float x_accel = 0;
 float y_accel = 0;
 float z_accel = 0;
 float x_gyro = 0;
 float y_gyro = 0;
 float z_gyro = 0;
-uint64_t gyro_accel_time = 0;
+
+// MAG/BARO data
+float x_mag = 0;
+float y_mag = 0;
+float z_mag = 0;
+float pressure_pa = 0;
+float temperature = 0;
 
 // Status counters
-uint32_t heartbeat_received_counter = 0;
-uint32_t hil_sensor_counter = 0;
-uint32_t odometry_received_counter = 0;
-uint32_t gps_received_counter = 0;
-
+uint32_t hil_imu_counter = 0;
+uint32_t hil_mag_baro_counter = 0;
 uint32_t imu_counter = 0;
 uint32_t mag_counter = 0;
 uint32_t baro_counter = 0;
-uint32_t gps_sent_counter = 0;
-uint32_t odometry_sent_counter = 0;
-
-uint32_t heartbeat_sent_counter = 0;
-uint32_t actuator_sent_counter = 0;
-
-uint32_t unknown_msg_received_counter = 0;
-
-// uint64_t previous_odometry_timestamp;
-
-uint32_t vio_reset_counter = 1;
-uint32_t vio_reset_recovery_count = 0;
-
-enum class position_source {GPS, VIO, NUM_POSITION_SOURCES};
-
-struct position_source_data_s {
-	char label[8];
-	bool send;
-	bool fail;
-	uint32_t failure_duration;
-	uint64_t failure_duration_start;
-} position_source_data[(int) position_source::NUM_POSITION_SOURCES] = {
-					{"GPS", false, false, 0, 0},
-					{"VIO", false, false, 0, 0} };
-
-uint64_t first_sensor_msg_timestamp = 0;
-uint64_t first_sensor_report_timestamp = 0;
-uint64_t last_sensor_report_timestamp = 0;
 
 vehicle_status_s _vehicle_status{};
-vehicle_control_mode_s _control_mode{};
-actuator_outputs_s _actuator_outputs{};
-battery_status_s _battery_status{};
-
-sensor_accel_fifo_s accel_fifo{};
-sensor_gyro_fifo_s gyro_fifo{};
-
-pthread_mutex_t uart_write_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-int openPort(const char *dev, speed_t speed);
-int closePort();
-
-int readResponse(void *buf, size_t len);
-int writeResponse(void *buf, size_t len);
 
 int start(int argc, char *argv[]);
 int stop();
 int get_status();
 void clear_status_counters();
-bool isOpen() { return _uart_fd >= 0; };
-
 void usage();
 void task_main(int argc, char *argv[]);
 
-void *send_actuator(void *);
-void send_actuator_data();
-
-void handle_message_hil_sensor_dsp(mavlink_message_t *msg);
-void handle_message_hil_gps_dsp(mavlink_message_t *msg);
-void handle_message_odometry_dsp(mavlink_message_t *msg);
-void handle_message_vision_position_estimate_dsp(mavlink_message_t *msg);
-void handle_message_command_long_dsp(mavlink_message_t *msg);
-
-void handle_message_dsp(mavlink_message_t *msg);
-void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg);
-void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control);
-
-void
-handle_message_dsp(mavlink_message_t *msg)
-{
-	switch (msg->msgid) {
-	case MAVLINK_MSG_ID_HIL_SENSOR:
-		hil_sensor_counter++;
-		handle_message_hil_sensor_dsp(msg);
-		break;
-	case MAVLINK_MSG_ID_HIL_GPS:
-		gps_received_counter++;
-		if (position_source_data[(int) position_source::GPS].send) handle_message_hil_gps_dsp(msg);
-		break;
-	case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
-		handle_message_vision_position_estimate_dsp(msg);
-		break;
-	case MAVLINK_MSG_ID_ODOMETRY:
-		odometry_received_counter++;
-		if (position_source_data[(int) position_source::VIO].send) handle_message_odometry_dsp(msg);
-		break;
-	case MAVLINK_MSG_ID_COMMAND_LONG:
-		handle_message_command_long_dsp(msg);
-		break;
-	case MAVLINK_MSG_ID_HEARTBEAT:
-		heartbeat_received_counter++;
-		PX4_DEBUG("Heartbeat msg received");
-		break;
-	case MAVLINK_MSG_ID_SYSTEM_TIME:
-		PX4_DEBUG("MAVLINK SYSTEM TIME");
-		break;
-	default:
-		PX4_DEBUG("Unknown msg ID: %d", msg->msgid);
-		unknown_msg_received_counter++;
-		break;
-	}
-}
-
-void *send_actuator(void *){
-	send_actuator_data();
-	return nullptr;
-}
-
-void send_actuator_data(){
-
-	int _actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_sim), 0);
-	int _vehicle_control_mode_sub_ = orb_subscribe(ORB_ID(vehicle_control_mode));
-	uint64_t last_heartbeat_timestamp = hrt_absolute_time();
-	int previous_timestamp = 0;
-	int previous_uorb_timestamp = 0;
-	int differential = 0;
-	bool first_sent = false;
-
-	while (true){
-
-		bool controls_updated = false;
-		(void) orb_check(_vehicle_control_mode_sub_, &controls_updated);
-
-		if(controls_updated){
-			orb_copy(ORB_ID(vehicle_control_mode), _vehicle_control_mode_sub_, &_control_mode);
-		}
-
-		bool actuator_updated = false;
-		(void) orb_check(_actuator_outputs_sub, &actuator_updated);
-
-		if(actuator_updated){
-			orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
-			px4_lockstep_wait_for_components();
-			if (_actuator_outputs.timestamp > 0) {
-				mavlink_hil_actuator_controls_t hil_act_control;
-				actuator_controls_from_outputs_dsp(&hil_act_control);
-
-				mavlink_message_t message{};
-				mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
-				previous_timestamp = _actuator_outputs.timestamp;
-				previous_uorb_timestamp = _actuator_outputs.timestamp;
-				uint8_t  newBuf[512];
-				uint16_t newBufLen = 0;
-				newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-				int writeRetval = writeResponse(&newBuf, newBufLen);
-				PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
-				first_sent = true;
-				actuator_sent_counter++;
-				send_esc_telemetry_dsp(hil_act_control);
-			}
-		} else if(!actuator_updated && first_sent && differential > 4000){
-			mavlink_hil_actuator_controls_t hil_act_control;
-			actuator_controls_from_outputs_dsp(&hil_act_control);
-			previous_timestamp = hrt_absolute_time();
-
-			mavlink_message_t message{};
-			mavlink_msg_hil_actuator_controls_encode(1, 1, &message, &hil_act_control);
-			uint8_t  newBuf[512];
-			uint16_t newBufLen = 0;
-			newBufLen = mavlink_msg_to_send_buffer(newBuf, &message);
-			int writeRetval = writeResponse(&newBuf, newBufLen);
-			//PX4_INFO("Sending from NOT UPDTE AND TIMEOUT: %i", differential);
-
-			PX4_DEBUG("Succesful write of actuator back to jMAVSim: %d at %llu", writeRetval, hrt_absolute_time());
-			actuator_sent_counter++;
-			send_esc_telemetry_dsp(hil_act_control);
-		}
-		differential = hrt_absolute_time() - previous_timestamp;
-
-		uint64_t timestamp = hrt_absolute_time();
-
-		if ((timestamp - last_heartbeat_timestamp) > 1000000) {
-			mavlink_heartbeat_t hb = {};
-			mavlink_message_t hb_message = {};
-			hb.autopilot = 12;
-			hb.base_mode |= (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) ? 128 : 0;
-			mavlink_msg_heartbeat_encode(1, 1, &hb_message, &hb);
-
-			uint8_t  hb_newBuf[MAVLINK_MAX_PACKET_LEN];
-			uint16_t hb_newBufLen = 0;
-			hb_newBufLen = mavlink_msg_to_send_buffer(hb_newBuf, &hb_message);
-			(void) writeResponse(&hb_newBuf, hb_newBufLen);
-			last_heartbeat_timestamp = timestamp;
-			heartbeat_sent_counter++;
-		}
-	}
-}
-
 void task_main(int argc, char *argv[])
 {
-	int ch;
-	int myoptind = 1;
-	const char *myoptarg = nullptr;
-	while ((ch = px4_getopt(argc, argv, "eodmgp:b:", &myoptind, &myoptarg)) != EOF) {
-		switch (ch) {
-		case 'e':
-			_export_odometry = true;
-			break;
-		case 'd':
-			debug = true;
-			break;
-		case 'p':
-			port = myoptarg;
-			break;
-		case 'b':
-			baudrate = atoi(myoptarg);
-			break;
-		case 'm':
-			_send_mag = true;
-			break;
-		case 'g':
-			position_source_data[(int) position_source::GPS].send = true;
-			break;
-		case 'o':
-			position_source_data[(int) position_source::VIO].send = true;
-			break;
-		default:
-			break;
-		}
-	}
-
-	const char* charport = port.c_str();
-	int openRetval = openPort(charport, (speed_t) baudrate);
-	int open = isOpen();
-	if(open){
-		PX4_INFO("DSP HITL Serial Port is open: %d", openRetval);
-	}
-
-	uint64_t last_imu_update_timestamp = hrt_absolute_time();
-
-	_px4_accel = new PX4Accelerometer(1310988);
-	_px4_gyro = new PX4Gyroscope(1310988);
-	_px4_mag = new PX4Magnetometer(197388);
-
-	// Create a thread for sending data to the simulator.
-	pthread_t sender_thread;
-	pthread_attr_t sender_thread_attr;
-	pthread_attr_init(&sender_thread_attr);
-	pthread_attr_setstacksize(&sender_thread_attr, PX4_STACK_ADJUSTED(8000));
-	pthread_create(&sender_thread, &sender_thread_attr, send_actuator, nullptr);
-	pthread_attr_destroy(&sender_thread_attr);
+	uORB::Subscription hil_imu_sub{ORB_ID(hil_sensor_imu)};
+	uORB::Subscription hil_mag_baro_sub{ORB_ID(hil_sensor_mag_baro)};
 
 	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
-	PX4_INFO("Got %d from orb_subscribe", _vehicle_status_sub);
 
 	_is_running = true;
 
-	while (!_task_should_exit){
+	// Track last published timestamps - use actual time only, never synthetic
+	hrt_abstime last_imu_publish_ts = 0;
+	hrt_abstime last_mag_publish_ts = 0;
+	hrt_abstime last_baro_publish_ts = 0;
 
-		uint8_t rx_buf[1024];
-		//rx_buf[511] = '\0';
+	// Temperature for IMU
+	float imu_temperature = NAN;
 
-		uint64_t timestamp = hrt_absolute_time();
+	while (!_task_should_exit) {
 
-		// Send out sensor messages every 10ms
-		if (got_first_sensor_msg) {
-			uint64_t delta_time = timestamp - last_imu_update_timestamp;
-			if (delta_time > 15000) {
-				PX4_ERR("Sending updates at %llu, delta %llu", timestamp, delta_time);
+		// ========== IMU ==========
+		// Read latest HIL sensor data from apps proc (bridged via MUORB)
+		hil_sensor_imu_s hil_imu_data;
+
+		if (hil_imu_sub.update(&hil_imu_data)) {
+			x_accel = hil_imu_data.accelerometer_m_s2[0];
+			y_accel = hil_imu_data.accelerometer_m_s2[1];
+			z_accel = hil_imu_data.accelerometer_m_s2[2];
+			x_gyro = hil_imu_data.gyroscope_rad_s[0];
+			y_gyro = hil_imu_data.gyroscope_rad_s[1];
+			z_gyro = hil_imu_data.gyroscope_rad_s[2];
+
+			if (PX4_ISFINITE(hil_imu_data.temperature)) {
+				imu_temperature = hil_imu_data.temperature;
 			}
-			uint64_t _px4_gyro_accel_timestamp = hrt_absolute_time();
-			_px4_gyro->update(_px4_gyro_accel_timestamp, x_gyro, y_gyro, z_gyro);
-			_px4_accel->update(_px4_gyro_accel_timestamp, x_accel, y_accel, z_accel);
-			last_imu_update_timestamp = timestamp;
-			imu_counter++;
-		}
 
-		// Check for incoming messages from the simulator
-		int readRetval = readResponse(&rx_buf[0], sizeof(rx_buf));
-		if (readRetval) {
-			//Take readRetval and convert it into mavlink msg
-			mavlink_message_t msg;
-			mavlink_status_t _status{};
-			for (int i = 0; i <= readRetval; i++){
-				if(mavlink_parse_char(MAVLINK_COMM_0, rx_buf[i], &msg, &_status)){
-					//PX4_INFO("Value of msg id: %i", msg.msgid);
-					handle_message_dsp(&msg);
+			got_first_imu_msg = true;
+			hil_imu_counter++;
+
+			// Only publish when we have new data with finite values
+			if (PX4_ISFINITE(x_accel) && PX4_ISFINITE(y_accel) && PX4_ISFINITE(z_accel) &&
+			    PX4_ISFINITE(x_gyro) && PX4_ISFINITE(y_gyro) && PX4_ISFINITE(z_gyro)) {
+
+				// Get current time - MUST be strictly greater than last
+				hrt_abstime ts = hrt_absolute_time();
+
+				// Only publish if time has actually advanced
+				if (ts > last_imu_publish_ts) {
+					// Publish gyro - set BOTH timestamps to the SAME value
+					sensor_gyro_s gyro{};
+					gyro.timestamp_sample = ts;
+					gyro.device_id = 1310988; // DRV_IMU_DEVTYPE_SIM
+					gyro.x = x_gyro;
+					gyro.y = y_gyro;
+					gyro.z = z_gyro;
+					gyro.temperature = imu_temperature;
+					gyro.error_count = 0;
+					gyro.samples = 1;
+					gyro.timestamp = ts;  // SAME as timestamp_sample
+					_sensor_gyro_pub.publish(gyro);
+
+					// Publish accel - set BOTH timestamps to the SAME value
+					sensor_accel_s accel{};
+					accel.timestamp_sample = ts;
+					accel.device_id = 1310988; // DRV_IMU_DEVTYPE_SIM
+					accel.x = x_accel;
+					accel.y = y_accel;
+					accel.z = z_accel;
+					accel.temperature = imu_temperature;
+					accel.error_count = 0;
+					accel.samples = 1;
+					accel.timestamp = ts;  // SAME as timestamp_sample
+					_sensor_accel_pub.publish(accel);
+
+					last_imu_publish_ts = ts;
+					imu_counter++;
 				}
 			}
 		}
 
+		// ========== MAG/BARO ==========
+		hil_sensor_mag_baro_s hil_mag_baro_data;
+
+		if (hil_mag_baro_sub.update(&hil_mag_baro_data)) {
+			got_first_mag_baro_msg = true;
+			hil_mag_baro_counter++;
+
+			hrt_abstime now = hrt_absolute_time();
+
+			// Only publish magnetometer when mag field was actually updated
+			if ((hil_mag_baro_data.fields_updated & hil_sensor_mag_baro_s::FIELD_MAG) &&
+			    now > last_mag_publish_ts) {
+
+				x_mag = hil_mag_baro_data.magnetometer_ga[0];
+				y_mag = hil_mag_baro_data.magnetometer_ga[1];
+				z_mag = hil_mag_baro_data.magnetometer_ga[2];
+				temperature = hil_mag_baro_data.temperature;
+
+				if (PX4_ISFINITE(x_mag) && PX4_ISFINITE(y_mag) && PX4_ISFINITE(z_mag)) {
+					sensor_mag_s sensor_mag{};
+					sensor_mag.timestamp_sample = now;
+					// 197388: DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
+					sensor_mag.device_id = 197388;
+					sensor_mag.x = x_mag;
+					sensor_mag.y = y_mag;
+					sensor_mag.z = z_mag;
+					sensor_mag.temperature = PX4_ISFINITE(temperature) ? temperature : NAN;
+					sensor_mag.error_count = 0;
+					sensor_mag.timestamp = now;
+
+					_sensor_mag_pub.publish(sensor_mag);
+					last_mag_publish_ts = now;
+					mag_counter++;
+				}
+			}
+
+			// Only publish barometer when baro field was actually updated
+			if ((hil_mag_baro_data.fields_updated & hil_sensor_mag_baro_s::FIELD_BARO) &&
+			    now > last_baro_publish_ts) {
+
+				pressure_pa = hil_mag_baro_data.pressure_pa;
+				temperature = hil_mag_baro_data.temperature;
+
+				if (PX4_ISFINITE(pressure_pa)) {
+					sensor_baro_s sensor_baro{};
+					sensor_baro.timestamp_sample = now;
+					// 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
+					sensor_baro.device_id = 6620172;
+					sensor_baro.pressure = pressure_pa;
+					sensor_baro.temperature = PX4_ISFINITE(temperature) ? temperature : 25.0f;
+					sensor_baro.error_count = 0;
+					sensor_baro.timestamp = now;
+
+					_sensor_baro_pub.publish(sensor_baro);
+					last_baro_publish_ts = now;
+					baro_counter++;
+				}
+			}
+		}
+
+		// Check vehicle status
 		bool vehicle_updated = false;
 		(void) orb_check(_vehicle_status_sub, &vehicle_updated);
-		if (vehicle_updated){
-			// PX4_INFO("Value of updated vehicle status: %d", vehicle_updated);
+
+		if (vehicle_updated) {
 			orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
 		}
 
-		uint64_t elapsed_time = hrt_absolute_time() - timestamp;
-		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
-
-		if (elapsed_time < 5000) usleep(5000 - elapsed_time);
+		// Poll at ~250Hz to reduce MUORB load
+		// HITL doesn't need ultra-low latency like real hardware
+		usleep(4000);
 	}
 
+	orb_unsubscribe(_vehicle_status_sub);
+
+	got_first_imu_msg = false;
+	got_first_mag_baro_msg = false;
 	_is_running = false;
-}
-
-void send_esc_telemetry_dsp(mavlink_hil_actuator_controls_t hil_act_control)
-{
-	esc_status_s esc_status{};
-	esc_status.timestamp = hrt_absolute_time();
-	const int max_esc_count = math::min(actuator_outputs_s::NUM_ACTUATOR_OUTPUTS, esc_status_s::CONNECTED_ESC_MAX);
-
-	const bool armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
-	int max_esc_index = 0;
-	_battery_status_sub.update(&_battery_status);
-	for (int i = 0; i < max_esc_count; i++) {
-		if (_output_functions[i] != 0) {
-			max_esc_index = i;
-		}
-
-		esc_status.esc[i].actuator_function = _output_functions[i]; // TODO: this should be in pwm_sim...
-		esc_status.esc[i].timestamp = esc_status.timestamp;
-		esc_status.esc[i].esc_errorcount = 0; // TODO
-		esc_status.esc[i].esc_voltage = _battery_status.voltage_v;
-		esc_status.esc[i].esc_current = armed ? 1.0f + math::abs_t(hil_act_control.controls[i]) * 15.0f :
-						0.0f; // TODO: magic number
-		esc_status.esc[i].esc_rpm = hil_act_control.controls[i] * 6000;  // TODO: magic number
-		esc_status.esc[i].esc_temperature = 20.0 + math::abs_t((double)hil_act_control.controls[i]) * 40.0;
-	}
-
-	esc_status.esc_count = max_esc_index + 1;
-	esc_status.esc_armed_flags = (1u << esc_status.esc_count) - 1;
-	esc_status.esc_online_flags = (1u << esc_status.esc_count) - 1;
-
-	_esc_status_pub.publish(esc_status);
-}
-
-
-void
-handle_message_command_long_dsp(mavlink_message_t *msg)
-{
-	/* command */
-	mavlink_command_long_t cmd_mavlink;
-	mavlink_msg_command_long_decode(msg, &cmd_mavlink);
-
-	if(debug){
-		PX4_INFO("Value of command_long.command: %d", cmd_mavlink.command);
-	}
-
-	mavlink_command_ack_t ack = {};
-	ack.result = MAV_RESULT_UNSUPPORTED;
-
-	mavlink_message_t ack_message = {};
-	mavlink_msg_command_ack_encode(1, 1, &ack_message, &ack);
-
-	uint8_t  acknewBuf[512];
-	uint16_t acknewBufLen = 0;
-	acknewBufLen = mavlink_msg_to_send_buffer(acknewBuf, &ack_message);
-	int writeRetval = writeResponse(&acknewBuf, acknewBufLen);
-	PX4_INFO("Succesful write of ACK back over UART: %d at %llu", writeRetval, hrt_absolute_time());
-}
-
-void
-handle_message_vision_position_estimate_dsp(mavlink_message_t *msg)
-{
-	mavlink_vision_position_estimate_t vpe;
-	mavlink_msg_vision_position_estimate_decode(msg, &vpe);
-
-	// fill vehicle_odometry from Mavlink VISION_POSITION_ESTIMATE
-	vehicle_odometry_s odom{};
-	uint64_t timestamp = hrt_absolute_time();
-	odom.timestamp_sample = timestamp;
-
-	odom.pose_frame = vehicle_odometry_s::POSE_FRAME_NED;
-	odom.position[0] = vpe.x;
-	odom.position[1] = vpe.y;
-	odom.position[2] = vpe.z;
-
-	const matrix::Quatf q(matrix::Eulerf(vpe.roll, vpe.pitch, vpe.yaw));
-	q.copyTo(odom.q);
-
-	// VISION_POSITION_ESTIMATE covariance
-	//  Row-major representation of pose 6x6 cross-covariance matrix upper right triangle
-	//  (states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.).
-	//  If unknown, assign NaN value to first element in the array.
-	odom.position_variance[0] = vpe.covariance[0];  // X  row 0, col 0
-	odom.position_variance[1] = vpe.covariance[6];  // Y  row 1, col 1
-	odom.position_variance[2] = vpe.covariance[11]; // Z  row 2, col 2
-
-	odom.orientation_variance[0] = vpe.covariance[15]; // R  row 3, col 3
-	odom.orientation_variance[1] = vpe.covariance[18]; // P  row 4, col 4
-	odom.orientation_variance[2] = vpe.covariance[20]; // Y  row 5, col 5
-
-	odom.reset_counter = vpe.reset_counter;
-
-	odom.timestamp = hrt_absolute_time();
-
-	_visual_odometry_pub.publish(odom);
-}
-
-void set_vio_blowup(vehicle_odometry_s *msg)
-{
-	msg->position[0] = msg->position[1] = msg->position[2] = 0.0;
-	msg->q[0] = 1.0;
-	msg->q[1] = msg->q[2] = msg->q[3] = 0.0;
-	msg->velocity[0] = msg->velocity[1] = msg->velocity[2] = 0.0;
-	msg->angular_velocity[0] = msg->angular_velocity[1] = msg->angular_velocity[2] = 0.0;
-	msg->position_variance[0] = msg->position_variance[1] = msg->position_variance[2] = NAN;
-	msg->orientation_variance[0] = msg->orientation_variance[1] = msg->orientation_variance[2] = NAN;
-	msg->velocity_variance[0] = msg->velocity_variance[1] = msg->velocity_variance[2] = NAN;
-	msg->velocity_frame = 3;
-
-	msg->quality = -1;
-}
-
-static uint32_t debug_quality = 100;
-
-void
-handle_message_odometry_dsp(mavlink_message_t *msg)
-{
-	mavlink_odometry_t odom_in;
-	mavlink_msg_odometry_decode(msg, &odom_in);
-
-	uint64_t timestamp = hrt_absolute_time();
-
-	debug_quality--;
-	if (debug_quality < 55) debug_quality = 100;
-	odom_in.quality = debug_quality;
-
-	// bool dump_message = (debug_odometry_forwarding == 0);
-	bool dump_message = false;
-
-	if (dump_message) {
-		// uint64_t time_usec; /*< [us] Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number.*/
-		// float x; /*< [m] X Position*/
-		// float y; /*< [m] Y Position*/
-		// float z; /*< [m] Z Position*/
-		// float q[4]; /*<  Quaternion components, w, x, y, z (1 0 0 0 is the null-rotation)*/
-		// float vx; /*< [m/s] X linear speed*/
-		// float vy; /*< [m/s] Y linear speed*/
-		// float vz; /*< [m/s] Z linear speed*/
-		// float rollspeed; /*< [rad/s] Roll angular speed*/
-		// float pitchspeed; /*< [rad/s] Pitch angular speed*/
-		// float yawspeed; /*< [rad/s] Yaw angular speed*/
-		// uint8_t frame_id; /*<  Coordinate frame of reference for the pose data.*/
-		// uint8_t child_frame_id; /*<  Coordinate frame of reference for the velocity in free space (twist) data.*/
-		// uint8_t reset_counter; /*<  Estimate reset counter. This should be incremented when the estimate resets in any of the dimensions (position, velocity, attitude, angular speed). This is designed to be used when e.g an external SLAM system detects a loop-closure and the estimate jumps.*/
-		// uint8_t estimator_type; /*<  Type of estimator that is providing the odometry.*/
-		// int8_t quality; /*< [%] Optional odometry quality metric as a percentage. -1 = odometry has failed, 0 = unknown/unset quality, 1 = worst quality, 100 = best quality*/
-
-		PX4_INFO("Timestamp: %llu", odom_in.time_usec);
-		PX4_INFO("x, y, z: %f, %f, %f", (double) odom_in.x, (double) odom_in.y, (double) odom_in.z);
-		PX4_INFO("q: %f, %f, %f, %f", (double) odom_in.q[0], (double) odom_in.q[1], (double) odom_in.q[2], (double) odom_in.q[3]);
-		PX4_INFO("vx, vy, vz: %f, %f, %f", (double) odom_in.vx, (double) odom_in.vy, (double) odom_in.vz);
-		PX4_INFO("quality %d", odom_in.quality);
-	}
-
-	if (_export_odometry) {
-		modal_io_mavlink_data_s odom_data;
-		odom_data.timestamp = timestamp;
-		odom_data.dump_message = (int) dump_message;
-
-		int index = (int) position_source::VIO;
-		if (position_source_data[index].fail) {
-			odom_in.quality = -1;
-		}
-
-		memcpy(&odom_data.odometry, &odom_in, sizeof(mavlink_odometry_t));
-		_mav_odom_pub.publish(odom_data);
-
-		if (debug_odometry_forwarding++ == 30) {
-			debug_odometry_forwarding = 0;
-		}
-	}
-
-	// fill vehicle_odometry from Mavlink ODOMETRY
-	vehicle_odometry_s odom{};
-	odom.timestamp_sample = timestamp;
-
-	// PX4_ERR("Elapsed time since last odometry: %llu", timestamp - previous_odometry_timestamp);
-	// previous_odometry_timestamp = timestamp;
-
-	const matrix::Vector3f odom_in_p(odom_in.x, odom_in.y, odom_in.z);
-
-	// position x/y/z (m)
-	if (odom_in_p.isAllFinite()) {
-		// frame_id: Coordinate frame of reference for the pose data.
-		switch (odom_in.frame_id) {
-		case MAV_FRAME_LOCAL_NED:
-			// NED local tangent frame (x: North, y: East, z: Down) with origin fixed relative to earth.
-			odom.pose_frame = vehicle_odometry_s::POSE_FRAME_NED;
-			odom_in_p.copyTo(odom.position);
-			break;
-
-		case MAV_FRAME_LOCAL_ENU:
-			// ENU local tangent frame (x: East, y: North, z: Up) with origin fixed relative to earth.
-			odom.pose_frame = vehicle_odometry_s::POSE_FRAME_NED;
-			odom.position[0] =  odom_in.y; // y: North
-			odom.position[1] =  odom_in.x; // x: East
-			odom.position[2] = -odom_in.z; // z: Up
-			break;
-
-		case MAV_FRAME_LOCAL_FRD:
-			// FRD local tangent frame (x: Forward, y: Right, z: Down) with origin fixed relative to earth.
-			odom.pose_frame = vehicle_odometry_s::POSE_FRAME_FRD;
-			odom_in_p.copyTo(odom.position);
-			break;
-
-		case MAV_FRAME_LOCAL_FLU:
-			// FLU local tangent frame (x: Forward, y: Left, z: Up) with origin fixed relative to earth.
-			odom.pose_frame = vehicle_odometry_s::POSE_FRAME_FRD;
-			odom.position[0] =  odom_in.x; // x: Forward
-			odom.position[1] = -odom_in.y; // y: Left
-			odom.position[2] = -odom_in.z; // z: Up
-			break;
-
-		default:
-			break;
-		}
-
-		// pose_covariance
-		//  Row-major representation of a 6x6 pose cross-covariance matrix upper right triangle (states: x, y, z, roll, pitch, yaw)
-		//  first six entries are the first ROW, next five entries are the second ROW, etc.
-		if (odom_in.estimator_type != MAV_ESTIMATOR_TYPE_NAIVE) {
-			switch (odom_in.frame_id) {
-			case MAV_FRAME_LOCAL_NED:
-			case MAV_FRAME_LOCAL_FRD:
-			case MAV_FRAME_LOCAL_FLU:
-				// position variances copied directly
-				odom.position_variance[0] = odom_in.pose_covariance[0];  // X  row 0, col 0
-				odom.position_variance[1] = odom_in.pose_covariance[6];  // Y  row 1, col 1
-				odom.position_variance[2] = odom_in.pose_covariance[11]; // Z  row 2, col 2
-				break;
-
-			case MAV_FRAME_LOCAL_ENU:
-				// ENU local tangent frame (x: East, y: North, z: Up) with origin fixed relative to earth.
-				odom.position_variance[0] = odom_in.pose_covariance[6];  // Y  row 1, col 1
-				odom.position_variance[1] = odom_in.pose_covariance[0];  // X  row 0, col 0
-				odom.position_variance[2] = odom_in.pose_covariance[11]; // Z  row 2, col 2
-				break;
-
-			default:
-				break;
-			}
-		}
-	}
-
-	// q: the quaternion of the ODOMETRY msg represents a rotation from body frame to a local frame
-	if (matrix::Quatf(odom_in.q).isAllFinite()) {
-
-		odom.q[0] = odom_in.q[0];
-		odom.q[1] = odom_in.q[1];
-		odom.q[2] = odom_in.q[2];
-		odom.q[3] = odom_in.q[3];
-
-		// pose_covariance (roll, pitch, yaw)
-		//  states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.
-		//  TODO: fix pose_covariance for MAV_FRAME_LOCAL_ENU, MAV_FRAME_LOCAL_FLU
-		if (odom_in.estimator_type != MAV_ESTIMATOR_TYPE_NAIVE) {
-			odom.orientation_variance[0] = odom_in.pose_covariance[15]; // R  row 3, col 3
-			odom.orientation_variance[1] = odom_in.pose_covariance[18]; // P  row 4, col 4
-			odom.orientation_variance[2] = odom_in.pose_covariance[20]; // Y  row 5, col 5
-		}
-	}
-
-	const matrix::Vector3f odom_in_v(odom_in.vx, odom_in.vy, odom_in.vz);
-
-	// velocity vx/vy/vz (m/s)
-	if (odom_in_v.isAllFinite()) {
-		// child_frame_id: Coordinate frame of reference for the velocity in free space (twist) data.
-		switch (odom_in.child_frame_id) {
-		case MAV_FRAME_LOCAL_NED:
-			// NED local tangent frame (x: North, y: East, z: Down) with origin fixed relative to earth.
-			odom.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_NED;
-			odom_in_v.copyTo(odom.velocity);
-			break;
-
-		case MAV_FRAME_LOCAL_ENU:
-			// ENU local tangent frame (x: East, y: North, z: Up) with origin fixed relative to earth.
-			odom.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_NED;
-			odom.velocity[0] =  odom_in.vy; // y: East
-			odom.velocity[1] =  odom_in.vx; // x: North
-			odom.velocity[2] = -odom_in.vz; // z: Up
-			break;
-
-		case MAV_FRAME_LOCAL_FRD:
-			// FRD local tangent frame (x: Forward, y: Right, z: Down) with origin fixed relative to earth.
-			odom.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_FRD;
-			odom_in_v.copyTo(odom.velocity);
-			break;
-
-		case MAV_FRAME_LOCAL_FLU:
-			// FLU local tangent frame (x: Forward, y: Left, z: Up) with origin fixed relative to earth.
-			odom.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_FRD;
-			odom.velocity[0] =  odom_in.vx; // x: Forward
-			odom.velocity[1] = -odom_in.vy; // y: Left
-			odom.velocity[2] = -odom_in.vz; // z: Up
-			break;
-
-		case MAV_FRAME_BODY_NED: // DEPRECATED: Replaced by MAV_FRAME_BODY_FRD (2019-08).
-		case MAV_FRAME_BODY_OFFSET_NED: // DEPRECATED: Replaced by MAV_FRAME_BODY_FRD (2019-08).
-		case MAV_FRAME_BODY_FRD:
-			// FRD local tangent frame (x: Forward, y: Right, z: Down) with origin that travels with vehicle.
-			odom.velocity_frame = vehicle_odometry_s::VELOCITY_FRAME_BODY_FRD;
-			odom.velocity[0] = odom_in.vx;
-			odom.velocity[1] = odom_in.vy;
-			odom.velocity[2] = odom_in.vz;
-			break;
-
-		default:
-			// unsupported child_frame_id
-			break;
-		}
-
-		// velocity_covariance (vx, vy, vz)
-		//  states: vx, vy, vz, rollspeed, pitchspeed, yawspeed; first six entries are the first ROW, next five entries are the second ROW, etc.
-		//  TODO: fix velocity_covariance for MAV_FRAME_LOCAL_ENU, MAV_FRAME_LOCAL_FLU, MAV_FRAME_LOCAL_FLU
-		if (odom_in.estimator_type != MAV_ESTIMATOR_TYPE_NAIVE) {
-			switch (odom_in.child_frame_id) {
-			case MAV_FRAME_LOCAL_NED:
-			case MAV_FRAME_LOCAL_FRD:
-			case MAV_FRAME_LOCAL_FLU:
-			case MAV_FRAME_BODY_NED: // DEPRECATED: Replaced by MAV_FRAME_BODY_FRD (2019-08).
-			case MAV_FRAME_BODY_OFFSET_NED: // DEPRECATED: Replaced by MAV_FRAME_BODY_FRD (2019-08).
-			case MAV_FRAME_BODY_FRD:
-				// velocity covariances copied directly
-				odom.velocity_variance[0] = odom_in.velocity_covariance[0];  // X  row 0, col 0
-				odom.velocity_variance[1] = odom_in.velocity_covariance[6];  // Y  row 1, col 1
-				odom.velocity_variance[2] = odom_in.velocity_covariance[11]; // Z  row 2, col 2
-				break;
-
-			case MAV_FRAME_LOCAL_ENU:
-				// ENU local tangent frame (x: East, y: North, z: Up) with origin fixed relative to earth.
-				odom.velocity_variance[0] = odom_in.velocity_covariance[6];  // Y  row 1, col 1
-				odom.velocity_variance[1] = odom_in.velocity_covariance[0];  // X  row 0, col 0
-				odom.velocity_variance[2] = odom_in.velocity_covariance[11]; // Z  row 2, col 2
-				break;
-
-			default:
-				// unsupported child_frame_id
-				break;
-			}
-		}
-	}
-
-	// Roll/Pitch/Yaw angular speed (rad/s)
-	if (PX4_ISFINITE(odom_in.rollspeed)
-	    && PX4_ISFINITE(odom_in.pitchspeed)
-	    && PX4_ISFINITE(odom_in.yawspeed)) {
-
-		odom.angular_velocity[0] = odom_in.rollspeed;
-		odom.angular_velocity[1] = odom_in.pitchspeed;
-		odom.angular_velocity[2] = odom_in.yawspeed;
-	}
-
-	odom.pose_frame = 2;
-	odom.reset_counter = vio_reset_counter;
-	// odom.quality = 100;
-	odom.quality = debug_quality;
-
-	int index = (int) position_source::VIO;
-	if (position_source_data[index].fail) {
-		uint32_t duration = position_source_data[index].failure_duration;
-		hrt_abstime start = position_source_data[index].failure_duration_start;
-		if ((duration) && (hrt_elapsed_time(&start) > (duration * 1000000))) {
-			PX4_INFO("VIO failure ending");
-			vio_reset_counter++;
-			position_source_data[index].fail = false;
-			position_source_data[index].failure_duration = 0;
-			position_source_data[index].failure_duration_start = 0;
-		}
-
-		set_vio_blowup(&odom);
-	} else if (vio_reset_recovery_count) {
-		vio_reset_recovery_count--;
-		odom.position[0] += vio_reset_recovery_count;
-		odom.position[1] += vio_reset_recovery_count;
-		odom.position[2] += vio_reset_recovery_count;
-	}
-
-	switch (odom_in.estimator_type) {
-	case MAV_ESTIMATOR_TYPE_UNKNOWN: // accept MAV_ESTIMATOR_TYPE_UNKNOWN for legacy support
-	case MAV_ESTIMATOR_TYPE_NAIVE:
-	case MAV_ESTIMATOR_TYPE_VISION:
-	case MAV_ESTIMATOR_TYPE_VIO:
-		odom.timestamp = hrt_absolute_time();
-		odometry_sent_counter++;
-
-		// If we are exporting VIO data for use in voxl-vision-hub
-		// then publish the data as mocap data so we have it in our log
-		// but it isn't actually used by px4. Otherwise log it normally as
-		// vio data.
-		if (_export_odometry) {
-			_mocap_odometry_pub.publish(odom);
-		} else {
-			_visual_odometry_pub.publish(odom);
-		}
-		break;
-
-	case MAV_ESTIMATOR_TYPE_MOCAP:
-		odom.timestamp = hrt_absolute_time();
-		_mocap_odometry_pub.publish(odom);
-		break;
-
-	case MAV_ESTIMATOR_TYPE_GPS:
-	case MAV_ESTIMATOR_TYPE_GPS_INS:
-	case MAV_ESTIMATOR_TYPE_LIDAR:
-	case MAV_ESTIMATOR_TYPE_AUTOPILOT:
-	default:
-		//mavlink_log_critical(&_mavlink_log_pub, "ODOMETRY: estimator_type %" PRIu8 " unsupported\t",
-		//		     odom_in.estimator_type);
-		//events::send<uint8_t>(events::ID("mavlink_rcv_odom_unsup_estimator_type"), events::Log::Error,
-		//		      "ODOMETRY: unsupported estimator_type {1}", odom_in.estimator_type);
-		return;
-	}
-}
-
-void actuator_controls_from_outputs_dsp(mavlink_hil_actuator_controls_t *msg)
-{
-	memset(msg, 0, sizeof(mavlink_hil_actuator_controls_t));
-
-	msg->time_usec = hrt_absolute_time();
-
-	bool armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
-
-	if (armed) {
-		for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
-			msg->controls[i] = _actuator_outputs.output[i];
-		}
-		//PX4_INFO("Value of actuator data: %f, %f, %f, %f", (double)msg->controls[0], (double)msg->controls[1], (double)msg->controls[2], (double)msg->controls[3]);
-	}
-
-	msg->mode = mode_flag_custom;
-	msg->mode |= (armed) ? mode_flag_armed : 0;
-	msg->flags = 0;
-
-#if defined(ENABLE_LOCKSTEP_SCHEDULER)
-	msg->flags |= 1;
-#endif
-}
-
-int openPort(const char *dev, speed_t speed)
-{
-	if (_uart_fd >= 0) {
-		PX4_ERR("Port in use: %s (%i)", dev, errno);
-		return -1;
-	}
-
-	_uart_fd = qurt_uart_open(dev, speed);
-	PX4_DEBUG("qurt_uart_opened");
-
-	if (_uart_fd < 0) {
-		PX4_ERR("Error opening port: %s (%i)", dev, errno);
-		return -1;
-	}
-
-	return 0;
-}
-
-int closePort()
-{
-	_uart_fd = -1;
-
-	return 0;
-}
-
-int readResponse(void *buf, size_t len)
-{
-	if (_uart_fd < 0 || buf == NULL) {
-		PX4_ERR("invalid state for reading or buffer");
-		return -1;
-	}
-    return qurt_uart_read(_uart_fd, (char*) buf, len, ASYNC_UART_READ_WAIT_US);
-}
-
-int writeResponse(void *buf, size_t len)
-{
-	if (_uart_fd < 0 || buf == NULL) {
-		PX4_ERR("invalid state for writing or buffer");
-		return -1;
-	}
-
-    int write_status = -1;
-
-	pthread_mutex_lock(&uart_write_mutex);
-	write_status = qurt_uart_write(_uart_fd, (const char*) buf, len);
-	pthread_mutex_unlock(&uart_write_mutex);
-
-	return write_status;
 }
 
 int start(int argc, char *argv[])
@@ -969,287 +312,39 @@ int stop()
 
 void usage()
 {
-	PX4_INFO("Usage: dsp_hitl {start|info|status|clear|failure|stop}");
+	PX4_INFO("Usage: dsp_hitl {start|status|clear|stop}");
 }
 
 void clear_status_counters()
 {
-	heartbeat_received_counter = 0;
-	hil_sensor_counter = 0;
-	odometry_received_counter = 0;
-	gps_received_counter = 0;
+	hil_imu_counter = 0;
+	hil_mag_baro_counter = 0;
 	imu_counter = 0;
 	mag_counter = 0;
 	baro_counter = 0;
-	gps_sent_counter = 0;
-	odometry_sent_counter = 0;
-	heartbeat_sent_counter = 0;
-	actuator_sent_counter = 0;
-	unknown_msg_received_counter = 0;
 }
 
 int get_status()
 {
 	PX4_INFO("Running: %s", _is_running ? "yes" : "no");
-
-	PX4_INFO("Messages received from simulator:");
-	PX4_INFO("\tHeartbeat received: %i", heartbeat_received_counter);
-	PX4_INFO("\tHIL Sensor received: %i", hil_sensor_counter);
-	PX4_INFO("\tOdometry received: %i", odometry_received_counter);
-	PX4_INFO("\tGPS received: %i", gps_received_counter);
-
-	PX4_INFO("Outputs to PX4:");
-	PX4_INFO("\tIMU updates: %i", imu_counter);
-	PX4_INFO("\t\tCurrent accel x, y, z: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
-	PX4_INFO("\t\tCurrent gyro x, y, z: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
-	PX4_INFO("\tMagnetometer sent: %i", mag_counter);
-	PX4_INFO("\tBarometer sent: %i", baro_counter);
-	PX4_INFO("\tGPS sent: %i", gps_sent_counter);
-	PX4_INFO("\tOdometry sent: %i", odometry_sent_counter);
-
-	PX4_INFO("Outputs to simulator:");
-	PX4_INFO("\tHeartbeats sent: %i", heartbeat_sent_counter);
-	PX4_INFO("\tActuator updates sent: %i", actuator_sent_counter);
-
-	PX4_INFO("Unknown messages received: %i", unknown_msg_received_counter);
+	PX4_INFO("=== IMU ===");
+	PX4_INFO("  HIL sensor_imu received: %u", hil_imu_counter);
+	PX4_INFO("  IMU updates published: %u", imu_counter);
+	PX4_INFO("  Current accel x, y, z: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));
+	PX4_INFO("  Current gyro x, y, z: %f, %f, %f", double(x_gyro), double(y_gyro), double(z_gyro));
+	PX4_INFO("=== MAG/BARO ===");
+	PX4_INFO("  HIL sensor_mag_baro received: %u", hil_mag_baro_counter);
+	PX4_INFO("  MAG updates published: %u", mag_counter);
+	PX4_INFO("  BARO updates published: %u", baro_counter);
+	PX4_INFO("  Current mag x, y, z: %f, %f, %f", double(x_mag), double(y_mag), double(z_mag));
+	PX4_INFO("  Current pressure: %f Pa", double(pressure_pa));
+	PX4_INFO("  Current temperature: %f C", double(temperature));
 
 	return 0;
 }
 
-void
-handle_message_hil_sensor_dsp(mavlink_message_t *msg)
-{
-	mavlink_hil_sensor_t hil_sensor;
-	mavlink_msg_hil_sensor_decode(msg, &hil_sensor);
+} // namespace dsp_hitl
 
-	// temperature only updated with baro
-	gyro_accel_time = hrt_absolute_time();
-
-	// temperature only updated with baro
-	float temperature = NAN;
-
-	got_first_sensor_msg = true;
-
-	if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
-		temperature = hil_sensor.temperature;
-	}
-
-	// gyro
-	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
-		if (_px4_gyro == nullptr) {
-			// 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
-			_px4_gyro = new PX4Gyroscope(1310988);
-		}
-
-		if (_px4_gyro != nullptr) {
-			if (PX4_ISFINITE(temperature)) {
-				_px4_gyro->set_temperature(temperature);
-			}
-			x_gyro = hil_sensor.xgyro;
-			y_gyro = hil_sensor.ygyro;
-			z_gyro = hil_sensor.zgyro;
-		}
-	}
-
-	// accelerometer
-	if ((hil_sensor.fields_updated & SensorSource::ACCEL) == SensorSource::ACCEL) {
-		if (_px4_accel == nullptr) {
-			// 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
-			_px4_accel = new PX4Accelerometer(1310988);
-		}
-
-		if (_px4_accel != nullptr) {
-			if (PX4_ISFINITE(temperature)) {
-				_px4_accel->set_temperature(temperature);
-			}
-
-			x_accel = hil_sensor.xacc;
-			y_accel = hil_sensor.yacc;
-			z_accel = hil_sensor.zacc;
-		}
-	}
-
-
-	// magnetometer
-	if ((_send_mag) && ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG)) {
-		if (_px4_mag == nullptr) {
-			// 197388: DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
-			_px4_mag = new PX4Magnetometer(197388);
-		}
-
-		if (_px4_mag != nullptr) {
-			if (PX4_ISFINITE(temperature)) {
-				_px4_mag->set_temperature(temperature);
-			}
-
-			mag_counter++;
-			_px4_mag->update(gyro_accel_time, hil_sensor.xmag, hil_sensor.ymag, hil_sensor.zmag);
-		}
-	}
-
-	// baro
-	if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
-		// publish
-		sensor_baro_s sensor_baro{};
-		sensor_baro.timestamp_sample = gyro_accel_time;
-		sensor_baro.device_id = 6620172; // 6620172: DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
-		sensor_baro.pressure = hil_sensor.abs_pressure * 100.0f; // hPa to Pa
-		sensor_baro.temperature = hil_sensor.temperature;
-		sensor_baro.error_count = 0;
-		sensor_baro.timestamp = hrt_absolute_time();
-		baro_counter++;
-		_sensor_baro_pub.publish(sensor_baro);
-	}
-
-	// differential pressure
-	if ((hil_sensor.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS) {
-		differential_pressure_s report{};
-		report.timestamp_sample = gyro_accel_time;
-		report.device_id = 1377548; // 1377548: DRV_DIFF_PRESS_DEVTYPE_SIM, BUS: 1, ADDR: 5, TYPE: SIMULATION
-		report.temperature = hil_sensor.temperature;
-		report.differential_pressure_pa = hil_sensor.diff_pressure * 100.0f; // hPa to Pa
-		report.timestamp = hrt_absolute_time();
-		_differential_pressure_pub.publish(report);
-	}
-
-	// battery status
-	{
-		battery_status_s hil_battery_status{};
-
-		hil_battery_status.timestamp = gyro_accel_time;
-		hil_battery_status.voltage_v = 14.6f;
-		hil_battery_status.cell_count = 4;
-		hil_battery_status.voltage_filtered_v = 14.5f;
-		hil_battery_status.current_a = 10.0f;
-		hil_battery_status.current_filtered_a = 10.0f;
-		hil_battery_status.discharged_mah = -1.0f;
-		hil_battery_status.connected = true;
-		hil_battery_status.remaining = 0.70;
-		hil_battery_status.time_remaining_s = NAN;
-
-		_battery_pub.publish(hil_battery_status);
-	}
-}
-
-void
-handle_message_hil_gps_dsp(mavlink_message_t *msg)
-{
-	mavlink_hil_gps_t hil_gps;
-	mavlink_msg_hil_gps_decode(msg, &hil_gps);
-
-	sensor_gps_s gps{};
-
-	device::Device::DeviceId device_id;
-	device_id.devid_s.bus_type = device::Device::DeviceBusType::DeviceBusType_MAVLINK;
-	device_id.devid_s.bus = 1;
-	device_id.devid_s.address = msg->sysid;
-	device_id.devid_s.devtype = DRV_GPS_DEVTYPE_SIM;
-
-	gps.device_id = device_id.devid;
-
-	gps.lat = hil_gps.lat;
-	gps.lon = hil_gps.lon;
-	gps.alt = hil_gps.alt;
-	gps.alt_ellipsoid = hil_gps.alt;
-
-	gps.s_variance_m_s = 0.25f;
-	gps.c_variance_rad = 0.5f;
-
-	gps.satellites_used = hil_gps.satellites_visible;
-	gps.fix_type = hil_gps.fix_type;
-
-	gps.eph = (float)hil_gps.eph * 1e-2f; // cm -> m
-	gps.epv = (float)hil_gps.epv * 1e-2f; // cm -> m
-
-	int index = (int) position_source::GPS;
-	if (position_source_data[index].fail) {
-		uint32_t duration = position_source_data[index].failure_duration;
-		hrt_abstime start = position_source_data[index].failure_duration_start;
-		if ((duration) && (hrt_elapsed_time(&start) > (duration * 1000000))) {
-			PX4_INFO("GPS failure ending");
-			position_source_data[index].fail = false;
-			position_source_data[index].failure_duration = 0;
-			position_source_data[index].failure_duration_start = 0;
-		} else {
-			// Setup failure condition
-			gps.lat = -196840607;
-			gps.lon = -1103706788;
-			gps.alt = 2410579;
-			gps.satellites_used = 0;
-			gps.fix_type = 0;
-			gps.eph = 9999;
-			gps.epv = 9999;
-		}
-	}
-
-	gps.hdop = 0; // TODO
-	gps.vdop = 0; // TODO
-
-	gps.noise_per_ms = 0;
-	gps.automatic_gain_control = 0;
-	gps.jamming_indicator = 0;
-	gps.jamming_state = 0;
-	gps.spoofing_state = 0;
-
-	gps.vel_m_s = (float)(hil_gps.vel) / 100.0f; // cm/s -> m/s
-	gps.vel_n_m_s = (float)(hil_gps.vn) / 100.0f; // cm/s -> m/s
-	gps.vel_e_m_s = (float)(hil_gps.ve) / 100.0f; // cm/s -> m/s
-	gps.vel_d_m_s = (float)(hil_gps.vd) / 100.0f; // cm/s -> m/s
-	gps.cog_rad = ((hil_gps.cog == 65535) ? (float)NAN : matrix::wrap_2pi(math::radians(
-				hil_gps.cog * 1e-2f))); // cdeg -> rad
-	gps.vel_ned_valid = true;
-
-	gps.timestamp_time_relative = 0;
-	gps.time_utc_usec = hil_gps.time_usec;
-
-	gps.heading = NAN;
-	gps.heading_offset = NAN;
-
-	gps.timestamp = hrt_absolute_time();
-
-	_sensor_gps_pub.publish(gps);
-	gps_sent_counter++;
-}
-
-int
-process_failure(dsp_hitl::position_source src, int duration) {
-	if (src >= position_source::NUM_POSITION_SOURCES) {
-		return 1;
-	}
-
-	int index = (int) src;
-
-	if (position_source_data[index].send) {
-		if (duration <= 0) {
-			// Toggle state
-			if (position_source_data[index].fail) {
-				PX4_INFO("Ending indefinite %s failure", position_source_data[index].label);
-				position_source_data[index].fail = false;
-				if (src == position_source::VIO) {
-					vio_reset_counter++;
-					vio_reset_recovery_count = 100;
-				}
-			} else {
-				PX4_INFO("Starting indefinite %s failure", position_source_data[index].label);
-				position_source_data[index].fail = true;
-			}
-			position_source_data[index].failure_duration = 0;
-			position_source_data[index].failure_duration_start = 0;
-		} else {
-			PX4_INFO("%s failure for %d seconds", position_source_data[index].label, duration);
-			position_source_data[index].fail = true;
-			position_source_data[index].failure_duration = duration;
-			position_source_data[index].failure_duration_start = hrt_absolute_time();
-		}
-	} else {
-		PX4_ERR("%s not active, cannot create failure", position_source_data[index].label);
-		return 1;
-	}
-
-	return 0;
-}
-
-}
 int dsp_hitl_main(int argc, char *argv[])
 {
 	int myoptind = 1;
@@ -1261,7 +356,6 @@ int dsp_hitl_main(int argc, char *argv[])
 
 	const char *verb = argv[myoptind];
 
-
 	if (!strcmp(verb, "start")) {
 		return dsp_hitl::start(argc - 1, argv + 1);
 	}
@@ -1270,34 +364,12 @@ int dsp_hitl_main(int argc, char *argv[])
 		return dsp_hitl::stop();
 	}
 
-	else if(!strcmp(verb, "status")){
+	else if (!strcmp(verb, "status")) {
 		return dsp_hitl::get_status();
 	}
 
 	else if (!strcmp(verb, "clear")) {
 		dsp_hitl::clear_status_counters();
-		return 0;
-	}
-
-	else if (!strcmp(verb, "failure")) {
-		if (argc != 4) {
-			dsp_hitl::usage();
-			return 1;
-		}
-		const char *source = argv[myoptind + 1];
-		int duration = atoi(argv[myoptind + 2]);
-
-		if (!strcmp(source, "gps")) {
-			return dsp_hitl::process_failure(dsp_hitl::position_source::GPS, duration);
-		}
-		else if (!strcmp(source, "vio")) {
-			return dsp_hitl::process_failure(dsp_hitl::position_source::VIO, duration);
-		}
-		else {
-			PX4_ERR("Unknown failure source %s, duration %d", source, duration);
-			dsp_hitl::usage();
-			return 1;
-		}
 		return 0;
 	}
 
