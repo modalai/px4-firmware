@@ -2282,6 +2282,40 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		temperature = hil_sensor.temperature;
 	}
 
+#if PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2
+	// Store latest accel/gyro/temperature for rate-decoupled publishing
+	// to hil_sensor_imu, which dsp_hitl on DSP consumes via MUORB.
+	// Ensure temperature starts as NAN (struct zero-init gives false 0 degC)
+	if (!_hil_imu_received) {
+		_hil_sensor_imu.temperature = NAN;
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
+		_hil_sensor_imu.gyroscope_rad_s[0] = hil_sensor.xgyro;
+		_hil_sensor_imu.gyroscope_rad_s[1] = hil_sensor.ygyro;
+		_hil_sensor_imu.gyroscope_rad_s[2] = hil_sensor.zgyro;
+		_hil_imu_received = true;
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::ACCEL) == SensorSource::ACCEL) {
+		_hil_sensor_imu.accelerometer_m_s2[0] = hil_sensor.xacc;
+		_hil_sensor_imu.accelerometer_m_s2[1] = hil_sensor.yacc;
+		_hil_sensor_imu.accelerometer_m_s2[2] = hil_sensor.zacc;
+		_hil_imu_received = true;
+	}
+
+	if (PX4_ISFINITE(temperature)) {
+		_hil_sensor_imu.temperature = temperature;
+	}
+
+	if (_hil_imu_received && (timestamp - _hil_imu_last_publish_us >= HIL_IMU_PUBLISH_INTERVAL_US)) {
+		_hil_imu_last_publish_us = timestamp;
+		_hil_imu_received = false;
+		_hil_sensor_imu.timestamp = hrt_absolute_time();
+		_hil_sensor_imu_pub.publish(_hil_sensor_imu);
+	}
+
+#else
 	// gyro
 	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
 		if (_px4_gyro == nullptr) {
@@ -2313,7 +2347,59 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 			_px4_accel->update(timestamp, hil_sensor.xacc, hil_sensor.yacc, hil_sensor.zacc);
 		}
 	}
+#endif
 
+#if PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2
+	// VOXL2: Store mag/baro data for rate-decoupled publishing to hil_sensor_mag_baro,
+	// which dsp_hitl on DSP consumes via MUORB and republishes as sensor_mag/sensor_baro.
+	// Track which fields actually have new data so DSP only publishes when genuinely updated.
+	if ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG) {
+		_hil_sensor_mag_baro.magnetometer_ga[0] = hil_sensor.xmag;
+		_hil_sensor_mag_baro.magnetometer_ga[1] = hil_sensor.ymag;
+		_hil_sensor_mag_baro.magnetometer_ga[2] = hil_sensor.zmag;
+		_hil_sensor_mag_baro.fields_updated |= hil_sensor_mag_baro_s::FIELD_MAG;
+		_hil_mag_baro_received = true;
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
+		_hil_sensor_mag_baro.pressure_pa = hil_sensor.abs_pressure * 100.0f; // hPa to Pa
+		_hil_sensor_mag_baro.temperature = hil_sensor.temperature;
+		_hil_sensor_mag_baro.fields_updated |= hil_sensor_mag_baro_s::FIELD_BARO;
+		_hil_mag_baro_received = true;
+	}
+
+	if (_hil_mag_baro_received && (timestamp - _hil_mag_baro_last_publish_us >= HIL_MAG_BARO_PUBLISH_INTERVAL_US)) {
+		_hil_mag_baro_last_publish_us = timestamp;
+		_hil_mag_baro_received = false;
+		_hil_sensor_mag_baro.timestamp = hrt_absolute_time();
+		_hil_sensor_mag_baro_pub.publish(_hil_sensor_mag_baro);
+		_hil_sensor_mag_baro.fields_updated = 0;
+	}
+
+	// VOXL2: Publish simulated battery status since HIL_STATE_QUATERNION may not be sent
+	// Publish at ~10Hz to ensure battery status is always current
+	if (timestamp - _hil_battery_last_publish_us >= 100000) {  // 100ms = 10Hz
+		_hil_battery_last_publish_us = timestamp;
+		battery_status_s hil_battery_status{};
+		hil_battery_status.id = 1;  // Battery 1 (matches what commander expects)
+		hil_battery_status.voltage_v = 16.8f;  // 4S at 4.2V per cell
+		hil_battery_status.voltage_filtered_v = 16.8f;
+		hil_battery_status.current_a = 5.0f;
+		hil_battery_status.current_average_a = 5.0f;
+		hil_battery_status.discharged_mah = 0.0f;
+		hil_battery_status.remaining = 1.0f;  // 100% remaining
+		hil_battery_status.scale = 1.0f;
+		hil_battery_status.cell_count = 4;
+		hil_battery_status.connected = true;
+		hil_battery_status.source = battery_status_s::BATTERY_SOURCE_POWER_MODULE;
+		hil_battery_status.warning = battery_status_s::BATTERY_WARNING_NONE;
+		hil_battery_status.capacity = 5000.0f;  // 5000mAh
+		hil_battery_status.time_remaining_s = 3600.0f;  // 1 hour
+		hil_battery_status.timestamp = hrt_absolute_time();
+		_battery_pub.publish(hil_battery_status);
+	}
+
+#else
 	// magnetometer
 	if ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG) {
 		if (_px4_mag == nullptr) {
@@ -2342,6 +2428,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		sensor_baro.timestamp = hrt_absolute_time();
 		_sensor_baro_pub.publish(sensor_baro);
 	}
+#endif
 
 	// differential pressure
 	if ((hil_sensor.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS) {
@@ -2354,7 +2441,8 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		_differential_pressure_pub.publish(report);
 	}
 
-	// battery status
+	// battery status (non-VOXL2 platforms only - VOXL2 handles battery in the VOXL2-specific block above)
+#if PX4_SOC_ARCH_ID != PX4_SOC_ARCH_ID_VOXL2
 	{
 		battery_status_s hil_battery_status{};
 
@@ -2369,6 +2457,7 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 
 		_battery_pub.publish(hil_battery_status);
 	}
+#endif
 }
 
 void
@@ -2759,7 +2848,10 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		_local_pos_pub.publish(hil_local_pos);
 	}
 
-	/* accelerometer */
+	/* accelerometer and gyroscope */
+#if PX4_SOC_ARCH_ID != PX4_SOC_ARCH_ID_VOXL2
+	// VOXL2: Skip IMU publishing here - dsp_hitl on DSP handles sensor_accel/sensor_gyro
+	// via hil_sensor_imu bridged from handle_message_hil_sensor()
 	{
 		if (_px4_accel == nullptr) {
 			// 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
@@ -2777,7 +2869,6 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		}
 	}
 
-	/* gyroscope */
 	{
 		if (_px4_gyro == nullptr) {
 			// 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
@@ -2792,6 +2883,7 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 			_px4_gyro->update(timestamp_sample, hil_state.rollspeed, hil_state.pitchspeed, hil_state.yawspeed);
 		}
 	}
+#endif
 
 	/* battery status */
 	{

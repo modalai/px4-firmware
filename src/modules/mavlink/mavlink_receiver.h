@@ -111,6 +111,11 @@
 #include <uORB/topics/vehicle_trajectory_bezier.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
 
+#if PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2
+#include <uORB/topics/hil_sensor_imu.h>
+#include <uORB/topics/hil_sensor_mag_baro.h>
+#endif
+
 #if !defined(CONSTRAINED_FLASH)
 # include <uORB/topics/debug_array.h>
 # include <uORB/topics/debug_key_value.h>
@@ -366,6 +371,28 @@ private:
 	PX4Accelerometer *_px4_accel{nullptr};
 	PX4Gyroscope *_px4_gyro{nullptr};
 	PX4Magnetometer *_px4_mag{nullptr};
+
+#if PX4_SOC_ARCH_ID == PX4_SOC_ARCH_ID_VOXL2
+	// Publish raw HIL IMU data for DSP-side dsp_hitl to consume via MUORB.
+	// dsp_hitl re-publishes as sensor_accel/sensor_gyro with fresh DSP timestamps,
+	// avoiding MUORB reorder issues that crash VehicleIMU.
+	uORB::Publication<hil_sensor_imu_s> _hil_sensor_imu_pub{ORB_ID(hil_sensor_imu)};
+	hil_sensor_imu_s _hil_sensor_imu{};
+	bool  _hil_imu_received{false};
+	hrt_abstime _hil_imu_last_publish_us{0};
+	static constexpr hrt_abstime HIL_IMU_PUBLISH_INTERVAL_US{4000}; // 250 Hz
+
+	// Publish raw HIL MAG/BARO data for DSP-side dsp_hitl to consume via MUORB.
+	// dsp_hitl re-publishes as sensor_mag/sensor_baro with fresh DSP timestamps.
+	uORB::Publication<hil_sensor_mag_baro_s> _hil_sensor_mag_baro_pub{ORB_ID(hil_sensor_mag_baro)};
+	hil_sensor_mag_baro_s _hil_sensor_mag_baro{};
+	bool  _hil_mag_baro_received{false};
+	hrt_abstime _hil_mag_baro_last_publish_us{0};
+	static constexpr hrt_abstime HIL_MAG_BARO_PUBLISH_INTERVAL_US{10000}; // 100 Hz
+
+	// Simulated battery for HITL (since HIL_STATE_QUATERNION may not be sent)
+	hrt_abstime _hil_battery_last_publish_us{0};
+#endif
 
 	float _global_local_alt0{NAN};
 	MapProjection _global_local_proj_ref{};

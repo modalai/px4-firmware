@@ -31,19 +31,9 @@
 #
 ############################################################################
 
-message(STATUS "Mavlink include directory: ${PX4_SOURCE_DIR}/../build/modalai_voxl2_default/mavlink/common")
-
 px4_add_module(
 	MODULE drivers__modalai__dsp_hitl
 	MAIN dsp_hitl
-	INCLUDES
-		${PX4_SOURCE_DIR}/src/drivers/dsp_hitl
-		${PX4_SOURCE_DIR}/build/modalai_voxl2_default/mavlink/common
 	SRCS
 		dsp_hitl.cpp
-	DEPENDS
-		px4_work_queue
-		drivers_accelerometer
-		drivers_gyroscope
-		drivers_magnetometer
 	)
