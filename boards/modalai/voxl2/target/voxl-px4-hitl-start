@@ -64,6 +64,10 @@ dataman start
 navigator start
 load_mon start
 vehicle_air_data_bridge start
+# UNLESS RUNNING GZ WITH THE RC PLUGIN/MDOEL, MAKE SURE TO START THE RC MODULE YOU DESIRE FOR HIL
+crsf_bridge start
+# ============================================================================
+
 
 # microdds_client not needed for HITL VFC -- all communication uses MAVLink + MPA
 # microdds_client start -t udp -h 127.0.0.1 -p 8888
@@ -104,9 +108,7 @@ qshell dsp_hitl start
 # ============================================================================
 # NOW start sensors module on DSP - sensor topics should be available
 # ============================================================================
-# UNLESS RUNNING GZ WITH THE RC PLUGIN/MDOEL, MAKE SURE TO START THE RC MODULE YOU DESIRE FOR HIL
-# qshell crsf_rc start -d 6 -b 420000 
-# ============================================================================
+qshell crsf_rc start -d 7
 qshell sensors start -h
 qshell ekf2 start
 qshell mc_pos_control start
@@ -161,4 +163,5 @@ mavlink boot_complete
 # ============================================================================
 
 vfc_logger start
+
 # vehicle_local_position_bridge start  # Only if apps proc needs position
