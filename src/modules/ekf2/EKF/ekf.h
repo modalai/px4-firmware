@@ -1192,6 +1192,9 @@ private:
 	// yaw_variance : yaw error variance (rad^2)
 	void resetQuatStateYaw(float yaw, float yaw_variance);
 
+	// rotate horizontal velocity state to keep body-frame velocity consistent after a yaw reset
+	void resetHorizontalVelocityToMatchYaw(float delta_yaw);
+
 	// Declarations used to control use of the EKF-GSF yaw estimator
 
 	// yaw estimator instance

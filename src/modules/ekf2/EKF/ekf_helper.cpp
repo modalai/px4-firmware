@@ -52,6 +52,16 @@ void Ekf::resetHorizontalVelocityToZero()
 	resetHorizontalVelocityTo(Vector2f{0.f, 0.f}, 25.f);
 }
 
+void Ekf::resetHorizontalVelocityToMatchYaw(const float delta_yaw)
+{
+	if (!isHorizontalAidingActive() && fabsf(delta_yaw) > 0.3f) {
+		const matrix::Dcm2f R_yaw(delta_yaw);
+		const Vector2f vel_rotated = R_yaw * Vector2f(_state.vel);
+		const float vel_var = fmaxf(P(4, 4), P(5, 5));
+		resetHorizontalVelocityTo(vel_rotated, vel_var);
+	}
+}
+
 void Ekf::resetVelocityTo(const Vector3f &new_vel, const Vector3f &new_vel_var)
 {
 	resetHorizontalVelocityTo(Vector2f(new_vel), Vector2f(new_vel_var(0), new_vel_var(1)));
@@ -1163,6 +1173,10 @@ void Ekf::resetQuatStateYaw(float yaw, float yaw_variance)
 	_time_last_heading_fuse = _time_delayed_us;
 
 	_last_static_yaw = NAN;
+
+	// rotate horizontal velocity by the yaw change to keep body-frame velocity consistent
+	const float yaw_diff = wrap_pi(yaw - getEulerYaw(quat_before_reset));
+	resetHorizontalVelocityToMatchYaw(yaw_diff);
 }
 
 // Resets the main Nav EKf yaw to the estimator from the EKF-GSF yaw estimator
