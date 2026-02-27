@@ -116,6 +116,7 @@ void VehicleAirDataBridge::Run()
 			baro.alt_amsl_m = _vehicle_air_data.baro_alt_meter;
 			baro.timestamp_ns = _vehicle_air_data.timestamp * 1000; // Convert µs to ns
 			baro.reserved_1 = 0;
+			memcpy(&baro.reserved_1, &_vehicle_air_data.rho, sizeof(float));
 			baro.reserved_2 = 0;
 
 			if (MPA::PipeWrite(baro_pipe_ch, (void*)&baro, sizeof(baro_data_t)) == -1) {
