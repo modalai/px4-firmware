@@ -131,6 +131,25 @@ parameters:
         1: Allow arming (with warning)
         2: Allow arming (no warning)
       default: 1
+    COM_ARM_BAD_INOV:
+      description:
+        short: Allow arming with bad EKF innovation.
+        long: The default only allows arming if EKF innovations are reasonable.
+      type: enum
+      values:
+        0: Require reasonable innovations to arm.
+        1: Allow arming with any innovation.
+      default: 0
+    COM_ARM_EKF_BIAS:
+      description:
+        short: Maximum allowed uncertainty in EKF sensor bias estimates for arming.
+        long: A value of 0.0 disables the test.
+      type: float
+      min: 0.0
+      max: 10.0
+      decimal: 2
+      increment: 0.05
+      default: 3.0
     COM_ARM_SWISBTN:
       description:
         short: Arm switch is a momentary button
