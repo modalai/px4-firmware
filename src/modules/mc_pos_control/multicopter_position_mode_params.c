@@ -43,6 +43,7 @@
  *   Sticks map to acceleration and there's a virtual brake drag
  *
  * @value 0 Direct velocity
+ * @value 1 Hold position with Velocity Input
  * @value 4 Acceleration based
  * @group Multicopter Position Control
  */
