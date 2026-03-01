@@ -16,6 +16,7 @@ parameters:
       type: enum
       values:
         0: Direct velocity
+        1: Hold position with Velocity Input
         4: Acceleration based
       default: 4
     MPC_VEL_MANUAL:
