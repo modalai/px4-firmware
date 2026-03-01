@@ -98,7 +98,9 @@ MulticopterRateControl::parameters_updated()
 	_acro_rate_max = Vector3f(radians(_param_mc_acro_r_max.get()), radians(_param_mc_acro_p_max.get()),
 				  radians(_param_mc_acro_y_max.get()));
 
-	_output_lpf_yaw.setCutoffFreq(_param_mc_yaw_tq_cutoff.get());
+	_output_lpf_roll.setCutoffFreq(_param_mc_roll_cutoff.get());
+	_output_lpf_pitch.setCutoffFreq(_param_mc_pitch_cutoff.get());
+	_output_lpf_yaw.setCutoffFreq(_param_mc_yaw_cutoff.get());
 }
 
 void
@@ -237,7 +239,15 @@ MulticopterRateControl::Run()
 			Vector3f torque_setpoint =
 				_rate_control.update(rates, _rates_setpoint, angular_accel, dt, _maybe_landed || _landed);
 
-			// apply low-pass filtering on yaw axis to reduce high frequency torque caused by rotor acceleration
+			// apply low-pass filtering on torque setpoints to reduce high frequency oscillations
+			if (_param_mc_roll_cutoff.get() > 0.f) {
+				torque_setpoint(0) = _output_lpf_roll.update(torque_setpoint(0), dt);
+			}
+
+			if (_param_mc_pitch_cutoff.get() > 0.f) {
+				torque_setpoint(1) = _output_lpf_pitch.update(torque_setpoint(1), dt);
+			}
+
 			torque_setpoint(2) = _output_lpf_yaw.update(torque_setpoint(2), dt);
 
 			// publish rate controller status
