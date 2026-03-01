@@ -224,7 +224,31 @@ parameters:
           it will still be 0.5 at 60% battery.
       type: boolean
       default: 0
-    MC_YAW_TQ_CUTOFF:
+    MC_ROLL_CUTOFF:
+      description:
+        short: Low pass filter cutoff frequency for roll torque setpoint
+        long: |-
+          Reduces vibrations by lowering high frequency torque on the roll axis.
+          0 disables the filter
+      type: float
+      default: 0.0
+      min: 0
+      max: 50
+      unit: Hz
+      decimal: 3
+    MC_PITCH_CUTOFF:
+      description:
+        short: Low pass filter cutoff frequency for pitch torque setpoint
+        long: |-
+          Reduces vibrations by lowering high frequency torque on the pitch axis.
+          0 disables the filter
+      type: float
+      default: 0.0
+      min: 0
+      max: 50
+      unit: Hz
+      decimal: 3
+    MC_YAW_CUTOFF:
       description:
         short: Low pass filter cutoff frequency for yaw torque setpoint
         long: |-
