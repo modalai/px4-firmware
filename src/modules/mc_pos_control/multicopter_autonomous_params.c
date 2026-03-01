@@ -52,7 +52,7 @@ PARAM_DEFINE_FLOAT(MPC_XY_CRUISE, 5.f);
  *
  * @unit m/s
  * @min 0.5
- * @max 8
+ * @max 10
  * @decimal 1
  * @increment 0.5
  * @group Multicopter Position Control
