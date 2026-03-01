@@ -245,6 +245,30 @@ PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, 10.0f);
 PARAM_DEFINE_INT32(COM_ARM_WO_GPS, 1);
 
 /**
+ * Allow arming with bad EKF innovation.
+ *
+ * The default only allows arming if EKF innovations are reasonable.
+ *
+ * @group Commander
+ * @value 0 Require reasonable innovations to arm.
+ * @value 1 Allow arming with any innovation.
+ */
+PARAM_DEFINE_INT32(COM_ARM_BAD_INOV, 0);
+
+/**
+ * Maximum allowed uncertainty in EKF sensor bias estimates for arming.
+ *
+ * A value of 0.0 disables the test.
+ *
+ * @group Commander
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @increment 0.05
+ */
+PARAM_DEFINE_FLOAT(COM_ARM_EKF_BIAS, 3.0f);
+
+/**
  * Arm switch is a momentary button
  *
  * 0: Arming/disarming triggers on switch transition.

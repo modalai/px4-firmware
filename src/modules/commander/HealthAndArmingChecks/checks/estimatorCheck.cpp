@@ -136,7 +136,12 @@ void EstimatorChecks::checkAndReport(const Context &context, Report &reporter)
 void EstimatorChecks::checkEstimatorStatus(const Context &context, Report &reporter,
 		const estimator_status_s &estimator_status, NavModes required_groups)
 {
-	if (!context.isArmed() && estimator_status.pre_flt_fail_innov_heading) {
+	int32_t arm_with_bad_innovation = 0;
+	param_get(param_find("COM_ARM_BAD_INOV"), &arm_with_bad_innovation);
+
+	if (!context.isArmed() &&
+	    (arm_with_bad_innovation == 0) &&
+	    estimator_status.pre_flt_fail_innov_heading) {
 		/* EVENT
 		 */
 		reporter.armingCheckFailure(required_groups, health_component_t::local_position_estimate,
@@ -147,7 +152,9 @@ void EstimatorChecks::checkEstimatorStatus(const Context &context, Report &repor
 			mavlink_log_critical(reporter.mavlink_log_pub(), "Preflight Fail: heading estimate not stable");
 		}
 
-	} else if (!context.isArmed() && estimator_status.pre_flt_fail_innov_vel_horiz) {
+	} else if (!context.isArmed() &&
+		   (arm_with_bad_innovation == 0) &&
+		   estimator_status.pre_flt_fail_innov_vel_horiz) {
 		/* EVENT
 		 */
 		reporter.armingCheckFailure(required_groups, health_component_t::local_position_estimate,
@@ -158,7 +165,9 @@ void EstimatorChecks::checkEstimatorStatus(const Context &context, Report &repor
 			mavlink_log_critical(reporter.mavlink_log_pub(), "Preflight Fail: horizontal velocity unstable");
 		}
 
-	} else if (!context.isArmed() && estimator_status.pre_flt_fail_innov_vel_vert) {
+	} else if (!context.isArmed() &&
+		   (arm_with_bad_innovation == 0) &&
+		   estimator_status.pre_flt_fail_innov_vel_vert) {
 		/* EVENT
 		 */
 		reporter.armingCheckFailure(required_groups, health_component_t::local_position_estimate,
@@ -169,7 +178,9 @@ void EstimatorChecks::checkEstimatorStatus(const Context &context, Report &repor
 			mavlink_log_critical(reporter.mavlink_log_pub(), "Preflight Fail: vertical velocity unstable");
 		}
 
-	} else if (!context.isArmed() && estimator_status.pre_flt_fail_innov_pos_horiz) {
+	} else if (!context.isArmed() &&
+		   (arm_with_bad_innovation == 0) &&
+		   estimator_status.pre_flt_fail_innov_pos_horiz) {
 		/* EVENT
 		 */
 		reporter.armingCheckFailure(required_groups, health_component_t::local_position_estimate,
@@ -180,7 +191,9 @@ void EstimatorChecks::checkEstimatorStatus(const Context &context, Report &repor
 			mavlink_log_critical(reporter.mavlink_log_pub(), "Preflight Fail: horizontal position unstable");
 		}
 
-	} else if (!context.isArmed() && estimator_status.pre_flt_fail_innov_height) {
+	} else if (!context.isArmed() &&
+		   (arm_with_bad_innovation == 0) &&
+		   estimator_status.pre_flt_fail_innov_height) {
 		/* EVENT
 		 */
 		reporter.armingCheckFailure(required_groups, health_component_t::local_position_estimate,
@@ -513,14 +526,17 @@ void EstimatorChecks::checkSensorBias(const Context &context, Report &reporter, 
 
 	if (_estimator_sensor_bias_sub.copy(&bias) && hrt_elapsed_time(&bias.timestamp) < 30_s) {
 
+		float sensor_bias_sigma = 3.0f;
+		param_get(param_find("COM_ARM_EKF_BIAS"), &sensor_bias_sigma);
+
 		// check accelerometer bias estimates
-		if (bias.accel_bias_valid) {
+		if (bias.accel_bias_valid && sensor_bias_sigma > 0.0f) {
 			const float ekf_ab_test_limit = 0.75f * bias.accel_bias_limit;
 
 			for (int axis_index = 0; axis_index < 3; axis_index++) {
 				// allow for higher uncertainty in estimates for axes that are less observable to prevent false positives
-				// adjust test threshold by 3-sigma
-				const float test_uncertainty = 3.0f * sqrtf(fmaxf(bias.accel_bias_variance[axis_index], 0.0f));
+				// adjust test threshold by N-sigma
+				const float test_uncertainty = sensor_bias_sigma * sqrtf(fmaxf(bias.accel_bias_variance[axis_index], 0.0f));
 
 				if (fabsf(bias.accel_bias[axis_index]) > ekf_ab_test_limit + test_uncertainty) {
 					/* EVENT
@@ -548,13 +564,13 @@ void EstimatorChecks::checkSensorBias(const Context &context, Report &reporter, 
 		}
 
 		// check gyro bias estimates
-		if (bias.gyro_bias_valid) {
+		if (bias.gyro_bias_valid && sensor_bias_sigma > 0.0f) {
 			const float ekf_gb_test_limit = 0.75f * bias.gyro_bias_limit;
 
 			for (int axis_index = 0; axis_index < 3; axis_index++) {
 				// allow for higher uncertainty in estimates for axes that are less observable to prevent false positives
-				// adjust test threshold by 3-sigma
-				const float test_uncertainty = 3.0f * sqrtf(fmaxf(bias.gyro_bias_variance[axis_index], 0.0f));
+				// adjust test threshold by N-sigma
+				const float test_uncertainty = sensor_bias_sigma * sqrtf(fmaxf(bias.gyro_bias_variance[axis_index], 0.0f));
 
 				if (fabsf(bias.gyro_bias[axis_index]) > ekf_gb_test_limit + test_uncertainty) {
 					/* EVENT
