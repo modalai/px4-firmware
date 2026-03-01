@@ -27,7 +27,7 @@ parameters:
       default: 3.0
       unit: m/s
       min: 0.5
-      max: 8
+      max: 11
       increment: 0.1
       decimal: 1
     MPC_Z_VEL_MAX_DN:
@@ -42,7 +42,7 @@ parameters:
       default: 1.5
       unit: m/s
       min: 0.5
-      max: 4
+      max: 11
       increment: 0.1
       decimal: 1
     MPC_TILTMAX_AIR:

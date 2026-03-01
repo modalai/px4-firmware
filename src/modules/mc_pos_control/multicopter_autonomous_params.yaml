@@ -65,7 +65,7 @@ parameters:
       default: 3.0
       unit: m/s
       min: 0.5
-      max: 8
+      max: 10
       decimal: 1
       increment: 0.5
     MPC_Z_V_AUTO_DN:
