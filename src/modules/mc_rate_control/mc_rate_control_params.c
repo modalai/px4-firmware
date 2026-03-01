@@ -293,6 +293,34 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_K, 1.0f);
 PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
 
 /**
+ * Low pass filter cutoff frequency for roll torque setpoint
+ *
+ * Reduces vibrations by lowering high frequency torque on the roll axis.
+ * 0 disables the filter
+ *
+ * @min 0
+ * @max 50
+ * @unit Hz
+ * @decimal 3
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_ROLL_CUTOFF, 0.f);
+
+/**
+ * Low pass filter cutoff frequency for pitch torque setpoint
+ *
+ * Reduces vibrations by lowering high frequency torque on the pitch axis.
+ * 0 disables the filter
+ *
+ * @min 0
+ * @max 50
+ * @unit Hz
+ * @decimal 3
+ * @group Multicopter Rate Control
+ */
+PARAM_DEFINE_FLOAT(MC_PITCH_CUTOFF, 0.f);
+
+/**
  * Low pass filter cutoff frequency for yaw torque setpoint
  *
  * Reduces vibrations by lowering high frequency torque caused by rotor acceleration.
@@ -304,4 +332,4 @@ PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
  * @decimal 3
  * @group Multicopter Rate Control
  */
-PARAM_DEFINE_FLOAT(MC_YAW_TQ_CUTOFF, 2.f);
+PARAM_DEFINE_FLOAT(MC_YAW_CUTOFF, 2.f);
