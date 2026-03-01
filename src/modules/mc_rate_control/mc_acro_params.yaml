@@ -35,6 +35,14 @@ parameters:
       max: 1800.0
       decimal: 1
       increment: 5
+    MC_EXPO_X5:
+      description:
+        short: Select x5 Expo in Acro and Other Flight Modes
+      type: enum
+      values:
+        0: Standard expo
+        1: x5 expo
+      default: 1
     MC_ACRO_EXPO:
       description:
         short: Acro mode roll, pitch expo factor
