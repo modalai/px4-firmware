@@ -143,6 +143,7 @@ public:
 	void handleParameterUpdate()
 	{
 		updateParams();
+		_setDefaultConstraints();
 	}
 
 	virtual void overrideCruiseSpeed(const float cruise_speed_m_s) {}
