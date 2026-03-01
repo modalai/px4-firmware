@@ -1007,6 +1007,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 			} else {
 				// Arm is forced (checks skipped) when param2 is set to a magic number.
 				const bool forced = (static_cast<int>(lroundf(cmd.param2)) == 21196);
+				const bool forced_disarm = (_param_com_disarm_force.get() > 0);
 
 				transition_result_t arming_res = TRANSITION_DENIED;
 				arm_disarm_reason_t arm_disarm_reason = cmd.from_external ? arm_disarm_reason_t::command_external :
@@ -1016,7 +1017,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					arming_res = arm(arm_disarm_reason, cmd.from_external || !forced);
 
 				} else if (arming_action == vehicle_command_s::ARMING_ACTION_DISARM) {
-					arming_res = disarm(arm_disarm_reason, forced);
+					arming_res = disarm(arm_disarm_reason, forced || forced_disarm);
 
 				}
 
@@ -1741,13 +1742,18 @@ void Commander::executeActionRequest(const action_request_s &action_request)
 	}
 
 	switch (action_request.action) {
-	case action_request_s::ACTION_DISARM: disarm(arm_disarm_reason); break;
+	case action_request_s::ACTION_DISARM: {
+			const bool forced_disarm = (_param_com_disarm_force.get() > 0);
+			disarm(arm_disarm_reason, forced_disarm);
+		}
+		break;
 
 	case action_request_s::ACTION_ARM: arm(arm_disarm_reason); break;
 
 	case action_request_s::ACTION_TOGGLE_ARMING:
 		if (isArmed()) {
-			disarm(arm_disarm_reason);
+			const bool forced_disarm = (_param_com_disarm_force.get() > 0);
+			disarm(arm_disarm_reason, forced_disarm);
 
 		} else {
 			arm(arm_disarm_reason);

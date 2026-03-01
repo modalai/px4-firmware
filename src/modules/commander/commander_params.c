@@ -269,6 +269,17 @@ PARAM_DEFINE_INT32(COM_ARM_SWISBTN, 0);
 PARAM_DEFINE_INT32(COM_DISARM_MAN, 1);
 
 /**
+ * Allow force disarming
+ *
+ * Disables the default checks which prevent disarming
+ * in unsafe situations, like when not landed.
+ *
+ * @group Commander
+ * @boolean
+ */
+PARAM_DEFINE_INT32(COM_DISARM_FORCE, 0);
+
+/**
  * Battery failsafe mode
  *
  * Action the system takes at critical battery. See also BAT_CRIT_THR and BAT_EMERGEN_THR
