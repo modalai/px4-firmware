@@ -151,6 +151,14 @@ parameters:
           e.g. Stabilized, Acro
       type: boolean
       default: 1
+    COM_DISARM_FORCE:
+      description:
+        short: Allow force disarming
+        long: |-
+          Disables the default checks which prevent disarming
+          in unsafe situations, like when not landed.
+      type: boolean
+      default: 0
     COM_LOW_BAT_ACT:
       description:
         short: Battery failsafe mode
