@@ -43,6 +43,7 @@
 
 #include <px4_platform_common/module_params.h>
 #include <matrix/matrix/math.hpp>
+#include <mathlib/math/Functions.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/failsafe_flags.h>
@@ -70,7 +71,33 @@ public:
 	float getThrottleZeroCenteredExpo(float expo = .6f) const { return math::expo_deadzone(getThrottleZeroCentered(), expo, _param_man_deadzone.get()); }
 
 	const matrix::Vector2f getPitchRoll() { return {getPitch(), getRoll()}; }
-	const matrix::Vector2f getPitchRollExpo() { return {getPitchExpo(), getRollExpo()}; }
+
+	/**
+	 * @brief Get Pitch and Roll expo calculated on 2d vector length to maintain direction
+	 *  and provide circular consistency in magnitude. This is more correct and results in
+	 *  a nicer pilot feel than applying the exponential function to the pitch and roll
+	 *  vector components independently.
+	 */
+	const matrix::Vector2f getPitchRollExpo(float expo = .6f) {
+		matrix::Vector2f pr_stick{getPitch(), getRoll()};
+		float pr_stick_len = pr_stick.length();
+
+		if (pr_stick_len > 1.0f) {
+			pr_stick.normalize();
+			pr_stick_len = 1.0f;
+		}
+
+		if (pr_stick_len > FLT_EPSILON) {
+			if (_param_mc_expo_x5.get()) {
+				return pr_stick.unit() * math::expo_x5_deadzone(pr_stick_len, expo, _param_man_deadzone.get());
+
+			} else {
+				return pr_stick.unit() * math::expo_deadzone(pr_stick_len, expo, _param_man_deadzone.get());
+			}
+		}
+
+		return {0.f, 0.f};
+	}
 
 	const matrix::Vector<float, 6> &getAux() const { return _aux_positions; }
 
@@ -98,6 +125,7 @@ private:
 	uORB::Subscription _failsafe_flags_sub{ORB_ID(failsafe_flags)};
 
 	DEFINE_PARAMETERS(
+		(ParamInt<px4::params::MC_EXPO_X5>) _param_mc_expo_x5,
 		(ParamFloat<px4::params::MAN_DEADZONE>) _param_man_deadzone
 	)
 };
