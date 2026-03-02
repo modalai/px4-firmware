@@ -269,6 +269,7 @@ dataman start
 qshell navigator start
 
 # Start the applications processor bridges and services
+vfc_logger start
 vehicle_air_data_bridge start
 sensor_baro_bridge start
 sensor_imu_raw_bridge start
