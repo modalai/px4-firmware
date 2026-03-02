@@ -89,6 +89,30 @@ PARAM_DEFINE_FLOAT(MC_ACRO_Y_MAX, 100.f);
 PARAM_DEFINE_INT32(MC_EXPO_X5, 1);
 
 /**
+ * Roll rate I gain in acro mode
+ *
+ * Roll rate integral gain in acro mode. Set to a value < 0 to use MC_ROLLRATE_I in acro mode.
+ *
+ * @min -1.0
+ * @decimal 3
+ * @increment 0.01
+ * @group Multicopter Acro Mode
+ */
+PARAM_DEFINE_FLOAT(MC_ACRO_RRATE_I, -1.0f);
+
+/**
+ * Pitch rate I gain in acro mode
+ *
+ * Pitch rate integral gain in acro mode. Set to a value < 0 to use MC_PITCHRATE_I in acro mode.
+ *
+ * @min -1.0
+ * @decimal 3
+ * @increment 0.01
+ * @group Multicopter Acro Mode
+ */
+PARAM_DEFINE_FLOAT(MC_ACRO_PRATE_I, -1.0f);
+
+/**
  * Acro mode roll, pitch expo factor
  *
  * Exponential factor for tuning the input curve shape.
