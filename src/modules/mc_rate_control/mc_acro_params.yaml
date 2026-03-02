@@ -43,6 +43,24 @@ parameters:
         0: Standard expo
         1: x5 expo
       default: 1
+    MC_ACRO_RRATE_I:
+      description:
+        short: Roll rate I gain in acro mode
+        long: Roll rate integral gain in acro mode. Set to a value < 0 to use MC_ROLLRATE_I in acro mode.
+      type: float
+      default: -1.0
+      min: -1.0
+      decimal: 3
+      increment: 0.01
+    MC_ACRO_PRATE_I:
+      description:
+        short: Pitch rate I gain in acro mode
+        long: Pitch rate integral gain in acro mode. Set to a value < 0 to use MC_PITCHRATE_I in acro mode.
+      type: float
+      default: -1.0
+      min: -1.0
+      decimal: 3
+      increment: 0.01
     MC_ACRO_EXPO:
       description:
         short: Acro mode roll, pitch expo factor
