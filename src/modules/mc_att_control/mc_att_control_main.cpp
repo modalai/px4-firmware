@@ -106,6 +106,10 @@ MulticopterAttitudeControl::parameters_updated()
 	}
 
 	_man_tilt_max = math::radians(_param_mpc_man_tilt_max.get());
+
+	_attitude_control.setMaxFFSpeed(radians(_param_mc_max_ff_speed.get()));
+	_attitude_control.setAttitudeFFFactor(_param_mc_ff_factor.get());
+	_attitude_control.setFFTiltTau(_param_mc_ff_tilt_tau.get());
 }
 
 float
@@ -202,6 +206,11 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt)
 
 	attitude_setpoint.timestamp = hrt_absolute_time();
 	_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+
+	// update attitude controller setpoint immediately with filtering
+	_attitude_control.setAttitudeSetpointFilter(q_sp, attitude_setpoint.yaw_sp_move_rate);
+	_thrust_setpoint_body = Vector3f(attitude_setpoint.thrust_body);
+	_last_attitude_setpoint = attitude_setpoint.timestamp;
 }
 
 void
@@ -263,6 +272,7 @@ MulticopterAttitudeControl::Run()
 				_vtol = vehicle_status.is_vtol;
 				_vtol_in_transition_mode = vehicle_status.in_transition_mode;
 				_vtol_tailsitter = vehicle_status.is_vtol_tailsitter;
+				_filter_attitude_setpoint = (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL);
 
 				const bool armed = (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 				_spooled_up = armed && hrt_elapsed_time(&vehicle_status.armed_time) > _param_com_spoolup_time.get() * 1_s;
@@ -309,12 +319,18 @@ MulticopterAttitudeControl::Run()
 			}
 
 			// Check for new attitude setpoint
-			if (_vehicle_attitude_setpoint_sub.updated()) {
-				vehicle_attitude_setpoint_s vehicle_attitude_setpoint;
+			// if in altitude mode set the setpoint on every iteration for filtering
+			vehicle_attitude_setpoint_s vehicle_attitude_setpoint;
 
-				if (_vehicle_attitude_setpoint_sub.copy(&vehicle_attitude_setpoint)
-				    && (vehicle_attitude_setpoint.timestamp > _last_attitude_setpoint)) {
-
+			if (_filter_attitude_setpoint && _vehicle_attitude_setpoint_sub.copy(&vehicle_attitude_setpoint)) {
+				_attitude_control.setAttitudeSetpointFilter(Quatf(vehicle_attitude_setpoint.q_d), vehicle_attitude_setpoint.yaw_sp_move_rate);
+				_thrust_setpoint_body = Vector3f(vehicle_attitude_setpoint.thrust_body);
+				if (vehicle_attitude_setpoint.timestamp > _last_attitude_setpoint) {
+					_last_attitude_setpoint = vehicle_attitude_setpoint.timestamp;
+				}
+			}
+			else if (_vehicle_attitude_setpoint_sub.updated()) {
+				if (_vehicle_attitude_setpoint_sub.copy(&vehicle_attitude_setpoint) && vehicle_attitude_setpoint.timestamp > _last_attitude_setpoint) {
 					_attitude_control.setAttitudeSetpoint(Quatf(vehicle_attitude_setpoint.q_d), vehicle_attitude_setpoint.yaw_sp_move_rate);
 					_thrust_setpoint_body = Vector3f(vehicle_attitude_setpoint.thrust_body);
 					_last_attitude_setpoint = vehicle_attitude_setpoint.timestamp;
