@@ -50,6 +50,8 @@
 
 #include <matrix/matrix/math.hpp>
 #include <mathlib/math/Limits.hpp>
+#include <drivers/drv_hrt.h>
+#include <px4_platform_common/log.h>
 
 class AttitudeControl
 {
@@ -70,6 +72,12 @@ public:
 	 */
 	void setRateLimit(const matrix::Vector3f &rate_limit) { _rate_limit = rate_limit; }
 
+	void setMaxFFSpeed(const float max_ff_speed) { _max_ff_speed = max_ff_speed; }
+
+	void setAttitudeFFFactor(const float attitude_ff_factor) { _attitude_ff_factor = attitude_ff_factor; }
+
+	void setFFTiltTau(const float ff_tilt_tau) { _ff_tilt_tau = ff_tilt_tau;}
+
 	/**
 	 * Set a new attitude setpoint replacing the one tracked before
 	 * @param qd desired vehicle attitude setpoint
@@ -80,6 +88,51 @@ public:
 		_attitude_setpoint_q = qd;
 		_attitude_setpoint_q.normalize();
 		_yawspeed_setpoint = yawspeed_setpoint;
+		_rollspeed_setpoint = 0.0f;
+		_pitchspeed_setpoint = 0.0f;
+	}
+
+	/**
+	 * Set a new attitude setpoint replacing the one tracked before
+	 * @param qd desired vehicle attitude setpoint
+	 * @param yawspeed_setpoint [rad/s] yaw feed forward angular rate in world frame
+	 */
+	void setAttitudeSetpointFilter(const matrix::Quatf &qd, const float yawspeed_setpoint)
+	{
+		const float max_time_diff = 0.1f;
+		const float min_time_diff = 0.00001f;
+
+		hrt_abstime time_now = hrt_absolute_time();
+
+		const float dt = (time_now - _last_attitude_setpoint_filter_time)*1e-6f;
+
+		if (dt < max_time_diff && dt > min_time_diff && _ff_tilt_tau > 0) {
+			_attitude_setpoint_q_lpf1 = quaternionFilterRollPitch(qd, _attitude_setpoint_q_lpf1, dt);
+			matrix::Quatf attitude_setpoint_new = quaternionFilterRollPitch(_attitude_setpoint_q_lpf1, _attitude_setpoint_q, dt);
+
+			matrix::Quatf q_delta = _attitude_setpoint_q.inversed() * attitude_setpoint_new;
+
+			const float rollspeed_raw = 2 * q_delta(1) / dt;
+			const float pitchspeed_raw = 2 * q_delta(2) / dt;
+
+			_rollspeed_setpoint = math::constrain(rollspeed_raw, -_max_ff_speed, _max_ff_speed) * _attitude_ff_factor;
+			_pitchspeed_setpoint = math::constrain(pitchspeed_raw, -_max_ff_speed, _max_ff_speed) * _attitude_ff_factor;
+
+			_attitude_setpoint_q = attitude_setpoint_new;
+		}
+		else {
+			_rollspeed_setpoint = 0.0f;
+			_pitchspeed_setpoint = 0.0f;
+
+			_attitude_setpoint_q = qd;
+			_attitude_setpoint_q_lpf1 = qd;
+			_attitude_setpoint_q_lpf1.normalize();
+		}
+
+		_attitude_setpoint_q.normalize();
+		_yawspeed_setpoint = yawspeed_setpoint;
+
+		_last_attitude_setpoint_filter_time = time_now;
 	}
 
 	/**
@@ -107,4 +160,18 @@ private:
 
 	matrix::Quatf _attitude_setpoint_q; ///< latest known attitude setpoint e.g. from position control
 	float _yawspeed_setpoint{0.f}; ///< latest known yawspeed feed-forward setpoint
+
+	float _rollspeed_setpoint{0.f}; ///< latest known rollspeed feed-forward setpoint
+	float _pitchspeed_setpoint{0.f}; ///< latest known pitchspeed feed-forward setpoint
+
+	float _max_ff_speed{0.f};
+	float _attitude_ff_factor{0.f};
+
+	float _ff_tilt_tau{0.f};
+
+	hrt_abstime _last_attitude_setpoint_filter_time{0};
+
+	matrix::Quatf quaternionFilterRollPitch(const matrix::Quatf &q_in, const matrix::Quatf &q_last, const float dt);
+
+	matrix::Quatf _attitude_setpoint_q_lpf1; ///< intermediate first order low pass filtered quaternion
 };
