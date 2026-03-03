@@ -45,6 +45,9 @@
 #include <cstring>
 #include <px4_platform_common/defines.h>
 
+// Event Publishing
+#include <px4_platform_common/events.h>
+
 using namespace time_literals;
 using namespace matrix;
 
@@ -91,7 +94,13 @@ Battery::Battery(int index, ModuleParams *parent, const int sample_interval_us, 
 	_param_handles.crit_thr = param_find("BAT_CRIT_THR");
 	_param_handles.emergen_thr = param_find("BAT_EMERGEN_THR");
 
+	_param_handles.low_time = param_find("BAT_LOW_TIME");
+	_param_handles.crit_time = param_find("BAT_CRIT_TIME");
+
 	_param_handles.bat_avrg_current = param_find("BAT_AVRG_CURRENT");
+
+	_param_handles.fs_volt_low = param_find("BAT_LOW_VOLT");
+	_param_handles.fs_volt_low_time = param_find("BAT_LOW_V_TIME");
 
 	updateParams();
 }
@@ -140,9 +149,11 @@ void Battery::updateBatteryStatus(const hrt_abstime &timestamp)
 	}
 
 	computeScale();
+	_time_remaining_s = computeRemainingTime(_current_a);
 
 	if (_connected && _battery_initialized) {
-		_warning = determineWarning(_state_of_charge);
+		_warning = determineWarning_SOC(_state_of_charge);
+		reportWarnings(_voltage_v);
 	}
 }
 
@@ -155,7 +166,7 @@ battery_status_s Battery::getBatteryStatus()
 	battery_status.discharged_mah = _discharged_mah;
 	battery_status.remaining = _state_of_charge;
 	battery_status.scale = _scale;
-	battery_status.time_remaining_s = computeRemainingTime(_current_a);
+	battery_status.time_remaining_s = _time_remaining_s;
 	battery_status.temperature = _temperature_c;
 	battery_status.cell_count = _params.n_cells;
 	battery_status.connected = _connected;
@@ -304,7 +315,82 @@ void Battery::estimateStateOfCharge()
 	}
 }
 
-uint8_t Battery::determineWarning(float state_of_charge)
+uint8_t Battery::determineWarning_Voltage(const float voltage_v)
+{
+	// Only do the following if the params are set
+	if (_params.fs_volt_low < 0.0f || _params.fs_volt_low_time < 0.0f) {
+		// Params not set for voltage failsafe
+		return battery_status_s::FAULT_NONE;
+	}
+
+	const hrt_abstime time_us = hrt_absolute_time();
+	const bool volt_low_failsafe = voltage_v < _params.fs_volt_low;
+
+	if (!volt_low_failsafe) {
+		_timer_fs_volt_low_us = 0;
+		return battery_status_s::FAULT_NONE;
+	}
+
+	if (_timer_fs_volt_low_us == 0) {
+		_timer_fs_volt_low_us = time_us;
+	}
+
+	const float delta_t = float(time_us - _timer_fs_volt_low_us) * 1E-6f;
+
+	if (delta_t > _params.fs_volt_low_time) {
+		return battery_status_s::FAULT_LOW_VOLTAGE;
+	}
+
+	// Voltage is below a failsafe param but has not yet met the timer condition
+	return battery_status_s::FAULT_NONE;
+}
+
+// Function to go through each alert type,
+// prioritize alerts
+// Print only the highest priority message/s
+// Limit prints to every 15 seconds
+void Battery::reportWarnings(const float voltage_v)
+{
+	const uint8_t fs_volt_state = determineWarning_Voltage(voltage_v);
+	const uint8_t fs_time_remaining = determineWarning_TimeRemaining(_time_remaining_s);
+
+	if ((fs_volt_state == battery_status_s::FAULT_NONE) &&
+	    (fs_time_remaining == battery_status_s::FAULT_NONE)) {
+		// Nothing in a failsafe state
+		return;
+	}
+
+	// Send and log alerts slowly to not spam the GCS
+	double timer_delta = double(hrt_absolute_time() - _timer_limit_reporting) * 1.0e-6;
+
+	if (timer_delta < 15.0) {
+		return;
+	}
+
+	_timer_limit_reporting = hrt_absolute_time();
+
+	// Voltage faults
+	if (fs_volt_state == battery_status_s::FAULT_LOW_VOLTAGE) {
+		// Send alert
+		mavlink_log_emergency(&_mavlink_log_pub, "BATT LOW voltage\t");
+		events::send(events::ID("battery_low_voltage"), {events::Log::Critical, events::LogInternal::Info},
+			     "BATT LOW voltage");
+	}
+
+	// Time remaining faults
+	if (fs_time_remaining == battery_status_s::FAULT_CRITCAL_TIME_REMAINING) {
+		mavlink_log_emergency(&_mavlink_log_pub, "CRITICAL time remaining\t");
+		events::send(events::ID("battery_critical_time_remaining"), {events::Log::Critical, events::LogInternal::Info},
+			     "BATT CRITICAL time remaining");
+
+	} else if (fs_time_remaining == battery_status_s::FAULT_LOW_TIME_REMAINING) {
+		mavlink_log_emergency(&_mavlink_log_pub, "mavlink LOW time remaining\t");
+		events::send(events::ID("battery_low_time_remaining"), {events::Log::Critical, events::LogInternal::Info},
+			     "event BATT LOW time remaining");
+	}
+}
+
+uint8_t Battery::determineWarning_SOC(float state_of_charge)
 {
 	if (state_of_charge < _params.emergen_thr) {
 		return battery_status_s::WARNING_EMERGENCY;
@@ -318,6 +404,19 @@ uint8_t Battery::determineWarning(float state_of_charge)
 	} else {
 		return battery_status_s::WARNING_NONE;
 	}
+}
+
+uint8_t Battery::determineWarning_TimeRemaining(float time_remaining_s)
+{
+	if ((_params.crit_time > 0.0f) && (time_remaining_s < _params.crit_time)) {
+		return battery_status_s::FAULT_CRITCAL_TIME_REMAINING;
+
+	} else if ((_params.low_time > 0.0f) && (time_remaining_s < _params.low_time)) {
+		return battery_status_s::FAULT_LOW_TIME_REMAINING;
+	}
+
+	// Not in failsafe
+	return battery_status_s::FAULT_NONE;
 }
 
 uint16_t Battery::determineFaults()
@@ -410,7 +509,11 @@ void Battery::updateParams()
 	param_get(_param_handles.low_thr, &_params.low_thr);
 	param_get(_param_handles.crit_thr, &_params.crit_thr);
 	param_get(_param_handles.emergen_thr, &_params.emergen_thr);
+	param_get(_param_handles.low_time, &_params.low_time);
+	param_get(_param_handles.crit_time, &_params.crit_time);
 	param_get(_param_handles.bat_avrg_current, &_params.bat_avrg_current);
+	param_get(_param_handles.fs_volt_low, &_params.fs_volt_low);
+	param_get(_param_handles.fs_volt_low_time, &_params.fs_volt_low_time);
 
 	float capacity{0.f};
 	param_get(_param_handles.capacity, &capacity);
