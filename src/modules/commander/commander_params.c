@@ -1089,3 +1089,30 @@ PARAM_DEFINE_INT32(COM_FLTT_LOW_ACT, 0);
  *
  */
 PARAM_DEFINE_INT32(COM_MODE_ARM_CHK, 0);
+
+/**
+ * Initial Flight Mode
+ *
+ * The flightmode when the vehicle first boots.
+ *
+ * @group Commander
+ * @value -1 UNASSIGNED
+ * @value 0 MANUAL
+ * @value 1 ALTCTL
+ * @value 2 POSCTL
+ * @value 3 AUTO_MISSION
+ * @value 4 AUTO_LOITER
+ * @value 5 AUTO_RTL
+ * @value 10 ACRO
+ * @value 12 DESCEND
+ * @value 13 TERMINATION
+ * @value 14 OFFBOARD
+ * @value 15 STAB
+ * @value 17 AUTO_TAKEOFF
+ * @value 18 AUTO_LAND
+ * @value 19 AUTO_FOLLOW_TARGET
+ * @value 20 AUTO_PRECLAND
+ * @value 21 ORBIT
+ * @value 22 AUTO_VTOL_TAKEOFF
+ */
+PARAM_DEFINE_INT32(COM_FLTMODE_INIT, -1);
