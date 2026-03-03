@@ -53,6 +53,7 @@ private:
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(HealthAndArmingCheckBase,
 					(ParamFloat<px4::params::COM_RC_LOSS_T>) _param_com_rc_loss_t,
+					(ParamFloat<px4::params::COM_RCL_ACT_T>) _param_com_rcl_act_t,
 					(ParamInt<px4::params::NAV_DLL_ACT>) _param_nav_dll_act
 				       )
 };
