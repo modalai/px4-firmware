@@ -1,0 +1,13 @@
+module_name: ekf2
+parameters:
+- group: EKF2
+  definitions:
+    EKF2_BOUNCE_FIX:
+      description:
+        short: Enable bounce fix during landing
+        long: This feature attempts to improve an issue with sustained bounces
+          that occur after landing on a hard surface due to accel clipping.
+          The feature sets the z velocity to zero within the EKF on detection
+          of z accel clipping during a descent in altitude mode.
+      type: boolean
+      default: 0
