@@ -765,6 +765,31 @@ parameters:
         long: By default disabled for safety reasons
       type: boolean
       default: 0
+    COM_FLTMODE_INIT:
+      description:
+        short: Initial Flight Mode
+        long: The flightmode when the vehicle first boots.
+      type: enum
+      values:
+        -1: UNASSIGNED
+        0: MANUAL
+        1: ALTCTL
+        2: POSCTL
+        3: AUTO_MISSION
+        4: AUTO_LOITER
+        5: AUTO_RTL
+        10: ACRO
+        12: DESCEND
+        13: TERMINATION
+        14: OFFBOARD
+        15: STAB
+        17: AUTO_TAKEOFF
+        18: AUTO_LAND
+        19: AUTO_FOLLOW_TARGET
+        20: AUTO_PRECLAND
+        21: ORBIT
+        22: AUTO_VTOL_TAKEOFF
+      default: -1
 - group: Radio Calibration
   definitions:
     TRIM_ROLL:
