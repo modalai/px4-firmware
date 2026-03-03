@@ -644,6 +644,8 @@ private:
 
 	bool _can_reset_z_vel_on_clipping{false};
 
+	uint64_t _time_last_fake_pos_cond_failed{0}; ///< time of the last failure of the fake position fusion conditions (uSec)
+
 	// initialise filter states of both the delayed ekf and the real time complementary filter
 	bool initialiseFilter(void);
 

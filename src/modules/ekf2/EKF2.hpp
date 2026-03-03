@@ -710,6 +710,11 @@ private:
 
 		(ParamExtInt<px4::params::EKF2_BOUNCE_FIX>) _param_ekf2_bounce_fix, ///< bounce fix
 
+		// Fake position fusion parameters
+		(ParamExtInt<px4::params::EKF2_FP_TOUT>) _param_ekf2_fp_tout,
+		(ParamExtFloat<px4::params::EKF2_FP_ALIM>) _param_ekf2_fp_alim,
+		(ParamExtFloat<px4::params::EKF2_FP_COSTILT>) _param_ekf2_fp_costilt,
+
 		// EKF accel bias learning control
 		(ParamExtFloat<px4::params::EKF2_ABL_LIM>) _param_ekf2_abl_lim,	///< Accelerometer bias learning limit (m/s**2)
 		(ParamExtFloat<px4::params::EKF2_ABL_ACCLIM>)

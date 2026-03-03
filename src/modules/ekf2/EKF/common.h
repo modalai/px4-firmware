@@ -306,6 +306,11 @@ struct parameters {
 
 	int32_t ekf2_bounce_fix{0};
 
+	// Fake Position Fusion Parameters
+	int32_t ekf2_fp_tout{2000000};		///< fake pos condition timeout (uSec)
+	float ekf2_fp_alim{2.0f};		///< fake pos lateral accel limit (m/s^2)
+	float ekf2_fp_costilt{0.906f};		///< fake pos cosine of tilt limit
+
 #if defined(CONFIG_EKF2_BAROMETER)
 	int32_t ekf2_baro_ctrl {1};
 	float ekf2_baro_delay{0.0f};            ///< barometer height measurement delay relative to the IMU (mSec)
