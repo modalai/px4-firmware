@@ -63,7 +63,12 @@ uint8 FAULT_INCOMPATIBLE_FIRMWARE = 7  # Battery firmware is not compatible with
 uint8 FAULT_INCOMPATIBLE_MODEL = 8     # Battery model is not supported by the system
 uint8 FAULT_HARDWARE_FAILURE = 9       # Hardware problem
 uint8 FAULT_FAILED_TO_ARM = 10         # Battery had a problem while arming
-uint8 FAULT_COUNT = 11                 # Counter. Keep this as last element
+uint8 FAULT_LOW_VOLTAGE = 11           # Low voltage detected for at least BAT_LOW_V_TIME
+uint8 FAULT_CRITICAL_VOLTAGE = 12      # Critical voltage detected for at least BAT_LOW_V_TIME
+uint8 FAULT_LOW_TIME_REMAINING = 13    # Low time remaining
+uint8 FAULT_CRITCAL_TIME_REMAINING = 14 # Critical time remaining
+uint8 FAULT_NONE = 15                  # No fault detected
+uint8 FAULT_COUNT = 16                 # Counter. Keep this as last element
 
 float32 full_charge_capacity_wh  # [Wh] Compensated battery capacity
 float32 remaining_capacity_wh    # [Wh] Compensated battery capacity remaining
