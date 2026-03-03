@@ -87,8 +87,8 @@ void MulticopterHoverThrustEstimator::updateParams()
 
 	_hover_thrust_ekf.setAccelInnovGate(_param_hte_acc_gate.get());
 
-	_hover_thrust_ekf.setMinHoverThrust(_param_mpc_thr_hover.get() - _param_hte_thr_range.get());
-	_hover_thrust_ekf.setMaxHoverThrust(_param_mpc_thr_hover.get() + _param_hte_thr_range.get());
+	_hover_thrust_ekf.setMinHoverThrust(_param_hte_thr_min.get());
+	_hover_thrust_ekf.setMaxHoverThrust(_param_hte_thr_max.get());
 }
 
 void MulticopterHoverThrustEstimator::Run()
