@@ -76,3 +76,17 @@ parameters:
       max: 50
       decimal: 1
       increment: 0.5
+    MPC_VZ_SRC:
+      description:
+        short: Velocity Source for Z Control
+        long: |-
+          The supported sources are:
+          0 vehicle_local_position vz
+          1 vehicle_local_position z_deriv
+          2 Blended
+      type: enum
+      values:
+        0: vz
+        1: z_deriv
+        2: Blend
+      default: 2
