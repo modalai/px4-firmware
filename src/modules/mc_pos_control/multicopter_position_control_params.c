@@ -119,3 +119,18 @@ PARAM_DEFINE_FLOAT(MPC_VEL_NF_BW, 5.0f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MPC_VELD_LP, 5.0f);
+
+/**
+ * Velocity Source for Z Control
+ *
+ * The supported sources are:
+ * 0 vehicle_local_position vz
+ * 1 vehicle_local_position z_deriv
+ * 2 Blended
+ *
+ * @value 0 vz
+ * @value 1 z_deriv
+ * @value 2 Blend
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_INT32(MPC_VZ_SRC, 2);
