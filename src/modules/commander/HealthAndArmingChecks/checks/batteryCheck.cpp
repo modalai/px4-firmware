@@ -67,6 +67,16 @@ static constexpr const char *battery_fault_reason_str(battery_fault_reason_t bat
 
 	case battery_fault_reason_t::failed_to_arm: return "failed to arm";
 
+	case battery_fault_reason_t::low_voltage: return "low voltage";
+
+	case battery_fault_reason_t::critical_voltage: return "critical voltage";
+
+	case battery_fault_reason_t::low_time_remaining: return "low time remaining";
+
+	case battery_fault_reason_t::critical_time_remaining: return "critical time remaining";
+
+	case battery_fault_reason_t::no_fault: return "no fault";
+
 	}
 
 	return "";
