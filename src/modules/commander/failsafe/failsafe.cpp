@@ -86,6 +86,53 @@ FailsafeBase::ActionOptions Failsafe::fromNavDllOrRclActParam(int param_value)
 		options.allow_user_takeover = UserTakeoverAllowed::Never;
 		options.action = Action::Disarm;
 		break;
+
+	case gcs_connection_loss_failsafe_mode::Descend:
+		options.action = Action::Descend;
+		break;
+	}
+
+	return options;
+}
+
+FailsafeBase::ActionOptions Failsafe::fromComRclActParam(int param_value)
+{
+	ActionOptions options{};
+
+	switch (manual_control_loss_second_stage_action(param_value)) {
+	case manual_control_loss_second_stage_action::Hold_mode:
+		options.action = Action::Hold;
+		options.clear_condition = ClearCondition::OnModeChangeOrDisarm;
+		break;
+
+	case manual_control_loss_second_stage_action::Return_mode:
+		options.action = Action::RTL;
+		options.clear_condition = ClearCondition::OnModeChangeOrDisarm;
+		break;
+
+	case manual_control_loss_second_stage_action::Land_mode:
+		options.action = Action::Land;
+		options.clear_condition = ClearCondition::OnModeChangeOrDisarm;
+		break;
+
+	case manual_control_loss_second_stage_action::Terminate:
+		options.allow_user_takeover = UserTakeoverAllowed::Never;
+		options.action = Action::Terminate;
+		options.clear_condition = ClearCondition::Never;
+		break;
+
+	case manual_control_loss_second_stage_action::Disarm:
+		options.allow_user_takeover = UserTakeoverAllowed::Never;
+		options.action = Action::Disarm;
+		break;
+
+	case manual_control_loss_second_stage_action::Descend:
+		options.action = Action::Descend;
+		break;
+
+	default:
+		options.action = Action::None;
+		break;
 	}
 
 	return options;
@@ -564,8 +611,16 @@ void Failsafe::checkStateAndMode(const hrt_abstime &time_us, const State &state,
 				     || ignore_any_link_loss_vtol_takeoff_fixedwing || _manual_control_lost_at_arming;
 
 	if (_param_com_rc_in_mode.get() != int32_t(RcInMode::DisableManualControl) && !rc_loss_ignored) {
-		CHECK_FAILSAFE(status_flags, manual_control_signal_lost,
-			       fromNavDllOrRclActParam(_param_nav_rcl_act.get()).causedBy(Cause::ManualControlLoss));
+
+		// Primary failsafe behavior is NAV_RCL_ACT. COM_RCL_ACT is an optional escalation after COM_RCL_ACT_T.
+		if (status_flags.manual_control_signal_lost_action) {
+			CHECK_FAILSAFE(status_flags, manual_control_signal_lost_action,
+				       fromComRclActParam(_param_com_rcl_act.get()).causedBy(Cause::ManualControlLoss));
+
+		} else {
+			CHECK_FAILSAFE(status_flags, manual_control_signal_lost,
+				       fromNavDllOrRclActParam(_param_nav_rcl_act.get()).causedBy(Cause::ManualControlLoss));
+		}
 	}
 
 	// Ground control station connection loss

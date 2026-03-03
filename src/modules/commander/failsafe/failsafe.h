@@ -105,6 +105,16 @@ private:
 		Terminate = 5,
 		Disarm = 6,
 		Hold_mode_no_failsafe = 7, ///< No failsafe: Commander switches to Hold as a regular mode change (NAV_RCL_ACT only)
+		Descend = 8,
+	};
+
+	enum class manual_control_loss_second_stage_action : int32_t {
+		Hold_mode = 1,
+		Return_mode = 2,
+		Land_mode = 3,
+		Terminate = 5,
+		Disarm = 6,
+		Descend = 7,
 	};
 
 	enum class command_after_quadchute : int32_t {
@@ -175,6 +185,7 @@ private:
 	};
 
 	static ActionOptions fromNavDllOrRclActParam(int param_value);
+	static ActionOptions fromComRclActParam(int param_value);
 
 	static ActionOptions fromGfActParam(int param_value);
 	static ActionOptions fromActuatorFailureActParam(int param_value);
@@ -217,6 +228,7 @@ private:
 					(ParamInt<px4::params::NAV_DLL_ACT>) 	_param_nav_dll_act,
 					(ParamInt<px4::params::NAV_RCL_ACT>) 	_param_nav_rcl_act,
 					(ParamInt<px4::params::COM_RCL_EXCEPT>) _param_com_rcl_except,
+					(ParamInt<px4::params::COM_RCL_ACT>) 	_param_com_rcl_act,
 					(ParamInt<px4::params::COM_DLL_EXCEPT>) _param_com_dll_except,
 					(ParamInt<px4::params::COM_RC_IN_MODE>) _param_com_rc_in_mode,
 					(ParamInt<px4::params::GF_ACTION>)  	_param_gf_action,
