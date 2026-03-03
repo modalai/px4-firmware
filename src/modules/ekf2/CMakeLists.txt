@@ -271,6 +271,7 @@ px4_add_module(
 		params_multi.yaml
 		params_volatile.yaml
 		params_selector.yaml
+		params_bounce_fix.yaml
 		${EKF_MODULE_PARAMS}
 
 	DEPENDS
