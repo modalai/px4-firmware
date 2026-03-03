@@ -106,6 +106,8 @@ public:
 
 	bool getHadModeChangeAndClear() { bool ret = _had_mode_change; _had_mode_change = false; return ret; }
 
+	void setInitialMode(uint8_t user_initial_nav_state);
+
 private:
 	bool isArmed() const { return _vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED; }
 	bool isTakeOffIntended(uint8_t user_intented_nav_state) const {return user_intented_nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF || user_intented_nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF;}
