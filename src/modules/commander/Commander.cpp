@@ -737,6 +737,11 @@ Commander::Commander() :
 	_vehicle_status.component_id = 1;
 	_vehicle_status.system_type = 0;
 	_vehicle_status.vehicle_type = vehicle_status_s::VEHICLE_TYPE_UNSPECIFIED;
+
+	if (_param_com_fltmode_init.get() > -1) {
+		_user_mode_intention.setInitialMode(_param_com_fltmode_init.get());
+	}
+
 	_vehicle_status.nav_state = _user_mode_intention.get();
 	_vehicle_status.nav_state_user_intention = _user_mode_intention.get();
 	_vehicle_status.nav_state_timestamp = hrt_absolute_time();
@@ -3056,9 +3061,14 @@ void Commander::manualControlCheck()
 		} else {
 			const bool is_mavlink = (manual_control_setpoint.data_source > manual_control_setpoint_s::SOURCE_RC);
 
-			// if there's never been a mode change force position control as initial state
-			if (!_user_mode_intention.everHadModeChange() && (is_mavlink || !_mode_switch_mapped)) {
-				_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_POSCTL, ModeChangeSource::User, false, true);
+			// if there's never been a mode change set the mode to either the mode requested via the initial flight mode parameter or
+			// force position control as the initial mode
+			if (!_user_mode_intention.everHadModeChange() && (is_mavlink || !_mode_switch_mapped || (_param_com_fltmode_init.get() > -1))) {
+				if (_param_com_fltmode_init.get() > -1) {
+					_user_mode_intention.change(_param_com_fltmode_init.get(), ModeChangeSource::User, false, true);
+				} else {
+					_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_POSCTL, ModeChangeSource::User, false, true);
+				}
 			}
 		}
 	}
