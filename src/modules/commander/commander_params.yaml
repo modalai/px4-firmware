@@ -790,6 +790,38 @@ parameters:
         21: ORBIT
         22: AUTO_VTOL_TAKEOFF
       default: -1
+    COM_RCL_ACT_T:
+      description:
+        short: Delay between RC loss and configured reaction to
+        long: |-
+          RC signal not updated -> still use data for COM_RC_LOSS_T seconds
+          Consider RC signal lost -> wait COM_RCL_ACT_T seconds in Hold mode to regain signal
+          React with failsafe action NAV_RCL_ACT
+
+          A zero value disables the delay.
+      type: float
+      default: 15.0
+      unit: s
+      min: 0.0
+      max: 25.0
+      decimal: 3
+    COM_RCL_ACT:
+      description:
+        short: Set RC_Loss failsafe mode that will occur
+        long: |-
+          The RC loss failsafe action will only be entered after a timeout,
+          set by COM_RCL_ACT_T in seconds.
+      type: enum
+      values:
+        1: Hold mode
+        2: Return mode
+        3: Land mode
+        5: Terminate
+        6: Disarm
+        7: Descend
+      default: 2
+      min: 0
+      max: 7
 - group: Radio Calibration
   definitions:
     TRIM_ROLL:
