@@ -1,0 +1,36 @@
+module_name: ekf2
+parameters:
+- group: EKF2
+  definitions:
+    EKF2_FP_TOUT:
+      description:
+        short: Fake position condition timeout
+        long: Duration in microseconds that the fake position fusion conditions
+          (lateral accel and tilt) must pass before fake position fusion is allowed.
+      type: int32
+      default: 2000000
+      min: 0
+      max: 10000000
+      unit: us
+    EKF2_FP_ALIM:
+      description:
+        short: Fake position lateral accel limit
+        long: Maximum lateral acceleration magnitude allowed for fake position fusion.
+          If exceeded, the fake position condition timer resets.
+      type: float
+      default: 2.0
+      decimal: 1
+      min: 0.0
+      max: 100.0
+      unit: m/s^2
+    EKF2_FP_COSTILT:
+      description:
+        short: Fake position cosine of tilt limit
+        long: Minimum cosine of the tilt angle from vertical for fake position fusion.
+          Values below this threshold (i.e. larger tilt) reset the condition timer.
+          A value of 0.906 corresponds to approximately 25 degrees tilt.
+      type: float
+      default: 0.906
+      decimal: 3
+      min: -2.0
+      max: 1.0
