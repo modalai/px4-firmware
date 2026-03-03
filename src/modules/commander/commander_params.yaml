@@ -456,7 +456,39 @@ parameters:
         5: Terminate
         6: Disarm
         7: Hold mode (no failsafe)
+        8: Descend
       default: 2
+    COM_RCL_ACT_T:
+      description:
+        short: Delay between manual control loss and escalation action
+        long: |-
+          Time after the last manual control update before escalating from
+          NAV_RCL_ACT to COM_RCL_ACT.
+
+          A zero value disables the delay.
+      type: float
+      default: 15.0
+      unit: s
+      min: 0.0
+      max: 25.0
+      decimal: 3
+    COM_RCL_ACT:
+      description:
+        short: Manual control loss escalation action
+        long: |-
+          The manual control loss escalation action entered after COM_RCL_ACT_T seconds.
+          NAV_RCL_ACT defines the primary action entered after COM_RC_LOSS_T seconds.
+      type: enum
+      values:
+        1: Hold mode
+        2: Return mode
+        3: Land mode
+        5: Terminate
+        6: Disarm
+        7: Descend
+      default: 2
+      min: 0
+      max: 7
     COM_RCL_EXCEPT:
       description:
         short: Manual control loss exceptions
