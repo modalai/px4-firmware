@@ -264,6 +264,10 @@ void Ekf::predictState(const imuSample &imu_delayed)
 	const Vector3f transport_rate = -_gpos.computeAngularRateNavFrame(vel_last).cross(vel_last);
 	_state.vel += (gravity_acceleration + coriolis_acceleration + transport_rate) * imu_delayed.delta_vel_dt;
 
+	if (_params.ekf2_bounce_fix && _can_reset_z_vel_on_clipping && imu_delayed.delta_vel_clipping[2] && _state.vel(2) > 0) {
+		_state.vel(2) = 0.0;
+	}
+
 	// predict position states via trapezoidal integration of velocity
 	_gpos += (vel_last + _state.vel) * imu_delayed.delta_vel_dt * 0.5f;
 	_state.pos(2) = -_gpos.altitude();
