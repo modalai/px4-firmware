@@ -83,6 +83,8 @@ public:
 
 	virtual ~Ekf() = default;
 
+	void setCanResetZVelOnClipping(const bool val) { _can_reset_z_vel_on_clipping = val; }
+
 	// initialise variables to sane values (also interface class)
 	bool init(uint64_t timestamp) override;
 
@@ -639,6 +641,8 @@ private:
 	uint64_t _time_bad_vert_accel{0};	///< last time a bad vertical accel was detected (uSec)
 	uint64_t _time_good_vert_accel{0};	///< last time a good vertical accel was detected (uSec)
 	uint16_t _clip_counter[3];		///< counter per axis that increments when clipping ad decrements when not
+
+	bool _can_reset_z_vel_on_clipping{false};
 
 	// initialise filter states of both the delayed ekf and the real time complementary filter
 	bool initialiseFilter(void);

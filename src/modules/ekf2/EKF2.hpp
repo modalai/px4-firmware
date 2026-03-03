@@ -231,6 +231,7 @@ private:
 #endif // CONFIG_EKF2_RANGE_FINDER
 
 	void UpdateSystemFlagsSample(ekf2_timestamps_s &ekf2_timestamps);
+	void UpdateResetOnClipping(ekf2_timestamps_s &ekf2_timestamps);
 
 	// Used to check, save and use learned accel/gyro/mag biases
 	struct InFlightCalibration {
@@ -706,6 +707,8 @@ private:
 		_param_ekf2_abias_init,	///< 1-sigma accelerometer bias uncertainty at switch on (m/sec**2)
 		(ParamExtFloat<px4::params::EKF2_ANGERR_INIT>)
 		_param_ekf2_angerr_init,	///< 1-sigma tilt error after initial alignment using gravity vector (rad)
+
+		(ParamExtInt<px4::params::EKF2_BOUNCE_FIX>) _param_ekf2_bounce_fix, ///< bounce fix
 
 		// EKF accel bias learning control
 		(ParamExtFloat<px4::params::EKF2_ABL_LIM>) _param_ekf2_abl_lim,	///< Accelerometer bias learning limit (m/s**2)
