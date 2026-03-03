@@ -1116,3 +1116,38 @@ PARAM_DEFINE_INT32(COM_MODE_ARM_CHK, 0);
  * @value 22 AUTO_VTOL_TAKEOFF
  */
 PARAM_DEFINE_INT32(COM_FLTMODE_INIT, -1);
+
+/**
+ * Delay between RC loss and configured reaction to
+ *
+ * RC signal not updated -> still use data for COM_RC_LOSS_T seconds
+ * Consider RC signal lost -> wait COM_RCL_ACT_T seconds in Hold mode to regain signal
+ * React with failsafe action NAV_RCL_ACT
+ *
+ * A zero value disables the delay.
+ *
+ * @group Commander
+ * @unit s
+ * @min 0.0
+ * @max 25.0
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(COM_RCL_ACT_T, 15.0f);
+
+/**
+ * Set RC_Loss failsafe mode that will occur
+ *
+ * The RC loss failsafe action will only be entered after a timeout,
+ * set by COM_RCL_ACT_T in seconds.
+ *
+ * @value 1 Hold mode
+ * @value 2 Return mode
+ * @value 3 Land mode
+ * @value 5 Terminate
+ * @value 6 Disarm
+ * @value 7 Descend
+ * @min 0
+ * @max 7
+ * @group Commander
+ */
+PARAM_DEFINE_INT32(COM_RCL_ACT, 2);

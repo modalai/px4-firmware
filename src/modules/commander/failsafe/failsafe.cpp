@@ -75,6 +75,10 @@ FailsafeBase::ActionOptions Failsafe::fromNavDllOrRclActParam(int param_value)
 		options.action = Action::Disarm;
 		break;
 
+	case gcs_connection_loss_failsafe_mode::Descend:
+		options.action = Action::Descend;
+		break;
+
 	default:
 		options.action = Action::None;
 		break;
@@ -501,8 +505,16 @@ void Failsafe::checkStateAndMode(const hrt_abstime &time_us, const State &state,
 				     || ignore_any_link_loss_vtol_takeoff_fixedwing || _manual_control_lost_at_arming;
 
 	if (_param_com_rc_in_mode.get() != int32_t(RcInMode::DisableManualControl) && !rc_loss_ignored) {
-		CHECK_FAILSAFE(status_flags, manual_control_signal_lost,
-			       fromNavDllOrRclActParam(_param_nav_rcl_act.get()).causedBy(Cause::ManualControlLoss));
+
+		// Primary & Overriding failsafe behavior is COM_RCL_ACT which depends upon COM_RCL_ACT_T
+		if (status_flags.manual_control_signal_lost_action)
+		{
+			CHECK_FAILSAFE(status_flags, manual_control_signal_lost_action,
+				fromNavDllOrRclActParam(_param_com_rcl_act.get()).causedBy(Cause::ManualControlLoss));
+		} else {
+			CHECK_FAILSAFE(status_flags, manual_control_signal_lost,
+				fromNavDllOrRclActParam(_param_nav_rcl_act.get()).causedBy(Cause::ManualControlLoss));
+		}
 	}
 
 	// Ground control station connection loss
