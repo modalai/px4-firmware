@@ -49,6 +49,15 @@ void Ekf::controlFakePosFusion()
 
 	if (fake_pos_data_ready) {
 
+		// Check if fake position fusion conditions have failed due to aggressive maneuvers
+		const Vector3f accel_filt = _accel_lpf.getState();
+		const float accel_xy_mag_2 = sq(accel_filt(0)) + sq(accel_filt(1));
+
+		if ((accel_xy_mag_2 > (_params.ekf2_fp_alim * _params.ekf2_fp_alim))
+		    || (_R_to_earth(2, 2) < _params.ekf2_fp_costilt)) {
+			_time_last_fake_pos_cond_failed = _time_delayed_us;
+		}
+
 		Vector2f obs_var;
 
 		if (_control_status.flags.in_air && _control_status.flags.tilt_align) {
@@ -75,11 +84,16 @@ void Ekf::controlFakePosFusion()
 				      Vector2f(getStateVariance<State::pos>()) + obs_var,    // innovation variance
 				      innov_gate);                                           // innovation gate
 
-		const bool enable_valid_fake_pos = _control_status.flags.constant_pos || _control_status.flags.vehicle_at_rest;
+		const uint64_t time_since_last_fake_pos_cond_failed = _time_delayed_us - _time_last_fake_pos_cond_failed;
+		const bool fake_pos_cond_passing = time_since_last_fake_pos_cond_failed > (uint64_t)_params.ekf2_fp_tout;
+
+		const bool enable_valid_fake_pos = (_control_status.flags.constant_pos || _control_status.flags.vehicle_at_rest)
+						   && fake_pos_cond_passing;
 		const bool enable_fake_pos = !enable_valid_fake_pos
 					     && (getTiltVariance() > sq(math::radians(3.f)))
 					     && !_control_status.flags.gravity_vector
-					     && _horizontal_deadreckon_time_exceeded;
+					     && _horizontal_deadreckon_time_exceeded
+					     && fake_pos_cond_passing;
 
 		_control_status.flags.fake_pos = runFakePosStateMachine(enable_fake_pos, _control_status.flags.fake_pos, aid_src);
 		_control_status.flags.valid_fake_pos = runFakePosStateMachine(enable_valid_fake_pos,
