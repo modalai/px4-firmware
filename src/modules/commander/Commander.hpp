@@ -353,6 +353,7 @@ private:
 		(ParamFloat<px4::params::COM_SPOOLUP_TIME>) _param_com_spoolup_time,
 		(ParamInt<px4::params::COM_FLIGHT_UUID>)    _param_com_flight_uuid,
 		(ParamInt<px4::params::COM_TAKEOFF_ACT>)    _param_com_takeoff_act,
-		(ParamFloat<px4::params::COM_CPU_MAX>)      _param_com_cpu_max
+		(ParamFloat<px4::params::COM_CPU_MAX>)      _param_com_cpu_max,
+		(ParamInt<px4::params::COM_FLTMODE_INIT>)   _param_com_fltmode_init
 	)
 };
