@@ -72,9 +72,14 @@ struct CrsfParserStatistics_t {
 	uint32_t invalid_unknown_packet_sizes;
 };
 
+struct CrsfDeviceInfo_t {
+	uint8_t parameter_version;
+};
+
 enum CRSF_MESSAGE_TYPE {
 	CRSF_MESSAGE_TYPE_RC_CHANNELS,
 	CRSF_MESSAGE_TYPE_LINK_STATISTICS,
+	CRSF_MESSAGE_TYPE_DEVICE_INFO,
 };
 
 typedef struct {
@@ -83,6 +88,7 @@ typedef struct {
 	union {
 		CrsfChannelData_t channel_data;
 		CrsfLinkStatistics_t link_statistics;
+		CrsfDeviceInfo_t device_info;
 	};
 
 	// Raw frame data for libmodal-pipe publishing
