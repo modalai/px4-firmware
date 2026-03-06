@@ -31,7 +31,9 @@
 #
 ############################################################################
 
-add_subdirectory(MessageDisplay)
+if(NOT TARGET message_display)
+	add_subdirectory(MessageDisplay)
+endif()
 
 px4_add_module(
 	MODULE drivers__osd__msp_osd
