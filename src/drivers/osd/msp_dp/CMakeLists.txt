@@ -31,20 +31,24 @@
 #
 ############################################################################
 
+# MessageDisplay library may already be defined by msp_osd; only add it if not
 if(NOT TARGET message_display)
-	add_subdirectory(MessageDisplay)
+	add_subdirectory(${PX4_SOURCE_DIR}/src/drivers/osd/msp_osd/MessageDisplay
+		${PX4_BINARY_DIR}/src/drivers/osd/msp_dp/MessageDisplay)
 endif()
 
 px4_add_module(
-	MODULE drivers__osd__msp_osd
-	MAIN msp_osd
+	MODULE drivers__osd__msp_dp
+	MAIN msp_dp_osd
+	INCLUDES
+		${PX4_SOURCE_DIR}/src/drivers/osd/msp_osd/MessageDisplay
+		${PX4_SOURCE_DIR}/src/drivers/osd/msp_osd
 	SRCS
-		msp_osd.cpp
-		MspV1.cpp
-		uorb_to_msp.cpp
-	MODULE_CONFIG
-		module.yaml
+		msp_dp_osd.cpp
+		MspDPV1.cpp
+		uorb_to_msp_dp.cpp
 	DEPENDS
 		message_display
 		px4_work_queue
+		geo
 	)
