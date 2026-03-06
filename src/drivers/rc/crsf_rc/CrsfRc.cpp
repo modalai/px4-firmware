@@ -251,7 +251,19 @@ void CrsfRc::Run()
 				_input_rc.link_quality = new_crsf_packet.link_statistics.uplink_link_quality;
 				break;
 
+			case CRSF_MESSAGE_TYPE_DEVICE_INFO:
+				// ELRS sets bit 7 of parameterVersion only on the first Device Info after a reset
+				if (new_crsf_packet.device_info.parameter_version & 0x80) {
+					new_crsf_packet.raw_frame[new_crsf_packet.raw_frame_len - 1] = '\0';
+					PX4_WARN("ELRS receiver rebooted: %s",
+						 (char *)(new_crsf_packet.raw_frame + 5));
+				}
+				break;
+
 			default:
+				PX4_INFO("unknown packet: type=0x%02x, len=%u",
+					new_crsf_packet.raw_frame_len > 2 ? new_crsf_packet.raw_frame[2] : 0,
+					new_crsf_packet.raw_frame_len);
 				break;
 			}
 		}

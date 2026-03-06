@@ -122,11 +122,14 @@ typedef struct {
 
 static bool ProcessChannelData(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
 static bool ProcessLinkStatistics(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
+static bool ProcessDeviceInfo(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
 
-#define CRSF_PACKET_DESCRIPTOR_COUNT  2
+// packet_size of 0 means variable-length (size validation skipped, actual size used for payload read)
+#define CRSF_PACKET_DESCRIPTOR_COUNT  3
 static const CrsfPacketDescriptor_t crsf_packet_descriptors[CRSF_PACKET_DESCRIPTOR_COUNT] = {
 	{CRSF_PACKET_TYPE_RC_CHANNELS_PACKED, CRSF_PAYLOAD_SIZE_RC_CHANNELS, ProcessChannelData},
 	{CRSF_PACKET_TYPE_LINK_STATISTICS, CRSF_PAYLOAD_SIZE_LINK_STATISTICS, ProcessLinkStatistics},
+	{CRSF_PACKET_TYPE_DEVICE_INFO, 0, ProcessDeviceInfo},
 };
 
 static enum PARSER_STATE parser_state = PARSER_STATE_HEADER;
@@ -226,6 +229,15 @@ static bool ProcessLinkStatistics(const uint8_t *data, const uint32_t size, Crsf
 	return true;
 }
 
+// Device Info payload: [dest][src][device_name\0][serial 4B][hwVer 4B][swVer 4B][fieldCnt][parameterVersion]
+// parameterVersion is the last byte of the payload; bit 7 set means first boot after reset.
+static bool ProcessDeviceInfo(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet)
+{
+	new_packet->message_type = CRSF_MESSAGE_TYPE_DEVICE_INFO;
+	new_packet->device_info.parameter_version = (size >= 1) ? data[size - 1] : 0;
+	return true;
+}
+
 static CrsfPacketDescriptor_t *FindCrsfDescriptor(const enum CRSF_PACKET_TYPE packet_type)
 {
 	uint32_t i;
@@ -291,8 +303,9 @@ bool CrsfParser_TryParseCrsfPacket(CrsfPacket_t *const new_packet, CrsfParserSta
 
 			// If we know what this packet is...
 			if (working_descriptor != NULL) {
-				// Validate length
-				if (packet_size != working_descriptor->packet_size + PACKET_SIZE_TYPE_SIZE) {
+				// Validate length (packet_size == 0 means variable-length, skip validation)
+				if (working_descriptor->packet_size != 0
+				    && packet_size != working_descriptor->packet_size + PACKET_SIZE_TYPE_SIZE) {
 					parser_statistics->invalid_known_packet_sizes++;
 					parser_state = PARSER_STATE_HEADER;
 					working_segment_size = HEADER_SIZE;
@@ -301,7 +314,12 @@ bool CrsfParser_TryParseCrsfPacket(CrsfPacket_t *const new_packet, CrsfParserSta
 					continue;
 				}
 
-				working_segment_size = working_descriptor->packet_size;
+				// For variable-length packets, derive payload size from the packet's size field
+				if (working_descriptor->packet_size != 0) {
+					working_segment_size = working_descriptor->packet_size;
+				} else {
+					working_segment_size = packet_size - PACKET_TYPE_SIZE - CRC_SIZE;
+				}
 
 			} else {
 				// We don't know what this packet is, so we'll let the parser continue
