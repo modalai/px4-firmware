@@ -1,0 +1,253 @@
+module_name: msp_dp_osd
+parameters:
+- group: OSD
+  definitions:
+    OSD_RSSI_COL:
+      description:
+        short: OSD RSSI column
+        long: Selects which column to place RSSI element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_RSSI_ROW:
+      description:
+        short: OSD RSSI row
+        long: Selects which row to place RSSI element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_CURR_COL:
+      description:
+        short: OSD Current Draw column
+        long: Selects which column to place Current Draw element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_CURR_ROW:
+      description:
+        short: OSD Current Draw row
+        long: Selects which row to place Current Draw element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_BATT_COL:
+      description:
+        short: OSD Battery column
+        long: Selects which column to place Battery element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_BATT_ROW:
+      description:
+        short: OSD Battery row
+        long: Selects which row to place Battery element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_CBATT_COL:
+      description:
+        short: OSD Cell Battery column
+        long: Selects which column to place Cell Battery element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_CBATT_ROW:
+      description:
+        short: OSD Cell Battery row
+        long: Selects which row to place Cell Battery element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_RDY_COL:
+      description:
+        short: OSD Ready or Not Ready Message column
+        long: Selects which column to place the Ready or Not Ready Message element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_RDY_ROW:
+      description:
+        short: OSD Ready or Not Ready Message row
+        long: Selects which row to place the Ready or Not Ready Message element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_STATUS_COL:
+      description:
+        short: OSD Status Message column
+        long: Selects which column to place Status Message element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_STATUS_ROW:
+      description:
+        short: OSD Status Message row
+        long: Selects which row to place Status Message element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_FM_COL:
+      description:
+        short: OSD Flight Mode column
+        long: Selects which column to place Flight Mode element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_FM_ROW:
+      description:
+        short: OSD Flight Mode row
+        long: Selects which row to place Flight Mode element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_LAT_COL:
+      description:
+        short: OSD Latitude column
+        long: Selects which column to place Latitude element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_LAT_ROW:
+      description:
+        short: OSD Latitude row
+        long: Selects which row to place Latitude element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_LONG_COL:
+      description:
+        short: OSD Longitude column
+        long: Selects which column to place Longitude element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_LONG_ROW:
+      description:
+        short: OSD Longitude row
+        long: Selects which row to place Longitude element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_HOME_COL:
+      description:
+        short: OSD direction/distance to home column
+        long: Selects which column to place direction/distance to home element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_HOME_ROW:
+      description:
+        short: OSD direction/distance to home row
+        long: Selects which row to place direction/distance to home element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_CH_COL:
+      description:
+        short: OSD crosshair column
+        long: Selects which column to place crosshair element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_CH_ROW:
+      description:
+        short: OSD crosshair row
+        long: Selects which row to place crosshair element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_HDG_COL:
+      description:
+        short: OSD heading angle column
+        long: Selects which column to place heading angle element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 51
+    OSD_HDG_ROW:
+      description:
+        short: OSD heading angle row
+        long: Selects which row to place heading angle element in.
+      type: int32
+      default: -1
+      min: -1
+      max: 19
+    OSD_CHANNEL:
+      description:
+        short: VTX channel
+        long: Selects which VTX channel to broadcast on.
+      type: int32
+      default: 1
+      min: 1
+      max: 8
+    OSD_BAND:
+      description:
+        short: VTX band
+        long: Selects which VTX band to broadcast on.
+      type: enum
+      values:
+        3: Boscam E
+        4: FatShark
+        5: Raceband
+      default: 5
+    OSD_REMOTE:
+      description:
+        short: Remote OSD enable
+        long: Allow external entities to display OSD strings
+      type: enum
+      values:
+        0: Disabled
+        1: Enabled
+      default: 0
+    OSD_BATT_LOW_V:
+      description:
+        short: OSD Battery Low Voltage
+        long: Voltage threshold below which battery voltage is displayed in red.
+      type: float
+      default: 14.4
+      unit: V
+      min: 0.0
+      max: 100.0
+      decimal: 1
+    OSD_DISPLAY_OPTS:
+      description:
+        short: OSD Display Options
+        long: |-
+          Bitmask for OSD display options.
+          Bit 0: Show heading as clock directions instead of compass.
+      type: int32
+      default: 0
+      min: 0
+      max: 255
+    OSD_HDG_RST_CHAN:
+      description:
+        short: OSD Heading Reset Channel
+        long: |-
+          RC AUX channel to use for resetting the heading origin.
+          0=disabled, 1=AUX1, 2=AUX2
+      type: int32
+      default: 0
+      min: 0
+      max: 2
