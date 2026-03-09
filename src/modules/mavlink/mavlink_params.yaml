@@ -106,3 +106,41 @@ parameters:
       unit: s
       min: 1
       max: 250
+    MAV_RC_BRIDGE:
+      description:
+        short: Enable manual control to RC channels bridge
+        long: |-
+          When enabled, manual control setpoint data is converted to
+          synthetic RC channel values when no hardware RC is present.
+      type: boolean
+      default: 0
+    MAV_RC_FM1:
+      description:
+        short: RC bridge flight mode 1 button index
+        long: |-
+          Button index in the MAVLink manual_control buttons field
+          that maps to flight mode 1 (PWM 1010).
+      type: int32
+      default: 0
+      min: 0
+      max: 15
+    MAV_RC_FM2:
+      description:
+        short: RC bridge flight mode 2 button index
+        long: |-
+          Button index in the MAVLink manual_control buttons field
+          that maps to flight mode 2 (PWM 1510).
+      type: int32
+      default: 1
+      min: 0
+      max: 15
+    MAV_RC_FM3:
+      description:
+        short: RC bridge flight mode 3 button index
+        long: |-
+          Button index in the MAVLink manual_control buttons field
+          that maps to flight mode 3 (PWM 1910).
+      type: int32
+      default: 2
+      min: 0
+      max: 15
