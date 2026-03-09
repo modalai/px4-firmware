@@ -163,3 +163,50 @@ PARAM_DEFINE_INT32(MAV_HB_FORW_EN, 1);
  * @max 250
  */
 PARAM_DEFINE_INT32(MAV_RADIO_TOUT, 5);
+
+/**
+ * Enable manual control to RC channels bridge
+ *
+ * When enabled, manual control setpoint data is converted to
+ * synthetic RC channel values when no hardware RC is present.
+ *
+ * @group MAVLink
+ * @boolean
+ */
+PARAM_DEFINE_INT32(MAV_RC_BRIDGE, 0);
+
+/**
+ * RC bridge flight mode 1 button index
+ *
+ * Button index in the MAVLink manual_control buttons field
+ * that maps to flight mode 1 (PWM 1010).
+ *
+ * @group MAVLink
+ * @min 0
+ * @max 15
+ */
+PARAM_DEFINE_INT32(MAV_RC_FM1, 0);
+
+/**
+ * RC bridge flight mode 2 button index
+ *
+ * Button index in the MAVLink manual_control buttons field
+ * that maps to flight mode 2 (PWM 1510).
+ *
+ * @group MAVLink
+ * @min 0
+ * @max 15
+ */
+PARAM_DEFINE_INT32(MAV_RC_FM2, 1);
+
+/**
+ * RC bridge flight mode 3 button index
+ *
+ * Button index in the MAVLink manual_control buttons field
+ * that maps to flight mode 3 (PWM 1910).
+ *
+ * @group MAVLink
+ * @min 0
+ * @max 15
+ */
+PARAM_DEFINE_INT32(MAV_RC_FM3, 2);
