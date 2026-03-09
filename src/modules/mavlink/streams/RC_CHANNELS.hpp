@@ -35,6 +35,7 @@
 #define RC_CHANNELS_HPP
 
 #include <uORB/topics/input_rc.h>
+#include <uORB/topics/manual_control_setpoint.h>
 
 class MavlinkStreamRCChannels : public MavlinkStream
 {
@@ -49,22 +50,39 @@ public:
 
 	unsigned get_size() override
 	{
-		return _input_rc_sub.advertised() ? (MAVLINK_MSG_ID_RC_CHANNELS_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
+		return (_input_rc_sub.advertised() || _rc_bridge) ?
+		       (MAVLINK_MSG_ID_RC_CHANNELS_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
 	}
 
 private:
-	explicit MavlinkStreamRCChannels(Mavlink *mavlink) : MavlinkStream(mavlink) {}
+	explicit MavlinkStreamRCChannels(Mavlink *mavlink) : MavlinkStream(mavlink)
+	{
+		param_get(param_find("MAV_RC_BRIDGE"), (int32_t *) &_rc_bridge);
+		param_get(param_find("MAV_RC_FM1"), &_vfc_fm1_chan);
+		param_get(param_find("MAV_RC_FM2"), &_vfc_fm2_chan);
+		param_get(param_find("MAV_RC_FM3"), &_vfc_fm3_chan);
+		param_get(param_find("VOXL_ESC_T_ON"), &_turtle_button);
+	}
 
 	uORB::Subscription _input_rc_sub{ORB_ID(input_rc)};
+	uORB::Subscription _manual_control_input_sub{ORB_ID(manual_control_input)};
+
+	bool _rc_bridge{false};
+	int32_t _vfc_fm1_chan{0};
+	int32_t _vfc_fm2_chan{0};
+	int32_t _vfc_fm3_chan{0};
+	int32_t _turtle_button{9};
+	float _vfc_pwm_value{1010.0f};
 
 	bool send() override
 	{
+		bool send_msg = false;
+		mavlink_rc_channels_t msg{};
+
 		input_rc_s rc;
 
 		if (_input_rc_sub.update(&rc)) {
 			// send RC channel data and RSSI
-			mavlink_rc_channels_t msg{};
-
 			msg.time_boot_ms = rc.timestamp / 1000;
 			msg.chancount = rc.channel_count;
 			msg.chan1_raw  = (rc.channel_count > 0)  ? rc.values[0]  : UINT16_MAX;
@@ -86,7 +104,57 @@ private:
 			msg.chan17_raw = (rc.channel_count > 16) ? rc.values[16] : UINT16_MAX;
 			msg.chan18_raw = (rc.channel_count > 17) ? rc.values[17] : UINT16_MAX;
 			msg.rssi = (rc.channel_count > 0) ? rc.rssi : 0;
+			send_msg = true;
 
+		} else if (_rc_bridge) {
+			manual_control_setpoint_s manual_control_input{};
+
+			if (_manual_control_input_sub.update(&manual_control_input)) {
+				msg.time_boot_ms = hrt_absolute_time() / 1000;
+				msg.chancount = 8;
+
+				// Map stick inputs from [-1,1] to [1000,2000] PWM range
+				msg.chan1_raw = (uint16_t)((manual_control_input.roll * 500.0f) + 1500.0f);
+				msg.chan2_raw = (uint16_t)((manual_control_input.pitch * 500.0f) + 1500.0f);
+				msg.chan3_raw = (uint16_t)((manual_control_input.throttle * 500.0f) + 1500.0f);
+				msg.chan4_raw = (uint16_t)((manual_control_input.yaw * 500.0f) + 1500.0f);
+
+				// Channels 5-6: turtle mode PWM from button state
+				float turtle_pwm = (manual_control_input.buttons & (1 << _turtle_button)) ? 1.0f : 0.0f;
+				uint16_t turtle_chan = (uint16_t)(1000.0f + (turtle_pwm * 1000.0f));
+				msg.chan5_raw = turtle_chan;
+				msg.chan6_raw = turtle_chan;
+
+				// Channels 7-8: flight mode PWM from button state
+				if (manual_control_input.buttons & (1 << _vfc_fm1_chan)) {
+					_vfc_pwm_value = 1010.0f;
+
+				} else if (manual_control_input.buttons & (1 << _vfc_fm2_chan)) {
+					_vfc_pwm_value = 1510.0f;
+
+				} else if (manual_control_input.buttons & (1 << _vfc_fm3_chan)) {
+					_vfc_pwm_value = 1910.0f;
+				}
+
+				msg.chan7_raw = (uint16_t)_vfc_pwm_value;
+				msg.chan8_raw = (uint16_t)_vfc_pwm_value;
+
+				msg.chan9_raw  = UINT16_MAX;
+				msg.chan10_raw = UINT16_MAX;
+				msg.chan11_raw = UINT16_MAX;
+				msg.chan12_raw = UINT16_MAX;
+				msg.chan13_raw = UINT16_MAX;
+				msg.chan14_raw = UINT16_MAX;
+				msg.chan15_raw = UINT16_MAX;
+				msg.chan16_raw = UINT16_MAX;
+				msg.chan17_raw = UINT16_MAX;
+				msg.chan18_raw = UINT16_MAX;
+				msg.rssi = UINT8_MAX - 1;
+				send_msg = true;
+			}
+		}
+
+		if (send_msg) {
 			mavlink_msg_rc_channels_send_struct(_mavlink->get_channel(), &msg);
 			return true;
 		}
