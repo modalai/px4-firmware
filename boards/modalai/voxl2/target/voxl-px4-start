@@ -90,11 +90,11 @@ fi
 EXTERNAL_BAROMETER=0
 
 
- /bin/echo "Looking for external DPS368 barometer on DSP"
- if qshell dps310 start -X -b 1; then
- 	/bin/echo "Detected external DPS368 barometer on DSP"
- 	EXTERNAL_BAROMETER=1
- fi
+/bin/echo "Looking for external DPS368 barometer on DSP"
+if qshell dps310 start -X -b 1; then
+	/bin/echo "Detected external DPS368 barometer on DSP"
+	EXTERNAL_BAROMETER=1
+fi
 
 # If no DSP barometer, look for external barometers connected to the apps proc
 if (( EXTERNAL_BAROMETER == 0 )); then
@@ -148,7 +148,7 @@ if [ "$GPS" != "NONE" ]; then
     if [ "$PLATFORM" == "M0197" ]; then
 	gps start -d /dev/ttyHS7
     else
-	# Try NMEA protocol first (for TESEO LIV4 GPS module at 115200 baud)
+	# Try NMEA protocol first (for TESEO LIV3 GPS module at 230400 baud)
 	/bin/echo "Trying to start GPS with NMEA protocol"
 	if ! qshell gps start -p nmea -b 115200; then
 	    /bin/echo "NMEA GPS not detected, trying auto-detect"
