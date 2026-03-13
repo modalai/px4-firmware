@@ -40,3 +40,106 @@
  * @decimal 3
  */
 PARAM_DEFINE_FLOAT(ICM42688_DT_COMP, 0.0f);
+
+/*
+ * Shared IMU temperature calibration parameters.
+ * Defined here but used by both ICM42688P and BMI270 drivers via param_find().
+ */
+
+/**
+ * Enable accelerometer temperature calibration.
+ *
+ * @group Sensors
+ * @boolean
+ */
+PARAM_DEFINE_INT32(IMU_TC_A_EN, 0);
+
+/**
+ * Accelerometer temperature calibration reference temperature.
+ *
+ * @group Sensors
+ * @unit celcius
+ * @min -40.0
+ * @max 120.0
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_A_TREF, 30.0f);
+
+/**
+ * Accelerometer temperature slope X axis.
+ *
+ * @group Sensors
+ * @min -10.0
+ * @max 10.0
+ * @decimal 6
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_A_SX, 0.0f);
+
+/**
+ * Accelerometer temperature slope Y axis.
+ *
+ * @group Sensors
+ * @min -10.0
+ * @max 10.0
+ * @decimal 6
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_A_SY, 0.0f);
+
+/**
+ * Accelerometer temperature slope Z axis.
+ *
+ * @group Sensors
+ * @min -10.0
+ * @max 10.0
+ * @decimal 6
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_A_SZ, 0.0f);
+
+/**
+ * Enable gyroscope temperature calibration.
+ *
+ * @group Sensors
+ * @boolean
+ */
+PARAM_DEFINE_INT32(IMU_TC_G_EN, 0);
+
+/**
+ * Gyroscope temperature calibration reference temperature.
+ *
+ * @group Sensors
+ * @unit celcius
+ * @min -40.0
+ * @max 120.0
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_G_TREF, 30.0f);
+
+/**
+ * Gyroscope temperature slope X axis.
+ *
+ * @group Sensors
+ * @min -10.0
+ * @max 10.0
+ * @decimal 6
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_G_SX, 0.0f);
+
+/**
+ * Gyroscope temperature slope Y axis.
+ *
+ * @group Sensors
+ * @min -10.0
+ * @max 10.0
+ * @decimal 6
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_G_SY, 0.0f);
+
+/**
+ * Gyroscope temperature slope Z axis.
+ *
+ * @group Sensors
+ * @min -10.0
+ * @max 10.0
+ * @decimal 6
+ */
+PARAM_DEFINE_FLOAT(IMU_TC_G_SZ, 0.0f);

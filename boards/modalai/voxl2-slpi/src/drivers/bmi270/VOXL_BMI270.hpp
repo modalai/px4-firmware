@@ -47,7 +47,9 @@
 #include <lib/drivers/device/spi.h>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
 #include <lib/geo/geo.h>
+#include <lib/parameters/param.h>
 #include <lib/perf/perf_counter.h>
+#include <uORB/topics/parameter_update.h>
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 
@@ -180,6 +182,7 @@ private:
 	void FIFOReset();
 
 	void UpdateTemperature();
+	void updateTcParams();
 
 	const spi_drdy_gpio_t _drdy_gpio;
 	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
@@ -251,6 +254,30 @@ private:
 																								  };
 																								  */
 	uint8_t _checked_register{0};
+
+	// driver-level temperature calibration (linear slope model, shared IMU_TC params)
+	param_t _imu_tc_a_en_handle{PARAM_INVALID};
+	param_t _imu_tc_a_tref_handle{PARAM_INVALID};
+	param_t _imu_tc_a_sx_handle{PARAM_INVALID};
+	param_t _imu_tc_a_sy_handle{PARAM_INVALID};
+	param_t _imu_tc_a_sz_handle{PARAM_INVALID};
+	param_t _imu_tc_g_en_handle{PARAM_INVALID};
+	param_t _imu_tc_g_tref_handle{PARAM_INVALID};
+	param_t _imu_tc_g_sx_handle{PARAM_INVALID};
+	param_t _imu_tc_g_sy_handle{PARAM_INVALID};
+	param_t _imu_tc_g_sz_handle{PARAM_INVALID};
+
+	int32_t _imu_tc_a_en{0};
+	float _imu_tc_a_tref{30.0f};
+	float _imu_tc_a_slope[3]{0.0f, 0.0f, 0.0f};
+	int32_t _imu_tc_g_en{0};
+	float _imu_tc_g_tref{30.0f};
+	float _imu_tc_g_slope[3]{0.0f, 0.0f, 0.0f};
+
+	float _current_temperature{NAN};
+
+	int _param_sub{-1};
+	parameter_update_s _param_update{};
 
 	// PWR_CONF: disable advanced power save (clear acc_pwr_save bits)
 	// PWR_CTRL: enable accel + gyro + temp

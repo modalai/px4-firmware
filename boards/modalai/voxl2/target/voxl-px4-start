@@ -74,6 +74,17 @@ param select /data/px4/param/parameters
 # Load in all of the parameters that have been saved in the file
 param load
 
+# Load IMU temperature calibration from cal file if it exists
+PX4_TC_CAL="/data/px4/param/parameters_imu_tc.cal"
+if [ -f "$PX4_TC_CAL" ]; then
+    /bin/echo "Loading IMU TC from $PX4_TC_CAL"
+    voxl-configure-px4-params -n -f "$PX4_TC_CAL"
+else
+    /bin/echo "No PX4 IMU TC cal file found, TC disabled"
+    param set IMU_TC_A_EN 0
+    param set IMU_TC_G_EN 0
+fi
+
 # IMU (accelerometer / gyroscope)
 if [ "$PLATFORM" == "M0104" ]; then
     /bin/echo "Starting IMU driver with rotation 12"
@@ -250,6 +261,7 @@ navigator start
 load_mon start
 vehicle_air_data_bridge start
 sensor_baro_bridge start
+sensor_imu_raw_bridge start
 crsf_bridge start
 vehicle_local_position_bridge start
 

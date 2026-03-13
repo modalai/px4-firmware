@@ -94,6 +94,22 @@ VOXL_BMI270::VOXL_BMI270(const I2CSPIDriverConfig &config) :
 	}
 
 	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
+
+	// subscribe to parameter updates for runtime TC changes
+	_param_sub = orb_subscribe(ORB_ID(parameter_update));
+
+	// driver-level temperature calibration params (shared with ICM42688P)
+	_imu_tc_a_en_handle   = param_find("IMU_TC_A_EN");
+	_imu_tc_a_tref_handle = param_find("IMU_TC_A_TREF");
+	_imu_tc_a_sx_handle   = param_find("IMU_TC_A_SX");
+	_imu_tc_a_sy_handle   = param_find("IMU_TC_A_SY");
+	_imu_tc_a_sz_handle   = param_find("IMU_TC_A_SZ");
+	_imu_tc_g_en_handle   = param_find("IMU_TC_G_EN");
+	_imu_tc_g_tref_handle = param_find("IMU_TC_G_TREF");
+	_imu_tc_g_sx_handle   = param_find("IMU_TC_G_SX");
+	_imu_tc_g_sy_handle   = param_find("IMU_TC_G_SY");
+	_imu_tc_g_sz_handle   = param_find("IMU_TC_G_SZ");
+	updateTcParams();
 }
 
 VOXL_BMI270::~VOXL_BMI270()
@@ -562,6 +578,15 @@ void VOXL_BMI270::RunImpl()
 				if (hrt_elapsed_time(&_temperature_update_timestamp) >= 1_s) {
 					UpdateTemperature();
 					_temperature_update_timestamp = now;
+
+					// check for parameter updates
+					bool param_updated = false;
+					orb_check(_param_sub, &param_updated);
+
+					if (param_updated) {
+						orb_copy(ORB_ID(parameter_update), _param_sub, &_param_update);
+						updateTcParams();
+					}
 				}
 			}
 
@@ -1048,6 +1073,14 @@ void VOXL_BMI270::ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *frame)
 	gyro->y[samples] = (gyro_y == INT16_MIN) ? INT16_MAX : -gyro_y;
 	gyro->z[samples] = (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z;
 
+	// driver-level temperature calibration (BMI270: all 3 axes)
+	if (_imu_tc_g_en && PX4_ISFINITE(_current_temperature)) {
+		float dT = _current_temperature - _imu_tc_g_tref;
+		gyro->x[samples] -= (int)(_imu_tc_g_slope[0] * dT / GYRO_SCALE_16BIT_2000DPS);
+		gyro->y[samples] -= (int)(_imu_tc_g_slope[1] * dT / GYRO_SCALE_16BIT_2000DPS);
+		gyro->z[samples] -= (int)(_imu_tc_g_slope[2] * dT / GYRO_SCALE_16BIT_2000DPS);
+	}
+
 	gyro->samples++;
 }
 
@@ -1064,6 +1097,14 @@ void VOXL_BMI270::ProcessAccel(sensor_accel_fifo_s *accel, FIFO::Data *frame)
 	accel->x[samples] = accel_x;
 	accel->y[samples] = (accel_y == INT16_MIN) ? INT16_MAX : -accel_y;
 	accel->z[samples] = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
+
+	// driver-level temperature calibration (BMI270: all 3 axes)
+	if (_imu_tc_a_en && PX4_ISFINITE(_current_temperature)) {
+		float dT = _current_temperature - _imu_tc_a_tref;
+		accel->x[samples] -= (int)(_imu_tc_a_slope[0] * dT / ACCEL_SCALE_16BIT_16G);
+		accel->y[samples] -= (int)(_imu_tc_a_slope[1] * dT / ACCEL_SCALE_16BIT_16G);
+		accel->z[samples] -= (int)(_imu_tc_a_slope[2] * dT / ACCEL_SCALE_16BIT_16G);
+	}
 
 	accel->samples++;
 }
@@ -1282,6 +1323,21 @@ void VOXL_BMI270::UpdateTemperature()
 		temperature = 23.0f + (int16_t)temp * lsb;
 	}
 
+	_current_temperature = temperature;
 	_px4_accel.set_temperature(temperature);
 	_px4_gyro.set_temperature(temperature);
+}
+
+void VOXL_BMI270::updateTcParams()
+{
+	param_get(_imu_tc_a_en_handle,   &_imu_tc_a_en);
+	param_get(_imu_tc_a_tref_handle, &_imu_tc_a_tref);
+	param_get(_imu_tc_a_sx_handle,   &_imu_tc_a_slope[0]);
+	param_get(_imu_tc_a_sy_handle,   &_imu_tc_a_slope[1]);
+	param_get(_imu_tc_a_sz_handle,   &_imu_tc_a_slope[2]);
+	param_get(_imu_tc_g_en_handle,   &_imu_tc_g_en);
+	param_get(_imu_tc_g_tref_handle, &_imu_tc_g_tref);
+	param_get(_imu_tc_g_sx_handle,   &_imu_tc_g_slope[0]);
+	param_get(_imu_tc_g_sy_handle,   &_imu_tc_g_slope[1]);
+	param_get(_imu_tc_g_sz_handle,   &_imu_tc_g_slope[2]);
 }

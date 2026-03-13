@@ -68,6 +68,19 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 	dt_comp_coeff_handle = param_find("ICM42688_DT_COMP");
 	param_get(dt_comp_coeff_handle, &_dt_comp_coeff);
 	param_sub = orb_subscribe(ORB_ID(parameter_update));
+
+	// driver-level temperature calibration params
+	_imu_tc_a_en_handle   = param_find("IMU_TC_A_EN");
+	_imu_tc_a_tref_handle = param_find("IMU_TC_A_TREF");
+	_imu_tc_a_sx_handle   = param_find("IMU_TC_A_SX");
+	_imu_tc_a_sy_handle   = param_find("IMU_TC_A_SY");
+	_imu_tc_a_sz_handle   = param_find("IMU_TC_A_SZ");
+	_imu_tc_g_en_handle   = param_find("IMU_TC_G_EN");
+	_imu_tc_g_tref_handle = param_find("IMU_TC_G_TREF");
+	_imu_tc_g_sx_handle   = param_find("IMU_TC_G_SX");
+	_imu_tc_g_sy_handle   = param_find("IMU_TC_G_SY");
+	_imu_tc_g_sz_handle   = param_find("IMU_TC_G_SZ");
+	updateTcParams();
 }
 
 ICM42688P::~ICM42688P()
@@ -711,6 +724,13 @@ void ICM42688P::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DA
 		}
 		*/
 		accel.z[i] -= (int)(_current_temp_correction/ACCEL_SCALE_16BIT_16G);
+
+		// driver-level temperature calibration (ICM42688: accel X and Y only)
+		if (_imu_tc_a_en && PX4_ISFINITE(_current_temperature)) {
+			float dT = _current_temperature - _imu_tc_a_tref;
+			accel.x[i] -= (int)(_imu_tc_a_slope[0] * dT / ACCEL_SCALE_16BIT_16G);
+			accel.y[i] -= (int)(_imu_tc_a_slope[1] * dT / ACCEL_SCALE_16BIT_16G);
+		}
 	}
 
 	_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
@@ -744,6 +764,12 @@ void ICM42688P::ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DAT
 		gyro.y[i] = -combine(fifo[i].GYRO_DATA_Y1, fifo[i].GYRO_DATA_Y0);
 		gyro.z[i] = -combine(fifo[i].GYRO_DATA_Z1, fifo[i].GYRO_DATA_Z0);
 		gyro.samples++;
+
+		// driver-level temperature calibration (ICM42688: gyro Z only)
+		if (_imu_tc_g_en && PX4_ISFINITE(_current_temperature)) {
+			float dT = _current_temperature - _imu_tc_g_tref;
+			gyro.z[i] -= (int)(_imu_tc_g_slope[2] * dT / GYRO_SCALE_16BIT_2000DPS);
+		}
 	}
 
 	_px4_gyro.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
@@ -755,6 +781,20 @@ void ICM42688P::ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DAT
 	return;
 }
 
+
+void ICM42688P::updateTcParams()
+{
+	param_get(_imu_tc_a_en_handle,   &_imu_tc_a_en);
+	param_get(_imu_tc_a_tref_handle, &_imu_tc_a_tref);
+	param_get(_imu_tc_a_sx_handle,   &_imu_tc_a_slope[0]);
+	param_get(_imu_tc_a_sy_handle,   &_imu_tc_a_slope[1]);
+	param_get(_imu_tc_a_sz_handle,   &_imu_tc_a_slope[2]);
+	param_get(_imu_tc_g_en_handle,   &_imu_tc_g_en);
+	param_get(_imu_tc_g_tref_handle, &_imu_tc_g_tref);
+	param_get(_imu_tc_g_sx_handle,   &_imu_tc_g_slope[0]);
+	param_get(_imu_tc_g_sy_handle,   &_imu_tc_g_slope[1]);
+	param_get(_imu_tc_g_sz_handle,   &_imu_tc_g_slope[2]);
+}
 
 bool ICM42688P::ProcessTemperature(const FIFO::DATA fifo[], const uint8_t samples)
 {
@@ -799,6 +839,9 @@ bool ICM42688P::ProcessTemperature(const FIFO::DATA fifo[], const uint8_t sample
 
 	if (hitl_mode) return false;
 
+	// store current temperature for driver-level TC application
+	_current_temperature = TEMP_degC;
+
 	// report latest temp reading
 	_px4_accel.set_temperature(TEMP_degC);
 	_px4_gyro.set_temperature(TEMP_degC);
@@ -839,7 +882,8 @@ bool ICM42688P::ProcessTemperature(const FIFO::DATA fifo[], const uint8_t sample
 		if(param_updated) {
 			orb_copy(ORB_ID(parameter_update), param_sub, &param_update);
 			param_get(dt_comp_coeff_handle, &_dt_comp_coeff);
-			PX4_INFO("PARAM UPDATED %f", (double)_dt_comp_coeff);
+			updateTcParams();
+			PX4_INFO("PARAM UPDATED dt_comp %f", (double)_dt_comp_coeff);
 		}
 		_current_temp_gradient = (_temp_filtered - _last_temp_filtered) / temp_compensation_dt_s;
 		_last_temp_filtered = _temp_filtered;

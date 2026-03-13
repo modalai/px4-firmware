@@ -266,4 +266,27 @@ private:
 	int _temp_compensation_counter{0};
 	float _current_temp_correction{0.0f};
 
+	// driver-level temperature calibration (linear slope model)
+	param_t _imu_tc_a_en_handle{PARAM_INVALID};
+	param_t _imu_tc_a_tref_handle{PARAM_INVALID};
+	param_t _imu_tc_a_sx_handle{PARAM_INVALID};
+	param_t _imu_tc_a_sy_handle{PARAM_INVALID};
+	param_t _imu_tc_a_sz_handle{PARAM_INVALID};
+	param_t _imu_tc_g_en_handle{PARAM_INVALID};
+	param_t _imu_tc_g_tref_handle{PARAM_INVALID};
+	param_t _imu_tc_g_sx_handle{PARAM_INVALID};
+	param_t _imu_tc_g_sy_handle{PARAM_INVALID};
+	param_t _imu_tc_g_sz_handle{PARAM_INVALID};
+
+	int32_t _imu_tc_a_en{0};
+	float _imu_tc_a_tref{30.0f};
+	float _imu_tc_a_slope[3]{0.0f, 0.0f, 0.0f};
+	int32_t _imu_tc_g_en{0};
+	float _imu_tc_g_tref{30.0f};
+	float _imu_tc_g_slope[3]{0.0f, 0.0f, 0.0f};
+
+	float _current_temperature{NAN}; ///< latest temperature for TC application
+
+	void updateTcParams();
+
 };
