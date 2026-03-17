@@ -99,6 +99,8 @@ void OutputPredictor::reset()
 
 	_output_tracking_error.setZero();
 
+	_quat_smooth_offset = Quatf(1.f, 0.f, 0.f, 0.f);
+
 	for (uint8_t index = 0; index < _output_buffer.get_length(); index++) {
 		_output_buffer[index] = {};
 	}
@@ -118,6 +120,13 @@ void OutputPredictor::resetQuaternion(const Quatf &quat_change)
 	// apply the change in attitude quaternion to our newest quaternion estimate
 	// which was already taken out from the output buffer
 	_output_new.quat_nominal = quat_change * _output_new.quat_nominal;
+
+	// Store the inverse of the correction as a smoothing offset so that
+	// getQuaternion() initially returns the pre-reset value, then gradually
+	// converges to the fully corrected value as the offset decays to identity.
+	// Compose with any existing offset from a previous incomplete smoothing.
+	_quat_smooth_offset = quat_change.inversed() * _quat_smooth_offset;
+	_quat_smooth_offset.normalize();
 }
 
 void OutputPredictor::resetHorizontalVelocityTo(const Vector2f &delta_horz_vel)
@@ -236,6 +245,20 @@ void OutputPredictor::calculateOutputStates(const uint64_t time_us, const Vector
 
 		// rotate the relative velocity into earth frame
 		_vel_imu_rel_body_ned = _R_to_earth_now * vel_imu_rel_body;
+	}
+
+	// Decay yaw reset smoothing offset toward identity
+	if (_quat_smooth_offset(0) < 1.f - FLT_EPSILON) {
+		const AxisAnglef aa(_quat_smooth_offset);
+		const float angle = aa.norm();
+
+		if (angle > 0.001f) {
+			const float decay = expf(-_dt_update_states_avg / _yaw_reset_smooth_tau);
+			_quat_smooth_offset = Quatf(AxisAnglef(aa.unit() * (angle * decay)));
+
+		} else {
+			_quat_smooth_offset = Quatf(1.f, 0.f, 0.f, 0.f);
+		}
 	}
 }
 
