@@ -772,6 +772,12 @@ private:
 	Vector3f _prev_delta_ang_bias_var{};	///< saved delta angle XYZ bias variances (rad/sec)
 	Vector3f _prev_dvel_bias_var{};		///< saved delta velocity XYZ bias variances (m/sec)**2
 
+	// gradual GPS yaw alignment (no-mag configuration)
+	bool _gps_yaw_smooth_active{false};	///< true when gradual yaw alignment to GSF estimate is in progress
+	float _gps_yaw_smooth_target{0.f};	///< target yaw from GSF estimator (rad)
+	uint64_t _gps_yaw_smooth_last_us{0};	///< timestamp of last gradual yaw step (uSec)
+	static constexpr float GPS_YAW_SMOOTH_RATE{0.7854f}; ///< max yaw slew rate during gradual alignment (rad/s) ~45 deg/s
+
 	// height sensor status
 	bool _baro_hgt_faulty{false};		///< true if baro data have been declared faulty TODO: move to fault flags
 	bool _gps_intermittent{true};           ///< true if data into the buffer is intermittent

@@ -93,7 +93,7 @@ public:
 
 	void reset();
 
-	matrix::Quatf getQuaternion() const { return _quat_smooth_offset * _output_new.quat_nominal; }
+	const matrix::Quatf &getQuaternion() const { return _output_new.quat_nominal; }
 
 	// get the velocity of the body frame origin in local NED earth frame
 	matrix::Vector3f getVelocity() const { return _output_new.vel - _vel_imu_rel_body_ned; }
@@ -120,7 +120,6 @@ public:
 	void set_imu_offset(const matrix::Vector3f &offset) { _imu_pos_body = offset; }
 	void set_pos_correction_tc(const float tau) { _pos_tau = tau; }
 	void set_vel_correction_tc(const float tau) { _vel_tau = tau; }
-	void set_yaw_reset_smooth_tc(const float tau) { _yaw_reset_smooth_tau = tau; }
 
 private:
 
@@ -189,10 +188,6 @@ private:
 	// output complementary filter tuning
 	float _vel_tau{0.25f};                   ///< velocity state correction time constant (1/sec)
 	float _pos_tau{0.25f};                   ///< position state correction time constant (1/sec)
-
-	// yaw reset smoothing
-	matrix::Quatf _quat_smooth_offset{1.f, 0.f, 0.f, 0.f}; ///< smoothing offset applied to output quaternion, decays toward identity
-	float _yaw_reset_smooth_tau{0.5f};       ///< yaw reset smoothing time constant (sec)
 };
 
 #endif // !EKF_OUTPUT_PREDICTOR_H

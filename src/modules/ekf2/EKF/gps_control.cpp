@@ -234,21 +234,63 @@ void Ekf::controlGpsFusion(const imuSample &imu_delayed)
 
 				_control_status.flags.gps = true;
 
-			} else if (gps_checks_passing && !_control_status.flags.yaw_align && (_params.mag_fusion_type == MagFuseType::NONE)) {
-				// If no mag is used, align using the yaw estimator (if available)
-				if (resetYawToEKFGSF()) {
-					_information_events.flags.yaw_aligned_to_imu_gps = true;
-					ECL_INFO("GPS yaw aligned using IMU, resetting vel and pos");
+			} else if (gps_checks_passing && (_params.mag_fusion_type == MagFuseType::NONE)
+				   && (!_control_status.flags.yaw_align || _gps_yaw_smooth_active)) {
 
-					// reset velocity
-					_information_events.flags.reset_vel_to_gps = true;
-					resetVelocityTo(velocity, vel_obs_var);
-					_aid_src_gnss_vel.time_last_fuse = _time_delayed_us;
+				// If no mag is used, gradually align yaw using the GSF estimator.
+				// This avoids an abrupt yaw reset that causes an FPV glitch by
+				// applying the correction as a series of small incremental resets
+				// that flow through the full system (EKF state, output buffer, and
+				// controller reset notifications) consistently.
 
-					// reset position
-					_information_events.flags.reset_pos_to_gps = true;
-					resetHorizontalPositionTo(position, pos_obs_var);
-					_aid_src_gnss_pos.time_last_fuse = _time_delayed_us;
+				if (!_gps_yaw_smooth_active && isYawEmergencyEstimateAvailable()) {
+					// Begin gradual yaw alignment
+					_gps_yaw_smooth_target = _yawEstimator.getYaw();
+					_gps_yaw_smooth_last_us = gps_sample.time_us;
+					_gps_yaw_smooth_active = true;
+
+					_flt_mag_align_start_time = _time_delayed_us;
+
+					ECL_INFO("GPS yaw gradual alignment starting using IMU");
+				}
+
+				if (_gps_yaw_smooth_active) {
+					const float current_yaw = getEulerYaw(_R_to_earth);
+					const float remaining = wrap_pi(_gps_yaw_smooth_target - current_yaw);
+
+					const float dt = math::constrain(
+						(gps_sample.time_us - _gps_yaw_smooth_last_us) * 1e-6f,
+						0.01f, 0.5f);
+					_gps_yaw_smooth_last_us = gps_sample.time_us;
+
+					const float max_step = GPS_YAW_SMOOTH_RATE * dt;
+
+					if (fabsf(remaining) <= max_step) {
+						// Final step — apply remaining correction, set yaw_align,
+						// and reset vel/pos to start GPS fusion
+						resetQuatStateYaw(_gps_yaw_smooth_target,
+								  _yawEstimator.getYawVar());
+						_gps_yaw_smooth_active = false;
+						_control_status.flags.yaw_align = true;
+
+						_information_events.flags.yaw_aligned_to_imu_gps = true;
+						ECL_INFO("GPS yaw aligned using IMU, resetting vel and pos");
+
+						// reset velocity
+						_information_events.flags.reset_vel_to_gps = true;
+						resetVelocityTo(velocity, vel_obs_var);
+						_aid_src_gnss_vel.time_last_fuse = _time_delayed_us;
+
+						// reset position
+						_information_events.flags.reset_pos_to_gps = true;
+						resetHorizontalPositionTo(position, pos_obs_var);
+						_aid_src_gnss_pos.time_last_fuse = _time_delayed_us;
+
+					} else {
+						// Intermediate step — apply a small yaw correction
+						const float step = (remaining > 0.f) ? max_step : -max_step;
+						resetQuatStateYaw(current_yaw + step, 0.f);
+					}
 				}
 			}
 		}

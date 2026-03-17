@@ -206,7 +206,7 @@ public:
 	bool isVerticalVelocityAidingActive() const;
 	int getNumberOfActiveVerticalVelocityAidingSources() const;
 
-	matrix::Quatf getQuaternion() const { return _output_predictor.getQuaternion(); }
+	const matrix::Quatf &getQuaternion() const { return _output_predictor.getQuaternion(); }
 	Vector3f getVelocity() const { return _output_predictor.getVelocity(); }
 	const Vector3f &getVelocityDerivative() const { return _output_predictor.getVelocityDerivative(); }
 	float getVerticalPositionDerivative() const { return _output_predictor.getVerticalPositionDerivative(); }
