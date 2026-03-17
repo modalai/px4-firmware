@@ -129,8 +129,13 @@ fi
 # Auto detect the magnetometer. If one or both of these devices
 # are not connected it will fail but not cause any harm.
 # Try BMM150 first (new GPS module magnetometer)
+# BMM150 presence indicates Teseo GPS board (NMEA), absence indicates ublox (UBX)
 /bin/echo "Looking for bmm150 magnetometer"
-qshell bmm150 start -R 14 -X -b 1
+BMM150_DETECTED=0
+if qshell bmm150 start -R 14 -X -b 1; then
+    BMM150_DETECTED=1
+    /bin/echo "BMM150 found — Teseo GPS board detected"
+fi
 # Rotation 10 = ROLL_180_YAW_90
 /bin/echo "Looking for qmc5883l magnetometer"
 qshell qmc5883l start -R 10 -X -b 1
@@ -148,11 +153,13 @@ if [ "$GPS" != "NONE" ]; then
     if [ "$PLATFORM" == "M0197" ]; then
 	gps start -d /dev/ttyHS7
     else
-	# Try NMEA protocol first (for TESEO LIV3 GPS module at 230400 baud)
-	/bin/echo "Trying to start GPS with NMEA protocol"
-	if ! qshell gps start -p nmea -b 115200; then
-	    /bin/echo "NMEA GPS not detected, trying auto-detect"
-	    qshell gps start
+	# BMM150 = Teseo GPS board (NMEA), no BMM150 = ublox (UBX)
+	if [ "$BMM150_DETECTED" == "1" ]; then
+	    /bin/echo "Starting GPS with NMEA protocol (Teseo)"
+	    qshell gps start -p nmea
+	else
+	    /bin/echo "Starting GPS with UBX protocol (ublox)"
+	    qshell gps start -p ubx
 	fi
     fi
 fi
