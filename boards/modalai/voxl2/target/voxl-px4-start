@@ -153,10 +153,10 @@ if [ "$GPS" != "NONE" ]; then
     if [ "$PLATFORM" == "M0197" ]; then
 	gps start -d /dev/ttyHS7
     else
-	# BMM150 = Teseo GPS board (NMEA), no BMM150 = ublox (UBX)
+	# BMM150 = Teseo GPS board, no BMM150 = ublox
 	if [ "$BMM150_DETECTED" == "1" ]; then
-	    /bin/echo "Starting GPS with NMEA protocol (Teseo)"
-	    qshell gps start -p nmea
+	    /bin/echo "Starting GPS with Teseo driver"
+	    qshell gps start -p teseo
 	else
 	    /bin/echo "Starting GPS with UBX protocol (ublox)"
 	    qshell gps start -p ubx
