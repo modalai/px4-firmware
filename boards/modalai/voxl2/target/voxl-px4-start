@@ -86,13 +86,22 @@ else
     qshell icm42688p start -s
 fi
 
-# First look for any external barometers connected to the apps proc
+# First try to start external barometer on DSP
 EXTERNAL_BAROMETER=0
 
-/bin/echo "Looking for external DPS368 barometer"
-if dps310 start -X -b /dev/i2c-0; then
-	/bin/echo "Detected external DPS368 barometer"
+/bin/echo "Looking for external DPS368 barometer on DSP"
+if qshell dps310 start -X -b 1; then
+	/bin/echo "Detected external DPS368 barometer on DSP"
 	EXTERNAL_BAROMETER=1
+fi
+
+# If no DSP barometer, look for external barometers connected to the apps proc
+if (( EXTERNAL_BAROMETER == 0 )); then
+	/bin/echo "Looking for external DPS368 barometer"
+	if dps310 start -X -b /dev/i2c-0; then
+		/bin/echo "Detected external DPS368 barometer"
+		EXTERNAL_BAROMETER=1
+	fi
 fi
 
 if (( EXTERNAL_BAROMETER == 0 )); then
