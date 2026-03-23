@@ -75,6 +75,7 @@
 # include "devices/src/mtk.h"
 # include "devices/src/femtomes.h"
 # include "devices/src/nmea.h"
+# include "devices/src/teseo.h"
 # include "devices/src/sbf.h"
 
 #endif // CONSTRAINED_FLASH
@@ -98,7 +99,8 @@ enum class gps_driver_mode_t {
 	EMLIDREACH,
 	FEMTOMES,
 	NMEA,
-	SBF
+	SBF,
+	TESEO
 };
 
 enum class gps_dump_comm_mode_t : int32_t {
@@ -358,6 +360,8 @@ GPS::GPS(const char *path, gps_driver_mode_t mode, GPSHelper::Interface interfac
 		case 6: _mode = gps_driver_mode_t::NMEA; break;
 
 		case 7: _mode = gps_driver_mode_t::SBF; break;
+
+		case 8: _mode = gps_driver_mode_t::TESEO; break;
 #endif // CONSTRAINED_FLASH
 		}
 	}
@@ -944,6 +948,11 @@ GPS::run()
 			set_device_type(DRV_GPS_DEVTYPE_NMEA);
 			break;
 
+		case gps_driver_mode_t::TESEO:
+			_helper = new GPSDriverTeseo(&GPS::callback, this, &_report_gps_pos, _p_report_sat_info, heading_offset);
+			set_device_type(DRV_GPS_DEVTYPE_NMEA);
+			break;
+
 		case gps_driver_mode_t::SBF:
 			_helper = new GPSDriverSBF(&GPS::callback, this, &_report_gps_pos, _p_report_sat_info, heading_offset, pitch_offset);
 			set_device_type(DRV_GPS_DEVTYPE_SBF);
@@ -1026,6 +1035,11 @@ GPS::run()
 			}
 
 			int helper_ret;
+
+			if (_mode == gps_driver_mode_t::NMEA || _mode == gps_driver_mode_t::TESEO) {
+				/* NMEA GPS modules often default to 1Hz output rate */
+				receive_timeout = TIMEOUT_1HZ;
+			}
 
 			if ((ubx_mode == GPSDriverUBX::UBXMode::RoverWithMovingBase)
 			    || (ubx_mode == GPSDriverUBX::UBXMode::RoverWithMovingBaseUART1)) {
@@ -1131,6 +1145,7 @@ GPS::run()
 
 			case gps_driver_mode_t::SBF:
 			case gps_driver_mode_t::NMEA: // skip NMEA for auto-detection to avoid false positive matching
+			case gps_driver_mode_t::TESEO: // skip TESEO for auto-detection
 #endif // CONSTRAINED_FLASH
 				_mode = gps_driver_mode_t::UBX;
 				px4_usleep(500000); // tried all possible drivers. Wait a bit before next round
@@ -1572,6 +1587,9 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 
 			} else if (!strcmp(myoptarg, "sbf")) {
 				mode = gps_driver_mode_t::SBF;
+
+			} else if (!strcmp(myoptarg, "teseo")) {
+				mode = gps_driver_mode_t::TESEO;
 #endif // CONSTRAINED_FLASH
 			} else {
 				PX4_ERR("unknown protocol: %s", myoptarg);

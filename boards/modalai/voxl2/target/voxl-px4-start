@@ -127,8 +127,13 @@ fi
 
 # Auto detect the magnetometer. If devices
 # are not connected it will fail but not cause any harm.
+# BMM150 presence indicates Teseo GPS board (NMEA), absence indicates ublox (UBX)
 /bin/echo "Looking for bmm150 magnetometer"
-qshell bmm150 start -R 14 -X -b 1
+BMM150_DETECTED=0
+if qshell bmm150 start -R 14 -X -b 1; then
+    BMM150_DETECTED=1
+    /bin/echo "BMM150 found — Teseo GPS board detected"
+fi
 # Rotation 10 = ROLL_180_YAW_90
 /bin/echo "Looking for qmc5883l magnetometer"
 qshell qmc5883l start -R 10 -X -b 1
@@ -141,12 +146,19 @@ qshell ist8308 start -R 12 -X -b 1
 # Note: Rotation may not be correct
 qshell iis2mdc start -R 10 -X -b 1
 
-# GPS and magnetometer
+# GPS
 if [ "$GPS" != "NONE" ]; then
     if [ "$PLATFORM" == "M0197" ]; then
 	gps start -d /dev/ttyHS7
     else
-	qshell gps start
+	# BMM150 = Teseo GPS board, no BMM150 = ublox
+	if [ "$BMM150_DETECTED" == "1" ]; then
+	    /bin/echo "Starting GPS with Teseo driver"
+	    qshell gps start -p teseo
+	else
+	    /bin/echo "Starting GPS with UBX protocol (ublox)"
+	    qshell gps start -p ubx
+	fi
     fi
 fi
 
