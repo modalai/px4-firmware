@@ -116,8 +116,10 @@ if (( EXTERNAL_BAROMETER == 0 )); then
     qshell temperature_compensation start
 fi
 
-# Auto detect the magnetometer. If one or both of these devices
+# Auto detect the magnetometer. If devices
 # are not connected it will fail but not cause any harm.
+/bin/echo "Looking for bmm150 magnetometer"
+qshell bmm150 start -R 14 -X -b 1
 # Rotation 10 = ROLL_180_YAW_90
 /bin/echo "Looking for qmc5883l magnetometer"
 qshell qmc5883l start -R 10 -X -b 1
