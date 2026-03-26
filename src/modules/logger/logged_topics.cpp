@@ -334,7 +334,8 @@ void LoggedTopics::add_debug_topics()
 	add_topic("debug_key_value");
 	add_topic("debug_value");
 	add_topic("debug_vect");
-	add_topic_multi("satellite_info", 1000, 2);
+	add_topic_multi("satellite_info", 0, 2);
+	add_topic_multi("sensor_gps", 0, 2);
 	add_topic("mag_worker_data");
 	add_topic("sensor_preflight_mag", 500);
 	add_topic("actuator_test", 500);
