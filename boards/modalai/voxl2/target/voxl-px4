@@ -55,6 +55,7 @@ print_usage() {
     echo "                [-p (Specify Fixed Wing airframe selected)]"
     echo "                [-r (Specify TBS Crossfire RC receiver, MAVLINK)]"
     echo "                [-s (Start in HITL simulation mode)]"
+    echo "                [-S (Start in SIH simulation mode)]"
     echo "                [-w (Specify TBS Crossfire RC receiver, raw)]"
     echo "                [-z (Use fake sensor calibration values)]"
     echo "                [-h (show help)]"
@@ -85,7 +86,7 @@ print_config_settings(){
     echo -e "*************************\n"
 }
 
-while getopts "abcdhfmoprswz" flag
+while getopts "abcdhfmoprsSwz" flag
 do
     case "${flag}" in
         a)
@@ -133,6 +134,11 @@ do
         s)
             echo "[INFO] HITL simulation selected"
             HITL=ENABLED
+            ;;
+        S)
+            echo "[INFO] SIH simulation mode selected"
+            px4 -s /usr/bin/voxl-px4-sih-start
+            exit 0
             ;;
         w)
             echo "[INFO] TBS Crossfire RC receiver, raw selected"
