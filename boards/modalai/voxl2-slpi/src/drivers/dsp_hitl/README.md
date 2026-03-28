@@ -64,6 +64,7 @@ get modified by HITL settings. It is located at /data/px4/param/hitl_parameters.
 - voxl-configure-px4-params -f /usr/share/modalai/px4_params/v1.14/other_helpers/hitl_joystick_vfc.params --quiet --non-interactive
 
 - Set backtrack_rc_chan to 6 in vfc.conf file. Chan6_raw is set to contents of aux4 which is turtle mode (backtrack) button
+- Set vfc_submode_ch to 7 in vfc.conf file.
 
 - voxl-configure-vision-hub configure_hitl_joystick
 

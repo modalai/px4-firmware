@@ -65,11 +65,10 @@ navigator start
 vehicle_air_data_bridge start
 sensor_baro_bridge start
 vehicle_local_position_bridge start
+sih_vio_bridge start
 
 # Start uxrce_dds_client for ros2 offboard messages from agent over localhost
 uxrce_dds_client start -t udp -h 127.0.0.1 -p 8888
-
-voxl_save_cal_params start
 
 # start the onboard fast link to connect to voxl-mavlink-server
 mavlink start -x -u 14556 -o 14557 -r 100000 -n lo -m onboard
@@ -89,7 +88,7 @@ mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
 
 # Start the jmavsim visualization stream. Change -t ip address to your desired endpoint
 # TODO: Should go through voxl-mavlink-server, not just direct like this
-mavlink start -x -u 14560 -o 14560 -r 4000000 -t 10.253.1.77 -m minimal
+mavlink start -x -u 14560 -o 14560 -r 4000000 -t 192.168.101.1 -m minimal
 mavlink stream -u 14560 -s HIL_STATE_QUATERNION -r 200
 
 mavlink boot_complete
