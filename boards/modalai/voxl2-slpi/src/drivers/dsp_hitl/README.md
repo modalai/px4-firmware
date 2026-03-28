@@ -25,4 +25,5 @@
 - Put toggle arm on button 9 to use left bumper button on joystick setup in QGC
 
 - Set backtrack_rc_chan to 6 in vfc.conf file. Chan6_raw is set to contents of aux4 which is turtle mode (backtrack) button
+- Set vfc_submode_ch to 7 in vfc.conf file.
 
