@@ -52,7 +52,6 @@ add_subdirectory(${PX4_BOARD_DIR}/../voxl2-slpi/src/drivers/icm42688p ${PX4_BOAR
 add_subdirectory(${PX4_BOARD_DIR}/src/drivers/apps_sbus)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/vehicle_air_data_bridge)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/sensor_baro_bridge)
-add_subdirectory(${PX4_BOARD_DIR}/src/modules/sensor_imu_bridge)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/sensor_imu_raw_bridge)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/crsf_bridge)
 add_subdirectory(${PX4_BOARD_DIR}/src/modules/mavlink_odometry_bridge)
