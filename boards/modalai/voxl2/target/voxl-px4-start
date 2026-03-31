@@ -85,6 +85,7 @@ qshell param set-default EKF2_EV_CTRL 15
 # after updating any default values
 param load
 
+
 # IMU (accelerometer / gyroscope)
 if [ "$PLATFORM" == "M0104" ]; then
     /bin/echo "Starting IMU driver with rotation 12"
@@ -271,6 +272,7 @@ navigator start
 vfc_logger start
 vehicle_air_data_bridge start
 sensor_baro_bridge start
+sensor_imu_raw_bridge start
 vehicle_local_position_bridge start
 
 # Start uxrce_dds_client for ros2 offboard messages from agent over localhost
