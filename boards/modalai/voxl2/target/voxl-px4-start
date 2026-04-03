@@ -150,7 +150,13 @@ qshell iis2mdc start -R 10 -X -b 1
 # GPS
 if [ "$GPS" != "NONE" ]; then
     if [ "$PLATFORM" == "M0197" ]; then
-	gps start -d /dev/ttyHS7
+	# BMM150 = Teseo GPS board, no BMM150 = default (ublox)
+	if [ "$BMM150_DETECTED" == "1" ]; then
+	    /bin/echo "Starting GPS with Teseo driver on M0197"
+	    gps start -d /dev/ttyHS7 -p teseo
+	else
+	    gps start -d /dev/ttyHS7
+	fi
     else
 	# BMM150 = Teseo GPS board, no BMM150 = ublox
 	if [ "$BMM150_DETECTED" == "1" ]; then
