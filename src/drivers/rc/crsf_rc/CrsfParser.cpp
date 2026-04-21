@@ -65,6 +65,7 @@ enum CRSF_PAYLOAD_SIZE {
 	CRSF_PAYLOAD_SIZE_ATTITUDE = 6,
 	CRSF_PAYLOAD_MIN_SIZE_MSP_WRITE = 5,
 	CRSF_PAYLOAD_MIN_SIZE_ELRS_STATUS = 6,
+	CRSF_PAYLOAD_MIN_SIZE_DEVICE_INFO = 17, // variable length (device name is variable)
 };
 
 enum CRSF_PACKET_TYPE {
@@ -137,6 +138,7 @@ static bool ProcessChannelData(const uint8_t *data, const uint32_t size, CrsfPac
 static bool ProcessLinkStatistics(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
 static bool ProcessLinkStatisticsTx(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
 static bool ProcessElrsStatus(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
+static bool ProcessDeviceInfo(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
 #ifdef CONFIG_VTX_CRSF_MSP_SUPPORT
 static bool ProcessMspWrite(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet);
 #endif
@@ -146,6 +148,7 @@ static const CrsfPacketDescriptor_t crsf_packet_descriptors[] = {
 	{CRSF_PACKET_TYPE_LINK_STATISTICS, CRSF_PAYLOAD_SIZE_LINK_STATISTICS, CrsfSizePolicy::Exact, ProcessLinkStatistics},
 	{CRSF_PACKET_TYPE_LINK_STATISTICS_TX, CRSF_PAYLOAD_MIN_SIZE_LINK_STATISTICS_TX, CrsfSizePolicy::Minimum, ProcessLinkStatisticsTx},
 	{CRSF_PACKET_TYPE_ELRS_STATUS, CRSF_PAYLOAD_MIN_SIZE_ELRS_STATUS, CrsfSizePolicy::Minimum, ProcessElrsStatus},
+	{CRSF_PACKET_TYPE_DEVICE_INFO, CRSF_PAYLOAD_MIN_SIZE_DEVICE_INFO, CrsfSizePolicy::Minimum, ProcessDeviceInfo},
 #ifdef CONFIG_VTX_CRSF_MSP_SUPPORT
 	{CRSF_PACKET_TYPE_MSP_WRITE, CRSF_PAYLOAD_MIN_SIZE_MSP_WRITE, CrsfSizePolicy::Minimum, ProcessMspWrite},
 #endif
@@ -276,6 +279,15 @@ static bool ProcessElrsStatus(const uint8_t *data, const uint32_t size, CrsfPack
 	memcpy(new_packet->elrs_status.message, &data[CRSF_PAYLOAD_MIN_SIZE_ELRS_STATUS], copy_size);
 	new_packet->elrs_status.message[copy_size] = '\0';
 
+	return true;
+}
+
+// Device Info payload: [dest][src][device_name\0][serial 4B][hwVer 4B][swVer 4B][fieldCnt][parameterVersion]
+// parameterVersion is the last byte of the payload.
+static bool ProcessDeviceInfo(const uint8_t *data, const uint32_t size, CrsfPacket_t *const new_packet)
+{
+	new_packet->message_type = CRSF_MESSAGE_TYPE_DEVICE_INFO;
+	new_packet->device_info.parameter_version = (size >= 1) ? data[size - 1] : 0;
 	return true;
 }
 
