@@ -244,6 +244,15 @@ void CrsfRc::Run()
 				_input_rc.rc_total_frame_count = new_crsf_packet.elrs_status.packets_good;
 				break;
 
+			case CRSF_MESSAGE_TYPE_DEVICE_INFO:
+
+				// ELRS sets bit 7 of parameterVersion only on the first Device Info after a reset
+				if (new_crsf_packet.device_info.parameter_version & 0x80) {
+					PX4_WARN("ELRS receiver rebooted");
+				}
+
+				break;
+
 			default:
 				break;
 			}
