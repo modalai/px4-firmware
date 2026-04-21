@@ -80,6 +80,12 @@ struct CrsfElrsStatus_t {
 	char message[48];
 };
 
+// Device Info payload also contains [dest][src][device_name\0][serial 4B][hwVer 4B][swVer 4B][fieldCnt];
+// those fields are unused here so only parameter_version is captured.
+struct CrsfDeviceInfo_t {
+	uint8_t parameter_version;
+};
+
 struct CrsfParserStatistics_t {
 	uint32_t disposed_bytes;
 	uint32_t crcs_valid_known_packets;
@@ -94,6 +100,7 @@ enum CRSF_MESSAGE_TYPE {
 	CRSF_MESSAGE_TYPE_LINK_STATISTICS,
 	CRSF_MESSAGE_TYPE_LINK_STATISTICS_TX,
 	CRSF_MESSAGE_TYPE_ELRS_STATUS,
+	CRSF_MESSAGE_TYPE_DEVICE_INFO,
 };
 
 typedef struct {
@@ -104,6 +111,7 @@ typedef struct {
 		CrsfLinkStatistics_t link_statistics;
 		CrsfLinkStatisticsTx_t link_statistics_tx;
 		CrsfElrsStatus_t elrs_status;
+		CrsfDeviceInfo_t device_info;
 	};
 } CrsfPacket_t;
 
