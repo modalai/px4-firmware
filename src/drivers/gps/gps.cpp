@@ -76,6 +76,7 @@
 # include "devices/src/mtk.h"
 # include "devices/src/femtomes.h"
 # include "devices/src/nmea.h"
+# include "devices/src/teseo.h"
 
 #endif // CONSTRAINED_FLASH
 #include "devices/src/ubx.h"
@@ -101,6 +102,7 @@ enum class gps_driver_mode_t {
 	EMLIDREACH,
 	FEMTOMES,
 	NMEA,
+	TESEO
 };
 
 enum class gps_dump_comm_mode_t : int32_t {
@@ -380,6 +382,8 @@ GPS::GPS(const char *path, gps_driver_mode_t mode, GPSHelper::Interface interfac
 		case 5: _mode = gps_driver_mode_t::FEMTOMES; break;
 
 		case 6: _mode = gps_driver_mode_t::NMEA; break;
+
+		case 7: _mode = gps_driver_mode_t::TESEO; break;
 #endif // CONSTRAINED_FLASH
 		}
 	}
@@ -1004,6 +1008,11 @@ GPS::run()
 			_helper = new GPSDriverNMEA(&GPS::callback, this, &_sensor_gps, _p_report_sat_info, heading_offset);
 			set_device_type(DRV_GPS_DEVTYPE_NMEA);
 			break;
+
+		case gps_driver_mode_t::TESEO:
+			_helper = new GPSDriverTeseo(&GPS::callback, this, &_sensor_gps, _p_report_sat_info, heading_offset);
+			set_device_type(DRV_GPS_DEVTYPE_NMEA);
+			break;
 #endif // CONSTRAINED_FLASH
 
 		default:
@@ -1100,6 +1109,11 @@ GPS::run()
 			 * a quick reaction to a connection loss. */
 			unsigned receive_timeout = TIMEOUT_INIT_5HZ;
 			unsigned healthy_timeout = TIMEOUT_5HZ;
+
+			if (_mode == gps_driver_mode_t::NMEA || _mode == gps_driver_mode_t::TESEO) {
+				/* NMEA GPS modules often default to 1Hz output rate */
+				receive_timeout = TIMEOUT_1HZ;
+			}
 
 			if ((ubx_mode == GPSDriverUBX::UBXMode::RoverWithMovingBase)
 			    || (ubx_mode == GPSDriverUBX::UBXMode::RoverWithMovingBaseUART1)) {
@@ -1222,6 +1236,7 @@ GPS::run()
 
 			case gps_driver_mode_t::FEMTOMES:
 			case gps_driver_mode_t::NMEA: // skip NMEA for auto-detection to avoid false positive matching
+			case gps_driver_mode_t::TESEO: // skip TESEO for auto-detection
 
 #endif // CONSTRAINED_FLASH
 				_mode = gps_driver_mode_t::UBX;
@@ -1646,6 +1661,9 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 
 			} else if (!strcmp(myoptarg, "nmea")) {
 				mode = gps_driver_mode_t::NMEA;
+
+			} else if (!strcmp(myoptarg, "teseo")) {
+				mode = gps_driver_mode_t::TESEO;
 
 #endif // CONSTRAINED_FLASH
 			} else {
