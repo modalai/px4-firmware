@@ -249,6 +249,7 @@ parameters:
         4: Emlid Reach
         5: Femtomes
         6: NMEA (generic)
+        7: Teseo Liv3
       default: 1
       min: 0
       max: 7
@@ -269,9 +270,10 @@ parameters:
         4: Emlid Reach
         5: Femtomes
         6: NMEA (generic)
+        7: Teseo Liv3
       default: 1
       min: 0
-      max: 6
+      max: 7
       reboot_required: true
     GPS_1_GNSS:
       description:

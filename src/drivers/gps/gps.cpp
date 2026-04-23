@@ -93,6 +93,9 @@
 #if defined(CONFIG_GPS_NMEA)
 # include "devices/src/nmea.h"
 #endif
+#if defined(CONFIG_GPS_TESEO)
+# include "devices/src/teseo.h"
+#endif
 
 #ifdef __PX4_LINUX
 #include <linux/spi/spidev.h>
@@ -115,9 +118,10 @@ enum class gps_driver_mode_t {
 	EMLIDREACH,
 	FEMTOMES,
 	NMEA,
+	TESEO
 };
 
-// NMEA is excluded because it can produce false-positive detections.
+// NMEA and Teseo are excluded because they can produce false-positive detections.
 // The trailing None also supports builds without an auto-detectable protocol.
 static constexpr gps_driver_mode_t kAutoDetectModes[] = {
 #if defined(CONFIG_GPS_UBX)
@@ -470,6 +474,10 @@ GPS::GPS(const char *path, gps_driver_mode_t mode, GPSHelper::Interface interfac
 
 		case 6: _mode = gps_driver_mode_t::NMEA; break;
 #endif // CONFIG_GPS_NMEA
+#if defined(CONFIG_GPS_TESEO)
+
+		case 7: _mode = gps_driver_mode_t::TESEO; break;
+#endif // CONFIG_GPS_TESEO
 		}
 
 		if (protocol != 0 && _mode == gps_driver_mode_t::None) {
@@ -1205,6 +1213,13 @@ GPS::run()
 			set_device_type(DRV_GPS_DEVTYPE_NMEA);
 			break;
 #endif // CONFIG_GPS_NMEA
+#if defined(CONFIG_GPS_TESEO)
+
+		case gps_driver_mode_t::TESEO:
+			_helper = new GPSDriverTeseo(&GPS::callback, this, &_sensor_gps, _p_report_sat_info, heading_offset);
+			set_device_type(DRV_GPS_DEVTYPE_NMEA);
+			break;
+#endif // CONFIG_GPS_TESEO
 
 		default:
 			break;
@@ -1308,6 +1323,12 @@ GPS::run()
 			 * a quick reaction to a connection loss. */
 			unsigned receive_timeout = TIMEOUT_INIT_5HZ;
 			unsigned healthy_timeout = TIMEOUT_5HZ;
+
+			if (_mode == gps_driver_mode_t::NMEA || _mode == gps_driver_mode_t::TESEO) {
+				/* NMEA GPS modules often default to 1Hz output rate */
+				receive_timeout = TIMEOUT_INIT_1HZ;
+				healthy_timeout = TIMEOUT_1HZ;
+			}
 
 #if defined(CONFIG_GPS_UBX)
 
@@ -1522,7 +1543,14 @@ GPS::print_status()
 
 	case gps_driver_mode_t::NMEA:
 		PX4_INFO("protocol: NMEA");
+		break;
 #endif // CONFIG_GPS_NMEA
+#if defined(CONFIG_GPS_TESEO)
+
+	case gps_driver_mode_t::TESEO:
+		PX4_INFO("protocol: TESEO");
+		break;
+#endif // CONFIG_GPS_TESEO
 
 	default:
 		break;
@@ -1773,7 +1801,7 @@ $ gps reset warm
 
 	PRINT_MODULE_USAGE_PARAM_STRING('i', "uart", "spi|uart", "GPS interface", true);
 	PRINT_MODULE_USAGE_PARAM_STRING('j', "uart", "spi|uart", "secondary GPS interface", true);
-	PRINT_MODULE_USAGE_PARAM_STRING('p', nullptr, "ubx|mtk|ash|eml|fem|nmea",
+	PRINT_MODULE_USAGE_PARAM_STRING('p', nullptr, "ubx|mtk|ash|eml|fem|nmea|teseo",
 					"GPS protocol (availability depends on build; default from GPS_x_PROTOCOL)", true);
 
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
@@ -1937,6 +1965,11 @@ GPS *GPS::instantiate(int argc, char *argv[], Instance instance)
 				requested_mode = gps_driver_mode_t::NMEA;
 			}
 #endif // CONFIG_GPS_NMEA
+#if defined(CONFIG_GPS_TESEO)
+			if (!strcmp(myoptarg, "teseo")) {
+				requested_mode = gps_driver_mode_t::TESEO;
+			}
+#endif // CONFIG_GPS_TESEO
 
 			if (requested_mode == gps_driver_mode_t::None) {
 				PX4_ERR("unknown protocol: %s", myoptarg);

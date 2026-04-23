@@ -62,6 +62,10 @@ if(CONFIG_GPS_NMEA)
 	list(APPEND SRCS devices/src/nmea.cpp devices/src/unicore.cpp)
 endif()
 
+if(CONFIG_GPS_TESEO)
+	list(APPEND SRCS devices/src/teseo.cpp)
+endif()
+
 # RTCM parsing (RTK base station corrections) shared by these receivers
 if(CONFIG_GPS_UBX OR CONFIG_GPS_ASHTECH OR CONFIG_GPS_FEMTOMES OR CONFIG_GPS_NMEA)
 	list(APPEND SRCS devices/src/rtcm.cpp)

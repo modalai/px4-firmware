@@ -43,6 +43,15 @@ if DRIVERS_GPS
 			Never auto-detected: it must be selected explicitly via
 			GPS_x_PROTOCOL or the -p command line option.
 
+	config GPS_TESEO
+		bool "Teseo Liv3 protocol support"
+		default !BOARD_CONSTRAINED_FLASH
+		select GPS_NMEA
+		---help---
+			Driver for Teseo Liv3 GNSS receivers, based on the NMEA driver.
+			Never auto-detected: it must be selected explicitly via
+			GPS_x_PROTOCOL or the -p command line option.
+
 	config GPS_SPARTN
 		bool "SPARTN correction framing (e.g. PointPerfect)"
 		default n
