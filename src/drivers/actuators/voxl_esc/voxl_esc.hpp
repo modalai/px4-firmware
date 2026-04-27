@@ -50,6 +50,7 @@
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/actuator_test.h>
 #include <uORB/topics/mavlink_tunnel.h>
+#include <uORB/topics/vehicle_command.h>
 
 #include "voxl_esc_serial.hpp"
 
@@ -171,6 +172,7 @@ private:
 		int32_t		publish_battery_status{0};
 		int32_t		esc_warn_temp_threshold{0};
 		int32_t		esc_over_temp_threshold{0};
+		int32_t		esc_spinup_timeout_ms{3000};
 		int32_t		gpio_ctl_channel{0};
 		int32_t		cmd_type{0};
 	} voxl_esc_params_t;
@@ -209,6 +211,14 @@ private:
 	perf_counter_t		_output_update_perf;
 
 	bool			_outputs_on{false};
+	bool			_prev_outputs_on{false};
+	hrt_abstime		_arm_time{0};
+	bool			_spinup_fail_disarm_sent{false};
+	uint8_t			_motors_spunup_mask{0};
+	hrt_abstime		_spinup_first_seen[VOXL_ESC_OUTPUT_CHANNELS] {};
+	int32_t			_spinup_min_duration_ms{100};
+	bool			_disarm_on_runtime_motor_stop{false};
+	bool			_cap_rpm_during_spinup{true};
 
 	unsigned		_current_update_rate{0};
 
@@ -221,6 +231,7 @@ private:
 
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};
+	uORB::Publication<vehicle_command_s> _vehicle_command_pub{ORB_ID(vehicle_command)};
 
 	bool _extended_rpm{false};
 	bool _need_version_info{true};

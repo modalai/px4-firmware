@@ -265,6 +265,22 @@ PARAM_DEFINE_INT32(VOXL_ESC_T_OVER, 0);
 
 
 /**
+ * VOXL ESC motor spin-up timeout (ms)
+ *
+ * Time in milliseconds after arming before a motor that has not reached
+ * the SPINNING state is declared failed (MOTOR_STUCK), causing a disarm.
+ * Set to 0 to disable spin-up failure detection.
+ *
+ * @group VOXL_ESC
+ * @value 0 - Disabled
+ * @min 0
+ * @max 10000
+ * @decimal 0
+ */
+PARAM_DEFINE_INT32(VOXL_ESC_SPUP_TO, 3000);
+
+
+/**
  * GPIO Control Channel
  *
  *

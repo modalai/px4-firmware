@@ -306,6 +306,7 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 
 	param_get(param_find("VOXL_ESC_T_WARN"), &params->esc_warn_temp_threshold);
 	param_get(param_find("VOXL_ESC_T_OVER"), &params->esc_over_temp_threshold);
+	param_get(param_find("VOXL_ESC_SPUP_TO"), &params->esc_spinup_timeout_ms);
 
 	param_get(param_find("GPIO_CTL_CH"), &params->gpio_ctl_channel);
 
@@ -552,7 +553,61 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_status.esc[id].esc_cmdcount = fb.cmd_counter;
 					_esc_status.esc[id].esc_voltage  = _esc_chans[id].voltage;
 					_esc_status.esc[id].esc_current  = _esc_chans[id].current;
-					_esc_status.esc[id].failures     = 0; //not implemented
+					_esc_status.esc[id].actuator_function = actuator_motors_s::ACTUATOR_FUNCTION_MOTOR1 + motor_idx;
+					_esc_status.esc[id].failures     = 0;
+
+					// track which motors have reached SPINNING since arm so we know when the spin-up phase is done.
+					// require the motor to remain SPINNING continuously for _spinup_min_duration_ms before confirming
+					if (state == esc_report_s::ESC_STATE_SPINNING) {
+						if (_spinup_first_seen[id] == 0) {
+							_spinup_first_seen[id] = tnow;
+						}
+						if ((tnow - _spinup_first_seen[id]) >= (hrt_abstime)_spinup_min_duration_ms * 1000ULL) {
+							_motors_spunup_mask |= (1u << id);
+						}
+					} else {
+						_spinup_first_seen[id] = 0;
+					}
+					const uint8_t all_spunup_mask = (1u << VOXL_ESC_OUTPUT_CHANNELS) - 1;
+					const bool spinup_phase_done = (_motors_spunup_mask == all_spunup_mask);
+
+					if (_outputs_on && _arm_time > 0) {
+						if (!spinup_phase_done && _parameters.esc_spinup_timeout_ms > 0) {
+							// SPIN-UP PHASE: motor must reach SPINNING within the timeout
+							hrt_abstime timeout_us = (hrt_abstime)_parameters.esc_spinup_timeout_ms * 1000ULL;
+							if ((hrt_absolute_time() - _arm_time) > timeout_us &&
+							    state != esc_report_s::ESC_STATE_SPINNING) {
+								_esc_status.esc[id].failures |= (1u << esc_report_s::FAILURE_MOTOR_STUCK);
+
+								// force disarm once — the COM_SPOOLUP_TIME window may already be closed
+								if (!_spinup_fail_disarm_sent) {
+									_spinup_fail_disarm_sent = true;
+									vehicle_command_s vcmd{};
+									vcmd.command   = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+									vcmd.param1    = 0.0f;   // disarm
+									vcmd.param2    = 21196.f; // force (bypasses in-flight checks)
+									vcmd.timestamp = hrt_absolute_time();
+									_vehicle_command_pub.publish(vcmd);
+									PX4_ERR("ESC motor %d failed to spin up — forcing disarm", motor_idx + 1);
+								}
+							}
+						} else if (spinup_phase_done && state != esc_report_s::ESC_STATE_SPINNING) {
+							// POST-SPIN-UP PHASE: motor previously spun up but is no longer spinning
+							// Report the failure flag; force disarm only if explicitly enabled
+							_esc_status.esc[id].failures |= (1u << esc_report_s::FAILURE_MOTOR_STUCK);
+
+							if (_disarm_on_runtime_motor_stop && !_spinup_fail_disarm_sent) {
+								_spinup_fail_disarm_sent = true;
+								vehicle_command_s vcmd{};
+								vcmd.command   = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+								vcmd.param1    = 0.0f;
+								vcmd.param2    = 21196.f;
+								vcmd.timestamp = hrt_absolute_time();
+								_vehicle_command_pub.publish(vcmd);
+								PX4_ERR("ESC motor %d stopped in flight — forcing disarm", motor_idx + 1);
+							}
+						}
+					}
 
 					// this is hacky, but we need to set all 4 to online/armed otherwise commander times out on arming
 					_esc_status.esc_online_flags = (1 << _esc_status.esc_count) - 1;
@@ -1279,6 +1334,9 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 		mix_turtle_mode(outputs);
 	}
 
+	const uint8_t all_spunup_mask = (1u << VOXL_ESC_OUTPUT_CHANNELS) - 1;
+	const bool spinup_phase_done = (_motors_spunup_mask == all_spunup_mask);
+
 	for (int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
 		if (!_outputs_on || stop_motors) {
 			_esc_chans[i].rate_req = 0;
@@ -1289,6 +1347,12 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 					if (outputs[i] > VOXL_ESC_RPM_MAX_EXT) outputs[i] = VOXL_ESC_RPM_MAX_EXT;
 				} else {
 					if (outputs[i] > VOXL_ESC_RPM_MAX) outputs[i] = VOXL_ESC_RPM_MAX;
+				}
+
+				// during spin-up, hold all motors at min_rpm until every motor has been seen spinning
+				if (_cap_rpm_during_spinup && !spinup_phase_done && !_turtle_mode_en
+				    && _parameters.rpm_min > 0 && outputs[i] > (uint16_t)_parameters.rpm_min) {
+					outputs[i] = (uint16_t)_parameters.rpm_min;
 				}
 
 			} else if (_parameters.cmd_type == VOXL_ESC_PWM_CMDS) {
@@ -1485,6 +1549,20 @@ void VoxlEsc::Run()
 
 	/* update output status if armed */
 	_outputs_on = _mixing_output.armed().armed;
+
+	/* track arm/disarm transitions for spin-up failure detection */
+	if (_outputs_on && !_prev_outputs_on) {
+		_arm_time = hrt_absolute_time();
+		_spinup_fail_disarm_sent = false;
+		_motors_spunup_mask = 0;
+		for (int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
+			_esc_status.esc[i].failures &= ~(1u << esc_report_s::FAILURE_MOTOR_STUCK);
+			_spinup_first_seen[i] = 0;
+		}
+	} else if (!_outputs_on && _prev_outputs_on) {
+		_arm_time = 0;
+	}
+	_prev_outputs_on = _outputs_on;
 
 	/* check for parameter updates */
 	if (!_outputs_on && _parameter_update_sub.updated()) {
