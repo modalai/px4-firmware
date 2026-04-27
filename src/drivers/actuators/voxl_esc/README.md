@@ -1,15 +1,16 @@
-# VOXL ESC Driver — Motor Spin-Up Logic
+# VOXL ESC Driver — Spin-Up & Communication Health Logic
 
-This document describes the motor spin-up monitoring and protection logic implemented in `voxl_esc.cpp` / `voxl_esc.hpp`. It is in addition to the regular ESC command/telemetry plumbing.
+This document describes the motor spin-up monitoring, communication-timeout monitoring, and protection logic implemented in `voxl_esc.cpp` / `voxl_esc.hpp`. It is in addition to the regular ESC command/telemetry plumbing.
 
 ## Goal
 
-Detect, as early and reliably as possible, when one or more motors fail to spin up after arming, and react safely:
+Detect, as early and reliably as possible, when one or more motors fail to spin up — or when one or more ESCs stop communicating — and react safely:
 
-1. Mark the affected motor(s) as failed in the `esc_status` uORB topic so PX4 commander logs and reports the fault.
-2. Force-disarm the vehicle (since PX4's built-in `fd_esc_arming_failure` failsafe is gated to a very short time window after arming and our timeout typically falls outside it).
+1. Mark the affected motor(s)/ESC(s) in the `esc_status` uORB topic so PX4 commander logs and reports the fault.
+2. Force-disarm the vehicle when a spin-up failure is detected (since PX4's built-in `fd_esc_arming_failure` failsafe is gated to a very short time window after arming and our timeout typically falls outside it).
 3. While motors are still spinning up, hold all motor RPM commands at `rpm_min` so the controller does not push thrust higher until every motor is confirmed spinning.
-4. After the spin-up phase, keep reporting motor stoppage as a fault but do **not** force-disarm by default — in-flight motor loss is a separate failure mode handled elsewhere.
+4. After the spin-up phase, keep reporting motor stoppage and comms loss as faults but do **not** force-disarm by default — in-flight motor loss is a separate failure mode handled elsewhere.
+5. If an ESC has not communicated since boot, keep it marked offline so commander's pre-arm checks block arming until every ESC is heard from.
 
 ## Phases
 
@@ -24,9 +25,9 @@ The driver tracks a single per-arm-cycle phase machine for each motor:
       +-----------------------+---------------------------------------+
 ```
 
-- **Disarmed** — vehicle is not armed. All tracking state (`_arm_time`, `_motors_spunup_mask`, `_spinup_first_seen[]`, `MOTOR_STUCK` failure bits, `_spinup_fail_disarm_sent`) is cleared.
-- **Spin-up** — vehicle has just been armed; we are waiting for every motor to be observed in the `ESC_STATE_SPINNING` state continuously for at least `_spinup_min_duration_ms`. The RPM cap is active. The spin-up timeout is active.
-- **Post-spinup** — every motor has been confirmed spinning. The RPM cap is released. The spin-up timeout no longer fires. A motor stop is still reported as `FAILURE_MOTOR_STUCK` but does not force-disarm unless `_disarm_on_runtime_motor_stop` is set.
+- **Disarmed** — vehicle is not armed. All tracking state (`_arm_time`, `_motors_spunup_mask`, `_spinup_first_seen[]`, `MOTOR_STUCK` failure bits, `_spinup_fail_disarm_sent`) is cleared. ESC comms timeout still runs: any ESC that has not reported recently keeps its bit cleared in `esc_online_flags`, which makes commander block arming.
+- **Spin-up** — vehicle has just been armed; we are waiting for every motor to be observed in the `ESC_STATE_SPINNING` state continuously for at least `_spinup_min_duration_ms`. The RPM cap is active. The spin-up timeout is active. A comms loss in this phase is treated the same as a held-motor case: failure bit set, force-disarm published.
+- **Post-spinup** — every motor has been confirmed spinning. The RPM cap is released. The spin-up timeout no longer fires. A motor stop is still reported as `FAILURE_MOTOR_STUCK` but does not force-disarm unless `_disarm_on_runtime_motor_stop` is set. A comms loss is logged as a warning only — no auto-disarm.
 
 ## Tracking State
 
@@ -43,12 +44,15 @@ All state is stored on the `VoxlEsc` instance (`voxl_esc.hpp`):
 | `_spinup_min_duration_ms`           | `int32_t` (default `100`)       | Min continuous time motor must stay `SPINNING` to count.           |
 | `_disarm_on_runtime_motor_stop`     | `bool` (default `false`)        | If true, force-disarm when a motor stops after spin-up.            |
 | `_cap_rpm_during_spinup`            | `bool` (default `true`)         | If true, cap motor commands at `rpm_min` during spin-up phase.     |
+| `_esc_comm_timeout_ms`              | `int32_t` (default `500`)       | An ESC with no telemetry for this many ms is treated as offline. `0` disables. |
+| `_esc_offline_warning_logged[N]`    | `bool[N]`                       | Per-ESC latch so the offline warning logs only once per dropout.   |
 
-There is also a configurable PX4 parameter:
+There are also two relevant PX4 parameters:
 
 | Parameter           | Default     | Purpose                                                                                  |
 |---------------------|-------------|------------------------------------------------------------------------------------------|
 | `VOXL_ESC_SPUP_TO`  | `3000` (ms) | Spin-up timeout: a motor that is not `SPINNING` past this many ms after arm is failed. `0` disables the check entirely. |
+| `COM_ARM_CHK_ESCS`  | `0`         | Commander setting: when `1`, an offline ESC blocks arming pre-flight. **Set this to `1`** so that the offline-flag the driver maintains actually prevents the commander from arming. |
 
 ## Step by Step
 
@@ -190,7 +194,45 @@ So while any motor is still being verified, every motor receives at most a `rpm_
 
 The cap only applies in RPM mode, not PWM mode, and is disabled in turtle mode.
 
-### 6. Setting `actuator_function`
+### 6. ESC communication timeout
+
+In addition to the per-telemetry-packet logic above, the driver runs `check_for_esc_timeout()` once per `Run()` cycle. This is what catches the case where an ESC stops communicating entirely — `parse_response()` is never invoked for that ESC, so the spin-up tracking and post-spin-up tracking inside it cannot fire on their own.
+
+For each ESC channel `i`:
+
+```cpp
+bool timed_out;
+if (_esc_chans[i].feedback_time == 0) {
+    timed_out = true;                                              // never heard from
+} else {
+    timed_out = (tnow - _esc_chans[i].feedback_time) > timeout_us; // stale
+}
+```
+
+Whenever an ESC is timed out, its bit is cleared in both `esc_online_flags` and `esc_armed_flags`:
+
+```cpp
+_esc_status.esc_online_flags &= ~(1u << i);
+_esc_status.esc_armed_flags  &= ~(1u << i);
+```
+
+Clearing `esc_online_flags` is what makes commander's `escCheck.cpp` report the ESC as offline and refuse to arm.
+
+The action taken alongside that depends on the current phase:
+
+**Disarmed.** Just clearing the flag is enough _provided commander is configured to require ESC checks_. The PX4 parameter `COM_ARM_CHK_ESCS` controls this and **defaults to `0` (disabled)** — set it to `1` for proper pre-arm blocking. With `COM_ARM_CHK_ESCS=0`, `escCheck.cpp` reports the offline ESC at `NavModes::None`, which logs the failure but does **not** clear `can_arm` bits, so commander still allows arming. With `COM_ARM_CHK_ESCS=1`, the same failure clears `can_arm` for `NavModes::All` and arming is blocked.
+
+As a defence-in-depth fallback for the `COM_ARM_CHK_ESCS=0` case, the driver also force-disarms on the very first cycle after detecting an arm transition if any ESC is offline at that moment (see step 1 above). This guarantees the vehicle cannot stay armed for any meaningful duration even if commander's pre-arm checks let it through. The proper fix is still to set `COM_ARM_CHK_ESCS=1` so the arm command is rejected outright instead of accepted-and-immediately-undone.
+
+The driver logs once per dropout via `_esc_offline_warning_logged[i]`. Because `_esc_status.esc_online_flags` is initialised to `0` in the constructor, every ESC starts out offline at boot and only becomes online after its first telemetry packet arrives — so the vehicle cannot be armed while any ESC is silent on startup.
+
+**Armed, spin-up phase.** A comms loss in this phase is a real failure: we never get to confirm the motor is spinning. The driver mirrors what `parse_response()` would have done if it had been called — it sets `FAILURE_MOTOR_STUCK` on that ESC and publishes a force-disarm `vehicle_command` (gated by `_spinup_fail_disarm_sent` so it only fires once per arm cycle).
+
+**Armed, post-spin-up.** A comms loss after the spin-up phase is logged as a warning (`PX4_WARN("ESC N comms lost in flight")`) and the bit stays cleared, but no force-disarm is published. In-flight loss of an ESC link is left to be handled by other layers (failsafe responses tied to attitude / motor failure detection / RC link, etc.).
+
+The warning latches via `_esc_offline_warning_logged[i]` so a continuously-offline ESC does not spam the log. The latch is reset to `false` in `parse_response()` whenever a packet arrives from that ESC, so each new dropout will print one warning.
+
+### 7. Setting `actuator_function`
 
 When commander reports a faulty ESC (`"ESC {1}: motor stall"`), the `{1}` is the motor index, computed as:
 
@@ -215,6 +257,7 @@ _esc_status.esc[id].actuator_function =
 | `_spinup_min_duration_ms`         | `voxl_esc.hpp`       | Required continuous-`SPINNING` duration to confirm a motor (default 100 ms). |
 | `_disarm_on_runtime_motor_stop`   | `voxl_esc.hpp`       | If `true`, force-disarm when a motor stops after spin-up phase.               |
 | `_cap_rpm_during_spinup`          | `voxl_esc.hpp`       | If `true`, hold all motors at `rpm_min` until the spin-up phase is done.      |
+| `_esc_comm_timeout_ms`            | `voxl_esc.hpp`       | ms of silence before an ESC is treated as offline. `0` disables. (default 500 ms) |
 
 ## End-to-End Example
 
@@ -237,3 +280,27 @@ Failed arm where one motor is held by hand:
 5. Driver publishes `VEHICLE_CMD_COMPONENT_ARM_DISARM` with the force magic number.
 6. Commander disarms; vehicle is safe.
 7. `_spinup_fail_disarm_sent = true` prevents repeated disarm commands.
+
+ESC unplugged before arming (with `COM_ARM_CHK_ESCS=1`, recommended):
+
+1. Vehicle is powered on. `esc_status.esc_online_flags` starts at `0`.
+2. Three healthy ESCs report telemetry; their bits in `esc_online_flags` are set in `parse_response()`. The fourth (unplugged) ESC never reports.
+3. `check_for_esc_timeout()` runs every `Run()` cycle. It sees `_esc_chans[3].feedback_time == 0` and keeps bit 3 cleared. It logs `"ESC 4 offline (pre-arm) — arming will be blocked"` once.
+4. User attempts to arm. Commander's `escCheck.cpp` notices `online_bitmask != esc_status.esc_online_flags`, emits `"ESC 4 offline"`, and refuses to arm because `required_modes == NavModes::All`.
+5. User reconnects the ESC. Its first telemetry packet arrives. `parse_response()` sets bit 3 in `esc_online_flags` and clears the warning latch. Commander's pre-arm check now passes and arming succeeds.
+
+ESC unplugged before arming (with `COM_ARM_CHK_ESCS=0`, default — fallback path):
+
+1. Same boot sequence as above; ESC 4 stays offline.
+2. User commands arm. Commander allows it (because `required_modes == NavModes::None`, the offline flag is informational only).
+3. `_outputs_on` flips to true. The arm-transition block in `Run()` checks `esc_online_flags & expected_online_mask` and finds bit 3 still clear.
+4. Driver immediately publishes a force-disarm `vehicle_command` and sets `FAILURE_MOTOR_STUCK` on ESC 4. The vehicle disarms within one `Run()` cycle. Log: `"Arm rejected: one or more ESCs offline (online_flags=0x07) — forcing disarm"`.
+
+The fallback path is correct but ugly — the vehicle is briefly armed before being told to disarm. Always prefer setting `COM_ARM_CHK_ESCS=1`.
+
+ESC link drops in flight:
+
+1. Vehicle is armed and flying; `_motors_spunup_mask == 0x0F`, so `spinup_phase_done` is true.
+2. ESC 2's signal cable comes loose. Telemetry stops.
+3. `check_for_esc_timeout()` sees `(now - _esc_chans[1].feedback_time) > 500 ms`, clears bit 1 in `esc_online_flags`, and logs `"ESC 2 comms lost in flight"` once.
+4. Because we are post-spin-up, no force-disarm is published. The vehicle keeps flying; commander still surfaces the offline ESC in its health report. Reaction to the comms loss is left to other failsafes (e.g. attitude/motor-failure detector or pilot intervention).

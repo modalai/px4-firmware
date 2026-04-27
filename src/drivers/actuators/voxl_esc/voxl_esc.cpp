@@ -59,6 +59,8 @@ VoxlEsc::VoxlEsc() :
 	_esc_status.counter            = 0;
 	_esc_status.esc_count          = VOXL_ESC_OUTPUT_CHANNELS;
 	_esc_status.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
+	_esc_status.esc_online_flags   = 0; // start offline, marked online when telemetry arrives
+	_esc_status.esc_armed_flags    = 0;
 
 	for (unsigned i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
 		_esc_status.esc[i].timestamp       = 0;
@@ -609,10 +611,16 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 						}
 					}
 
-					// this is hacky, but we need to set all 4 to online/armed otherwise commander times out on arming
-					_esc_status.esc_online_flags = (1 << _esc_status.esc_count) - 1;
-					// this is hacky, but we need to set all 4 to armed otherwise commander times out on arming
-					_esc_status.esc_armed_flags = (1 << _esc_status.esc_count) - 1;
+					// per-ESC online/armed tracking: this ESC just communicated, so mark it online.
+					// armed flag tracks the vehicle armed state for this ESC.
+					_esc_status.esc_online_flags |= (1u << id);
+					if (_outputs_on) {
+						_esc_status.esc_armed_flags |= (1u << id);
+					} else {
+						_esc_status.esc_armed_flags &= ~(1u << id);
+					}
+					// allow the offline warning to fire again the next time this ESC drops out
+					_esc_offline_warning_logged[id] = false;
 
 
 					int32_t t = fb.temperature / 100;  //divide by 100 to get deg C and cap for int8
@@ -715,27 +723,70 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 
 int VoxlEsc::check_for_esc_timeout()
 {
+	if (_esc_comm_timeout_ms <= 0) {
+		return 0;
+	}
+
 	hrt_abstime tnow = hrt_absolute_time();
+	hrt_abstime timeout_us = (hrt_abstime)_esc_comm_timeout_ms * 1000ULL;
 
-	for (int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
-		// PX4 motor indexed user defined mapping is 1-4, we want to use in bitmask (0-3)
-		uint8_t motor_idx = _output_map[i].number - 1;
+	const uint8_t all_spunup_mask = (1u << VOXL_ESC_OUTPUT_CHANNELS) - 1;
+	const bool spinup_phase_done = (_motors_spunup_mask == all_spunup_mask);
 
-		if (motor_idx < VOXL_ESC_OUTPUT_CHANNELS) {
-			// we are using PX4 motor index in the bitmask
-			if (_esc_status.esc_online_flags & (1 << motor_idx)) {
-				// using index i here for esc_chans enumeration stored in ESC ID order
-				if ((tnow - _esc_chans[i].feedback_time) > VOXL_ESC_DISCONNECT_TIMEOUT_US) {
-					// stale data, assume offline and clear armed
-					_esc_status.esc_online_flags &= ~(1 << motor_idx);
-					_esc_status.esc_armed_flags &= ~(1 << motor_idx);
-				}
+	for (uint8_t i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
+		bool timed_out;
+		if (_esc_chans[i].feedback_time == 0) {
+			timed_out = true; // never received any feedback yet
+		} else {
+			timed_out = (tnow - _esc_chans[i].feedback_time) > timeout_us;
+		}
+
+		if (!timed_out) {
+			continue;
+		}
+
+		// ESC is offline — mark accordingly so commander pre-arm checks see it
+		bool was_online = (_esc_status.esc_online_flags & (1u << i)) != 0;
+		_esc_status.esc_online_flags &= ~(1u << i);
+		_esc_status.esc_armed_flags  &= ~(1u << i);
+
+		const uint8_t px4_motor = _output_map[i].number;
+
+		if (!_outputs_on) {
+			// disarmed: clearing the online flag is sufficient — commander's escCheck
+			// reports "ESC offline" and blocks arming. Log once per dropout.
+			if (was_online && !_esc_offline_warning_logged[i]) {
+				_esc_offline_warning_logged[i] = true;
+				PX4_WARN("ESC %u offline (pre-arm) — arming will be blocked", px4_motor);
+			}
+
+		} else if (!spinup_phase_done) {
+			// spin-up phase: comms loss means we cannot confirm the motor is spinning.
+			// Treat as a spin-up failure and force-disarm (parse_response cannot fire
+			// because no telemetry is arriving for this ESC).
+			_esc_status.esc[i].failures |= (1u << esc_report_s::FAILURE_MOTOR_STUCK);
+
+			if (!_spinup_fail_disarm_sent) {
+				_spinup_fail_disarm_sent = true;
+				vehicle_command_s vcmd{};
+				vcmd.command   = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+				vcmd.param1    = 0.0f;
+				vcmd.param2    = 21196.f;
+				vcmd.timestamp = hrt_absolute_time();
+				_vehicle_command_pub.publish(vcmd);
+				PX4_ERR("ESC %u comms lost during spin-up — forcing disarm", px4_motor);
+			}
+
+		} else {
+			// post-spin-up (in flight): warn only, do not force disarm
+			if (was_online && !_esc_offline_warning_logged[i]) {
+				_esc_offline_warning_logged[i] = true;
+				PX4_WARN("ESC %u comms lost in flight", px4_motor);
 			}
 		}
 	}
 
 	return 0;
-
 }
 
 int VoxlEsc::send_cmd_thread_safe(Command *cmd)
@@ -1464,9 +1515,8 @@ bool VoxlEsc::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 		parse_response(_read_buf, res, false);
 	}
 
-	/* handle loss of comms / disconnect */
-	// TODO - enable after CRC issues in feedback are addressed
-	//check_for_esc_timeout();
+	/* handle loss of comms / disconnect — runs every cycle */
+	check_for_esc_timeout();
 
 	// publish the actual command that we sent and the feedback received
 	if (_parameters.verbose_logging) {
@@ -1558,6 +1608,28 @@ void VoxlEsc::Run()
 		for (int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
 			_esc_status.esc[i].failures &= ~(1u << esc_report_s::FAILURE_MOTOR_STUCK);
 			_spinup_first_seen[i] = 0;
+		}
+
+		// If any ESC is offline at the moment of arming, refuse to arm immediately.
+		// COM_ARM_CHK_ESCS=1 is the proper way to block arming pre-flight, but with the
+		// default COM_ARM_CHK_ESCS=0 commander allows arming despite the offline flag,
+		// so this is a defence-in-depth force-disarm right at the arm transition.
+		const uint8_t expected_online_mask = (1u << VOXL_ESC_OUTPUT_CHANNELS) - 1;
+		if ((_esc_status.esc_online_flags & expected_online_mask) != expected_online_mask) {
+			for (uint8_t i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
+				if (!(_esc_status.esc_online_flags & (1u << i))) {
+					_esc_status.esc[i].failures |= (1u << esc_report_s::FAILURE_MOTOR_STUCK);
+				}
+			}
+			_spinup_fail_disarm_sent = true;
+			vehicle_command_s vcmd{};
+			vcmd.command   = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+			vcmd.param1    = 0.0f;
+			vcmd.param2    = 21196.f;
+			vcmd.timestamp = hrt_absolute_time();
+			_vehicle_command_pub.publish(vcmd);
+			PX4_ERR("Arm rejected: one or more ESCs offline (online_flags=0x%02x) — forcing disarm",
+				_esc_status.esc_online_flags);
 		}
 	} else if (!_outputs_on && _prev_outputs_on) {
 		_arm_time = 0;

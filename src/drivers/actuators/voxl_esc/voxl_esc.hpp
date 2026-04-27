@@ -219,6 +219,8 @@ private:
 	int32_t			_spinup_min_duration_ms{100};
 	bool			_disarm_on_runtime_motor_stop{false};
 	bool			_cap_rpm_during_spinup{true};
+	int32_t			_esc_comm_timeout_ms{500};
+	bool			_esc_offline_warning_logged[VOXL_ESC_OUTPUT_CHANNELS] {};
 
 	unsigned		_current_update_rate{0};
 
