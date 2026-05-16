@@ -596,20 +596,8 @@ void EstimatorChecks::checkEstimatorStatusFlags(const Context &context, Report &
 			_position_reliant_on_optical_flow = !gps && optical_flow && !vision_position;
 		}
 
-		// Check for a magnetometer fault and notify the user
-		if (estimator_status_flags.cs_mag_fault) {
-			/* EVENT
-			 * @description
-			 * Land and calibrate the compass.
-			 */
-			reporter.armingCheckFailure(NavModes::All, health_component_t::local_position_estimate,
-						    events::ID("check_estimator_mag_fault"),
-						    events::Log::Critical, "Stopping compass use");
-
-			if (reporter.mavlink_log_pub()) {
-				mavlink_log_critical(reporter.mavlink_log_pub(), "Compass needs calibration - Land now!\t");
-			}
-		}
+		// Mag fault no longer blocks arming. EKF falls back to GSF yaw when mag faults,
+		// and mag_control.cpp can auto-recover the fault once innovations are healthy again.
 
 		if (estimator_status_flags.cs_gps_yaw_fault) {
 			/* EVENT
