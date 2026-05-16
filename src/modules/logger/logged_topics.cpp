@@ -339,6 +339,10 @@ void LoggedTopics::add_debug_topics()
 	add_topic("mag_worker_data");
 	add_topic("sensor_preflight_mag", 500);
 	add_topic("actuator_test", 500);
+
+	// High-rate mag logging for mag-comp diagnostics
+	add_topic_multi("sensor_mag", 0, 4);
+	add_optional_topic_multi("vehicle_magnetometer", 0, 4);
 }
 
 void LoggedTopics::add_estimator_replay_topics()
