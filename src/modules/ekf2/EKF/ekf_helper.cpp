@@ -1186,6 +1186,11 @@ bool Ekf::resetYawToEKFGSF()
 		_control_status.flags.mag_fault = true;
 		_warning_events.flags.emergency_yaw_reset_mag_stopped = true;
 
+		// Prime mag recovery timestamps so the auto-recovery requires a fresh
+		// 5s window of healthy innovations before clearing the fault.
+		_last_mag_fail_us = _time_delayed_us;
+		_last_mag_pass_us = 0;
+
 	} else if (_control_status.flags.gps_yaw) {
 		_control_status.flags.gps_yaw_fault = true;
 		_warning_events.flags.emergency_yaw_reset_gps_yaw_stopped = true;

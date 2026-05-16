@@ -143,6 +143,15 @@ void Ekf::controlMagFusion()
 			mag_observation.copyTo(_aid_src_mag.observation);
 			mag_innov.copyTo(_aid_src_mag.innovation);
 
+			// Record mag health timestamps so a stuck mag_fault can auto-recover once
+			// innovations return to a healthy range (mirrors the GPS pass/fail pattern).
+			static constexpr float mag_health_innov_threshold = 0.35f; // rad, ~20 deg
+			if (fabsf(_aid_src_mag_heading.innovation) < mag_health_innov_threshold) {
+				_last_mag_pass_us = _time_delayed_us;
+			} else {
+				_last_mag_fail_us = _time_delayed_us;
+			}
+
 		} else if (!isNewestSampleRecent(_time_last_mag_buffer_push, 2 * MAG_MAX_INTERVAL)) {
 			// No data anymore. Stop until it comes back.
 			stopMagFusion();
@@ -192,6 +201,14 @@ void Ekf::controlMagFusion()
 		}
 
 		return;
+	}
+
+	// Auto-clear mag_fault once innovations have been healthy for 5s straight, allowing
+	// fusion to resume after transient interference (e.g. high-thrust punch-out).
+	if (_control_status.flags.mag_fault
+	    && isTimedOut(_last_mag_fail_us, (uint64_t)5e6)
+	    && (_last_mag_pass_us > _last_mag_fail_us)) {
+		_control_status.flags.mag_fault = false;
 	}
 
 	if (_params.mag_fusion_type >= MagFuseType::NONE
