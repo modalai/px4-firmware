@@ -538,14 +538,8 @@ MavlinkMissionManager::send()
 	}
 
 	/* check for timed-out operations */
-	if (_state == MAVLINK_WPM_STATE_GETLIST && (_time_last_sent > 0)
-	    && hrt_elapsed_time(&_time_last_sent) > MAVLINK_MISSION_RETRY_TIMEOUT_DEFAULT) {
-
-		// try to request item again after timeout
-		send_mission_request(_transfer_partner_sysid, _transfer_partner_compid, _transfer_seq);
-
-	} else if (_state != MAVLINK_WPM_STATE_IDLE && (_time_last_recv > 0)
-		   && hrt_elapsed_time(&_time_last_recv) > MAVLINK_MISSION_PROTOCOL_TIMEOUT_DEFAULT) {
+	if (_state != MAVLINK_WPM_STATE_IDLE && (_time_last_recv > 0)
+	    && hrt_elapsed_time(&_time_last_recv) > MAVLINK_MISSION_PROTOCOL_TIMEOUT_DEFAULT) {
 
 		_mavlink->send_statustext_critical("Operation timeout\t");
 		events::send(events::ID("mavlink_mission_op_timeout"), events::Log::Error,
@@ -557,6 +551,12 @@ MavlinkMissionManager::send()
 
 		// since we are giving up, reset this state also, so another request can be started.
 		_transfer_in_progress = false;
+
+	} else if (_state == MAVLINK_WPM_STATE_GETLIST && (_time_last_sent > 0)
+		   && hrt_elapsed_time(&_time_last_sent) > MAVLINK_MISSION_RETRY_TIMEOUT_DEFAULT) {
+
+		// try to request item again after timeout
+		send_mission_request(_transfer_partner_sysid, _transfer_partner_compid, _transfer_seq);
 
 	} else if (_state == MAVLINK_WPM_STATE_IDLE) {
 		// reset flags
@@ -956,21 +956,6 @@ MavlinkMissionManager::handle_mission_count(const mavlink_message_t *msg)
 						DM_KEY_WAYPOINTS_OFFBOARD_0);	// use inactive storage for transmission
 			_transfer_current_seq = -1;
 
-			if (_mission_type == MAV_MISSION_TYPE_FENCE) {
-				// We're about to write new geofence items, so take the lock. It will be released when
-				// switching back to idle
-				PX4_DEBUG("locking fence dataman items");
-
-				int ret = dm_lock(DM_KEY_FENCE_POINTS);
-
-				if (ret == 0) {
-					_geofence_locked = true;
-
-				} else {
-					PX4_ERR("locking failed (%i)", errno);
-				}
-			}
-
 		} else if (_state == MAVLINK_WPM_STATE_GETLIST) {
 			_time_last_recv = hrt_absolute_time();
 
@@ -1006,15 +991,6 @@ MavlinkMissionManager::handle_mission_count(const mavlink_message_t *msg)
 void
 MavlinkMissionManager::switch_to_idle_state()
 {
-	// when switching to idle, we *always* check if the lock was held and release it.
-	// This is to ensure we don't end up in a state where we forget to release it.
-	if (_geofence_locked) {
-		dm_unlock(DM_KEY_FENCE_POINTS);
-		_geofence_locked = false;
-
-		PX4_DEBUG("unlocking geofence");
-	}
-
 	_state = MAVLINK_WPM_STATE_IDLE;
 }
 
