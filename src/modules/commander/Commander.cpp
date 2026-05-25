@@ -803,6 +803,10 @@ Commander::handle_command(const vehicle_command_s &cmd)
 							desired_nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND;
 							break;
 
+						case PX4_CUSTOM_SUB_MODE_AUTO_FOLLOW_ME:
+							desired_nav_state = vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME;
+							break;
+
 						default:
 							main_ret = TRANSITION_DENIED;
 							mavlink_log_critical(&_mavlink_log_pub, "Unsupported auto mode\t");

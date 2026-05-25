@@ -215,6 +215,9 @@ void MspDPOsd::set_flight_mode_string(const hrt_abstime& now, const struct vehic
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
 		display.set(MessageDisplayType::FLIGHT_MODE, "A:F");
 		break;
+	case vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME:
+		display.set(MessageDisplayType::FLIGHT_MODE, "FME");
+		break;
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
 		display.set(MessageDisplayType::FLIGHT_MODE, "A:P");
 		break;
@@ -507,6 +510,10 @@ const char* construct_flight_mode(const vehicle_status_s &vehicle_status){
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
 		flight_mode = "AUTO_FOLLOW_TARGET";
+		break;
+
+	case vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME:
+		flight_mode = "FOLLOW_ME";
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:

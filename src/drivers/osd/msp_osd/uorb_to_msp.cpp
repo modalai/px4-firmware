@@ -198,6 +198,9 @@ void MspOsd::set_flight_mode_string(const hrt_abstime& now, const struct vehicle
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
 		display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_FOLLOW_TARGET");
 		break;
+	case vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME:
+		display.set(MessageDisplayType::FLIGHT_MODE, "FOLLOW_ME");
+		break;
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
 		display.set(MessageDisplayType::FLIGHT_MODE, "AUTO_PRECLAND");
 		break;

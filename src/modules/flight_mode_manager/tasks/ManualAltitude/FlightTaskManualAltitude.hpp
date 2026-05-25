@@ -70,6 +70,12 @@ protected:
 	 */
 	void _updateAltitudeLock();
 
+	/**
+	 * Sets downwards velocity constraint based on the distance to ground.
+	 * To ensure a slowdown to land speed before hitting the ground.
+	 */
+	void _respectGroundSlowdown();
+
 	Sticks _sticks{this};
 	StickTiltXY _stick_tilt_xy{this};
 	StickYaw _stick_yaw{this};
@@ -111,12 +117,6 @@ private:
 	void _respectMinAltitude();
 
 	void _respectMaxAltitude();
-
-	/**
-	 * Sets downwards velocity constraint based on the distance to ground.
-	 * To ensure a slowdown to land speed before hitting the ground.
-	 */
-	void _respectGroundSlowdown();
 
 	void setGearAccordingToSwitch();
 

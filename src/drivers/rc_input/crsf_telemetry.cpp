@@ -162,6 +162,10 @@ bool CRSFTelemetry::send_flight_mode()
 		flight_mode = "Auto";
 		break;
 
+	case vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME:
+		flight_mode = "Follow";
+		break;
+
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:
 		flight_mode = "Acro";
 		break;

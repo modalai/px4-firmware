@@ -59,6 +59,10 @@
 
 #include "mavlink_command_sender.h"
 #include "mavlink_main.h"
+
+// Vendored ModalAI custom message (private; not in any dialect). Included after the mavlink
+// core so the _mav_put_*/decode helpers are available. See the header for the crc_extra=0 note.
+#include "mavlink_msg_voxl_tracker_setpoint.h"
 #include "mavlink_receiver.h"
 
 #include <lib/drivers/device/Device.hpp> // For DeviceId union
@@ -205,6 +209,10 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 
 	case MAVLINK_MSG_ID_FOLLOW_TARGET:
 		handle_message_follow_target(msg);
+		break;
+
+	case MAVLINK_MSG_ID_VOXL_TRACKER_SETPOINT:
+		handle_message_voxl_tracker_setpoint(msg);
 		break;
 
 	case MAVLINK_MSG_ID_LANDING_TARGET:
@@ -908,6 +916,29 @@ MavlinkReceiver::handle_message_distance_sensor(mavlink_message_t *msg)
 	ds.signal_quality = dist_sensor.signal_quality == 0 ? -1 : 100 * (dist_sensor.signal_quality - 1) / 99;
 
 	_distance_sensor_pub.publish(ds);
+}
+
+void
+MavlinkReceiver::handle_message_voxl_tracker_setpoint(mavlink_message_t *msg)
+{
+	mavlink_voxl_tracker_setpoint_t tracker;
+	mavlink_msg_voxl_tracker_setpoint_decode(msg, &tracker);
+
+	tracker_setpoint_s sp{};
+	sp.timestamp        = hrt_absolute_time(); // freshness uses local time; don't trust sender clock
+	sp.timestamp_sample = tracker.time_usec;
+	sp.roll_body        = tracker.roll_body;
+	sp.pitch_body       = tracker.pitch_body;
+	sp.yaw_rate         = tracker.yaw_rate;
+	sp.vz               = tracker.vz;
+	sp.error_x          = tracker.error_x;
+	sp.error_y          = tracker.error_y;
+	sp.error_x_rate     = tracker.error_x_rate;
+	sp.error_y_rate     = tracker.error_y_rate;
+	sp.confidence       = tracker.confidence;
+	sp.valid            = (tracker.valid != 0);
+
+	_tracker_setpoint_pub.publish(sp);
 }
 
 void

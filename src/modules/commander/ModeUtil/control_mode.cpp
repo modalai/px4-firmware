@@ -147,6 +147,19 @@ void getVehicleControlMode(bool armed, uint8_t nav_state, uint8_t vehicle_type,
 
 		break;
 
+	case vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME:
+		// Altitude-mode-like control steered by an external tracker: not manual (no RC required)
+		// and not a navigator/auto mode. Horizontal stays acceleration-controlled like Altitude
+		// mode, so the position controller converts the task's XY acceleration setpoint into tilt;
+		// position/velocity are intentionally left disabled.
+		vehicle_control_mode.flag_control_manual_enabled = false;
+		vehicle_control_mode.flag_control_auto_enabled = false;
+		vehicle_control_mode.flag_control_rates_enabled = true;
+		vehicle_control_mode.flag_control_attitude_enabled = true;
+		vehicle_control_mode.flag_control_altitude_enabled = true;
+		vehicle_control_mode.flag_control_climb_rate_enabled = true;
+		break;
+
 	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
 
 	// Follow Target supports RC adjustment, so disable auto control mode to disable

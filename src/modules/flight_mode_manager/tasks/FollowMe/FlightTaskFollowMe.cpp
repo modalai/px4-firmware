@@ -1,0 +1,172 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2024 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
+/**
+ * @file FlightTaskFollowMe.cpp
+ */
+
+#include "FlightTaskFollowMe.hpp"
+
+#include <drivers/drv_hrt.h>
+#include <mathlib/mathlib.h>
+
+using namespace matrix;
+
+FlightTaskFollowMe::FlightTaskFollowMe()
+{
+	// The tracker, not the pilot, provides horizontal/yaw steering, so do not require
+	// RC sticks for the task to stay active. When RC is present the throttle stick can
+	// still nudge altitude (stock Altitude behavior); when absent the sticks read zero
+	// and altitude simply holds.
+	_sticks_data_required = false;
+}
+
+bool FlightTaskFollowMe::activate(const trajectory_setpoint_s &last_setpoint)
+{
+	bool ret = FlightTaskManualAltitude::activate(last_setpoint);
+
+	// Start from a neutral, held state until the first valid tracker intent arrives.
+	_tracker_pitch_roll.setZero();
+	_tracker_yaw_rate = 0.f;
+	_tracker_vz = 0.f;
+	_tracker_vertical_active = false;
+
+	return ret;
+}
+
+void FlightTaskFollowMe::_evaluateTrackerSetpoint()
+{
+	_sub_tracker_setpoint.update();
+	const tracker_setpoint_s &tracker = _sub_tracker_setpoint.get();
+
+	const bool fresh = (tracker.timestamp != 0)
+			   && (hrt_absolute_time() < tracker.timestamp + kTrackerTimeoutUs);
+	const bool usable = tracker.valid && fresh
+			    && PX4_ISFINITE(tracker.roll_body)
+			    && PX4_ISFINITE(tracker.pitch_body)
+			    && PX4_ISFINITE(tracker.yaw_rate);
+
+	if (usable) {
+		// Order is (pitch, roll) to match Sticks::getPitchRoll(); clamp to the stick range
+		// so a misbehaving tracker can never exceed manual tilt authority.
+		_tracker_pitch_roll = Vector2f(math::constrain(tracker.pitch_body, -1.f, 1.f),
+					       math::constrain(tracker.roll_body, -1.f, 1.f));
+		_tracker_yaw_rate = tracker.yaw_rate;
+
+		// Vertical intent is optional. Clamp to the configured climb/descent limits; only
+		// take over the vertical axis when the demand is non-negligible, otherwise leave it
+		// to the stock altitude lock so position-hold prevents drift.
+		if (PX4_ISFINITE(tracker.vz)) {
+			_tracker_vz = math::constrain(tracker.vz, -_param_mpc_z_vel_max_up.get(), _param_mpc_z_vel_max_dn.get());
+			_tracker_vertical_active = fabsf(_tracker_vz) > kVzActivateThreshold;
+
+		} else {
+			_tracker_vz = 0.f;
+			_tracker_vertical_active = false;
+		}
+
+	} else {
+		// Lost/stale/invalid intent -> level out horizontally and hold heading + altitude.
+		_tracker_pitch_roll.setZero();
+		_tracker_yaw_rate = 0.f;
+		_tracker_vz = 0.f;
+		_tracker_vertical_active = false;
+	}
+}
+
+void FlightTaskFollowMe::_scaleSticks()
+{
+	_evaluateTrackerSetpoint();
+
+	// Yaw: feed the tracker's yaw rate through the same filter/lock path as the yaw stick.
+	// Convert rad/s to the normalized stick equivalent so StickYaw re-applies MPC_MAN_Y_MAX
+	// and locks the heading when the intent is ~0, exactly like Altitude mode.
+	const float max_yaw_rate = math::max(_param_mpc_man_y_max.get(), 1e-3f);
+	const float yaw_stick = math::constrain(_tracker_yaw_rate / max_yaw_rate, -1.f, 1.f);
+	_stick_yaw.generateYawSetpoint(_yawspeed_setpoint, _yaw_setpoint, yaw_stick, _yaw,
+				       _is_yaw_good_for_control, _deltatime);
+
+	// Vertical: tracker climb/descent when actively commanded, otherwise stock Altitude
+	// behavior. With RC present the throttle stick sets the demand; with RC absent Sticks
+	// reports zero and the altitude lock holds.
+	if (_tracker_vertical_active) {
+		_velocity_setpoint(2) = _tracker_vz;
+
+	} else {
+		const float vel_max_z = (_sticks.getPosition()(2) > 0.f) ? _param_mpc_z_vel_max_dn.get() :
+					_param_mpc_z_vel_max_up.get();
+		_velocity_setpoint(2) = vel_max_z * _sticks.getPositionExpo()(2);
+	}
+}
+
+void FlightTaskFollowMe::_updateSetpoints()
+{
+	_updateHeadingSetpoints(); // yaw setpoint from the yawspeed set in _scaleSticks()
+
+	// Horizontal acceleration from the tracker roll/pitch intent, replacing the stick tilt input.
+	// StickTiltXY caps the tilt at the gentle MPC_MAN_TILT_MAX; rescale to the full flight envelope
+	// MPC_TILTMAX_AIR so the companion can pitch aggressively for the approach/rendezvous. Since
+	// a_xy = stick * tan(tilt) * g, multiplying by tan(air)/tan(man) lifts the ceiling to MPC_TILTMAX_AIR.
+	// The position controller still hard-limits attitude at MPC_TILTMAX_AIR, so set that to taste.
+	Vector2f accel_xy = _stick_tilt_xy.generateAccelerationSetpoints(_tracker_pitch_roll, _deltatime, _yaw,
+			    _yaw_setpoint);
+	const float man_tilt_tan = math::max(tanf(math::radians(_param_mpc_man_tilt_max.get())), 1e-3f);
+	const float air_tilt_tan = tanf(math::radians(_param_mpc_tiltmax_air.get()));
+	accel_xy *= air_tilt_tan / man_tilt_tan;
+
+	// (E) Velocity damping. FOLLOW_ME is acceleration-controlled (cloned from Altitude mode)
+	// with NO horizontal velocity feedback, so the closing dynamics are undamped -> overshoot
+	// and porpoising at high aggression. Oppose the current horizontal velocity so the vehicle
+	// settles at a bounded terminal speed (~|a|/FM_VEL_DAMP) and oscillations are damped, instead
+	// of integrating acceleration into runaway velocity. Guarded on a valid velocity estimate
+	// (FOLLOW_ME requires local altitude, not necessarily horizontal position/velocity).
+	if (PX4_ISFINITE(_velocity(0)) && PX4_ISFINITE(_velocity(1))) {
+		const float vel_damp = _param_fm_vel_damp.get();
+		accel_xy(0) -= vel_damp * _velocity(0);
+		accel_xy(1) -= vel_damp * _velocity(1);
+	}
+
+	_acceleration_setpoint.xy() = accel_xy;
+
+	if (_tracker_vertical_active) {
+		// Tracker commands a climb/descent rate: velocity-control the vertical axis and release
+		// the position lock. The velocity setpoint was set in _scaleSticks(); LNDMC_ALT_MAX is
+		// still enforced downstream in FlightModeManager::limitAltitude().
+		_position_setpoint(2) = NAN;
+
+	} else {
+		_updateAltitudeLock(); // stock baro/terrain altitude lock + position hold
+	}
+
+	_respectGroundSlowdown();
+}

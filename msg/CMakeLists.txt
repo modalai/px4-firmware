@@ -194,6 +194,7 @@ set(msg_files
 	TelemetryStatus.msg
 	TiltrotorExtraControls.msg
 	TimesyncStatus.msg
+	TrackerSetpoint.msg
 	TrajectoryBezier.msg
 	TrajectorySetpoint.msg
 	TrajectoryWaypoint.msg

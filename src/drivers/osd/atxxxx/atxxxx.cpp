@@ -408,6 +408,10 @@ OSDatxxxx::get_flight_mode(uint8_t nav_state)
 		flight_mode = "AUTO";
 		break;
 
+	case vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME:
+		flight_mode = "FME";
+		break;
+
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:
 		flight_mode = "ACRO";
 		break;

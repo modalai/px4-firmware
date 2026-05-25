@@ -168,6 +168,16 @@ void FlightModeManager::start_flight_task()
 		}
 	}
 
+	// Follow Me: external tracker drives roll/pitch/yaw, altitude is held like Altitude mode
+	if (_vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_FOLLOW_ME) {
+		found_some_task = true;
+
+		if (switchTask(FlightTaskIndex::FollowMe) != FlightTaskError::NoError) {
+			matching_task_running = false;
+			task_failure = true;
+		}
+	}
+
 	// Orbit
 	if ((_vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_ORBIT)
 	    && !_command_failed) {
