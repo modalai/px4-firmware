@@ -83,6 +83,11 @@ MavlinkMissionManager::init_offboard_mission()
 	if (!_dataman_init) {
 		_dataman_init = true;
 
+		// Build-verification marker — printed once per voxl-px4 start.
+		// If you see this line in the boot log, the running binary includes
+		// the ascend/geofence-download/voxl-fpv-dev fix (commit 024c26242a+).
+		PX4_WARN("ASCEND BUILD MARKER: geofence-download fix active (mission_type on MISSION_ITEM responses)");
+
 		/* lock MISSION_STATE item */
 		int dm_lock_ret = dm_lock(DM_KEY_MISSION_STATE);
 
