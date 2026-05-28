@@ -52,7 +52,7 @@ class FlightTaskFollowMe : public FlightTaskManualAltitude
 {
 public:
 	FlightTaskFollowMe();
-	virtual ~FlightTaskFollowMe() = default;
+	~FlightTaskFollowMe() override;   // restores the pre-strike params (mode exit hook)
 
 	bool activate(const trajectory_setpoint_s &last_setpoint) override;
 
@@ -71,6 +71,21 @@ private:
 	 */
 	void _evaluateTrackerSetpoint();
 
+	/**
+	 * Force the aggressive strike/merge param set on mode ENTRY (caching each live value
+	 * first) and restore the cached values on EXIT. This overrides the saved/QGC params so
+	 * the merge always runs at full authority, while leaving every other flight mode on the
+	 * normal tuning. Restore runs from the destructor — FlightModeManager destroys the task
+	 * on any mode switch or shutdown, so exit is always covered (and a reboot reloads the
+	 * saved params if a restore is ever missed).
+	 */
+	void _forceStrikeParams();
+	void _restoreStrikeParams();
+
+	static constexpr int kNumStrikeParams = 8;
+	float _saved_strike_params[kNumStrikeParams] {}; ///< live values cached at entry, written back at exit
+	bool  _strike_params_forced{false};
+
 	uORB::SubscriptionData<tracker_setpoint_s> _sub_tracker_setpoint{ORB_ID(tracker_setpoint)};
 
 	matrix::Vector2f _tracker_pitch_roll{0.f, 0.f}; ///< (pitch, roll) normalized [-1,1], order matches Sticks::getPitchRoll()
@@ -85,6 +100,7 @@ private:
 					(ParamFloat<px4::params::MPC_MAN_Y_MAX>) _param_mpc_man_y_max, /**< max yaw rate, used to normalize tracker yaw_rate */
 					(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) _param_mpc_man_tilt_max, /**< manual tilt cap baked into the StickTiltXY output, divided back out here */
 					(ParamFloat<px4::params::MPC_TILTMAX_AIR>) _param_mpc_tiltmax_air, /**< full flight tilt envelope; the tracker tilt is scaled up to this for aggressive approach/rendezvous */
-					(ParamFloat<px4::params::FM_VEL_DAMP>) _param_fm_vel_damp /**< [1/s] horizontal velocity-damping gain (a -= FM_VEL_DAMP*v); terminal speed ~|a|/FM_VEL_DAMP */
+					(ParamFloat<px4::params::FM_VEL_DAMP>) _param_fm_vel_damp, /**< [1/s] horizontal velocity-damping gain (a -= FM_VEL_DAMP*v); terminal speed ~|a|/FM_VEL_DAMP. 0 = pure accel (max aggression, default) */
+					(ParamFloat<px4::params::FM_VEL_MAX_DN>) _param_fm_vel_max_dn /**< [m/s] max tracker-commanded descent; replaces the gentle MPC_Z_VEL_MAX_DN clamp on the strike/merge path */
 				       )
 };

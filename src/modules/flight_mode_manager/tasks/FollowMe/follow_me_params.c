@@ -54,4 +54,23 @@
  * @increment 0.1
  * @group FlightTaskFollowMe
  */
-PARAM_DEFINE_FLOAT(FM_VEL_DAMP, 1.5f);
+PARAM_DEFINE_FLOAT(FM_VEL_DAMP, 1.2f);
+
+/**
+ * FollowMe max tracker-commanded descent speed
+ *
+ * Maximum downward velocity [m/s, NED +down] the tracker's vz intent may command
+ * in FOLLOW_ME. This REPLACES the gentle MPC_Z_VEL_MAX_DN clamp on the tracker
+ * path: that stock limit is sized for benign person-following, and it throttles
+ * an aggressive strike/merge dive (the companion can ask for tens of m/s and was
+ * being capped to ~MPC_Z_VEL_MAX_DN). The vertical velocity RAMP is still bounded
+ * by MPC_ACC_DOWN_MAX, so raise that too for a snappier nose-over closing rate.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 50.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FlightTaskFollowMe
+ */
+PARAM_DEFINE_FLOAT(FM_VEL_MAX_DN, 3.0f);

@@ -39,8 +39,36 @@
 
 #include <drivers/drv_hrt.h>
 #include <mathlib/mathlib.h>
+#include <parameters/param.h>
 
 using namespace matrix;
+
+namespace
+{
+// Strike/merge overrides FORCED while FOLLOW_ME is active and restored on exit.
+// They overwrite the live (incl. saved/QGC) params on entry so the merge runs at a
+// known authority, and are reverted on exit so no other flight mode is affected.
+// Compile-time for now; promote to FM_STRK_* params if you want to tune them live
+// without a rebuild.
+//
+// "CHILL" SET: detuned for a gentle, slower merge that STILL commits/dives. Trailing
+// comments keep the previous aggressive value so this is trivially revertible. Pair
+// with voxl-vision-hub-chill.conf on the companion (V_ref/descent reduced there too).
+// FM_VEL_DAMP was RAISED (more damping => lower terminal closing speed ~|a|/DAMP);
+// do NOT drop it toward 0 (the old comment notes 0 ran away to 38 m/s).
+struct StrikeParam { const char *name; float value; };
+const StrikeParam kStrikeParams[] = {
+	{"MPC_TILTMAX_AIR",  30.0f},  // was 60: gentler bank, still forward authority
+	{"MPC_ACC_HOR_MAX",   3.0f},  // was 20: softer horizontal accel
+	{"MPC_ACC_DOWN_MAX",  3.0f},  // was 20: smooth nose-over, not an "insta" dive
+	{"MPC_JERK_MAX",     12.0f},  // was 40: smoother setpoint slewing
+	{"MPC_Z_VEL_MAX_DN",  3.0f},  // was 15: slower descent on the stock vertical path
+	{"MPC_Z_VEL_MAX_UP",  6.0f},  // was 15: calmer abort climb (still safe pull-up)
+	{"FM_VEL_DAMP",       2.0f},  // was 1.2: MORE damping => lower bounded closing speed
+	{"FM_VEL_MAX_DN",     2.0f},  // was 30: cap the companion's commanded descent
+};
+static_assert(sizeof(kStrikeParams) / sizeof(kStrikeParams[0]) == 8, "update kNumStrikeParams");
+}
 
 FlightTaskFollowMe::FlightTaskFollowMe()
 {
@@ -49,6 +77,11 @@ FlightTaskFollowMe::FlightTaskFollowMe()
 	// still nudge altitude (stock Altitude behavior); when absent the sticks read zero
 	// and altitude simply holds.
 	_sticks_data_required = false;
+}
+
+FlightTaskFollowMe::~FlightTaskFollowMe()
+{
+	_restoreStrikeParams();   // mode exit: put the pre-strike params back
 }
 
 bool FlightTaskFollowMe::activate(const trajectory_setpoint_s &last_setpoint)
@@ -61,7 +94,57 @@ bool FlightTaskFollowMe::activate(const trajectory_setpoint_s &last_setpoint)
 	_tracker_vz = 0.f;
 	_tracker_vertical_active = false;
 
+	// Mode entry: overwrite the live params with the aggressive strike set (restored on exit).
+	_forceStrikeParams();
+
 	return ret;
+}
+
+void FlightTaskFollowMe::_forceStrikeParams()
+{
+	if (_strike_params_forced) {
+		return;
+	}
+
+	for (int i = 0; i < kNumStrikeParams; ++i) {
+		const param_t h = param_find(kStrikeParams[i].name);
+
+		if (h == PARAM_INVALID) {
+			_saved_strike_params[i] = NAN;   // nothing to restore for this one
+			continue;
+		}
+
+		param_get(h, &_saved_strike_params[i]);   // cache the live value first
+		float v = kStrikeParams[i].value;
+		param_set_no_notification(h, &v);         // overwrite; single notify below
+	}
+
+	param_notify_changes();   // one parameter_update -> the position controller reloads the set
+	_strike_params_forced = true;
+	PX4_INFO("FOLLOW_ME: forced aggressive strike params");
+}
+
+void FlightTaskFollowMe::_restoreStrikeParams()
+{
+	if (!_strike_params_forced) {
+		return;
+	}
+
+	for (int i = 0; i < kNumStrikeParams; ++i) {
+		if (!PX4_ISFINITE(_saved_strike_params[i])) {
+			continue;   // wasn't found / forced at entry
+		}
+
+		const param_t h = param_find(kStrikeParams[i].name);
+
+		if (h != PARAM_INVALID) {
+			param_set_no_notification(h, &_saved_strike_params[i]);
+		}
+	}
+
+	param_notify_changes();
+	_strike_params_forced = false;
+	PX4_INFO("FOLLOW_ME: restored pre-strike params");
 }
 
 void FlightTaskFollowMe::_evaluateTrackerSetpoint()
@@ -87,7 +170,9 @@ void FlightTaskFollowMe::_evaluateTrackerSetpoint()
 		// take over the vertical axis when the demand is non-negligible, otherwise leave it
 		// to the stock altitude lock so position-hold prevents drift.
 		if (PX4_ISFINITE(tracker.vz)) {
-			_tracker_vz = math::constrain(tracker.vz, -_param_mpc_z_vel_max_up.get(), _param_mpc_z_vel_max_dn.get());
+			// Honor the companion's descent at strike/merge authority (FM_VEL_MAX_DN), NOT the
+			// gentle MPC_Z_VEL_MAX_DN follow clamp, so the closing dive isn't throttled.
+			_tracker_vz = math::constrain(tracker.vz, -_param_mpc_z_vel_max_up.get(), _param_fm_vel_max_dn.get());
 			_tracker_vertical_active = fabsf(_tracker_vz) > kVzActivateThreshold;
 
 		} else {
@@ -166,7 +251,8 @@ void FlightTaskFollowMe::_updateSetpoints()
 
 	} else {
 		_updateAltitudeLock(); // stock baro/terrain altitude lock + position hold
+		// _respectGroundSlowdown();
 	}
 
-	_respectGroundSlowdown();
+	
 }
