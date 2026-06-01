@@ -69,6 +69,7 @@ bool FlightTaskManualAltitudeCommandVel::activate(const trajectory_setpoint_s &l
 	_last_position = _position;			// initialize loop to assume we're stable
 	_position_setpoint(2) = NAN;
 	_velocity_setpoint(2) = 0.f;
+	_vel_z_slew.setForcedValue(0.f);		// match the initial velocity setpoint; avoids seeding from a possibly-bad estimate
 	_setDefaultConstraints();
 
 	return ret;
@@ -81,7 +82,27 @@ void FlightTaskManualAltitudeCommandVel::_scaleSticks()
 	_yawspeed_setpoint = _applyYawspeedFilter(yawspeed_target);
 
 	// Use sticks input with deadzone and exponential curve for vertical velocity
-	_velocity_setpoint(2) = _param_flgt_vz_max.get() * _sticks.getPositionExpo()(2);
+	const float vz_target = _param_flgt_vz_max.get() * _sticks.getPositionExpo()(2);
+
+	// Optionally slew-rate limit the vertical velocity setpoint so that abrupt
+	// throttle stick movements don't produce a step in the setpoint (e.g. slamming
+	// the throttle down instantly cutting power). The applicable limit depends on
+	// the direction the setpoint is moving (NED: more negative = climbing harder).
+	// A limit of 0 disables the slew and passes the target through directly.
+	const float accel_limit = (vz_target < _vel_z_slew.getState())
+				  ? _param_flgt_acc_lim_up.get()
+				  : _param_flgt_acc_lim_dn.get();
+
+	if (accel_limit > FLT_EPSILON) {
+		_vel_z_slew.setSlewRate(accel_limit);
+		_velocity_setpoint(2) = _vel_z_slew.update(vz_target, _deltatime);
+
+	} else {
+		// Slew disabled for this direction: pass through but keep the state in sync
+		// so re-enabling (or a direction change) doesn't cause a jump.
+		_vel_z_slew.setForcedValue(vz_target);
+		_velocity_setpoint(2) = vz_target;
+	}
 }
 
 float FlightTaskManualAltitudeCommandVel::_applyYawspeedFilter(float yawspeed_target)
