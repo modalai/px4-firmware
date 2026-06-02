@@ -36,8 +36,9 @@
  *
  * Flight task that behaves like manual Altitude mode but takes its horizontal
  * (roll/pitch) and yaw steering from an external tracker instead of the sticks.
- * The vertical axis keeps the stock Altitude-mode logic (baro/altitude lock,
- * optionally nudged by the RC throttle stick). Intended for follow-me where an
+ * The vertical axis follows the tracker's vz when commanded, else holds altitude
+ * via the stock baro/altitude lock; the RC throttle stick is blocked from nudging
+ * the vertical axis (see kBlockRcVerticalOverride). Intended for follow-me where an
  * off-board computer publishes tracker_setpoint.
  */
 
@@ -95,12 +96,14 @@ private:
 
 	static constexpr uint64_t kTrackerTimeoutUs = 500000; ///< intent older than this is treated as lost
 	static constexpr float kVzActivateThreshold = 0.05f;  ///< [m/s] below this the vertical axis stays on stock altitude lock
+	static constexpr bool kBlockRcVerticalOverride = true; ///< FOLLOW_ME: ignore the RC throttle stick on the vertical axis (companion/altitude-lock owns vz). false = stock throttle-nudges-altitude behavior
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskManualAltitude,
 					(ParamFloat<px4::params::MPC_MAN_Y_MAX>) _param_mpc_man_y_max, /**< max yaw rate, used to normalize tracker yaw_rate */
 					(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) _param_mpc_man_tilt_max, /**< manual tilt cap baked into the StickTiltXY output, divided back out here */
 					(ParamFloat<px4::params::MPC_TILTMAX_AIR>) _param_mpc_tiltmax_air, /**< full flight tilt envelope; the tracker tilt is scaled up to this for aggressive approach/rendezvous */
 					(ParamFloat<px4::params::FM_VEL_DAMP>) _param_fm_vel_damp, /**< [1/s] horizontal velocity-damping gain (a -= FM_VEL_DAMP*v); terminal speed ~|a|/FM_VEL_DAMP. 0 = pure accel (max aggression, default) */
-					(ParamFloat<px4::params::FM_VEL_MAX_DN>) _param_fm_vel_max_dn /**< [m/s] max tracker-commanded descent; replaces the gentle MPC_Z_VEL_MAX_DN clamp on the strike/merge path */
+					(ParamFloat<px4::params::FM_VEL_MAX_DN>) _param_fm_vel_max_dn, /**< [m/s] max tracker-commanded descent; replaces the gentle MPC_Z_VEL_MAX_DN clamp on the strike/merge path */
+					(ParamFloat<px4::params::FM_PR_NUDGE>) _param_fm_pr_nudge /**< [0..1] pilot roll/pitch stick nudge authority added on top of the tracker intent; 0 = pure tracker (OGL operator-in-the-loop) */
 				       )
 };

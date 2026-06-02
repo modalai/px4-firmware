@@ -58,14 +58,16 @@ namespace
 // do NOT drop it toward 0 (the old comment notes 0 ran away to 38 m/s).
 struct StrikeParam { const char *name; float value; };
 const StrikeParam kStrikeParams[] = {
-	{"MPC_TILTMAX_AIR",  30.0f},  // was 60: gentler bank, still forward authority
-	{"MPC_ACC_HOR_MAX",   3.0f},  // was 20: softer horizontal accel
-	{"MPC_ACC_DOWN_MAX",  3.0f},  // was 20: smooth nose-over, not an "insta" dive
-	{"MPC_JERK_MAX",     12.0f},  // was 40: smoother setpoint slewing
-	{"MPC_Z_VEL_MAX_DN",  3.0f},  // was 15: slower descent on the stock vertical path
-	{"MPC_Z_VEL_MAX_UP",  6.0f},  // was 15: calmer abort climb (still safe pull-up)
-	{"FM_VEL_DAMP",       2.0f},  // was 1.2: MORE damping => lower bounded closing speed
-	{"FM_VEL_MAX_DN",     2.0f},  // was 30: cap the companion's commanded descent
+	{"MPC_TILTMAX_AIR",  55.0f},  // aggressive bank. MUST stay > MPC_MAN_TILT_MAX(=35): the
+	                              // _updateSetpoints() rescale tan(AIR)/tan(MAN) AMPLIFIES only
+	                              // when AIR>MAN; the old 30 made it 0.82 -> attenuated the dive.
+	{"MPC_ACC_HOR_MAX",  20.0f},  // full horizontal accel for a committed merge
+	{"MPC_ACC_DOWN_MAX", 22.0f},  // fast nose-over descent RAMP (this gates how quickly vz builds)
+	{"MPC_JERK_MAX",     40.0f},  // snappy setpoint slewing -> low-lag onset on pitch AND descent
+	{"MPC_Z_VEL_MAX_DN",  50.0f},  // was 15: slower descent on the stock vertical path
+	{"MPC_Z_VEL_MAX_UP",  50.0f},  // was 15: calmer abort climb (still safe pull-up)
+	{"FM_VEL_DAMP",       0.0f},  // was 1.2: MORE damping => lower bounded closing speed
+	{"FM_VEL_MAX_DN",     50.0f},  // was 30: cap the companion's commanded descent
 };
 static_assert(sizeof(kStrikeParams) / sizeof(kStrikeParams[0]) == 8, "update kNumStrikeParams");
 }
@@ -73,9 +75,10 @@ static_assert(sizeof(kStrikeParams) / sizeof(kStrikeParams[0]) == 8, "update kNu
 FlightTaskFollowMe::FlightTaskFollowMe()
 {
 	// The tracker, not the pilot, provides horizontal/yaw steering, so do not require
-	// RC sticks for the task to stay active. When RC is present the throttle stick can
-	// still nudge altitude (stock Altitude behavior); when absent the sticks read zero
-	// and altitude simply holds.
+	// RC sticks for the task to stay active. The vertical axis is owned by the tracker
+	// (vz) or the altitude lock; the RC throttle stick is blocked from nudging altitude
+	// (see kBlockRcVerticalOverride in _scaleSticks), so whether RC is present or not the
+	// vehicle holds altitude unless the tracker commands a climb/descent.
 	_sticks_data_required = false;
 }
 
@@ -201,11 +204,17 @@ void FlightTaskFollowMe::_scaleSticks()
 	_stick_yaw.generateYawSetpoint(_yawspeed_setpoint, _yaw_setpoint, yaw_stick, _yaw,
 				       _is_yaw_good_for_control, _deltatime);
 
-	// Vertical: tracker climb/descent when actively commanded, otherwise stock Altitude
-	// behavior. With RC present the throttle stick sets the demand; with RC absent Sticks
-	// reports zero and the altitude lock holds.
+	// Vertical: tracker climb/descent when actively commanded, otherwise altitude hold.
 	if (_tracker_vertical_active) {
 		_velocity_setpoint(2) = _tracker_vz;
+
+	} else if (kBlockRcVerticalOverride) {
+		// RC THROTTLE OVERRIDE BLOCKED: the companion (tracker vz) / altitude lock fully owns the
+		// vertical axis in FOLLOW_ME. Do NOT let the throttle stick nudge climb/descent. Zero the
+		// vertical velocity demand so _updateAltitudeLock() (called in _updateSetpoints) holds the
+		// current altitude regardless of the throttle stick position. Set kBlockRcVerticalOverride
+		// = false below to restore the stock "throttle stick nudges altitude" behavior.
+		_velocity_setpoint(2) = 0.f;
 
 	} else {
 		const float vel_max_z = (_sticks.getPosition()(2) > 0.f) ? _param_mpc_z_vel_max_dn.get() :
@@ -218,12 +227,28 @@ void FlightTaskFollowMe::_updateSetpoints()
 {
 	_updateHeadingSetpoints(); // yaw setpoint from the yawspeed set in _scaleSticks()
 
-	// Horizontal acceleration from the tracker roll/pitch intent, replacing the stick tilt input.
-	// StickTiltXY caps the tilt at the gentle MPC_MAN_TILT_MAX; rescale to the full flight envelope
-	// MPC_TILTMAX_AIR so the companion can pitch aggressively for the approach/rendezvous. Since
-	// a_xy = stick * tan(tilt) * g, multiplying by tan(air)/tan(man) lifts the ceiling to MPC_TILTMAX_AIR.
-	// The position controller still hard-limits attitude at MPC_TILTMAX_AIR, so set that to taste.
-	Vector2f accel_xy = _stick_tilt_xy.generateAccelerationSetpoints(_tracker_pitch_roll, _deltatime, _yaw,
+	// Operator-in-the-loop (OGL) roll/pitch nudge: when FM_PR_NUDGE > 0, add a bounded pilot
+	// stick offset ON TOP of the tracker's autonomous (pitch, roll) steering for fine manual aim
+	// corrections without leaving FOLLOW_ME. Uses the expo-shaped stick (gentle near center) so
+	// small inputs are precise; scaled by the authority gain and clamped to the [-1,1] stick range
+	// so the combined command never exceeds full manual tilt authority before the rescale below.
+	// FM_PR_NUDGE = 0 => the sticks are ignored and steering is pure tracker.
+	Vector2f pitch_roll = _tracker_pitch_roll;
+	const float nudge = _param_fm_pr_nudge.get();
+
+	if (nudge > 0.f) {
+		pitch_roll += Vector2f(_sticks.getPitchRollExpo()) * nudge;   // (pitch, roll), normalized [-1,1]
+		pitch_roll(0) = math::constrain(pitch_roll(0), -1.f, 1.f);
+		pitch_roll(1) = math::constrain(pitch_roll(1), -1.f, 1.f);
+	}
+
+	// Horizontal acceleration from the (tracker + optional pilot-nudge) roll/pitch intent, replacing
+	// the stick tilt input. StickTiltXY caps the tilt at the gentle MPC_MAN_TILT_MAX; rescale to the
+	// full flight envelope MPC_TILTMAX_AIR so the companion can pitch aggressively for the approach/
+	// rendezvous. Since a_xy = stick * tan(tilt) * g, multiplying by tan(air)/tan(man) lifts the
+	// ceiling to MPC_TILTMAX_AIR. The position controller still hard-limits attitude at
+	// MPC_TILTMAX_AIR, so set that to taste.
+	Vector2f accel_xy = _stick_tilt_xy.generateAccelerationSetpoints(pitch_roll, _deltatime, _yaw,
 			    _yaw_setpoint);
 	const float man_tilt_tan = math::max(tanf(math::radians(_param_mpc_man_tilt_max.get())), 1e-3f);
 	const float air_tilt_tan = tanf(math::radians(_param_mpc_tiltmax_air.get()));

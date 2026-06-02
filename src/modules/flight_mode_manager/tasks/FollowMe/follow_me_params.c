@@ -54,7 +54,7 @@
  * @increment 0.1
  * @group FlightTaskFollowMe
  */
-PARAM_DEFINE_FLOAT(FM_VEL_DAMP, 1.2f);
+PARAM_DEFINE_FLOAT(FM_VEL_DAMP, 0.0f);
 
 /**
  * FollowMe max tracker-commanded descent speed
@@ -73,4 +73,27 @@ PARAM_DEFINE_FLOAT(FM_VEL_DAMP, 1.2f);
  * @increment 0.5
  * @group FlightTaskFollowMe
  */
-PARAM_DEFINE_FLOAT(FM_VEL_MAX_DN, 3.0f);
+PARAM_DEFINE_FLOAT(FM_VEL_MAX_DN, 20.0f);
+
+/**
+ * FollowMe pilot roll/pitch nudge authority (operator-in-the-loop)
+ *
+ * Lets the pilot's roll/pitch sticks add a bounded offset ON TOP of the tracker's
+ * autonomous horizontal steering in FOLLOW_ME, for fine manual aim corrections
+ * (operator-guided / "OGL" style) without leaving the mode. The expo-shaped stick
+ * value (gentle near center) is scaled by this gain and added to the normalized
+ * tracker (pitch, roll) intent, then clamped to the [-1, 1] stick range before the
+ * usual tilt rescale to MPC_TILTMAX_AIR. So this is the fraction of full manual tilt
+ * authority the sticks may contribute: e.g. 0.3 = up to 30% of a full-stick tilt of
+ * nudge, layered on the tracker command.
+ *
+ * 0 = disabled: pure tracker steering, the pilot's roll/pitch sticks are ignored
+ * (the throttle stick remains blocked separately; see kBlockRcVerticalOverride).
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group FlightTaskFollowMe
+ */
+PARAM_DEFINE_FLOAT(FM_PR_NUDGE, 0.0f);
