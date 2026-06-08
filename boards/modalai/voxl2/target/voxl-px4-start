@@ -100,6 +100,16 @@ DPS_BARO_DETECTED=0
 #	DPS_BARO_DETECTED=1
 #fi
 
+# Attempt to start DPS baro on the M0226 if it is available
+if (( EXTERNAL_BAROMETER == 0 )); then
+	/bin/echo "Looking for external DPS368 barometer on M0226 (i2c-4)"
+	if dps310 start -X -b 4; then
+		/bin/echo "Detected external DPS368 barometer on M0226 (i2c-4)"
+		EXTERNAL_BAROMETER=1
+		DPS_BARO_DETECTED=1
+	fi
+fi
+
 # If no DSP barometer, look for external barometers connected to the apps proc
 if (( EXTERNAL_BAROMETER == 0 )); then
 	/bin/echo "Looking for external DPS368 barometer"
