@@ -597,7 +597,7 @@ void EstimatorChecks::checkEstimatorStatusFlags(const Context &context, Report &
 		}
 
 		// Mag fault no longer blocks arming. EKF falls back to GSF yaw when mag faults,
-		// and mag_control.cpp can auto-recover the fault once innovations are healthy again.
+		// and the fault persists until reboot (no auto-recovery).
 
 		if (estimator_status_flags.cs_gps_yaw_fault) {
 			/* EVENT
