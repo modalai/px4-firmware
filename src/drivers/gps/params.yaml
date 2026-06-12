@@ -95,7 +95,7 @@ parameters:
           Enable publication of satellite info (ORB_ID(satellite_info)) if possible.
           Not available on MTK.
       type: boolean
-      default: 0
+      default: 1
       reboot_required: true
     GPS_UBX_MODE:
       description:
