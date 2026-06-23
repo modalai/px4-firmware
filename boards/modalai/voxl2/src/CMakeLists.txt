@@ -96,6 +96,10 @@ if("${PX4_PLATFORM}" STREQUAL "qurt")
 	add_subdirectory(${PX4_BOARD_DIR}/src/drivers/qurt/dsp_sbus dsp_sbus)
 	add_subdirectory(${PX4_BOARD_DIR}/src/drivers/qurt/elrs_led elrs_led)
 
+	if(CONFIG_DRIVERS_VIRTUALSERIAL)
+		add_subdirectory(${PX4_BOARD_DIR}/src/drivers/qurt/virtual_serial_endpoint virtual_serial_endpoint)
+	endif()
+
 elseif("${PX4_PLATFORM}" STREQUAL "posix")
 	# Add custom drivers
 	add_subdirectory(${PX4_BOARD_DIR}/src/drivers/posix/apps_sbus apps_sbus)
