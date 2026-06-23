@@ -214,6 +214,10 @@ if [ "$RC" == "FAKE_RC_INPUT" ]; then
 elif [ "$RC" == "CRSF_RAW" ]; then
     /bin/echo "Starting CRSF RC driver"
     qshell crsf_rc start -d 7
+elif [ "$RC" == "ELRS_MAVLINK" ]; then
+    /bin/echo "Starting ELRS Mavlink driver"
+    qshell virtual_serial_endpoint start -p 7 -v 100
+    # qshell virtual_serial_endpoint start -p 2 -b 115200 -v 100
 elif [ "$RC" == "CRSF_MAV" ]; then
     /bin/echo "Starting TBS crossfire RC - MAV Mode"
     qshell mavlink_rc_in start -m -p 7 -b 115200
@@ -324,6 +328,12 @@ mavlink stream -u 14556 -s HEARTBEAT -r 10
 
 # start the slow normal mode for voxl-mavlink-server to forward to GCS
 mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
+
+# Start another Mavlink instance if we are getting Mavlink directly via ELRS
+if [ "$RC" == "ELRS_MAVLINK" ]; then
+    /bin/echo "Starting Mavlink instance for external ELRS driver"
+    mavlink start -x -u 14660 -o 14661 -r 100000 -n lo
+fi
 
 mavlink boot_complete
 
