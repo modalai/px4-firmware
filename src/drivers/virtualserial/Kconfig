@@ -1,0 +1,8 @@
+menuconfig DRIVERS_VIRTUALSERIAL
+	bool "virtualserial"
+	default n
+	---help---
+		Enable the virtualserial bridge for MAVLink SERIAL_CONTROL
+		devices 100 through 109. Incoming MAVLink data is published on
+		VirtualSerialTransmit and replies are accepted on
+		VirtualSerialReceive.
