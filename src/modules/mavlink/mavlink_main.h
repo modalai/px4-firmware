@@ -724,6 +724,8 @@ private:
 
 	void handleSerialPassthroughOutput();
 
+	void handleVirtualSerialOutput();
+
 	/**
 	 * Reconfigure a SiK radio if requested by MAV_SIK_RADIO_ID
 	 *
