@@ -72,7 +72,7 @@ static constexpr int VSE_TASK_STACK_SIZE = 2000;
 
 static char _port[16] {};
 static uint8_t _device_id{VSE_DEVICE_MIN};
-static uint32_t _baudrate{115200};
+static uint32_t _baudrate{420000};
 static int _uart_fd{-1};
 static orb_advert_t _rx_pub{nullptr};
 static px4_task_t _task_handle{-1};
