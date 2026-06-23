@@ -1490,6 +1490,24 @@ tone_alarm <command> [arguments...]
    status        print status info
 ```
 
+## virtualserial
+
+Source: [drivers/virtualserial](https://github.com/PX4/PX4-Autopilot/tree/main/src/drivers/virtualserial)
+
+### Description
+
+Virtual serial bridge for MAVLink SERIAL_CONTROL devices 100 through 109.
+Incoming SERIAL_CONTROL packets are published as VirtualSerialTransmit.
+VirtualSerialReceive packets are returned as SERIAL_CONTROL replies.
+
+### Usage {#virtualserial_usage}
+
+```
+virtualserial <command> [arguments...]
+ Commands:
+   status
+```
+
 ## uwb
 
 Source: [drivers/uwb/uwb_sr150](https://github.com/PX4/PX4-Autopilot/tree/main/src/drivers/uwb/uwb_sr150)
