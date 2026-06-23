@@ -290,7 +290,10 @@ mavlink stream -u 14556 -s SCALED_PRESSURE -r 10
 mavlink stream -u 14556 -s HEARTBEAT -r 10
 
 # start the slow normal mode for voxl-mavlink-server to forward to GCS
-mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
+# mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
+
+# mavlink start -x -u 14660 -o 14661 -r 100000 -n lo -m onboard -t 127.0.0.1
+mavlink start -x -u 14660 -o 14661 -r 100000 -n lo
 
 mavlink boot_complete
 
@@ -336,3 +339,5 @@ then
 	LOGGER_ARGS="-a"
 fi
 logger start $LOGGER_ARGS
+
+qshell virtual_serial_endpoint start -p 2 -b 115200 -v 100
