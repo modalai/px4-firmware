@@ -287,6 +287,13 @@ set(msg_files
 )
 list(SORT msg_files)
 
+if(CONFIG_DRIVERS_VIRTUALSERIAL)
+	list(APPEND msg_files
+		VirtualSerialReceive.msg
+		VirtualSerialTransmit.msg
+	)
+endif()
+
 if(CONFIG_MODULES_VISION_TARGET_ESTIMATOR)
 	list(APPEND msg_files
 		TargetGnss.msg

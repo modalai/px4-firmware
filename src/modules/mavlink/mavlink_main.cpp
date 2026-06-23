@@ -65,6 +65,10 @@
 #include <drivers/serialpassthrough/serialpassthrough.hpp>
 #endif
 
+#ifdef CONFIG_DRIVERS_VIRTUALSERIAL
+#include <drivers/virtualserial/virtualserial.hpp>
+#endif
+
 #ifdef MAVLINK_UDP
 #include <sys/time.h>
 #endif
@@ -2524,6 +2528,7 @@ Mavlink::task_main(int argc, char *argv[])
 		handleAndGetCurrentCommandAck();
 		handleMavlinkShellOutput();
 		handleSerialPassthroughOutput();
+		handleVirtualSerialOutput();
 
 		check_requested_subscriptions();
 
@@ -2727,6 +2732,33 @@ void Mavlink::handleSerialPassthroughOutput()
 			msg.device = device;
 			mavlink_msg_serial_control_send_struct(get_channel(), &msg);
 		}
+	}
+
+#endif
+}
+
+void Mavlink::handleVirtualSerialOutput()
+{
+#ifdef CONFIG_DRIVERS_VIRTUALSERIAL
+	mavlink_serial_control_t msg{};
+	msg.baudrate = 0;
+	msg.timeout = 0;
+	msg.flags = SERIAL_CONTROL_FLAG_REPLY;
+
+	uint8_t sysid, compid, device;
+
+	while (get_free_tx_buf() >= MAVLINK_MSG_ID_SERIAL_CONTROL_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) {
+		const size_t n = VirtualSerial::popToMavlink(msg.data, sizeof(msg.data), &sysid, &compid, &device,
+				 (uint8_t)get_channel());
+
+		if (n == 0) { break; }
+
+		PX4_DEBUG("handleVirtualSerialOutput: sending %zu bytes", n);
+		msg.count = n;
+		msg.device = device;
+		msg.target_system = sysid;
+		msg.target_component = compid;
+		mavlink_msg_serial_control_send_struct(get_channel(), &msg);
 	}
 
 #endif
