@@ -288,6 +288,13 @@ set(msg_files
 )
 list(SORT msg_files)
 
+if(CONFIG_DRIVERS_VIRTUALSERIAL)
+	list(APPEND msg_files
+		VirtualSerialReceive.msg
+		VirtualSerialTransmit.msg
+	)
+endif()
+
 px4_list_make_absolute(msg_files ${CMAKE_CURRENT_SOURCE_DIR} ${msg_files})
 
 if(NOT EXTERNAL_MODULES_LOCATION STREQUAL "")
