@@ -2740,7 +2740,7 @@ void Mavlink::handleSerialPassthroughOutput()
 void Mavlink::handleVirtualSerialOutput()
 {
 #ifdef CONFIG_DRIVERS_VIRTUALSERIAL
-	mavlink_serial_control_t msg{};
+	mavlink_serial_control_t msg {};
 	msg.baudrate = 0;
 	msg.timeout = 0;
 	msg.flags = SERIAL_CONTROL_FLAG_REPLY;

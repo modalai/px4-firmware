@@ -55,8 +55,8 @@
 #include <unistd.h>
 
 extern "C" {
-__EXPORT int virtual_serial_endpoint_main(int argc, char *argv[]);
-__EXPORT int fc_uart_rx_available(int fd, uint32_t *data);
+	__EXPORT int virtual_serial_endpoint_main(int argc, char *argv[]);
+	__EXPORT int fc_uart_rx_available(int fd, uint32_t *data);
 }
 
 namespace virtual_serial_endpoint
@@ -68,7 +68,7 @@ static constexpr size_t VSE_DATA_LEN = 70;
 static constexpr int VSE_UART_READ_WAIT_US = 500;
 static constexpr int VSE_TASK_STACK_SIZE = 2000;
 
-static char _port[16]{};
+static char _port[16] {};
 static uint8_t _device_id{VSE_DEVICE_MIN};
 static uint32_t _baudrate{115200};
 static int _uart_fd{-1};
@@ -82,7 +82,7 @@ static volatile bool _is_running{false};
 static volatile bool _worker_active{false};
 
 static uint16_t _rx_sequence{0};
-static uint8_t _read_buf[VSE_DATA_LEN]{};
+static uint8_t _read_buf[VSE_DATA_LEN] {};
 
 static uint32_t _virtual_tx_packets{0};
 static uint32_t _virtual_tx_bytes{0};
@@ -114,7 +114,7 @@ static bool ensure_tx_subscription()
 
 static void print_uart_rx(const uint8_t *data, size_t len)
 {
-	char hex[24]{};
+	char hex[24] {};
 	static constexpr char nibble_to_hex[] = "0123456789abcdef";
 	const size_t bytes_to_print = len < 8 ? len : 8;
 	size_t offset = 0;

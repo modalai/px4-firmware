@@ -72,7 +72,7 @@ private:
 		uint8_t channel{255};
 		uint16_t tx_sequence{0};
 
-		uint8_t rx_buf[VS_RX_BUF_SIZE]{};
+		uint8_t rx_buf[VS_RX_BUF_SIZE] {};
 		size_t rx_len{0};
 
 		uint32_t tx_published{0};
@@ -283,7 +283,7 @@ private:
 	pthread_mutex_t _mutex;
 	uORB::Publication<virtual_serial_transmit_s> _tx_pub{ORB_ID(virtual_serial_transmit)};
 	uORB::Subscription _rx_sub{ORB_ID(virtual_serial_receive)};
-	PortState _ports[VS_DEVICE_COUNT]{};
+	PortState _ports[VS_DEVICE_COUNT] {};
 	uint32_t _rx_dropped_bad_device{0};
 };
 
