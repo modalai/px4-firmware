@@ -220,6 +220,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic_multi("sensor_baro", 1000, 4);
 	add_topic_multi("sensor_gps", 1000, 2);
 	add_topic_multi("sensor_gnss_relative", 1000, 1);
+	add_topic_multi("satellite_info", 0, 2);
 	add_optional_topic_multi("sensor_gyro", 1000, 4);
 	add_topic_multi("sensor_mag", 1000, 4);
 	// add_topic_multi("sensor_optical_flow", 1000, 2);
@@ -339,6 +340,10 @@ void LoggedTopics::add_debug_topics()
 	add_topic("mag_worker_data");
 	add_topic("sensor_preflight_mag", 500);
 	add_topic("actuator_test", 500);
+
+	// High-rate mag logging for mag-comp diagnostics
+	add_topic_multi("sensor_mag", 0, 4);
+	add_optional_topic_multi("vehicle_magnetometer", 0, 4);
 }
 
 void LoggedTopics::add_estimator_replay_topics()

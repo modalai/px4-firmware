@@ -79,7 +79,7 @@ PARAM_DEFINE_INT32(GPS_UBX_DYNMODEL, 7);
  * @reboot_required true
  * @group GPS
  */
-PARAM_DEFINE_INT32(GPS_SAT_INFO, 0);
+PARAM_DEFINE_INT32(GPS_SAT_INFO, 1);
 
 /**
  * u-blox GPS Mode

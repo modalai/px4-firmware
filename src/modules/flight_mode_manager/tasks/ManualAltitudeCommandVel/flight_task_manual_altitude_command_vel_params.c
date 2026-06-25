@@ -44,3 +44,37 @@
  * @group FlightTask
  */
 PARAM_DEFINE_FLOAT(FLGT_VZ_MAX, 1.0f);
+
+/**
+ * Vertical velocity setpoint slew limit (climb)
+ *
+ * Maximum rate of change (acceleration) applied to the commanded vertical
+ * velocity setpoint while climbing. This prevents abrupt throttle stick
+ * movements from producing a step in the velocity setpoint.
+ * Set to 0 to disable the slew limit.
+ *
+ * @unit m/s^2
+ * @min 0.0
+ * @max 100.0
+ * @increment 0.01
+ * @decimal 3
+ * @group FlightTask
+ */
+PARAM_DEFINE_FLOAT(FLGT_ACC_LIM_UP, 0.0f);
+
+/**
+ * Vertical velocity setpoint slew limit (descent)
+ *
+ * Maximum rate of change (acceleration) applied to the commanded vertical
+ * velocity setpoint while descending. This prevents slamming the throttle
+ * stick down from instantly cutting power to the motors.
+ * Set to 0 to disable the slew limit.
+ *
+ * @unit m/s^2
+ * @min 0.0
+ * @max 100.0
+ * @increment 0.01
+ * @decimal 3
+ * @group FlightTask
+ */
+PARAM_DEFINE_FLOAT(FLGT_ACC_LIM_DN, 0.0f);
