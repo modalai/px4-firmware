@@ -50,6 +50,7 @@
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/actuator_test.h>
 #include <uORB/topics/mavlink_tunnel.h>
+#include <uORB/topics/input_rc.h>
 
 #include "voxl_esc_serial.hpp"
 
@@ -134,7 +135,8 @@ private:
 
 	static constexpr uint16_t VOXL_ESC_NUM_INIT_RETRIES = 3;
 
-	static constexpr float    VOXL_ESC_GPIO_CTL_DISABLED_SETPOINT = -0.1f;
+	// static constexpr float    VOXL_ESC_GPIO_CTL_DISABLED_SETPOINT = -0.1f;
+	static constexpr int32_t	VOXL_ESC_GPIO_HSYT_US = 10;
 	static constexpr float    VOXL_ESC_GPIO_CTL_THRESHOLD = 0.0f;
 
 	static constexpr uint32_t VOXL_ESC_GPIO_CTL_AUX1 = 1;
@@ -171,7 +173,10 @@ private:
 		int32_t		publish_battery_status{0};
 		int32_t		esc_warn_temp_threshold{0};
 		int32_t		esc_over_temp_threshold{0};
-		int32_t		gpio_ctl_channel{0};
+		// int32_t		gpio_ctl_channel{0};
+		int32_t		gpio_rc_channel{-1};
+		int32_t		gpio_pwm_min{-1};
+		int32_t 	gpio_pwm_max{-1};
 		int32_t		cmd_type{0};
 	} voxl_esc_params_t;
 
@@ -218,6 +223,7 @@ private:
 	uORB::Subscription	_actuator_test_sub{ORB_ID(actuator_test)};
 	uORB::Subscription	_led_update_sub{ORB_ID(led_control)};
 	uORB::Subscription	_esc_serial_passthru_sub{ORB_ID(esc_serial_passthru)};
+	uORB::Subscription	_input_rc_sub{ORB_ID(input_rc)};
 
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};

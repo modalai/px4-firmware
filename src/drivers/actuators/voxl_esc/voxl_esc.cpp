@@ -307,7 +307,11 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 	param_get(param_find("VOXL_ESC_T_WARN"), &params->esc_warn_temp_threshold);
 	param_get(param_find("VOXL_ESC_T_OVER"), &params->esc_over_temp_threshold);
 
-	param_get(param_find("GPIO_CTL_CH"), &params->gpio_ctl_channel);
+	//param_get(param_find("GPIO_CTL_CH"), &params->gpio_ctl_channel);
+
+	param_get(param_find("VOXL_ESC_GPIO_RC"), &params->gpio_rc_channel);
+	param_get(param_find("VOXL_ESC_GPIO_MN"), &params->gpio_pwm_min);
+	param_get(param_find("VOXL_ESC_GPIO_MX"), &params->gpio_pwm_max);
 
 	param_get(param_find("VOXL_ESC_CMD"), &params->cmd_type);
 
@@ -357,10 +361,25 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 		ret = PX4_ERROR;
 	}
 
+	/*
 	if (params->gpio_ctl_channel < 0 || params->gpio_ctl_channel > 6) {
 		PX4_ERR("Invalid parameter GPIO_CTL_CH.  Please verify parameters.");
 		params->gpio_ctl_channel = 0;
 		ret = PX4_ERROR;
+	}
+	*/
+
+	const bool rc_set 	= (params->gpio_rc_channel >= 1 && params->gpio_rc_channel <= 16);
+	const bool pmin_set	= (params->gpio_pwm_min >= 900 && params->gpio_pwm_min <= 2100);
+	const bool pmax_set	= (params->gpio_pwm_max >= 900 && params->gpio_pwm_max <= 2100);
+	const bool gpio_ctl_valid = (rc_set && pmin_set && pmax_set);
+
+	if (!gpio_ctl_valid) {
+		PX4_ERR("Invalid GPIO control parameters. To enable GPIO control, set GPIO_RC_CHANNEL to a valid RC channel (1-16) and set GPIO_PWM_MIN/MAX to valid PWM values (900-2100).  Please verify parameters.");
+		params->gpio_rc_channel = -1;
+	} else if (params->gpio_pwm_max - params->gpio_pwm_min < 2 * VOXL_ESC_GPIO_HSYT_US) {
+		PX4_ERR("Invalid GPIO PWM range. The difference between GPIO_PWM_MAX and GPIO_PWM_MIN must be at least %d us to account for hysteresis.  Please verify parameters.", 2 * VOXL_ESC_GPIO_HSYT_US);
+		params->gpio_rc_channel = -1;
 	}
 
 	for (int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
@@ -1547,6 +1566,7 @@ void VoxlEsc::Run()
 		}
 
 		// check if gpio control is enabled
+		/*
 		if (_parameters.gpio_ctl_channel > 0) {
 
 			_gpio_ctl_en = true;
@@ -1580,6 +1600,39 @@ void VoxlEsc::Run()
 			}
 
 		}
+		*/
+
+		if (_parameters.gpio_rc_channel > 0) {
+			_gpio_ctl_en = true;
+
+			input_rc_s rc;
+			const bool have_rc = _input_rc_sub.copy(&rc);
+
+			if (have_rc
+				&& !rc.rc_lost
+				&& rc.channel_count >= _parameters.gpio_rc_channel) {
+				
+				const uint16_t pwm = rc.values[_parameters.gpio_rc_channel - 1];
+				const int32_t low = _parameters.gpio_pwm_min;
+				const int32_t high = _parameters.gpio_pwm_max;
+
+				if (_gpio_ctl_high) {
+					if (pwm > high || pwm < low) {
+						_gpio_ctl_high = false;
+					}
+				} else {
+					if (pwm <= high && pwm >= low) {
+						_gpio_ctl_high = true;
+					}
+				}
+				PX4_INFO("Channel %d PWM: %d, GPIO control: %s", _parameters.gpio_rc_channel, (int)pwm, _gpio_ctl_high ? "HIGH" : "LOW");
+			}
+			else {
+				PX4_WARN("No RC input or channel count less than configured GPIO RC channel");
+			}
+			
+		}
+
 	}
 
 	if (!_outputs_on) {
@@ -1733,7 +1786,11 @@ void VoxlEsc::print_params()
 	PX4_INFO("Params: VOXL_ESC_T_WARN: %" PRId32, _parameters.esc_warn_temp_threshold);
 	PX4_INFO("Params: VOXL_ESC_T_OVER: %" PRId32, _parameters.esc_over_temp_threshold);
 
-	PX4_INFO("Params: GPIO_CTL_CH: %" PRId32, _parameters.gpio_ctl_channel);
+	// PX4_INFO("Params: GPIO_CTL_CH: %" PRId32, _parameters.gpio_ctl_channel);
+
+	PX4_INFO("Params: VOXL_ESC_GPIO_RC: %" PRId32, _parameters.gpio_rc_channel);
+	PX4_INFO("Params: VOXL_ESC_GPIO_MN: %" PRId32, _parameters.gpio_pwm_min);
+	PX4_INFO("Params: VOXL_ESC_GPIO_MX: %" PRId32, _parameters.gpio_pwm_max);
 
 	PX4_INFO("Params: VOXL_ESC_CMD: %" PRId32, _parameters.cmd_type);
 }

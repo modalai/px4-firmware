@@ -286,7 +286,43 @@ PARAM_DEFINE_INT32(VOXL_ESC_T_ON, 9);
  * @min 0
  * @max 6
  */
-PARAM_DEFINE_INT32(GPIO_CTL_CH, 0);
+// PARAM_DEFINE_INT32(GPIO_CTL_CH, 0);
+
+/**
+ * GPIO RC Channel index
+ * 
+ * -1 disables this feature
+ * 
+ * @group VOXL ESC
+ * @min -1
+ * @max 18
+ */
+PARAM_DEFINE_INT32(VOXL_ESC_GPIO_RC, -1);
+
+/**
+ * Lower PWM Bound for in-range window for GPIO control
+ * 
+ * Feature inert until set to a positive value
+ * 
+ * @group VOXL ESC
+ * @unit us
+ * @min -1
+ * @max 2100
+ */
+PARAM_DEFINE_INT32(VOXL_ESC_GPIO_MN, -1);
+
+/**
+ * Upper PWM Bound for in-range window for GPIO control
+ * 
+ * Must be set higher than VOXL_ESC_GPIO_PMIN by 20us for valid window.
+ * Feature inert until set to a positive value
+ * 
+ * @group VOXL ESC
+ * @unit us
+ * @min -1
+ * @max 2100
+ */
+PARAM_DEFINE_INT32(VOXL_ESC_GPIO_MX, -1);
 
 /**
  * UART ESC command type
