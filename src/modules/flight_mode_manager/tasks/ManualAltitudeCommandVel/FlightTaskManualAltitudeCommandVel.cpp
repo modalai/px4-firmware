@@ -69,6 +69,7 @@ bool FlightTaskManualAltitudeCommandVel::activate(const trajectory_setpoint_s &l
 	_last_position = _position;			// initialize loop to assume we're stable
 	_position_setpoint(2) = NAN;
 	_velocity_setpoint(2) = 0.f;
+	_vel_z_slew.setForcedValue(0.f);		// match the initial velocity setpoint; avoids seeding from a bad estimate
 	_setDefaultConstraints();
 
 	return ret;
@@ -82,7 +83,21 @@ void FlightTaskManualAltitudeCommandVel::_scaleSticks()
 
 	// Use sticks input with deadzone and exponential curve for vertical velocity
 	const float vel_max_z = (_sticks.getThrottleZeroCentered() < 0.0f) ? _constraints.speed_down : _constraints.speed_up;
-	_velocity_setpoint(2) = vel_max_z * -_sticks.getThrottleZeroCenteredExpo();
+	const float vz_target = vel_max_z * -_sticks.getThrottleZeroCenteredExpo();
+
+	// Optionally slew-rate limit the vertical velocity setpoint so abrupt throttle
+	// stick movements do not produce a step in commanded vertical velocity.
+	const float accel_limit = (vz_target < _vel_z_slew.getState()) ? _param_flgt_acc_lim_up.get() :
+				  _param_flgt_acc_lim_dn.get();
+
+	if (accel_limit > FLT_EPSILON) {
+		_vel_z_slew.setSlewRate(accel_limit);
+		_velocity_setpoint(2) = _vel_z_slew.update(vz_target, _deltatime);
+
+	} else {
+		_vel_z_slew.setForcedValue(vz_target);
+		_velocity_setpoint(2) = vz_target;
+	}
 }
 
 float FlightTaskManualAltitudeCommandVel::_applyYawspeedFilter(float yawspeed_target)
