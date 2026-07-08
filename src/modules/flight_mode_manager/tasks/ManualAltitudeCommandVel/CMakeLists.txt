@@ -34,6 +34,7 @@
 px4_add_library(FlightTaskManualAltitudeCommandVel
 	FlightTaskManualAltitudeCommandVel.cpp
 )
+set_property(GLOBAL APPEND PROPERTY PX4_MODULE_CONFIG_FILES ${CMAKE_CURRENT_SOURCE_DIR}/flight_task_manual_altitude_command_vel_params.yaml)
 
-target_link_libraries(FlightTaskManualAltitudeCommandVel PUBLIC FlightTask FlightTaskUtility Sticks)
+target_link_libraries(FlightTaskManualAltitudeCommandVel PUBLIC FlightTask FlightTaskUtility Sticks SlewRate)
 target_include_directories(FlightTaskManualAltitudeCommandVel PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
