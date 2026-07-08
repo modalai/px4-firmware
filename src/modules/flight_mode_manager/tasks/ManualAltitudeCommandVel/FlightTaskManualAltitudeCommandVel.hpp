@@ -42,6 +42,7 @@
 #include "FlightTask.hpp"
 #include <lib/sticks/Sticks.hpp>
 #include <lib/mathlib/math/filter/AlphaFilter.hpp>
+#include <lib/slew_rate/SlewRate.hpp>
 #include <uORB/Subscription.hpp>
 
 class FlightTaskManualAltitudeCommandVel : public FlightTask
@@ -70,7 +71,9 @@ protected:
 					(ParamFloat<px4::params::MPC_MAN_Y_MAX>) _param_mpc_man_y_max, /**< scaling factor from stick to yaw rate */
 					(ParamFloat<px4::params::MPC_MAN_Y_TAU>) _param_mpc_man_y_tau,
 					(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) _param_mpc_man_tilt_max, /**< maximum tilt allowed for manual flight */
-					(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau
+					(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau,
+					(ParamFloat<px4::params::FLGT_ACC_LIM_UP>) _param_flgt_acc_lim_up, /**< slew limit on climb velocity setpoint; 0 disables */
+					(ParamFloat<px4::params::FLGT_ACC_LIM_DN>) _param_flgt_acc_lim_dn /**< slew limit on descent velocity setpoint; 0 disables */
 				       )
 private:
 
@@ -87,4 +90,6 @@ private:
 	matrix::Vector3f _last_position; /**< last loop's vehicle position */
 
 	AlphaFilter<matrix::Vector2f> _man_input_filter;
+
+	SlewRate<float> _vel_z_slew; /**< slew-rate limiter for the vertical velocity setpoint */
 };
