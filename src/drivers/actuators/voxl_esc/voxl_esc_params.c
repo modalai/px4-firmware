@@ -276,19 +276,6 @@ PARAM_DEFINE_INT32(VOXL_ESC_T_OVER, 0);
 PARAM_DEFINE_INT32(VOXL_ESC_T_ON, 9);
 
 /**
- * GPIO Control Channel
- *
- *
- * @reboot_required true
- *
- * @group VOXL_ESC
- * @value 0 - Disabled
- * @min 0
- * @max 6
- */
-// PARAM_DEFINE_INT32(GPIO_CTL_CH, 0);
-
-/**
  * GPIO RC Channel index
  * 
  * -1 disables this feature

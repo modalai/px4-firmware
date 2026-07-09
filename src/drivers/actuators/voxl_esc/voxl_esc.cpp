@@ -307,8 +307,6 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 	param_get(param_find("VOXL_ESC_T_WARN"), &params->esc_warn_temp_threshold);
 	param_get(param_find("VOXL_ESC_T_OVER"), &params->esc_over_temp_threshold);
 
-	//param_get(param_find("GPIO_CTL_CH"), &params->gpio_ctl_channel);
-
 	param_get(param_find("VOXL_ESC_GPIO_RC"), &params->gpio_rc_channel);
 	param_get(param_find("VOXL_ESC_GPIO_MN"), &params->gpio_pwm_min);
 	param_get(param_find("VOXL_ESC_GPIO_MX"), &params->gpio_pwm_max);
@@ -361,25 +359,19 @@ int VoxlEsc::load_params(voxl_esc_params_t *params, ch_assign_t *map)
 		ret = PX4_ERROR;
 	}
 
-	/*
-	if (params->gpio_ctl_channel < 0 || params->gpio_ctl_channel > 6) {
-		PX4_ERR("Invalid parameter GPIO_CTL_CH.  Please verify parameters.");
-		params->gpio_ctl_channel = 0;
-		ret = PX4_ERROR;
-	}
-	*/
+	if (params->gpio_rc_channel != -1) {
+		const bool rc_set 	= (params->gpio_rc_channel >= 1 && params->gpio_rc_channel <= 16);
+		const bool pmin_set	= (params->gpio_pwm_min >= 1000 && params->gpio_pwm_min <= 2000);
+		const bool pmax_set	= (params->gpio_pwm_max >= 1000 && params->gpio_pwm_max <= 2000);
+		const bool gpio_ctl_valid = (rc_set && pmin_set && pmax_set);
 
-	const bool rc_set 	= (params->gpio_rc_channel >= 1 && params->gpio_rc_channel <= 16);
-	const bool pmin_set	= (params->gpio_pwm_min >= 900 && params->gpio_pwm_min <= 2100);
-	const bool pmax_set	= (params->gpio_pwm_max >= 900 && params->gpio_pwm_max <= 2100);
-	const bool gpio_ctl_valid = (rc_set && pmin_set && pmax_set);
-
-	if (!gpio_ctl_valid) {
-		PX4_ERR("Invalid GPIO control parameters. To enable GPIO control, set GPIO_RC_CHANNEL to a valid RC channel (1-16) and set GPIO_PWM_MIN/MAX to valid PWM values (900-2100).  Please verify parameters.");
-		params->gpio_rc_channel = -1;
-	} else if (params->gpio_pwm_max - params->gpio_pwm_min < 2 * VOXL_ESC_GPIO_HSYT_US) {
-		PX4_ERR("Invalid GPIO PWM range. The difference between GPIO_PWM_MAX and GPIO_PWM_MIN must be at least %d us to account for hysteresis.  Please verify parameters.", 2 * VOXL_ESC_GPIO_HSYT_US);
-		params->gpio_rc_channel = -1;
+		if (!gpio_ctl_valid) {
+			PX4_ERR("Invalid GPIO control parameters. To enable GPIO control, set GPIO_RC_CHANNEL to a valid RC channel (1-16) and set GPIO_PWM_MIN/MAX to valid PWM values (1000-2000).  Please verify parameters.");
+			params->gpio_rc_channel = -1;
+		} else if (params->gpio_pwm_max - params->gpio_pwm_min < 2 * VOXL_ESC_GPIO_HSYT_US) {
+			PX4_ERR("Invalid GPIO PWM range. The difference between GPIO_PWM_MAX and GPIO_PWM_MIN must be at least %d us to account for hysteresis.  Please verify parameters.", 2 * VOXL_ESC_GPIO_HSYT_US);
+			params->gpio_rc_channel = -1;
+		}
 	}
 
 	for (int i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
@@ -1565,42 +1557,6 @@ void VoxlEsc::Run()
 
 		}
 
-		// check if gpio control is enabled
-		/*
-		if (_parameters.gpio_ctl_channel > 0) {
-
-			_gpio_ctl_en = true;
-			float gpio_setpoint = VOXL_ESC_GPIO_CTL_DISABLED_SETPOINT;
-
-			switch (_parameters.gpio_ctl_channel) {
-				case VOXL_ESC_GPIO_CTL_AUX1:
-					gpio_setpoint = _manual_control_setpoint.aux1;
-					break;
-				case VOXL_ESC_GPIO_CTL_AUX2:
-					gpio_setpoint = _manual_control_setpoint.aux2;
-					break;
-				case VOXL_ESC_GPIO_CTL_AUX3:
-					gpio_setpoint = _manual_control_setpoint.aux3;
-					break;
-				case VOXL_ESC_GPIO_CTL_AUX4:
-					gpio_setpoint = _manual_control_setpoint.aux4;
-					break;
-				case VOXL_ESC_GPIO_CTL_AUX5:
-					gpio_setpoint = _manual_control_setpoint.aux5;
-					break;
-				case VOXL_ESC_GPIO_CTL_AUX6:
-					gpio_setpoint = _manual_control_setpoint.aux6;
-					break;
-			}
-
-			if (gpio_setpoint > VOXL_ESC_GPIO_CTL_THRESHOLD) {
-				_gpio_ctl_high = false;
-			} else {
-				_gpio_ctl_high = true;
-			}
-
-		}
-		*/
 
 		if (_parameters.gpio_rc_channel > 0) {
 			_gpio_ctl_en = true;
