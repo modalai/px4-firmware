@@ -78,7 +78,7 @@
 #define BOARD_I2C_BUS_CLOCK_INIT
 
 #define CONFIG_I2C 1
-#define PX4_NUMBER_I2C_BUSES    1
+#define PX4_NUMBER_I2C_BUSES    2
 
 #include <system_config.h>
 #include <px4_platform_common/board_common.h>
