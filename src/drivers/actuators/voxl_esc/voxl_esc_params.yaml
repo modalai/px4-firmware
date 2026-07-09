@@ -188,16 +188,34 @@ parameters:
       reboot_required: true
       min: 0
       max: 200
-    VOXL_ESC_GPIO_CH:
+    VOXL_ESC_GPIO_RC:
       description:
-        short: GPIO Control Channel
-      type: enum
-      values:
-        0: '- Disabled'
-      default: 0
-      reboot_required: true
-      min: 0
-      max: 6
+        short: GPIO RC Channel index
+        long: Set to -1 to disable GPIO control.
+      type: int32
+      default: -1
+      min: -1
+      max: 18
+    VOXL_ESC_GPIO_MN:
+      description:
+        short: Lower PWM Bound for in-range window for GPIO control
+        long: Feature inert until set to a positive value.
+      type: int32
+      default: -1
+      unit: us
+      min: -1
+      max: 2100
+    VOXL_ESC_GPIO_MX:
+      description:
+        short: Upper PWM Bound for in-range window for GPIO control
+        long: |-
+          Must be set higher than VOXL_ESC_GPIO_MN by 20us for valid window.
+          Feature inert until set to a positive value.
+      type: int32
+      default: -1
+      unit: us
+      min: -1
+      max: 2100
     VOXL_ESC_CMD:
       description:
         short: UART ESC command type
