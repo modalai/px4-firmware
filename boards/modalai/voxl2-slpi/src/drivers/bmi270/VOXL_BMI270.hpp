@@ -112,6 +112,12 @@ private:
 	// With 10-sample watermark (130 bytes), accel-only frames (7 bytes) = ~19 samples
 	static constexpr int32_t FIFO_MAX_SAMPLES{20};
 
+	// Combined accel+gyro FIFO frame: 1 byte header + 6 bytes gyro + 6 bytes accel
+	static constexpr uint16_t COMBINED_FRAME_SIZE{13};
+
+	// Read buffer payload capacity; every FIFO read must be clamped to this
+	static constexpr uint16_t FIFO_MAX_BYTES{FIFO_MAX_SAMPLES * COMBINED_FRAME_SIZE};
+
 	hrt_abstime _temperature_update_timestamp{0};
 
 	struct FIFOLengthReadBuffer
@@ -126,11 +132,11 @@ private:
 	{
 		uint8_t cmd{static_cast<uint8_t>(Register::FIFO_DATA) | DIR_READ};
 		uint8_t dummy{0};
-		FIFO::Data f[FIFO_MAX_SAMPLES]{};
+		uint8_t f[FIFO_MAX_BYTES]{};
 	};
 
 	// ensure no struct padding
-	static_assert(sizeof(FIFOReadBuffer) == (2 + FIFO_MAX_SAMPLES * sizeof(FIFO::Data)), "FIFOReadBuffer incorrect size");
+	static_assert(sizeof(FIFOReadBuffer) == (2 + FIFO_MAX_BYTES), "FIFOReadBuffer incorrect size");
 
 	struct register_config_t
 	{

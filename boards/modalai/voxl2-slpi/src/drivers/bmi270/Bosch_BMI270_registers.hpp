@@ -213,7 +213,10 @@ enum ACC_PWR_CTRL_BIT : uint8_t {
 
 namespace FIFO
 {
-static constexpr size_t SIZE = 1024;
+// Hardware FIFO capacity depends on the loaded config blob:
+// 6144 bytes with the stripped "maximum_fifo" config (feature RAM repurposed as FIFO),
+// 2048 bytes with a full feature-engine config
+static constexpr size_t SIZE = 6144;
 
 struct Data {
 	uint8_t x_lsb;

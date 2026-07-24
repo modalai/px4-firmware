@@ -498,10 +498,10 @@ void VOXL_BMI270::RunImpl()
 				// NOTE: this assumes you added `uint32_t samples = 0;` earlier in FIFO_READ and set it from
 				// _drdy_fifo_read_samples.fetch_and(0) like the ICM42688 pattern.
 				if (_data_ready_interrupt_enabled && (samples > 0)) {
-					const uint16_t expected_bytes = samples * 13;
-					const uint16_t watermark_threshold = (samples * 13) - 1;
-					// Safety limit: never read more than FIFO_MAX_SAMPLES worth of combined frames
-					const uint16_t max_safe_bytes = FIFO_MAX_SAMPLES * 13;
+					const uint16_t expected_bytes = samples * COMBINED_FRAME_SIZE;
+					const uint16_t watermark_threshold = (samples * COMBINED_FRAME_SIZE) - 1;
+					// Safety limit: never read more than the read buffer can hold
+					const uint16_t max_safe_bytes = FIFO_MAX_BYTES;
 
 					if (fifo_count >= watermark_threshold) {
 						if (_sensors_synchronized) {
@@ -825,8 +825,6 @@ void VOXL_BMI270::ConfigureFIFOWatermark(uint8_t samples)
 {
 	// FIFO_WTM: 13 bit FIFO watermark level value
 	// unit of the fifo watermark is one byte
-	// Combined frame size: 1 header + 6 gyro + 6 accel = 13 bytes
-	static constexpr uint16_t COMBINED_FRAME_SIZE = 13;
 	// Subtract 1 because watermark triggers when FIFO > threshold (not >=)
 	// So for 1 sample (13 bytes), set watermark to 12 to trigger at 13 bytes
 	const uint16_t fifo_watermark_threshold = (samples * COMBINED_FRAME_SIZE) - 1;
@@ -1039,6 +1037,11 @@ void VOXL_BMI270::ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *frame)
 {
 	const uint8_t samples = gyro->samples;
 
+	// during accel-only startup a full buffer holds more 7-byte frames than the message can take
+	if (samples >= (sizeof(gyro->x) / sizeof(gyro->x[0]))) {
+		return;
+	}
+
 	const int16_t gyro_x = combine(frame->x_msb, frame->x_lsb);
 	const int16_t gyro_y = combine(frame->y_msb, frame->y_lsb);
 	const int16_t gyro_z = combine(frame->z_msb, frame->z_lsb);
@@ -1055,6 +1058,11 @@ void VOXL_BMI270::ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *frame)
 void VOXL_BMI270::ProcessAccel(sensor_accel_fifo_s *accel, FIFO::Data *frame)
 {
 	const uint8_t samples = accel->samples;
+
+	// during accel-only startup a full buffer holds more 7-byte frames than the message can take
+	if (samples >= (sizeof(accel->x) / sizeof(accel->x[0]))) {
+		return;
+	}
 
 	const int16_t accel_x = combine(frame->x_msb, frame->x_lsb);
 	const int16_t accel_y = combine(frame->y_msb, frame->y_lsb);
@@ -1081,6 +1089,12 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	FIFOReadBuffer buffer{};
 
+	// The polling and drdy-missed paths pass the raw FIFO fill level,
+	// which can exceed the buffer; anything left over is picked up next cycle.
+	if (fifo_bytes > FIFO_MAX_BYTES) {
+		fifo_bytes = FIFO_MAX_BYTES;
+	}
+
 	// Reads from the FIFO_DATA register as much data as is available,
 	// plus 2 bytes for the sent command and dummy byte.
 	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, fifo_bytes + 2) != PX4_OK) {
@@ -1102,10 +1116,18 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 	unsigned fifo_buffer_index = 0; // start of buffer
 
 	while (fifo_buffer_index < fifo_bytes) {
+		const unsigned remaining = fifo_bytes - fifo_buffer_index;
+
 		// look for header signature (first 6 bits) followed by two bits indicating the status of INT1 and INT2
 		switch (data_buffer[fifo_buffer_index]) {
 		case ((uint8_t)FIFO::Header::sensor_accel_frame | (uint8_t)FIFO::Header::sensor_gyro_frame):
 			// Combined accel+gyro frame
+			if (remaining < 13) {
+				// partial frame; the unread portion stays in the sensor FIFO for the next read
+				fifo_buffer_index = fifo_bytes;
+				break;
+			}
+
 			fifo_buffer_index += 1;
 			VOXL_BMI270::ProcessGyro(&gyro_buffer, (FIFO::Data *)&data_buffer[fifo_buffer_index]);
 			fifo_buffer_index += 6;
@@ -1115,6 +1137,11 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 		case (uint8_t)FIFO::Header::sensor_gyro_frame:
 			// Gyro-only frame
+			if (remaining < 7) {
+				fifo_buffer_index = fifo_bytes;
+				break;
+			}
+
 			fifo_buffer_index += 1;
 			VOXL_BMI270::ProcessGyro(&gyro_buffer, (FIFO::Data *)&data_buffer[fifo_buffer_index]);
 			fifo_buffer_index += 6;
@@ -1122,6 +1149,11 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 		case (uint8_t)FIFO::Header::sensor_accel_frame:
 			// Accel-only frame
+			if (remaining < 7) {
+				fifo_buffer_index = fifo_bytes;
+				break;
+			}
+
 			fifo_buffer_index += 1;
 			VOXL_BMI270::ProcessAccel(&accel_buffer, (FIFO::Data *)&data_buffer[fifo_buffer_index]);
 			fifo_buffer_index += 6;
