@@ -89,7 +89,10 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 	innovation.copyTo(_aid_src_gravity.innovation);
 	innovation_variance.copyTo(_aid_src_gravity.innovation_variance);
 
-	float innovation_gate = 1.f;
+	// Gate must admit the large attitude errors that accumulate while this fusion
+	// is unavailable during maneuvers (|a| outside the 0.9-1.1g window); with a
+	// 1-sigma gate the filter cannot recover once the error exceeds ~asin(noise/g).
+	float innovation_gate = 4.f;
 	setEstimatorAidStatusTestRatio(_aid_src_gravity, innovation_gate);
 
 	_aid_src_gravity.fusion_enabled = _control_status.flags.gravity_vector;
