@@ -269,7 +269,9 @@ private:
 	uint8_t			_read_buf[READ_BUF_SIZE];
 
 	Battery			_battery;
-	static constexpr unsigned _battery_report_interval{20_ms};
+	// lowered 20ms->5ms so mag current-comp gets fresh current (publish cap only; ESC sends ~51Hz).
+	// do not set to 0: trips -Werror=type-limits
+	static constexpr unsigned _battery_report_interval{5_ms};
 	hrt_abstime		_last_battery_report_time;
 	hrt_abstime		_last_uart_passthru{0};
 

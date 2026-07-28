@@ -90,6 +90,7 @@ private:
 	bool Reset();
 	bool Configure();
 	bool RegisterCheck(const register_config_t &reg_cfg);
+	bool CollectData(const hrt_abstime &timestamp);
 
 	uint8_t RegisterRead(Register reg);
 	void RegisterWrite(Register reg, uint8_t value);
@@ -121,15 +122,28 @@ private:
 		READ_TRIM,
 		CONFIGURE,
 		READ,
+		FORCED_TRIGGER,
+		FORCED_COLLECT,
 	} _state{STATE::RESET};
+
+	// forced mode triggers each measurement and stamps it at the trigger, so the sample lines up
+	// with the current (normal mode free-runs and the timestamp drifts). false = stock 20Hz behaviour.
+	static constexpr bool FORCED_MODE{true};
+	static constexpr hrt_abstime FORCED_SAMPLE_INTERVAL{25000};  // 25 ms = 40 Hz (matches battery_status)
+	// must exceed the preset's measure time (regular nXY=9/nZ=15 ~= 9.8ms)
+	static constexpr hrt_abstime FORCED_MEASURE_TIME{13000};     // 13 ms
+	hrt_abstime _measurement_start{0};
 
 	uint8_t _checked_register{0};
 	static constexpr uint8_t size_register_cfg{4};
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register                | Set bits, Clear bits
 		{ Register::POWER_CONTROL, POWER_CONTROL_BIT::PowerControl, POWER_CONTROL_BIT::SoftReset },
-		{ Register::OP_MODE,       OP_MODE_BIT::ODR_20HZ_SET, OP_MODE_BIT::ODR_20HZ_CLEAR | OP_MODE_BIT::Opmode_Sleep | OP_MODE_BIT::Self_Test },
-		{ Register::REPXY,         REPXY_BIT::XY_HA_SET, REPXY_BIT::XY_HA_CLEAR },
-		{ Register::REPZ,          REPZ_BIT::Z_HA_SET, REPZ_BIT::Z_HA_CLEAR },
+		// forced mode leaves the opmode bits unasserted (pulsed per-measurement); normal clears Opmode_Sleep
+		{ Register::OP_MODE,       OP_MODE_BIT::ODR_20HZ_SET, (uint8_t)(OP_MODE_BIT::ODR_20HZ_CLEAR | OP_MODE_BIT::Self_Test | (FORCED_MODE ? 0 : OP_MODE_BIT::Opmode_Sleep)) },
+		// regular preset (nXY=9, nZ=15, ~10ms) not high-accuracy (~49ms): far less smearing of a fast
+		// field change, slightly more noise. Swap *_REG_* -> *_HA_* to restore high accuracy.
+		{ Register::REPXY,         REPXY_BIT::XY_REG_SET, REPXY_BIT::XY_REG_CLEAR },
+		{ Register::REPZ,          REPZ_BIT::Z_REG_SET, REPZ_BIT::Z_REG_CLEAR },
 	};
 };
