@@ -71,6 +71,11 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 	VectorState H;
 	sym::ComputeGravityXyzInnovVarAndHx(state_vector, P, measurement_var, &innovation_variance, &H);
 
+	// Use a wide gate to admit the large attitude errors that accumulate while
+	// this fusion is unavailable during maneuvers (|a| outside the 0.9-1.1g
+	// window), allowing the filter to recover when gravity fusion resumes.
+	const float innovation_gate = 4.f;
+
 	// fill estimator aid source status
 	updateAidSourceStatus(_aid_src_gravity,
 			      imu.time_us,                                                 // sample timestamp
@@ -78,7 +83,7 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 			      Vector3f{measurement_var, measurement_var, measurement_var}, // observation variance
 			      innovation,                                                  // innovation
 			      innovation_variance,                                         // innovation variance
-			      0.25f);                                                      // innovation gate
+			      innovation_gate);                                            // innovation gate
 
 	// update the states and covariance using sequential fusion
 	bool fused[3] {};
