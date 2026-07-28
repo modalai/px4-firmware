@@ -347,9 +347,16 @@ void BMM150::RunImpl()
 
 	case STATE::CONFIGURE:
 		if (Configure()) {
-			// if configure succeeded then start reading every 50 ms (20 Hz)
-			_state = STATE::READ;
-			ScheduleOnInterval(50_ms, 50_ms);
+			if (FORCED_MODE) {
+				// forced mode: trigger the first measurement; each one self-schedules the next
+				_state = STATE::FORCED_TRIGGER;
+				ScheduleDelayed(1_ms);
+
+			} else {
+				// free-running normal mode: read the data register every 50 ms (20 Hz)
+				_state = STATE::READ;
+				ScheduleOnInterval(50_ms, 50_ms);
+			}
 
 		} else {
 			// CONFIGURE not complete
@@ -367,53 +374,8 @@ void BMM150::RunImpl()
 		break;
 
 	case STATE::READ: {
-			struct TransferBuffer {
-				uint8_t DATAX_LSB;
-				uint8_t DATAX_MSB;
-				uint8_t DATAY_LSB;
-				uint8_t DATAY_MSB;
-				uint8_t DATAZ_LSB;
-				uint8_t DATAZ_MSB;
-				uint8_t RHALL_LSB;
-				uint8_t RHALL_MSB;
-				uint8_t STATUS;
-			} buffer{};
-
-			bool success = false;
-			// 0x42 to 0x4A with a burst read.
-			uint8_t cmd = static_cast<uint8_t>(Register::DATAX_LSB);
-
-			if (transfer(&cmd, 1, (uint8_t *)&buffer, sizeof(buffer)) == PX4_OK) {
-
-				int16_t x = combine_xy_int13(buffer.DATAX_MSB, buffer.DATAX_LSB);
-				int16_t y = combine_xy_int13(buffer.DATAY_MSB, buffer.DATAY_LSB);
-				int16_t z = combine_z_int15(buffer.DATAZ_MSB, buffer.DATAZ_LSB);
-				uint16_t rhall = combine_rhall_uint14(buffer.RHALL_MSB, buffer.RHALL_LSB);
-
-				const bool data_ready = buffer.RHALL_LSB & Bit0;
-
-				if (data_ready && (rhall != 0)) {
-					if ((buffer.STATUS & STATUS_BIT::Overflow) ||
-					    (x == OVERFLOW_XYAXES) || (y == OVERFLOW_XYAXES) || (z == OVERFLOW_ZAXIS)) {
-						// overflow ADC value, record error, but don't publish
-						perf_count(_overflow_perf);
-
-					} else {
-						_px4_mag.set_error_count(perf_event_count(_bad_register_perf)
-									 + perf_event_count(_bad_transfer_perf) + perf_event_count(_self_test_failed_perf));
-						_px4_mag.update(now, compensate_x(x, rhall), compensate_y(y, rhall), compensate_z(z, rhall));
-
-						success = true;
-
-						if (_failure_count > 0) {
-							_failure_count--;
-						}
-					}
-				}
-
-			} else {
-				perf_count(_bad_transfer_perf);
-			}
+			// free-running normal mode: the register holds the most recent measurement; stamp it now
+			const bool success = CollectData(now);
 
 			if (!success) {
 				_failure_count++;
@@ -440,7 +402,100 @@ void BMM150::RunImpl()
 		}
 
 		break;
+
+	case STATE::FORCED_TRIGGER:
+		// trigger one forced measurement (opmode "01"); chip converts once then auto-sleeps. stamp at the
+		// trigger instant -- X/Y are sampled in the first ~1-2ms, so it's within ~1ms of the true time.
+		RegisterSetAndClearBits(Register::OP_MODE, OP_MODE_BIT::Opmode_Forced, OP_MODE_BIT::Opmode_HighBit);
+		_measurement_start = now;
+		_state = STATE::FORCED_COLLECT;
+		ScheduleDelayed(FORCED_MEASURE_TIME);
+		break;
+
+	case STATE::FORCED_COLLECT: {
+			const bool success = CollectData(_measurement_start);
+
+			if (!success) {
+				_failure_count++;
+
+				if (_failure_count > 10) {
+					Reset();
+					return;
+				}
+			}
+
+			// schedule the next trigger so the total cadence equals FORCED_SAMPLE_INTERVAL
+			const hrt_abstime elapsed = now - _measurement_start;
+			const hrt_abstime next = (FORCED_SAMPLE_INTERVAL > elapsed) ? (FORCED_SAMPLE_INTERVAL - elapsed) : 1000;
+			_state = STATE::FORCED_TRIGGER;
+			ScheduleDelayed(next);
+
+			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
+				// forced mode doesn't assert opmode bits, so validate the config regs without tripping on forced<->sleep
+				if (RegisterCheck(_register_cfg[_checked_register])) {
+					_last_config_check_timestamp = now;
+					_checked_register = (_checked_register + 1) % size_register_cfg;
+
+				} else {
+					perf_count(_bad_register_perf);
+					Reset();
+				}
+			}
+		}
+
+		break;
 	}
+}
+
+bool BMM150::CollectData(const hrt_abstime &timestamp)
+{
+	struct TransferBuffer {
+		uint8_t DATAX_LSB;
+		uint8_t DATAX_MSB;
+		uint8_t DATAY_LSB;
+		uint8_t DATAY_MSB;
+		uint8_t DATAZ_LSB;
+		uint8_t DATAZ_MSB;
+		uint8_t RHALL_LSB;
+		uint8_t RHALL_MSB;
+		uint8_t STATUS;
+	} buffer{};
+
+	// 0x42 to 0x4A with a burst read.
+	uint8_t cmd = static_cast<uint8_t>(Register::DATAX_LSB);
+
+	if (transfer(&cmd, 1, (uint8_t *)&buffer, sizeof(buffer)) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	int16_t x = combine_xy_int13(buffer.DATAX_MSB, buffer.DATAX_LSB);
+	int16_t y = combine_xy_int13(buffer.DATAY_MSB, buffer.DATAY_LSB);
+	int16_t z = combine_z_int15(buffer.DATAZ_MSB, buffer.DATAZ_LSB);
+	uint16_t rhall = combine_rhall_uint14(buffer.RHALL_MSB, buffer.RHALL_LSB);
+
+	const bool data_ready = buffer.RHALL_LSB & Bit0;
+
+	if (!data_ready || (rhall == 0)) {
+		return false;
+	}
+
+	if ((buffer.STATUS & STATUS_BIT::Overflow) ||
+	    (x == OVERFLOW_XYAXES) || (y == OVERFLOW_XYAXES) || (z == OVERFLOW_ZAXIS)) {
+		// overflow ADC value, record error, but don't publish
+		perf_count(_overflow_perf);
+		return false;
+	}
+
+	_px4_mag.set_error_count(perf_event_count(_bad_register_perf)
+				 + perf_event_count(_bad_transfer_perf) + perf_event_count(_self_test_failed_perf));
+	_px4_mag.update(timestamp, compensate_x(x, rhall), compensate_y(y, rhall), compensate_z(z, rhall));
+
+	if (_failure_count > 0) {
+		_failure_count--;
+	}
+
+	return true;
 }
 
 bool BMM150::Configure()
