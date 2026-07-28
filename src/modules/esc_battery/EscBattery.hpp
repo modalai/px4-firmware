@@ -75,6 +75,6 @@ private:
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 	uORB::SubscriptionCallbackWorkItem _esc_status_sub{this, ORB_ID(esc_status)};
 
-	static constexpr uint32_t ESC_BATTERY_INTERVAL_US = 20_ms; // assume higher frequency esc feedback than 50Hz
+	static constexpr uint32_t ESC_BATTERY_INTERVAL_US = 5_ms; // lowered 20ms->5ms so mag current-comp gets fresh current (publish cap only; ESC ~51Hz)
 	Battery _battery;
 };

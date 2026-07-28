@@ -99,8 +99,10 @@ enum OP_MODE_BIT : uint8_t {
 	ODR_20HZ_SET   = Bit5 | Bit3,
 	ODR_20HZ_CLEAR = Bit4,
 
-	// 2:1 Operation mode control
-	Opmode_Sleep   = Bit2 | Bit1, // Sleep mode
+	// 2:1 Operation mode control (00 = normal, 01 = forced/single, 11 = sleep)
+	Opmode_Sleep   = Bit2 | Bit1, // Sleep mode ("11")
+	Opmode_Forced  = Bit1,        // Forced mode ("01"): one host-triggered measurement, then auto-sleep
+	Opmode_HighBit = Bit2,        // high bit of the opmode field; cleared (with Bit1 set) to enter forced
 	Self_Test      = Bit0,
 };
 
@@ -109,18 +111,26 @@ enum STATUS_BIT : uint8_t {
 	Overflow = Bit6, // one or more axes exceeded maximum range of the device
 };
 
-// REPXY
+// REPXY   (nXY = 2 * REPXY + 1)
 enum REPXY_BIT : uint8_t {
 	// high accurary preset nXY = 47, REPXY = 0x17 = 0b0001'0111
 	XY_HA_SET   = Bit4 | Bit2 | Bit1 | Bit0,
 	XY_HA_CLEAR = Bit7 | Bit6 | Bit5 | Bit3,
+
+	// regular preset nXY = 9, REPXY = 0x04 = 0b0000'0100
+	XY_REG_SET   = Bit2,
+	XY_REG_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit3 | Bit1 | Bit0,
 };
 
-// REPZ
+// REPZ   (nZ = REPZ + 1)
 enum REPZ_BIT : uint8_t {
 	// high accurary preset nZ = 83, REPZ = 0x52 = 0b0101'0010
 	Z_HA_SET   = Bit6 | Bit4 | Bit1,
 	Z_HA_CLEAR = Bit7 | Bit5 | Bit3 | Bit2 | Bit0,
+
+	// regular preset nZ = 15, REPZ = 0x0E = 0b0000'1110
+	Z_REG_SET   = Bit3 | Bit2 | Bit1,
+	Z_REG_CLEAR = Bit7 | Bit6 | Bit5 | Bit4 | Bit0,
 };
 
 } // namespace Bosch_BMM150
