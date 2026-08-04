@@ -64,7 +64,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("external_ins_attitude");
 	add_optional_topic("external_ins_global_position");
 	add_optional_topic("external_ins_local_position");
-	add_topic("esc_status", 100);
+	add_topic("esc_status", 5);
 	add_topic("failure_detector_status", 100);
 	add_topic("failsafe_flags");
 	add_optional_topic("follow_target", 500);
@@ -161,6 +161,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("fixed_wing_lateral_status", 100);
 	add_optional_topic("fixed_wing_runway_control", 100);
 	add_optional_topic("ranging_beacon", 100);
+	add_topic("actuator_outputs_debug");
 
 	// multi topics
 	add_optional_topic_multi("actuator_outputs", 100, 3);
@@ -198,6 +199,11 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic_multi("estimator_status", 200);
 	add_optional_topic_multi("estimator_status_flags", 10);
 	add_optional_topic_multi("yaw_estimator_status", 1000);
+
+	// Primary estimator diagnostics needed to capture short barometer and optical-flow transients.
+	add_optional_topic("estimator_aid_src_baro_hgt", 10);
+	add_optional_topic("estimator_aid_src_optical_flow", 10);
+	add_optional_topic("estimator_optical_flow_vel", 10);
 
 	// Vision target estimator topics
 #if defined(CONFIG_MODULES_VISION_TARGET_ESTIMATOR) && CONFIG_MODULES_VISION_TARGET_ESTIMATOR
