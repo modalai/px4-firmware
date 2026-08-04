@@ -57,6 +57,7 @@ set(msg_files
 	CollisionConstraints.msg
 	ControlAllocatorStatus.msg
 	Cpuload.msg
+	CrsfRaw.msg
 	DatamanRequest.msg
 	DatamanResponse.msg
 	DebugArray.msg
