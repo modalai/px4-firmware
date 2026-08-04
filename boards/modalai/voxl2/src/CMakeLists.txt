@@ -109,6 +109,7 @@ elseif("${PX4_PLATFORM}" STREQUAL "posix")
 
 	# Add custom modules
 	add_subdirectory(${PX4_BOARD_DIR}/src/modules/voxl_save_cal_params voxl_save_cal_params)
+	add_subdirectory(${PX4_BOARD_DIR}/src/modules/crsf_bridge crsf_bridge)
 	add_subdirectory(${PX4_BOARD_DIR}/src/modules/vehicle_air_data_bridge vehicle_air_data_bridge)
 	add_subdirectory(${PX4_BOARD_DIR}/src/modules/sensor_baro_bridge sensor_baro_bridge)
 	add_subdirectory(${PX4_BOARD_DIR}/src/modules/vehicle_local_position_bridge vehicle_local_position_bridge)

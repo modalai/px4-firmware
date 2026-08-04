@@ -376,6 +376,9 @@ bool CrsfParser_TryParseCrsfPacket(CrsfPacket_t *const new_packet, CrsfParserSta
 	uint8_t packet_type;
 	bool valid_packet = false;
 
+	new_packet->message_type = CRSF_MESSAGE_TYPE_UNKNOWN;
+	new_packet->raw_frame_len = 0;
+
 	buffer_count = QueueBuffer_Count(&rx_queue);
 
 	// Iterate through the buffer to parse the message out
@@ -425,7 +428,7 @@ bool CrsfParser_TryParseCrsfPacket(CrsfPacket_t *const new_packet, CrsfParserSta
 				if (working_descriptor->packet_size == -1) {
 					working_segment_size = packet_size - PACKET_SIZE_TYPE_SIZE;
 
-					if (working_index + working_segment_size + CRC_SIZE > CRSF_MAX_PACKET_LEN) {
+					if (HEADER_SIZE + working_index + working_segment_size + CRC_SIZE > CRSF_MAX_PACKET_LEN) {
 						parser_statistics->invalid_known_packet_sizes++;
 						parser_state = PARSER_STATE_HEADER;
 						working_segment_size = HEADER_SIZE;
@@ -452,7 +455,7 @@ bool CrsfParser_TryParseCrsfPacket(CrsfPacket_t *const new_packet, CrsfParserSta
 				// just so that we can dequeue it in one shot
 				working_segment_size = packet_size - PACKET_SIZE_TYPE_SIZE;
 
-				if (working_index + working_segment_size + CRC_SIZE > CRSF_MAX_PACKET_LEN) {
+				if (HEADER_SIZE + working_index + working_segment_size + CRC_SIZE > CRSF_MAX_PACKET_LEN) {
 					parser_statistics->invalid_unknown_packet_sizes++;
 					parser_state = PARSER_STATE_HEADER;
 					working_segment_size = HEADER_SIZE;
@@ -479,12 +482,18 @@ bool CrsfParser_TryParseCrsfPacket(CrsfPacket_t *const new_packet, CrsfParserSta
 
 			// Verify checksum
 			if (Crc8Calc(process_buffer + PACKET_SIZE_SIZE, working_index - PACKET_SIZE_SIZE) == process_buffer[working_index]) {
+				// The parser removes the address byte before processing the rest of the frame,
+				// so add it back for forwarding.
+				new_packet->raw_frame_len = static_cast<uint8_t>(HEADER_SIZE + working_index + CRC_SIZE);
+				new_packet->raw_frame[0] = CRSF_HEADER;
+				memcpy(&new_packet->raw_frame[HEADER_SIZE], process_buffer, working_index + CRC_SIZE);
+				valid_packet = true;
+
 				if (working_descriptor != NULL) {
 					if (working_descriptor->processor != NULL) {
 						if (working_descriptor->processor(process_buffer + PACKET_SIZE_TYPE_SIZE, working_index - PACKET_SIZE_TYPE_SIZE,
 										  new_packet)) {
 							parser_statistics->crcs_valid_known_packets++;
-							valid_packet = true;
 						}
 					}
 
