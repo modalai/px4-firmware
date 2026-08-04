@@ -187,6 +187,23 @@ void CrsfRc::Run()
 	const hrt_abstime time_now_us = hrt_absolute_time();
 	perf_count_interval(_cycle_interval_perf, time_now_us);
 
+	// Process externally generated CRSF frames before blocking on UART input.
+	crsf_raw_s tx_msg{};
+	int tx_updates = 0;
+
+	while (tx_updates++ < crsf_raw_s::ORB_QUEUE_LENGTH && _crsf_raw_tx_sub.update(&tx_msg)) {
+		if (tx_msg.len == 0 || tx_msg.len > sizeof(tx_msg.data)) {
+			PX4_WARN("Invalid CRSF raw TX length: %u", static_cast<unsigned>(tx_msg.len));
+			continue;
+		}
+
+		const ssize_t bytes_written = _uart->write(tx_msg.data, tx_msg.len);
+
+		if (bytes_written != static_cast<ssize_t>(tx_msg.len)) {
+			PX4_WARN("CRSF raw TX failed: wrote %zd of %u bytes", bytes_written, static_cast<unsigned>(tx_msg.len));
+		}
+	}
+
 	if (_vehicle_status_sub.updated()) {
 		vehicle_status_s vehicle_status;
 
@@ -237,6 +254,15 @@ void CrsfRc::Run()
 		CrsfPacket_t new_crsf_packet;
 
 		while (CrsfParser_TryParseCrsfPacket(&new_crsf_packet, &_packet_parser_statistics)) {
+			if (new_crsf_packet.raw_frame_len > 0
+			    && new_crsf_packet.raw_frame_len <= sizeof(crsf_raw_s::data)) {
+				crsf_raw_s raw_msg{};
+				raw_msg.timestamp = time_now_us;
+				raw_msg.len = new_crsf_packet.raw_frame_len;
+				memcpy(raw_msg.data, new_crsf_packet.raw_frame, raw_msg.len);
+				_crsf_raw_rx_pub.publish(raw_msg);
+			}
+
 			switch (new_crsf_packet.message_type) {
 			case CRSF_MESSAGE_TYPE_RC_CHANNELS:
 				_input_rc.timestamp_last_signal = time_now_us;
