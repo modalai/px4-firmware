@@ -71,6 +71,7 @@ qshell flight_mode_manager start
 # Start the dataman service on the applications processor before navigator on DSP
 dataman start
 qshell navigator start
+crsf_bridge start
 vfc_logger start
 
 # Start microdds_client for ros2 offboard messages from agent over localhost

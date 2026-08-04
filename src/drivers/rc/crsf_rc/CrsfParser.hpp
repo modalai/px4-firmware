@@ -96,6 +96,7 @@ struct CrsfParserStatistics_t {
 };
 
 enum CRSF_MESSAGE_TYPE {
+	CRSF_MESSAGE_TYPE_UNKNOWN,
 	CRSF_MESSAGE_TYPE_RC_CHANNELS,
 	CRSF_MESSAGE_TYPE_LINK_STATISTICS,
 	CRSF_MESSAGE_TYPE_LINK_STATISTICS_TX,
@@ -113,6 +114,10 @@ typedef struct {
 		CrsfElrsStatus_t elrs_status;
 		CrsfDeviceInfo_t device_info;
 	};
+
+	// Complete validated frame, including the address, size, type, payload, and CRC.
+	uint8_t raw_frame[64];
+	uint8_t raw_frame_len;
 } CrsfPacket_t;
 
 void CrsfParser_Init(void);
