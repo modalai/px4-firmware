@@ -115,6 +115,7 @@ if (( EXTERNAL_BAROMETER == 0 )); then
 	if dps310 start -X -b /dev/i2c-4; then
 		/bin/echo "Detected external DPS368 barometer on M0226 (i2c-4)"
 		EXTERNAL_BAROMETER=1
+		DPS_BARO_DETECTED=1
 	fi
 fi
 
@@ -124,6 +125,7 @@ if (( EXTERNAL_BAROMETER == 0 )); then
 	if dps310 start -X -b /dev/i2c-0; then
 		/bin/echo "Detected external DPS368 barometer"
 		EXTERNAL_BAROMETER=1
+		DPS_BARO_DETECTED=1
 	fi
 fi
 
@@ -150,6 +152,7 @@ if (( EXTERNAL_BAROMETER == 0 )); then
 fi
 
 # DPS368 is stable across temperature and does not require thermal compensation.
+# Disable baro thermal cal so the routine only runs on the IMU.
 if (( DPS_BARO_DETECTED == 1 )); then
 	param set TC_B_ENABLE 0
 fi
