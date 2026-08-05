@@ -100,11 +100,13 @@ fi
 # First try to start external barometer on DSP
 EXTERNAL_BAROMETER=0
 
-/bin/echo "Looking for external DPS368 barometer on DSP"
-if qshell dps310 start -X -b 1; then
-	/bin/echo "Detected external DPS368 barometer on DSP"
-	EXTERNAL_BAROMETER=1
-fi
+# commenting this out. This DPS on bus 1 is located on the gps mount which creates a poor baro environment, uncomment to try
+
+#/bin/echo "Looking for external DPS368 barometer on DSP"
+#if qshell dps310 start -X -b 1; then
+#	/bin/echo "Detected external DPS368 barometer on DSP"
+#	EXTERNAL_BAROMETER=1
+#fi
 
 # Attempt to start DPS baro on the M0226 if it is available
 if (( EXTERNAL_BAROMETER == 0 )); then
