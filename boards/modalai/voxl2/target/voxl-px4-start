@@ -90,8 +90,8 @@ if [ "$PLATFORM" == "M0104" ]; then
     /bin/echo "Starting IMU driver with rotation 12"
     qshell icm42688p start -s -R 12 -C 32768
 elif [ "$PLATFORM" == "M0197" ]; then
-    /bin/echo "Starting bmi270 IMU driver with rotation 26"
-    qshell bmi270 start -s -R 26
+    /bin/echo "Starting voxl_bmi270 IMU driver with rotation 26"
+    qshell voxl_bmi270 start -s -R 26
 else
     /bin/echo "Starting IMU driver with no rotation"
     qshell icm42688p start -s -C 32768
