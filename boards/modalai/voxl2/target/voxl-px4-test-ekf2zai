@@ -1,0 +1,60 @@
+#!/bin/bash
+# On-target (VOXL2 / SLPI) integration test for ekf2zai.
+#
+# Prerequisite: voxl-px4 started with the dual-output estimator on the DSP:
+#     systemctl stop voxl-px4
+#     EKF2ZAI=1 voxl-px4-start            (or EKF2ZAI=1 in the service env)
+#
+# The test verifies, against the RUNNING system:
+#   1. ekf2zai is running on the SLPI and stock ekf2 is NOT
+#   2. the estimator produces vehicle_attitude / local position
+#   3. enabling EKF2_SS_CTRL brings up the companion and the
+#      estimator_solution_separation topic with a sane monitor state
+#   4. (optional, -f) EV quarantine drill: arms failover and reports state
+
+PASS=0; FAIL=0
+check() { # check <name> <cmd...>
+    local name="$1"; shift
+    if "$@" > /tmp/ekf2zai_test_out 2>&1; then
+        echo "[PASS] $name"; PASS=$((PASS+1))
+    else
+        echo "[FAIL] $name"; sed 's/^/       /' /tmp/ekf2zai_test_out | head -5; FAIL=$((FAIL+1))
+    fi
+}
+
+FAILOVER_DRILL=0
+while getopts "fh" flag; do
+    case "${flag}" in
+        f) FAILOVER_DRILL=1 ;;
+        *) echo "Usage: voxl-px4-test-ekf2zai [-f (arm failover drill)]"; exit 1 ;;
+    esac
+done
+
+echo "=== ekf2zai on-target test ==="
+
+# 1. module placement
+check "ekf2zai running on SLPI"      bash -c "px4-qshell ekf2zai status | grep -q 'ekf2zai'"
+check "stock ekf2 NOT running"       bash -c "! px4-qshell ekf2 status 2>/dev/null | grep -q 'running'"
+
+# 2. estimator output alive
+check "vehicle_attitude publishing"  bash -c "px4-listener vehicle_attitude -n 1 | grep -q 'timestamp'"
+check "local position publishing"    bash -c "px4-listener vehicle_local_position -n 1 | grep -q 'timestamp'"
+
+# 3. companion + separation topic
+px4-param set EKF2_SS_CTRL 3 > /dev/null
+sleep 3
+check "solution-separation topic"    bash -c "px4-listener estimator_solution_separation -n 1 | grep -q 'monitor_state'"
+check "monitor state nominal/alert"  bash -c "px4-listener estimator_solution_separation -n 1 | grep -E 'monitor_state: [12]'"
+check "separation sigma finite"      bash -c "px4-listener estimator_solution_separation -n 1 | grep -q 'sigma_pos'"
+
+# 4. optional failover drill (bench only — quarantines EV for EKF2_SS_QUAR s)
+if [ "$FAILOVER_DRILL" == "1" ]; then
+    echo "[INFO] arming failover (EKF2_SS_CTRL=7) — bench use only"
+    px4-param set EKF2_SS_CTRL 7 > /dev/null
+    sleep 2
+    check "failover armed"           bash -c "px4-listener estimator_solution_separation -n 1 | grep -q 'monitor_state'"
+    px4-param set EKF2_SS_CTRL 3 > /dev/null
+fi
+
+echo "=== ekf2zai test: $PASS passed, $FAIL failed ==="
+[ "$FAIL" -eq 0 ]

@@ -143,6 +143,10 @@ if(CONFIG_EKF2_WIND)
 	list(APPEND EKF_SRCS wind.cpp)
 endif ()
 
+if(CONFIG_EKF2_SOLUTION_SEPARATION)
+	list(APPEND EKF_SRCS dual_companion.cpp)
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_library(ecl_EKF
 	${EKF_SRCS}

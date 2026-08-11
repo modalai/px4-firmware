@@ -41,6 +41,28 @@
 
 void Ekf::controlExternalVisionFusion(const imuSample &imu_sample)
 {
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	// everything dispatched from here (fusion AND resets) is EV-class:
+	// System B only — the companion's separation absorbs it
+	DualCompanion::ExclusiveScope _ss_scope(_companion, _companion.enabled());
+
+	if (_ev_fusion_inhibited) {
+		// EV quarantined by the solution-separation monitor
+		if (_control_status.flags.ev_pos || _control_status.flags.ev_vel
+		    || _control_status.flags.ev_yaw || _control_status.flags.ev_hgt) {
+			stopEvPosFusion();
+			stopEvVelFusion();
+			stopEvYawFusion();
+			stopEvHgtFusion();
+			ECL_WARN("EV fusion quarantined (solution separation)");
+		}
+
+		_fc.ev.available = false;
+		return;
+	}
+
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 	_fc.ev.available = (_params.ekf2_ev_ctrl != 0);
 
 	_ev_pos_b_est.predict(_dt_ekf_avg);

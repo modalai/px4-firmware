@@ -22,6 +22,17 @@ depends on MODULES_EKF2
 	---help---
 		EKF2 support multiple instances and selector.
 
+menuconfig EKF2_SOLUTION_SEPARATION
+depends on MODULES_EKF2
+	bool "dual-output solution-separation companion"
+	default y
+	depends on !BOARD_CONSTRAINED_MEMORY
+	depends on !BOARD_CONSTRAINED_FLASH
+	---help---
+		Carry an EV-free shadow estimate (System A) with exact separation
+		covariance alongside the primary filter. Runtime-gated; used by the
+		ekf2zai module.
+
 menuconfig EKF2_AIRSPEED
 depends on MODULES_EKF2
         bool "airspeed fusion support"

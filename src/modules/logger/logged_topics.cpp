@@ -198,6 +198,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic_multi("estimator_sensor_bias", 1000);
 	add_optional_topic_multi("estimator_status", 200);
 	add_optional_topic_multi("estimator_status_flags", 10);
+	add_optional_topic("estimator_solution_separation", 10);
 	add_optional_topic_multi("yaw_estimator_status", 1000);
 
 	// Primary estimator diagnostics needed to capture short barometer and optical-flow transients.

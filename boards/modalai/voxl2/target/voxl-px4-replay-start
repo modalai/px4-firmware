@@ -1,0 +1,5 @@
+uorb start
+replay tryapplyparams
+ekf2zai start -r
+logger start -f -b 200 -t -p ekf2_timestamps
+replay start

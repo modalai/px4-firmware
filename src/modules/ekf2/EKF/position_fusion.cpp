@@ -100,6 +100,15 @@ void Ekf::resetHorizontalPositionTo(const double &new_latitude, const double &ne
 
 	updateHorizontalPositionResetStatus(delta_horz_pos);
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	{
+		// P is still pre-reset here (overwritten below)
+		const float d_ss[2] = {delta_horz_pos(0), delta_horz_pos(1)};
+		const float v_ss[2] = {new_horz_pos_var(0), new_horz_pos_var(1)};
+		_companion.onResetB(P, State::pos.idx, 2, d_ss, v_ss, companionMeanCtx());
+	}
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 #if defined(CONFIG_EKF2_EXTERNAL_VISION)
 
 	if (_control_status.flags.ev_pos) {
@@ -188,6 +197,16 @@ void Ekf::resetHorizontalPositionTo(const Vector2f &new_pos,
 void Ekf::resetAltitudeTo(const float new_altitude, float new_vert_pos_var)
 {
 	const float old_altitude = _gpos.altitude();
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	{
+		// pre-reset P; delta in error space (down positive)
+		const float d_ss[1] = {-(new_altitude - old_altitude)};
+		const float v_ss[1] = {new_vert_pos_var};
+		_companion.onResetB(P, State::pos.idx + 2, 1, d_ss, v_ss, companionMeanCtx());
+	}
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 	_gpos.setAltitude(new_altitude);
 
 	if (PX4_ISFINITE(new_vert_pos_var)) {

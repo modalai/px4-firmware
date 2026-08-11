@@ -175,6 +175,10 @@ void Ekf::controlRangeHaglFusion(const imuSample &imu_sample)
 					_information_events.flags.reset_hgt_to_rng = true;
 					resetAltitudeTo(aid_src.observation, aid_src.observation_variance);
 					_state.terrain = 0.f;
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+					_companion.syncStatesB(_state, State::terrain.idx, State::terrain.dof);
+#endif
 					resetAidSourceStatusZeroInnovation(aid_src);
 					_control_status.flags.rng_hgt = true;
 					stopRngTerrFusion();

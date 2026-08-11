@@ -260,6 +260,10 @@ void Ekf::resetTerrainToFlow()
 
 	const float delta_terrain = new_terrain - _state.terrain;
 	_state.terrain = new_terrain;
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	_companion.syncStatesB(_state, State::terrain.idx, State::terrain.dof);
+#endif
 	P.uncorrelateCovarianceSetVariance<State::terrain.dof>(State::terrain.idx, 100.f);
 
 	resetAidSourceStatusZeroInnovation(_aid_src_optical_flow);

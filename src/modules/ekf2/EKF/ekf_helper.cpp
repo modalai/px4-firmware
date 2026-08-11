@@ -198,6 +198,10 @@ bool Ekf::resetLatLonTo(const double latitude, const double longitude, const flo
 	_gpos.setLatLonDeg(latitude, longitude);
 	_output_predictor.resetLatLonTo(latitude, longitude);
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	_companion.syncLatLonB(_gpos);
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 	const Vector2f delta_horz_pos = getLocalHorizontalPosition() - pos_prev;
 
 #if defined(CONFIG_EKF2_EXTERNAL_VISION)
@@ -1043,6 +1047,21 @@ void Ekf::fuseDirectStateMeasurement(const float innov, const float innov_var, c
 
 	clearInhibitedStateKalmanGains(K);
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+
+	if (_companion.enabled() && _companion.initialized()) {
+		VectorState H_ss;
+		H_ss(state_index) = 1.f;
+		const VectorState PH_ss = P.row(state_index); // pre-update P * H
+		VectorState K_a;
+		float innov_a, S_a;
+		_companion.prepareCorrection(H_ss, PH_ss, innov_var, innov, K_a, innov_a, S_a);
+		clearInhibitedStateKalmanGains(K_a);
+		_companion.applyCorrection(H_ss, PH_ss, K, K_a, innov_var, innov, innov_a, companionMeanCtx());
+	}
+
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 #if false
 	// Matrix implementation of the Joseph stabilized covariance update
 	// This is extremely expensive to compute. Use for debugging purposes only.
@@ -1098,6 +1117,20 @@ bool Ekf::measurementUpdate(VectorState &K, const VectorState &H, const float R,
 {
 	clearInhibitedStateKalmanGains(K);
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+
+	if (_companion.enabled() && _companion.initialized()) {
+		const VectorState PH_ss = P * H; // pre-update
+		const float S_b = H.dot(PH_ss) + R;
+		VectorState K_a;
+		float innov_a, S_a;
+		_companion.prepareCorrection(H, PH_ss, S_b, innovation, K_a, innov_a, S_a);
+		clearInhibitedStateKalmanGains(K_a);
+		_companion.applyCorrection(H, PH_ss, K, K_a, S_b, innovation, innov_a, companionMeanCtx());
+	}
+
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 #if false
 	// Matrix implementation of the Joseph stabilized covariance update
 	// This is extremely expensive to compute. Use for debugging purposes only.
@@ -1144,6 +1177,61 @@ bool Ekf::measurementUpdate(VectorState &K, const VectorState &H, const float R,
 	fuse(K, innovation);
 	return true;
 }
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+void Ekf::runCompanion(const imuSample &imu_delayed, const StateSample &state_pre)
+{
+	if (!_companion.enabled()) {
+		return;
+	}
+
+	if (!_companion.initialized() || _companion.cloneRequested()) {
+		_companion.cloneFrom(_state, _gpos);
+		_companion.setCloneTime(_time_delayed_us);
+		_companion.clearCloneRequest();
+		return;
+	}
+
+	_companion.predictCovariance(state_pre, imu_delayed);
+
+	const bool clip_z = (_params.ekf2_bounce_fix != 0) && _can_reset_z_vel_on_clipping
+			    && imu_delayed.delta_vel_clipping[2];
+	_companion.predictState(imu_delayed, _gravity, _earth_rate_NED, _params.ekf2_vel_lim, clip_z);
+}
+
+bool Ekf::resetToCompanion()
+{
+	if (!_companion.enabled() || !_companion.initialized()) {
+		return false;
+	}
+
+	// keep A untouched while B adopts it (clone right after wipes the ledger)
+	DualCompanion::ExclusiveScope scope(_companion, true);
+
+	setEvFusionInhibited(true);
+
+	const StateSample &sa = _companion.stateA();
+	const auto &D = _companion.D();
+	const auto &gpos_a = _companion.gposA();
+
+	const float yaw_a = matrix::Eulerf(sa.quat_nominal).psi();
+	resetQuatStateYaw(yaw_a, math::max(P(2, 2) + D(2, 2), sq(1e-2f)));
+
+	resetVelocityTo(sa.vel, Vector3f(P(State::vel.idx, State::vel.idx) + D(State::vel.idx, State::vel.idx),
+					 P(State::vel.idx + 1, State::vel.idx + 1) + D(State::vel.idx + 1, State::vel.idx + 1),
+					 P(State::vel.idx + 2, State::vel.idx + 2) + D(State::vel.idx + 2, State::vel.idx + 2)));
+
+	resetHorizontalPositionTo(gpos_a.latitude_deg(), gpos_a.longitude_deg(),
+				  Vector2f(P(State::pos.idx, State::pos.idx) + D(State::pos.idx, State::pos.idx),
+					   P(State::pos.idx + 1, State::pos.idx + 1) + D(State::pos.idx + 1, State::pos.idx + 1)));
+
+	resetAltitudeTo(gpos_a.altitude(), P(State::pos.idx + 2, State::pos.idx + 2) + D(State::pos.idx + 2, State::pos.idx + 2));
+
+	_companion.requestClone();
+
+	return true;
+}
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
 
 void Ekf::resetAidSourceStatusZeroInnovation(estimator_aid_source1d_s &status) const
 {

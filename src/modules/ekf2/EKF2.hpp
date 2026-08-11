@@ -43,6 +43,10 @@
 
 #include "EKF/ekf.h"
 
+#if defined(EKF2_SOLUTION_SEPARATION_MODULE)
+#include <solution_separation.hpp>
+#endif // EKF2_SOLUTION_SEPARATION_MODULE
+
 #include "EKF2Selector.hpp"
 #include "mathlib/math/filter/AlphaFilter.hpp"
 
@@ -519,6 +523,10 @@ private:
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 
 	Ekf _ekf;
+
+#if defined(EKF2_SOLUTION_SEPARATION_MODULE)
+	SolutionSeparation _solution_separation{};
+#endif // EKF2_SOLUTION_SEPARATION_MODULE
 
 	parameters *_params;	///< pointer to ekf parameter struct (located in _ekf class instance)
 	FusionControl &_fc;

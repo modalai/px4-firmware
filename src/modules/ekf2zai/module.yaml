@@ -1,0 +1,62 @@
+module_name: ekf2zai
+parameters:
+- group: EKF2
+  definitions:
+    EKF2_SS_CTRL:
+      description:
+        short: Solution-separation companion control
+        long: Bit 0 carries the EV-free companion (System A) and its exact
+          separation covariance. Bit 1 publishes the estimator_solution_separation
+          topic. Bit 2 arms failover actions (EV quarantine and adoption of the
+          companion on a confirmed EV fault); without it the monitor is
+          detect-only.
+      type: bitmask
+      bit:
+        0: enable companion
+        1: publish separation topic
+        2: arm failover actions
+      default: 0
+      min: 0
+      max: 7
+    EKF2_SS_PFA:
+      description:
+        short: Solution-separation false-alarm probability per test
+        long: Allocated across the five test blocks (horizontal/vertical
+          position, horizontal/vertical velocity, yaw).
+      type: float
+      decimal: 6
+      default: 0.0001
+      min: 0.0000001
+      max: 0.01
+    EKF2_SS_WIN:
+      description:
+        short: Maximum companion window age before forced re-clone
+        long: Seconds since the last clone after which System A is re-cloned
+          from System B. 0 disables the age-based re-clone (sigma target only).
+      type: float
+      unit: s
+      default: 30.0
+      min: 0.0
+      max: 600.0
+    EKF2_SS_SIG:
+      description:
+        short: Horizontal-position separation sigma target for re-clone
+        long: When the 1-sigma horizontal position separation exceeds this
+          value the companion is re-cloned, bounding dead-reckoning growth in
+          GNSS-denied flight and setting the detection window.
+      type: float
+      unit: m
+      decimal: 2
+      default: 1.5
+      min: 0.1
+      max: 50.0
+    EKF2_SS_QUAR:
+      description:
+        short: EV quarantine duration after failover
+        long: Seconds EV fusion stays inhibited after the monitor declares an
+          EV fault, before re-admission.
+      type: float
+      unit: s
+      default: 10.0
+      min: 1.0
+      max: 600.0

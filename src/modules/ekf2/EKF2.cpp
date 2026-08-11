@@ -887,7 +887,11 @@ void EKF2::Run()
 
 
 		// publish ekf2_timestamps
-		_ekf2_timestamps_pub.publish(ekf2_timestamps);
+	#if defined(EKF2_SOLUTION_SEPARATION_MODULE)
+	_solution_separation.update(_ekf, hrt_absolute_time());
+#endif // EKF2_SOLUTION_SEPARATION_MODULE
+
+	_ekf2_timestamps_pub.publish(ekf2_timestamps);
 	}
 
 	// re-schedule as backup timeout

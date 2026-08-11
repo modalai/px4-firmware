@@ -178,12 +178,31 @@ bool Ekf::update()
 
 		updateIMUBiasInhibit(imu_sample_delayed);
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+		// capture the pre-prediction state: the companion's F D F' uses the
+		// same linearization point as the main covariance prediction
+		const StateSample state_pre_ss = _state;
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 		// perform state and covariance prediction for the main filter
 		predictCovariance(imu_sample_delayed);
 		predictState(imu_sample_delayed);
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+		runCompanion(imu_sample_delayed, state_pre_ss);
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 		// control fusion of observation data
 		controlFusionModes(imu_sample_delayed);
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+
+		if (_companion.enabled() && _companion.initialized()) {
+			// drift-correct the cached separation from the two means
+			_companion.refreshSeparation(_state, _gpos);
+		}
+
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
 
 		_output_predictor.correctOutputStates(imu_sample_delayed.time_us, _state.quat_nominal, _state.vel, _gpos,
 						      _state.gyro_bias, _state.accel_bias);

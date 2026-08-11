@@ -242,6 +242,10 @@ if(CONFIG_EKF2_WIND)
 	list(APPEND EKF_MODULE_PARAMS params_wind.yaml)
 endif ()
 
+if(CONFIG_EKF2_SOLUTION_SEPARATION)
+	list(APPEND EKF_SRCS EKF/dual_companion.cpp)
+endif()
+
 add_subdirectory(EKF)
 
 px4_add_module(

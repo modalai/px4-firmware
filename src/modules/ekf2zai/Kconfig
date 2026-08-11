@@ -1,0 +1,8 @@
+menuconfig MODULES_EKF2ZAI
+	bool "ekf2zai"
+	default n
+	depends on MODULES_EKF2
+	depends on EKF2_SOLUTION_SEPARATION
+	---help---
+		EKF2 with dual-output solution-separation companion (ModalAI).
+		Start "ekf2zai" instead of "ekf2".

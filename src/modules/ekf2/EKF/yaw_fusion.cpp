@@ -120,6 +120,11 @@ void Ekf::resetQuatStateYaw(const float yaw, const float yaw_variance)
 	// save a copy of the quaternion state for later use in calculating the amount of reset change
 	const Quatf quat_before_reset = _state.quat_nominal;
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	// pre-reset P; unit-gain yaw correction on the companion pair
+	_companion.onResetYawB(P, wrap_pi(yaw - getEulerYaw(quat_before_reset)), yaw_variance, companionMeanCtx());
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 	// update the yaw angle variance
 	if (PX4_ISFINITE(yaw_variance) && (yaw_variance > FLT_EPSILON)) {
 		P.uncorrelateCovarianceSetVariance<1>(2, yaw_variance);

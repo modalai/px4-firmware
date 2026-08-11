@@ -67,6 +67,10 @@ void Ekf::resetWindTo(const Vector2f &wind, const Vector2f &wind_var)
 {
 	_state.wind_vel = wind;
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	_companion.syncStatesB(_state, State::wind_vel.idx, State::wind_vel.dof);
+#endif
+
 	if (PX4_ISFINITE(wind_var(0))) {
 		P.uncorrelateCovarianceSetVariance<1>(State::wind_vel.idx,
 						      math::min(sq(_params.initial_wind_uncertainty), wind_var(0)));

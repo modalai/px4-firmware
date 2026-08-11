@@ -97,6 +97,15 @@ void Ekf::resetHorizontalVelocityTo(const Vector2f &new_horz_vel, const Vector2f
 		hor_vel_var(1) = P(State::vel.idx + 1, State::vel.idx + 1);
 	}
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	{
+		// pre-reset P (overwritten just below)
+		const float d_ss[2] = {delta_horz_vel(0), delta_horz_vel(1)};
+		const float v_ss[2] = {hor_vel_var(0), hor_vel_var(1)};
+		_companion.onResetB(P, State::vel.idx, 2, d_ss, v_ss, companionMeanCtx());
+	}
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 	P.uncorrelateCovarianceSetVariance<2>(State::vel.idx, hor_vel_var);
 
 	// Position decorrelation is also required to avoid issues when no position aiding is active
@@ -122,6 +131,15 @@ void Ekf::resetHorizontalVelocityTo(const Vector2f &new_horz_vel, const Vector2f
 void Ekf::resetVerticalVelocityTo(float new_vert_vel, float new_vert_vel_var)
 {
 	const float delta_vert_vel = new_vert_vel - _state.vel(2);
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	{
+		const float d_ss[1] = {delta_vert_vel};
+		const float v_ss[1] = {new_vert_vel_var};
+		_companion.onResetB(P, State::vel.idx + 2, 1, d_ss, v_ss, companionMeanCtx());
+	}
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 	_state.vel(2) = new_vert_vel;
 
 	if (PX4_ISFINITE(new_vert_vel_var)) {

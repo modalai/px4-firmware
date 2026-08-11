@@ -70,6 +70,10 @@ void Ekf::controlMagFusion(const imuSample &imu_sample)
 			_control_status.flags.mag_fault = false;
 
 			_state.mag_B.zero();
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+			_companion.syncStatesB(_state, State::mag_B.idx, State::mag_B.dof);
+#endif
 			resetMagBiasCov();
 
 			stopMagFusion();
@@ -407,6 +411,10 @@ void Ekf::resetMagStates(const Vector3f &mag, bool reset_heading)
 
 		if ((_state.mag_I - mag_I).longerThan(kMagEarthMinGauss)) {
 			_state.mag_I = mag_I;
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+			_companion.syncStatesB(_state, State::mag_I.idx, State::mag_I.dof);
+#endif
 			resetMagEarthCov();
 			mag_I_reset = true;
 		}
@@ -417,11 +425,19 @@ void Ekf::resetMagStates(const Vector3f &mag, bool reset_heading)
 				// mag_B: reset using WMM
 				const Dcmf R_to_body = quatToInverseRotMat(_state.quat_nominal);
 				_state.mag_B = mag - (R_to_body * _wmm_earth_field_gauss);
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+				_companion.syncStatesB(_state, State::mag_B.idx, State::mag_B.dof);
+#endif
 				resetMagBiasCov();
 			} // otherwise keep existing mag_B state (!mag_I_reset)
 
 		} else {
 			_state.mag_B.zero();
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+			_companion.syncStatesB(_state, State::mag_B.idx, State::mag_B.dof);
+#endif
 			resetMagBiasCov();
 		}
 
@@ -432,6 +448,10 @@ void Ekf::resetMagStates(const Vector3f &mag, bool reset_heading)
 	} else {
 		// mag_B: reset
 		_state.mag_B.zero();
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+			_companion.syncStatesB(_state, State::mag_B.idx, State::mag_B.dof);
+#endif
 		resetMagBiasCov();
 
 		// Use the magnetometer measurement to reset the heading
@@ -444,6 +464,10 @@ void Ekf::resetMagStates(const Vector3f &mag, bool reset_heading)
 
 		if ((_state.mag_I - mag_I).longerThan(kMagEarthMinGauss)) {
 			_state.mag_I = mag_I;
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+			_companion.syncStatesB(_state, State::mag_I.idx, State::mag_I.dof);
+#endif
 			resetMagEarthCov();
 		}
 	}

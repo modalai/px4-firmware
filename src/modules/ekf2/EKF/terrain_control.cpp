@@ -45,6 +45,10 @@ void Ekf::initTerrain()
 	// assume a ground clearance
 	_state.terrain = -_gpos.altitude() + _params.ekf2_min_rng;
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	_companion.syncStatesB(_state, State::terrain.idx, State::terrain.dof);
+#endif
+
 	// use the ground clearance value as our uncertainty
 	P.uncorrelateCovarianceSetVariance<State::terrain.dof>(State::terrain.idx, sq(_params.ekf2_min_rng));
 }

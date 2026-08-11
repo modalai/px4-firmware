@@ -67,6 +67,10 @@
 #include "aid_sources/ZeroGyroUpdate.hpp"
 #include "aid_sources/ZeroVelocityUpdate.hpp"
 
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+#include "dual_companion.h"
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
+
 #if defined(CONFIG_EKF2_AUX_GLOBAL_POSITION)
 # include "aid_sources/aux_global_position/aux_global_position.hpp"
 #endif // CONFIG_EKF2_AUX_GLOBAL_POSITION
@@ -88,6 +92,17 @@ public:
 	virtual ~Ekf() = default;
 
 	void setCanResetZVelOnClipping(const bool val) { _can_reset_z_vel_on_clipping = val; }
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	// dual-output companion (solution separation): EV-free shadow statistics
+	DualCompanion &companion() { return _companion; }
+	const DualCompanion &companion() const { return _companion; }
+	void enableCompanion() { _companion.enable(); }
+	void setEvFusionInhibited(const bool inhibit) { _ev_fusion_inhibited = inhibit; }
+	bool isEvFusionInhibited() const { return _ev_fusion_inhibited; }
+	// failover: adopt the companion (A) into the primary via the standard reset plumbing
+	bool resetToCompanion();
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
 
 	// initialise variables to sane values (also interface class)
 	bool init(uint64_t timestamp) override;
@@ -558,6 +573,28 @@ private:
 #endif // CONFIG_EKF2_WIND
 
 	SquareMatrixState P{};	///< state covariance matrix
+
+#if defined(CONFIG_EKF2_SOLUTION_SEPARATION)
+	DualCompanion _companion{};
+	bool _ev_fusion_inhibited{false};
+
+	void runCompanion(const imuSample &imu_delayed, const StateSample &state_pre);
+
+	DualCompanion::MeanUpdateContext companionMeanCtx() const
+	{
+		DualCompanion::MeanUpdateContext ctx{};
+		ctx.gyro_bias_limit = getGyroBiasLimit();
+		ctx.accel_bias_limit = getAccelBiasLimit();
+#if defined(CONFIG_EKF2_MAGNETOMETER)
+		ctx.mag_bias_limit = getMagBiasLimit();
+		ctx.mag_states_active = _control_status.flags.mag;
+#endif // CONFIG_EKF2_MAGNETOMETER
+#if defined(CONFIG_EKF2_WIND)
+		ctx.wind_states_active = _control_status.flags.wind;
+#endif // CONFIG_EKF2_WIND
+		return ctx;
+	}
+#endif // CONFIG_EKF2_SOLUTION_SEPARATION
 
 #if defined(CONFIG_EKF2_DRAG_FUSION)
 	estimator_aid_source2d_s _aid_src_drag {};

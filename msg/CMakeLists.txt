@@ -85,6 +85,7 @@ set(msg_files
 	EstimatorInnovations.msg
 	EstimatorSelectorStatus.msg
 	EstimatorSensorBias.msg
+	EstimatorSolutionSeparation.msg
 	EstimatorStates.msg
 	EstimatorStatus.msg
 	EstimatorStatusFlags.msg
