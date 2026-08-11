@@ -40,7 +40,7 @@ param touch SYS_AUTOSTART
 
 # Start all of the processing modules on DSP
 qshell sensors start
-qshell ekf2 start
+qshell ekf2zai start
 
 qshell mc_pos_control start
 qshell mc_att_control start

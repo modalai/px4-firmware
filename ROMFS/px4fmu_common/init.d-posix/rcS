@@ -267,7 +267,13 @@ commander start
 # state estimator selection
 if param compare -s EKF2_EN 1
 then
-	ekf2 start &
+	# prefer the dual-output solution-separation estimator when built in
+	if ekf2zai start
+	then
+		echo "INFO  [init] ekf2zai (dual-output estimator)"
+	else
+		ekf2 start &
+	fi
 fi
 
 if param compare -s LPE_EN 1

@@ -49,7 +49,7 @@ fi
 
 # Start all of the processing modules on DSP
 qshell sensors start -h
-qshell ekf2 start
+qshell ekf2zai start
 qshell mc_pos_control start
 qshell mc_att_control start
 qshell mc_rate_control start

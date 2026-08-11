@@ -41,7 +41,7 @@ check "vehicle_attitude publishing"  bash -c "px4-listener vehicle_attitude -n 1
 check "local position publishing"    bash -c "px4-listener vehicle_local_position -n 1 | grep -q 'timestamp'"
 
 # 3. companion + separation topic
-px4-param set EKF2_SS_CTRL 3 > /dev/null
+px4-param set EKF2_SS_CTRL 7 > /dev/null
 sleep 3
 check "solution-separation topic"    bash -c "px4-listener estimator_solution_separation -n 1 | grep -q 'monitor_state'"
 check "monitor state nominal/alert"  bash -c "px4-listener estimator_solution_separation -n 1 | grep -E 'monitor_state: [12]'"
@@ -53,7 +53,6 @@ if [ "$FAILOVER_DRILL" == "1" ]; then
     px4-param set EKF2_SS_CTRL 7 > /dev/null
     sleep 2
     check "failover armed"           bash -c "px4-listener estimator_solution_separation -n 1 | grep -q 'monitor_state'"
-    px4-param set EKF2_SS_CTRL 3 > /dev/null
 fi
 
 echo "=== ekf2zai test: $PASS passed, $FAIL failed ==="

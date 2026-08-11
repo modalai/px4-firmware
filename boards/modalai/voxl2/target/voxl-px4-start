@@ -290,11 +290,12 @@ fi
 
 # Start all of the processing modules on DSP
 qshell sensors start
-# EKF2ZAI=1 selects the dual-output solution-separation estimator (ekf2zai)
-if [ "${EKF2ZAI}" == "1" ]; then
-    qshell ekf2zai start
-else
+# Dual-output solution-separation estimator (ekf2zai) is the default on
+# this branch; set EKF2ZAI=0 to fall back to stock ekf2
+if [ "${EKF2ZAI}" == "0" ]; then
     qshell ekf2 start
+else
+    qshell ekf2zai start
 fi
 
 if [ "$AIRFRAME" == "FIXED_WING" ]; then
