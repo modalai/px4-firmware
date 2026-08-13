@@ -319,3 +319,78 @@ TEST_F(EkfDualCompanionTest, evResetLeavesCompanionContinuous)
 
 	EXPECT_GT(_ekf->companion().D()(IP, IP), D_pre) << "separation covariance did not absorb the reset";
 }
+
+TEST_F(EkfDualCompanionTest, failoverAdoptsCompanionVariance)
+{
+	_ekf->enableCompanion();
+	_ekf_wrapper.enableGpsFusion();
+	_sensor_simulator.startGps();
+	_sensor_simulator.runSeconds(20);
+
+	ASSERT_TRUE(_ekf->companion().initialized());
+
+	constexpr unsigned IY = State::quat_nominal.idx + 2;
+
+	auto &c = _ekf->companion();
+	const auto &P_b = _ekf->covariances(); // live reference into the filter
+
+	// pin a guaranteed-nonzero C through the exact EV-class reset primitive:
+	// an exclusive unit-gain reset lands C_ii = -R_m on its axis regardless
+	// of the prior ledger (dormant seed and active recursion agree), and
+	// delta = 0 makes it pure covariance surgery — no mean moves. R_m scales
+	// with the live P so the construction holds in any environment (no
+	// reliance on simulation-emergent residuals)
+	float r_pos[3];
+	float r_vel[3];
+	float r_yaw;
+
+	{
+		DualCompanion::ExclusiveScope scope(c, true);
+		DualCompanion::MeanUpdateContext ctx{};
+		const float zero3[3] = {0.f, 0.f, 0.f};
+
+		for (unsigned k = 0; k < 3; k++) {
+			r_pos[k] = 0.5f * P_b(IP + k, IP + k);
+			r_vel[k] = 0.5f * P_b(IV + k, IV + k);
+		}
+
+		r_yaw = 0.5f * P_b(IY, IY);
+
+		c.onResetB(P_b, IP, 3, zero3, r_pos, ctx);
+		c.onResetB(P_b, IV, 3, zero3, r_vel, ctx);
+		c.onResetYawB(P_b, 0.f, r_yaw, ctx);
+	}
+
+	ASSERT_TRUE(c.cActive());
+
+	for (unsigned k = 0; k < 3; k++) {
+		ASSERT_NEAR(c.C()(IP + k, IP + k), -r_pos[k], 1e-6f + 1e-3f * r_pos[k]) << "C pos " << k;
+		ASSERT_NEAR(c.C()(IV + k, IV + k), -r_vel[k], 1e-6f + 1e-3f * r_vel[k]) << "C vel " << k;
+	}
+
+	ASSERT_NEAR(c.C()(IY, IY), -r_yaw, 1e-6f + 1e-3f * r_yaw) << "C yaw";
+
+	// expected adopted variances from one consistent pre-failover snapshot
+	// (same floor as the reset plumbing, sq(0.01))
+	const float yaw_var_a = math::max(c.varianceA(P_b, IY), sq(1e-2f));
+	float vel_var_a[3];
+	float pos_var_a[3];
+
+	for (unsigned k = 0; k < 3; k++) {
+		vel_var_a[k] = math::max(c.varianceA(P_b, IV + k), sq(1e-2f));
+		pos_var_a[k] = math::max(c.varianceA(P_b, IP + k), sq(1e-2f));
+	}
+
+	ASSERT_TRUE(_ekf->resetToCompanion());
+
+	// P_b now reads the post-failover covariance: every adopted axis carries
+	// A's variance P_aa = P_bb + 2C + D. With C_ii = -R_m < 0 the old P + D
+	// shortcut would overshoot each axis by 2 R_m = P_ii — far outside the
+	// tolerance — and mid-sequence C/D mutation would shift it further
+	EXPECT_NEAR(P_b(IY, IY), yaw_var_a, 1e-6f + 1e-4f * yaw_var_a) << "yaw";
+
+	for (unsigned k = 0; k < 3; k++) {
+		EXPECT_NEAR(P_b(IV + k, IV + k), vel_var_a[k], 1e-6f + 1e-4f * vel_var_a[k]) << "vel " << k;
+		EXPECT_NEAR(P_b(IP + k, IP + k), pos_var_a[k], 1e-6f + 1e-4f * pos_var_a[k]) << "pos " << k;
+	}
+}

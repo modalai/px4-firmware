@@ -1211,21 +1211,33 @@ bool Ekf::resetToCompanion()
 	setEvFusionInhibited(true);
 
 	const StateSample &sa = _companion.stateA();
-	const auto &D = _companion.D();
 	const auto &gpos_a = _companion.gposA();
 
+	// B adopts A's per-axis uncertainty: diag of P_aa = P_bb + C + C' + D
+	// (varianceA — the C term is nonzero after any EV-class reset or clipped
+	// gain, exactly the events that precede a failover). Snapshot everything
+	// before the first reset: each reset below re-enters the companion via its
+	// onResetB hook and mutates P, C and D mid-sequence (resetQuatStateYaw can
+	// even rewrite the velocity block through resetHorizontalVelocityToMatchYaw)
+	const float yaw_var_a = math::max(_companion.varianceA(P, State::quat_nominal.idx + 2), sq(1e-2f));
+
+	const Vector3f vel_var_a(_companion.varianceA(P, State::vel.idx),
+				 _companion.varianceA(P, State::vel.idx + 1),
+				 _companion.varianceA(P, State::vel.idx + 2));
+
+	const Vector2f pos_var_a(_companion.varianceA(P, State::pos.idx),
+				 _companion.varianceA(P, State::pos.idx + 1));
+
+	const float alt_var_a = _companion.varianceA(P, State::pos.idx + 2);
+
 	const float yaw_a = matrix::Eulerf(sa.quat_nominal).psi();
-	resetQuatStateYaw(yaw_a, math::max(P(2, 2) + D(2, 2), sq(1e-2f)));
+	resetQuatStateYaw(yaw_a, yaw_var_a);
 
-	resetVelocityTo(sa.vel, Vector3f(P(State::vel.idx, State::vel.idx) + D(State::vel.idx, State::vel.idx),
-					 P(State::vel.idx + 1, State::vel.idx + 1) + D(State::vel.idx + 1, State::vel.idx + 1),
-					 P(State::vel.idx + 2, State::vel.idx + 2) + D(State::vel.idx + 2, State::vel.idx + 2)));
+	resetVelocityTo(sa.vel, vel_var_a);
 
-	resetHorizontalPositionTo(gpos_a.latitude_deg(), gpos_a.longitude_deg(),
-				  Vector2f(P(State::pos.idx, State::pos.idx) + D(State::pos.idx, State::pos.idx),
-					   P(State::pos.idx + 1, State::pos.idx + 1) + D(State::pos.idx + 1, State::pos.idx + 1)));
+	resetHorizontalPositionTo(gpos_a.latitude_deg(), gpos_a.longitude_deg(), pos_var_a);
 
-	resetAltitudeTo(gpos_a.altitude(), P(State::pos.idx + 2, State::pos.idx + 2) + D(State::pos.idx + 2, State::pos.idx + 2));
+	resetAltitudeTo(gpos_a.altitude(), alt_var_a);
 
 	_companion.requestClone();
 
