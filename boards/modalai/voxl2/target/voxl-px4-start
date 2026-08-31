@@ -332,6 +332,7 @@ vehicle_air_data_bridge start
 sensor_baro_bridge start
 sensor_imu_raw_bridge start
 vehicle_local_position_bridge start
+flight_mode_bridge start
 
 # Start uxrce_dds_client for ros2 offboard messages from agent over localhost
 uxrce_dds_client start -t udp -h 127.0.0.1 -p 8888
