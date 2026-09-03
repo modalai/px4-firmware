@@ -288,6 +288,13 @@ fi
 # qshell vl53l0x start -X -b 4
 # qshell vl53l1x start -X -b 4
 
+# Direct ZVINS2 visual odometry from the CDSP (fixed SMEM ring + IPCC
+# doorbell owned by the modalai-adsp2 / modalai-cdsp2 root images). The
+# receiver runs on the DSP and publishes vehicle_visual_odometry there.
+if [ "$PLATFORM" == "M0197" ]; then
+    qshell zvins_qsh_link start
+fi
+
 # Start all of the processing modules on DSP
 qshell sensors start
 qshell ekf2 start

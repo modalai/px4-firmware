@@ -13,9 +13,10 @@ CDSP user PD -> fixed SMEM ring -> CDSP root QDI RING -> MPROC IPCC
              -> ADSP root fused WAIT_RX_ACK -> this PX4 task -> uORB
 ```
 
-Linux/APSS does not map, relay, address, start, or timestamp the result. The
-PX4 endpoint starts after `uorb` and before `qshell` from
-`platforms/qurt/src/px4/main.cpp`.
+Linux/APSS does not map, relay, address, or timestamp the result. The PX4
+endpoint is started on the DSP by `voxl-px4-start` with
+`qshell zvins_qsh_link start` (M0197 only), alongside the other DSP drivers;
+`platforms/qurt/src/px4/main.cpp` is unchanged.
 
 ## Fixed contract
 
