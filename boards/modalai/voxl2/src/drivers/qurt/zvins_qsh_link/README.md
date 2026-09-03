@@ -1,10 +1,8 @@
 # PX4 ZVINS QSH receiver
 
-The canonical build, signing, flash, rollback, and board acceptance guide is
-the `README.md` at the root of the multi-repository integration checkout
-(`KERNEL_MAN_WORKTREES`). This module is carried upstream through the
-`voxl-mainline-fpv-px4` wrapper on its `zmai-future` branch; the wrapper's
-`sign-slpi.sh` performs the QSH signing step described below.
+The canonical four-worktree build, signing, flash, rollback, and board
+acceptance guide is
+[`KERNEL_MAN_WORKTREES/README.md`](../../../../../../../../README.md).
 
 This module is the ADSP v66 endpoint of the direct QCS6490 ZVINS2 result path.
 It receives final float, FRD `VehicleOdometry` fields from the CDSP v68 and
@@ -53,10 +51,11 @@ the preceding message's interval is only known when its successor arrives, a
 late interval increments diagnostics but never causes the recovery sample to
 be dropped.
 
-Build the real PX4 v1.18 APSS/QSH targets from the PX4 tree root in
+Build the real PX4 v1.18 APSS/QSH targets from the PX4 worktree root in
 ModalAI's build environment with diagnostic timing disabled:
 
 ```bash
+cd "$WORKTREES/px4-zvins-qsh-link"
 docker run --rm \
   -v "$PWD:/usr/local/workspace" \
   -w /usr/local/workspace \
@@ -66,9 +65,6 @@ grep -Fx 'ZQL_DIAGNOSTIC_HOP_TIMING:BOOL=OFF' \
   build/modalai_voxl2_slpi/CMakeCache.txt
 ```
 
-From the `voxl-mainline-fpv-px4` wrapper, `./build.sh` runs the same build and
-performs that cache check itself.
-
 The raw QSH output below is an unsigned intermediate and must never be
 flashed:
 
@@ -76,11 +72,14 @@ flashed:
 build/modalai_voxl2_slpi/platforms/qurt/libpx4.so
 ```
 
-Sign and validate that ELF with Hexagon SDK 6.6.0 (`./sign-slpi.sh` in the
-wrapper writes `build/modalai_voxl2_slpi/platforms/qurt/signed/output/libpx4.so`
-and `make_package.sh` packages that file when it exists), then deploy only the
-signed output. The exact signing and matched-set deployment commands are in the
-canonical guide named above.
+Sign and validate that ELF with Hexagon SDK 6.6.0, then deploy only:
+
+```text
+build/modalai_voxl2_slpi/platforms/qurt/zql-signed-cadence-production/output/libpx4.so
+```
+
+The exact signing and matched-set deployment commands are in the canonical
+guide linked above.
 
 QShell is diagnostic only:
 
