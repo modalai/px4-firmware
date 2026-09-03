@@ -154,10 +154,9 @@ static void process_commands(apps_map_type &apps, const char *cmds)
 
 const char *get_commands()
 {
-	// All that needs to be started automatically on the DSP side
-	// are uorb and qshell. After that, everything else can get
-	// started from the main startup script on the Linux side.
-	static const char *commands = "uorb start\nqshell start\n";
+	// ZVINS odometry is a DSP-to-DSP data plane.  Start its ADSP endpoint here
+	// after uORB so no Linux startup script, relay, or address handoff owns it.
+	static const char *commands = "uorb start\nzvins_qsh_link start\nqshell start\n";
 
 	return commands;
 }
