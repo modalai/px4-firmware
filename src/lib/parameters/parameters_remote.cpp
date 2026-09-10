@@ -38,6 +38,7 @@
 #include <inttypes.h>
 
 #include <px4_platform_common/log.h>
+#include <px4_platform_common/sem.hpp>
 #include <px4_platform_common/tasks.h>
 
 // uORB topics needed to keep parameter server and client in sync
@@ -58,6 +59,7 @@ static orb_advert_t parameter_set_used_h = nullptr;
 static orb_advert_t param_set_value_req_h = nullptr;
 
 static orb_sub_t param_set_rsp_fd = ORB_SUB_INVALID;
+static px4_sem_t param_set_value_lock;
 
 static px4_task_t sync_thread_tid;
 static const char *sync_thread_name = "param_remote_sync";
@@ -171,6 +173,7 @@ static int remote_sync_thread(int argc, char *argv[])
 
 void param_remote_init()
 {
+	px4_sem_init(&param_set_value_lock, 0, 1);
 
 	sync_thread_tid = px4_task_spawn_cmd(sync_thread_name,
 					     SCHED_DEFAULT,
@@ -206,6 +209,10 @@ void param_remote_set_used(param_t param)
 
 void param_remote_set_value(param_t param, const void *val)
 {
+	// Serialize initialization, publication and acknowledgment consumption.
+	// The incoming sync thread does not take this lock.
+	const SmartLock lock{param_set_value_lock};
+
 	bool send_request = true;
 	struct parameter_set_value_request_s req;
 	req.timestamp = hrt_absolute_time();
