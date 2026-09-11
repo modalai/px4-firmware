@@ -44,6 +44,8 @@
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/parameter_set_value_request.h>
 
+#include <string>
+
 using namespace time_literals;
 
 class VoxlSaveCalParams : public ModuleBase, public ModuleParams,
@@ -52,7 +54,7 @@ class VoxlSaveCalParams : public ModuleBase, public ModuleParams,
 public:
 	static Descriptor desc;
 
-	VoxlSaveCalParams();
+	explicit VoxlSaveCalParams(const char *calibration_directory);
 	~VoxlSaveCalParams() = default;
 
 	/** @see ModuleBase */
@@ -70,6 +72,8 @@ private:
 	void Run() override;
 
 	void save_calibration_parameter_to_file(const char *name, param_type_t type, param_value_u value);
+
+	std::string _calibration_directory;
 
 	uORB::SubscriptionCallbackWorkItem _parameter_primary_set_value_request_sub{this, ORB_ID(parameter_primary_set_value_request)};
 };
