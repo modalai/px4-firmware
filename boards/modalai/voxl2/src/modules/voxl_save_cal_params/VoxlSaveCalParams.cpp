@@ -33,27 +33,56 @@
 
 #include "VoxlSaveCalParams.hpp"
 
+#include <px4_platform_common/getopt.h>
+
 #include <algorithm>
+#include <errno.h>
+#include <libgen.h>
+#include <string.h>
 #include <string>
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
 
 using namespace std;
 
 ModuleBase::Descriptor VoxlSaveCalParams::desc{task_spawn, custom_command, print_usage};
 
 static bool debug = false;
+static constexpr const char *DEFAULT_CALIBRATION_DIRECTORY = "/data/modalai/px4";
 
-VoxlSaveCalParams::VoxlSaveCalParams() :
+VoxlSaveCalParams::VoxlSaveCalParams(const char *calibration_directory) :
 	ModuleParams(nullptr),
-	WorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
+	WorkItem(MODULE_NAME, px4::wq_configurations::lp_default),
+	_calibration_directory(calibration_directory)
 {
+	if (_calibration_directory.back() != '/') {
+		_calibration_directory += '/';
+	}
 }
 
 bool
 VoxlSaveCalParams::init()
 {
+	// Create the calibration directory, including any missing parents.
+	for (size_t end = _calibration_directory.find('/', 1); end != string::npos;
+	     end = _calibration_directory.find('/', end + 1)) {
+		const string directory = _calibration_directory.substr(0, end);
+
+		if (mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IRWXO) != 0 && errno != EEXIST) {
+			PX4_ERR("Couldn't create calibration directory %s: %s", directory.c_str(), strerror(errno));
+			return false;
+		}
+
+		struct stat info {};
+
+		if (stat(directory.c_str(), &info) != 0 || !S_ISDIR(info.st_mode)) {
+			PX4_ERR("Calibration path is not a directory: %s", directory.c_str());
+			return false;
+		}
+	}
+
 	if (!_parameter_primary_set_value_request_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
 		return false;
@@ -69,7 +98,10 @@ VoxlSaveCalParams::save_calibration_parameter_to_file(const char *name, param_ty
 	// If the parameter being set is a calibration parameter then save it out to
 	// a separate calibration file so that they can be preserved and reloaded
 	// after system updates
-	string cal_file_name = param_get_default_file();
+	const char *parameter_file = param_get_default_file();
+	// basename() may modify its input, so use a local copy of the parameter path.
+	string parameter_file_path = parameter_file ? parameter_file : "parameters";
+	string cal_file_name = _calibration_directory + basename(parameter_file_path.data());
 	string cal_file_append;
 	string param_name(name);
 	string cal_strings[] = {"CAL_GYRO", "CAL_MAG", "CAL_BARO", "CAL_ACC"};
@@ -77,8 +109,8 @@ VoxlSaveCalParams::save_calibration_parameter_to_file(const char *name, param_ty
 	for (auto i : cal_strings) {
 		// Check to see if the parameter is one of the desired calibration parameters
 		if (param_name.substr(0, i.size()) == i) {
-			// We want the filename to be the standard parameters file name with
-			// the calibration type appended to it.
+			// Keep the standard parameters file basename with the calibration type
+			// appended, but store it in the configured calibration directory.
 			cal_file_append = i.substr(3, i.size());
 			// Make sure it is lowercase
 			transform(cal_file_append.begin(), cal_file_append.end(), cal_file_append.begin(), ::tolower);
@@ -185,7 +217,29 @@ VoxlSaveCalParams::Run()
 
 int VoxlSaveCalParams::task_spawn(int argc, char *argv[])
 {
-	VoxlSaveCalParams *instance = new VoxlSaveCalParams();
+	const char *calibration_directory = DEFAULT_CALIBRATION_DIRECTORY;
+	int myoptind = 1;
+	int ch;
+	const char *myoptarg = nullptr;
+
+	while ((ch = px4_getopt(argc, argv, "d:", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'd':
+			calibration_directory = myoptarg;
+			break;
+
+		default:
+			print_usage("invalid arguments");
+			return PX4_ERROR;
+		}
+	}
+
+	if (myoptind < argc || calibration_directory == nullptr || calibration_directory[0] == '\0') {
+		print_usage("expected -d <directory> with a non-empty path");
+		return PX4_ERROR;
+	}
+
+	VoxlSaveCalParams *instance = new VoxlSaveCalParams(calibration_directory);
 
 	if (instance) {
 		desc.object.store(instance);
@@ -221,10 +275,15 @@ int VoxlSaveCalParams::print_usage(const char *reason)
 		R"DESCR_STR(
 ### Description
 This implements autosaving of calibration parameters on VOXL2 platform.
+Calibration files are stored in /data/modalai/px4 by default. Use -d to select
+another directory. Missing directories are created at startup. Filenames retain
+the parameter file basename, for example parameters_gyro.cal.
 
 )DESCR_STR");
 
+	PRINT_MODULE_USAGE_NAME("voxl_save_cal_params", "system");
 	PRINT_MODULE_USAGE_COMMAND("start");
+	PRINT_MODULE_USAGE_PARAM_STRING('d', DEFAULT_CALIBRATION_DIRECTORY, "<directory>", "Calibration file directory", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
