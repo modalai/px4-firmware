@@ -72,6 +72,7 @@ qshell flight_mode_manager start
 dataman start
 qshell navigator start
 crsf_bridge start
+vehicle_attitude_bridge start
 vfc_logger start
 
 # Start microdds_client for ros2 offboard messages from agent over localhost
