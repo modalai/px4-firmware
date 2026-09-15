@@ -138,6 +138,7 @@ adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-sensor_imu_raw_bridge"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-dps310"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-icp101xx"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-vehicle_local_position_bridge"
+adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-vehicle_attitude_bridge"
 adb shell "cd /usr/bin; /bin/ln -f -s px4 px4-sih_vio_bridge"
 
 # Make sure any required directories exist
