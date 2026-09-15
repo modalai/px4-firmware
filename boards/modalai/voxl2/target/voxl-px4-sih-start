@@ -67,6 +67,7 @@ qshell navigator start
 crsf_bridge start
 vehicle_air_data_bridge start
 sensor_baro_bridge start
+vehicle_attitude_bridge start
 vehicle_local_position_bridge start
 sih_vio_bridge start
 

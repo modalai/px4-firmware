@@ -75,6 +75,46 @@ INFO  [px4] Startup script returned successfully
 pxh>
 ```
 
+## Vehicle attitude MPA bridge
+
+`vehicle_attitude_bridge` runs on the apps processor and forwards the selected
+`vehicle_attitude` uORB topic to the `px4_vehicle_attitude` MPA pipe. It starts
+automatically in the normal, SIH, and HITL startup scripts. Its module commands
+are `vehicle_attitude_bridge start`, `stop`, and `status` in the PX4 shell (use
+the `px4-vehicle_attitude_bridge` executable from a Linux shell).
+
+The shared C/C++ packet definition is provided by libmodal-pipe in
+`pipe_interfaces/px4_vehicle_attitude_t.h` and exposed through
+`modal_pipe_interfaces.h`. This bridge requires a libmodal-pipe revision that
+includes this type. VFC can include the same library header
+without PX4 headers. Each 64-byte packet contains a magic number, format version,
+publication and sample timestamps in nanoseconds, the current attitude
+quaternion, the latest reset quaternion, and the 8-bit reset counter. Both
+quaternions use Hamilton `(w, x, y, z)` ordering. The timestamps retain the PX4
+topic timebase.
+
+The bridge writes a packet for every attitude update it consumes, including
+updates with an unchanged reset counter. It does not throttle the subscription.
+Attitude and reset metadata always come from the same uORB sample. Clients
+should validate packet size, magic number, and version before using the data.
+The library's `pipe_validate_px4_vehicle_attitude_t()` helper checks packet size
+and magic numbers; clients must check the version separately.
+The header provides a recommended read buffer size that holds multiple packets.
+
+For VFC integration, consume attitude and reset metadata from this pipe together
+so that a reset can be handled before using the changed attitude for control.
+The bridge alone does not change VFC's control behavior. On initial connection
+or reconnection, establish the current attitude/reference and counter as a new
+baseline. On a subsequent counter increment, apply the reset once to the stored
+attitude reference: `q_reference_new = delta_q_reset * q_reference_old`.
+Account for the counter wrapping from 255 to 0. An unchanged counter means the
+reset delta must not be applied again.
+
+The topic retains the latest reset delta, not a history of all resets. If a
+client misses multiple resets, it must re-establish its reference; the latest
+delta is insufficient to reconstruct the missing changes. This stream is also
+subject to uORB/MPA delivery gaps and is not a guaranteed reset event log.
+
 ## Notes
 
 You cannot cleanly shutdown PX4 with the shutdown command on VOXL 2. You have
