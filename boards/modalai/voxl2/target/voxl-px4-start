@@ -238,7 +238,7 @@ elif [ "$RC" == "CRSF_RAW" ]; then
     qshell crsf_rc start -d 7
 elif [ "$RC" == "ELRS_MAVLINK" ]; then
     /bin/echo "Starting ELRS Mavlink driver"
-    qshell virtual_serial_endpoint start -p 7 -v 100
+    qshell virtual_serial_endpoint start -p 7 -v 100 -b 460800
     # qshell virtual_serial_endpoint start -p 2 -b 115200 -v 100
 elif [ "$RC" == "CRSF_MAV" ]; then
     /bin/echo "Starting TBS crossfire RC - MAV Mode"
