@@ -118,6 +118,18 @@ private:
 	static constexpr float IMU_ODR{(float)BMI270_ODR_HZ};
 	static constexpr float FIFO_SAMPLE_DT_US{1e6f / IMU_ODR}; // 625 us
 
+	// --- accel/gyro on-chip filter group delay -------------------------------
+	// Accel and gyro share an ODR tick and arrive in the same FIFO frame, but each
+	// has its own low-pass with its own group delay, so the two halves represent
+	// different instants. PX4 timestamps the two FIFOs separately, so reporting the
+	// skew here is enough for VehicleIMU to align them.
+	//
+	// Only the difference is applied, with accel as the reference. Shifting both by
+	// their absolute delay would move the whole IMU timeline relative to the other
+	// sensors, whose EKF2_*_DELAY values were tuned without it.
+	//
+	// ~4 ms at 800 Hz, scales as 1/ODR. Estimated; Bosch does not tabulate OSR4
+	// group delay. Retune from a motors-off bench test.
 	// --- gyro cross-axis sensitivity (CAS) -----------------------------------
 	// Datasheet 4.6.10:  Rate_x = raw_x - GYR_CAS.factor_zx * raw_z / 2^9
 	// The divisor is 2^9 = 512; some copies of the formula read "/ 29" where the
@@ -126,6 +138,9 @@ private:
 	static constexpr int32_t CAS_DIVISOR{512};   // 2^9
 	int8_t _cas_factor_zx{0};
 	bool   _cas_valid{false};
+
+	static constexpr uint32_t ACCEL_TIMESTAMP_OFFSET_US{0};    // reference
+	static constexpr uint32_t GYRO_TIMESTAMP_OFFSET_US{(uint32_t)(2000.f * (1600.f / IMU_ODR))};
 
 	// Rates (Hz)
 	static constexpr float GYRO_RATE{IMU_ODR};
