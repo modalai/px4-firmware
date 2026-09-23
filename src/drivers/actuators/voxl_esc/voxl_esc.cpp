@@ -529,11 +529,18 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_chans[id].temperature   = fb.temperature * 0.01f;
 					_esc_chans[id].feedback_time = tnow;
 
+					uint8_t state = fb.id_state & 0x0F;
+
+					// Report Turtle mode whenever selected, including while disarmed.
+					if (_turtle_mode_en) {
+						state = esc_report_s::ESC_STATE_TURTLE_MODE;
+					}
+
 					// also update our internal report for logging
 					_esc_status.esc[id].timestamp    = tnow;
 					_esc_status.esc[id].esc_rpm      = fb.rpm;
 					_esc_status.esc[id].esc_power    = fb.power;
-					_esc_status.esc[id].esc_state    = fb.id_state & 0x0F;
+					_esc_status.esc[id].esc_state    = state;
 					_esc_status.esc[id].esc_voltage  = _esc_chans[id].voltage;
 					_esc_status.esc[id].esc_current  = _esc_chans[id].current;
 					_esc_status.esc[id].failures     = 0; //not implemented
