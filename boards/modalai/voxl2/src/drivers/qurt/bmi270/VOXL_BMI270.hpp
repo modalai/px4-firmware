@@ -118,6 +118,32 @@ private:
 	static constexpr float IMU_ODR{(float)BMI270_ODR_HZ};
 	static constexpr float FIFO_SAMPLE_DT_US{1e6f / IMU_ODR}; // 625 us
 
+	// --- accel/gyro on-chip filter group delay -------------------------------
+	// Accel and gyro are sampled on the same ODR tick and arrive paired in one
+	// FIFO frame, but each passes its own low-pass with its own group delay, so
+	// the two halves of a frame represent different instants. PX4 carries a
+	// separate timestamp_sample for sensor_accel_fifo and sensor_gyro_fifo, and
+	// VehicleIMU aligns accel to gyro by timestamp (VehicleIMU.cpp:234) before
+	// stamping vehicle_imu with gyro time (line 654) - so the skew IS
+	// representable downstream, it just has to be reported here.
+	//
+	// Bosch tabulates group delay at 800 Hz ODR for normal mode only
+	// (BST-BMI270-DS000, Tables 9/13): 1.3 ms accel / 2.3 ms gyro. OSR4 is not
+	// tabulated; ~5 ms / ~9 ms at 800 Hz is the working estimate carried by
+	// voxl-imu-server (branch bmi_osr_experimental). The filters are defined in
+	// samples, so delay scales as 1/ODR -> halve for 1600 Hz, giving roughly
+	// 2.5 ms accel / 4.5 ms gyro under OSR4, i.e. ~2 ms of accel-vs-gyro skew.
+	//
+	// Only the DIFFERENCE is applied. Subtracting both absolute delays would
+	// additionally shift the whole IMU timeline ~4.5 ms earlier relative to every
+	// other sensor, whose EKF2_*_DELAY values were tuned against the
+	// uncompensated clock. Relative skew is what corrupts attitude; a common
+	// shift does not. Anchoring on the accel also keeps every timestamp in the
+	// past - VehicleIMU errors if timestamp_sample > timestamp (line 322).
+	//
+	// ESTIMATED values - retune from the motors-off hand-rotation bench test.
+	// Group delay scales as 1/ODR, so derive from IMU_ODR rather than hardcoding:
+	// ~2 ms of accel-vs-gyro skew at 1600 Hz -> ~4 ms at 800 Hz.
 	// --- gyro cross-axis sensitivity (CAS) -----------------------------------
 	// Datasheet 4.6.10:  Rate_x = raw_x - GYR_CAS.factor_zx * raw_z / 2^9
 	// NOTE the divisor is 2^9 = 512. Some copies of this formula read "/ 29"
@@ -128,6 +154,9 @@ private:
 	static constexpr int32_t CAS_DIVISOR{512};   // 2^9
 	int8_t _cas_factor_zx{0};
 	bool   _cas_valid{false};
+
+	static constexpr uint32_t ACCEL_TIMESTAMP_OFFSET_US{0};    // reference
+	static constexpr uint32_t GYRO_TIMESTAMP_OFFSET_US{(uint32_t)(2000.f * (1600.f / IMU_ODR))};
 
 	// Rates (Hz)
 	static constexpr float GYRO_RATE{IMU_ODR};
