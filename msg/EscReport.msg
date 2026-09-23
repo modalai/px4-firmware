@@ -9,6 +9,8 @@ int16 motor_temperature # [degC] Temperature measured from current motor - if su
 
 uint8 esc_state # [-] State of ESC - depend on Vendor
 
+uint8 ESC_STATE_TURTLE_MODE = 16 # VOXL ESC software state: Turtle mode enabled
+
 uint8 actuator_function # [-] Actuator output function (one of Motor1...MotorN)
 
 uint8 ACTUATOR_FUNCTION_MOTOR1 = 101

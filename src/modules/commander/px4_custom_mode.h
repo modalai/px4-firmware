@@ -85,6 +85,9 @@ enum PX4_CUSTOM_SUB_MODE_POSCTL {
 	PX4_CUSTOM_SUB_MODE_POSCTL_SLOW
 };
 
+// Bit 0 of the reserved field reports Turtle mode to the VOXL OSD.
+#define PX4_CUSTOMER_MODE_TURTLE 1
+
 union px4_custom_mode {
 	struct {
 		uint16_t reserved;
