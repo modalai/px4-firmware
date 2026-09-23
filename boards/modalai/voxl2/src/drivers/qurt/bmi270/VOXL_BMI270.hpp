@@ -114,26 +114,23 @@ private:
 
 	hrt_abstime _temperature_update_timestamp{0};
 
-	struct FIFOLengthReadBuffer
-	{
+	struct FIFOLengthReadBuffer {
 		uint8_t cmd{static_cast<uint8_t>(Register::FIFO_LENGTH_0) | DIR_READ};
 		uint8_t dummy{0};
 		uint8_t FIFO_LENGTH_0{0};
 		uint8_t FIFO_LENGTH_1{0};
 	};
 
-	struct FIFOReadBuffer
-	{
+	struct FIFOReadBuffer {
 		uint8_t cmd{static_cast<uint8_t>(Register::FIFO_DATA) | DIR_READ};
 		uint8_t dummy{0};
-		FIFO::Data f[FIFO_MAX_SAMPLES]{};
+		FIFO::Data f[FIFO_MAX_SAMPLES] {};
 	};
 
 	// ensure no struct padding
-	static_assert(sizeof(FIFOReadBuffer) == (2 + FIFO_MAX_SAMPLES * sizeof(FIFO::Data)), "FIFOReadBuffer incorrect size");
+	static_assert(sizeof(FIFOReadBuffer) == (2 + FIFO_MAX_SAMPLES *sizeof(FIFO::Data)), "FIFOReadBuffer incorrect size");
 
-	struct register_config_t
-	{
+	struct register_config_t {
 		Register reg;
 		uint8_t set_bits{0};
 		uint8_t clear_bits{0};
@@ -183,7 +180,7 @@ private:
 
 	const spi_drdy_gpio_t _drdy_gpio;
 	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
-	
+
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
 
@@ -203,8 +200,7 @@ private:
 	bool _data_ready_interrupt_enabled{false};
 	bool _sensors_synchronized{false}; // true after first successful matching accel/gyro read
 
-	enum class STATE : uint8_t
-	{
+	enum class STATE : uint8_t {
 		WAIT_FOR_RESET,
 		RESET,
 		MICROCODE_LOAD,
@@ -231,25 +227,25 @@ private:
 	uint8_t _max_accel_samples{0};
 	uint8_t _min_gyro_samples{UINT8_MAX};
 	uint8_t _max_gyro_samples{0};
-																								  /*
-																								  uint8_t _checked_register{0};
-																								  static constexpr uint8_t size_register_cfg{11};
-																							  
-																								  register_config_t _register_cfg[size_register_cfg] {
-																									  // Register                        | Set bits, Clear bits
-																									  { Register::PWR_CONF,          0, ACC_PWR_CONF_BIT::acc_pwr_save },
-																									  { Register::PWR_CTRL,          PWR_CTRL_BIT::accel_en | PWR_CTRL_BIT::gyr_en | PWR_CTRL_BIT::temp_en,  0 },
-																									  { Register::ACC_CONF,              ACC_CONF_BIT::acc_bwp_Normal | ACC_CONF_BIT::acc_odr_1600, Bit1 | Bit0 },
-																									  { Register::GYR_CONF,              GYR_CONF_BIT::gyr_odr_1k6 | GYR_CONF_BIT::gyr_flt_mode_normal | GYR_CONF_BIT::gyr_noise_hp | GYR_CONF_BIT::gyr_flt_hp, Bit0 | Bit1 | Bit4},
-																									  { Register::ACC_RANGE,             ACC_RANGE_BIT::acc_range_16g, 0 },
-																									  { Register::FIFO_WTM_0,            0, 0 },
-																									  { Register::FIFO_WTM_1,            0, 0 },
-																									  { Register::FIFO_CONFIG_0,         FIFO_CONFIG_0_BIT::BIT1_ALWAYS | FIFO_CONFIG_0_BIT::FIFO_mode, 0 },
-																									  { Register::FIFO_CONFIG_1,         FIFO_CONFIG_1_BIT::BIT4_ALWAYS | FIFO_CONFIG_1_BIT::Acc_en | FIFO_CONFIG_1_BIT::Gyr_en, 0 },
-																									  { Register::INT1_IO_CTRL,          INT1_IO_CONF_BIT::int1_out, 0 },
-																									  { Register::INT_MAP_DATA,    INT1_INT2_MAP_DATA_BIT::int1_fwm, 0},
-																								  };
-																								  */
+	/*
+	uint8_t _checked_register{0};
+	static constexpr uint8_t size_register_cfg{11};
+
+	register_config_t _register_cfg[size_register_cfg] {
+	  // Register                        | Set bits, Clear bits
+	  { Register::PWR_CONF,          0, ACC_PWR_CONF_BIT::acc_pwr_save },
+	  { Register::PWR_CTRL,          PWR_CTRL_BIT::accel_en | PWR_CTRL_BIT::gyr_en | PWR_CTRL_BIT::temp_en,  0 },
+	  { Register::ACC_CONF,              ACC_CONF_BIT::acc_bwp_Normal | ACC_CONF_BIT::acc_odr_1600, Bit1 | Bit0 },
+	  { Register::GYR_CONF,              GYR_CONF_BIT::gyr_odr_1k6 | GYR_CONF_BIT::gyr_flt_mode_normal | GYR_CONF_BIT::gyr_noise_hp | GYR_CONF_BIT::gyr_flt_hp, Bit0 | Bit1 | Bit4},
+	  { Register::ACC_RANGE,             ACC_RANGE_BIT::acc_range_16g, 0 },
+	  { Register::FIFO_WTM_0,            0, 0 },
+	  { Register::FIFO_WTM_1,            0, 0 },
+	  { Register::FIFO_CONFIG_0,         FIFO_CONFIG_0_BIT::BIT1_ALWAYS | FIFO_CONFIG_0_BIT::FIFO_mode, 0 },
+	  { Register::FIFO_CONFIG_1,         FIFO_CONFIG_1_BIT::BIT4_ALWAYS | FIFO_CONFIG_1_BIT::Acc_en | FIFO_CONFIG_1_BIT::Gyr_en, 0 },
+	  { Register::INT1_IO_CTRL,          INT1_IO_CONF_BIT::int1_out, 0 },
+	  { Register::INT_MAP_DATA,    INT1_INT2_MAP_DATA_BIT::int1_fwm, 0},
+	};
+	*/
 	uint8_t _checked_register{0};
 
 	// PWR_CONF: disable advanced power save (clear acc_pwr_save bits)
@@ -262,7 +258,7 @@ private:
 	// FIFO_CONFIG_0: FIFO mode, overwrite old samples, required BIT1 = 1
 	// FIFO_CONFIG_1: FIFO accel + gyro enabled, required BIT4 = 1
 	static constexpr uint8_t size_register_cfg{13};
-	register_config_t _register_cfg[size_register_cfg]{
+	register_config_t _register_cfg[size_register_cfg] {
 		// Register
 		{Register::PWR_CONF, 0, ACC_PWR_CONF_BIT::acc_pwr_save},
 

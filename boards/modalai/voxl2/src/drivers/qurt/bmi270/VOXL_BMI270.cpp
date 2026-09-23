@@ -89,6 +89,7 @@ VOXL_BMI270::VOXL_BMI270(const I2CSPIDriverConfig &config) :
 	if (config.drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME": DRDY missed");
 		PX4_INFO("BMI270 interrupt GPIO configured: %d", config.drdy_gpio);
+
 	} else {
 		PX4_INFO("BMI270 no interrupt GPIO, using polling");
 	}
@@ -222,31 +223,31 @@ void VOXL_BMI270::print_status()
 
 		if (_min_read_interval < UINT64_MAX) {
 			PX4_INFO("Read interval: min=%llu us, max=%llu us, expected=%u us",
-				(unsigned long long)_min_read_interval,
-				(unsigned long long)_max_read_interval,
-				_fifo_empty_interval_us);
+				 (unsigned long long)_min_read_interval,
+				 (unsigned long long)_max_read_interval,
+				 _fifo_empty_interval_us);
 
 			float interval_variance = (_max_read_interval > _min_read_interval) ?
-				(float)(_max_read_interval - _min_read_interval) / _fifo_empty_interval_us * 100 : 0;
+						  (float)(_max_read_interval - _min_read_interval) / _fifo_empty_interval_us * 100 : 0;
 			PX4_INFO("  Interval variance: %.1f%%", (double)interval_variance);
 		}
 
 		if (_min_fifo_bytes < UINT16_MAX) {
 			float avg_bytes = (float)_total_fifo_bytes / _fifo_read_count;
 			PX4_INFO("FIFO bytes: min=%u, max=%u, avg=%.1f, total=%u",
-				_min_fifo_bytes, _max_fifo_bytes, (double)avg_bytes, _total_fifo_bytes);
+				 _min_fifo_bytes, _max_fifo_bytes, (double)avg_bytes, _total_fifo_bytes);
 		}
 
 		if (_min_accel_samples < UINT8_MAX) {
 			float avg_accel = (float)_total_accel_samples / _fifo_read_count;
 			PX4_INFO("Accel samples: min=%u, max=%u, avg=%.2f, total=%u",
-				_min_accel_samples, _max_accel_samples, (double)avg_accel, _total_accel_samples);
+				 _min_accel_samples, _max_accel_samples, (double)avg_accel, _total_accel_samples);
 		}
 
 		if (_min_gyro_samples < UINT8_MAX) {
 			float avg_gyro = (float)_total_gyro_samples / _fifo_read_count;
 			PX4_INFO("Gyro samples: min=%u, max=%u, avg=%.2f, total=%u",
-				_min_gyro_samples, _max_gyro_samples, (double)avg_gyro, _total_gyro_samples);
+				 _min_gyro_samples, _max_gyro_samples, (double)avg_gyro, _total_gyro_samples);
 		}
 
 		PX4_INFO("Data ready interrupt: %s", _data_ready_interrupt_enabled ? "ENABLED" : "DISABLED (polling mode)");
@@ -323,7 +324,7 @@ void VOXL_BMI270::RunImpl()
 
 
 			uint8_t chip_i = RegisterRead(Register::CHIP_ID);
-			PX4_DEBUG("CHIP_ID AFTER: 0x%02hhX", chip_i );
+			PX4_DEBUG("CHIP_ID AFTER: 0x%02hhX", chip_i);
 			_state = STATE::MICROCODE_LOAD;
 			ScheduleDelayed(450_us);
 
@@ -351,16 +352,19 @@ void VOXL_BMI270::RunImpl()
 			_state = STATE::CONFIGURE;
 			// You already waited while polling; no additional delay is needed.
 			ScheduleNow();
+
 		} else {
 			PX4_DEBUG("feature config upload/verify failed, resetting");
 			_state = STATE::RESET;
 			ScheduleDelayed(10_ms);
 		}
+
 		break;
 
 
 	case STATE::CONFIGURE:
 		PX4_DEBUG("STATE: CONFIGURE");
+
 		if (Configure()) {
 
 			// if configure succeeded then start reading from FIFO
@@ -405,6 +409,7 @@ void VOXL_BMI270::RunImpl()
 
 			// Track time between FIFO reads for debugging
 			hrt_abstime read_interval = 0;
+
 			if (_last_fifo_read_timestamp > 0) {
 				read_interval = now - _last_fifo_read_timestamp;
 
@@ -412,6 +417,7 @@ void VOXL_BMI270::RunImpl()
 				if (read_interval < _min_read_interval) {
 					_min_read_interval = read_interval;
 				}
+
 				if (read_interval > _max_read_interval) {
 					_max_read_interval = read_interval;
 				}
@@ -419,15 +425,16 @@ void VOXL_BMI270::RunImpl()
 				// Log if interval deviates significantly from expected
 				const hrt_abstime expected_interval = _fifo_empty_interval_us;
 				const hrt_abstime deviation = (read_interval > expected_interval) ?
-					(read_interval - expected_interval) : (expected_interval - read_interval);
+							      (read_interval - expected_interval) : (expected_interval - read_interval);
 
 				if (deviation > (expected_interval / 4)) { // >25% deviation
 					PX4_DEBUG("[TIMING] deviation: actual=%llu us (expected=%u us, +%.1f%%)",
-						(unsigned long long)read_interval,
-						expected_interval,
-						(double)(deviation * 100) / expected_interval);
+						  (unsigned long long)read_interval,
+						  expected_interval,
+						  (double)(deviation * 100) / expected_interval);
 				}
 			}
+
 			_last_fifo_read_timestamp = now;
 			_fifo_read_count++;
 
@@ -437,8 +444,9 @@ void VOXL_BMI270::RunImpl()
 				const uint32_t irq_samples = _drdy_fifo_read_samples.fetch_and(0);
 				PX4_DEBUG("[FIFO_READ] irq_samples=%u, expected=%u", irq_samples, (uint32_t)_fifo_gyro_samples);
 
-				if (irq_samples != static_cast<uint32_t>(_fifo_gyro_samples)){
+				if (irq_samples != static_cast<uint32_t>(_fifo_gyro_samples)) {
 					drdy_missed = true;
+
 				} else {
 					samples = _fifo_gyro_samples;
 				}
@@ -447,6 +455,7 @@ void VOXL_BMI270::RunImpl()
 
 				if ((drdy_timestamp_sample != 0) && ((now - drdy_timestamp_sample) < _fifo_empty_interval_us)) {
 					timestamp_sample = drdy_timestamp_sample;
+
 				} else {
 					drdy_missed = true;
 				}
@@ -469,9 +478,11 @@ void VOXL_BMI270::RunImpl()
 			// Track FIFO byte statistics
 			if (fifo_count > 0) {
 				_total_fifo_bytes += fifo_count;
+
 				if (fifo_count < _min_fifo_bytes) {
 					_min_fifo_bytes = fifo_count;
 				}
+
 				if (fifo_count > _max_fifo_bytes) {
 					_max_fifo_bytes = fifo_count;
 				}
@@ -507,16 +518,19 @@ void VOXL_BMI270::RunImpl()
 						if (_sensors_synchronized) {
 							// After sync: read exactly expected amount to avoid sample count mismatch
 							read_bytes = expected_bytes;
+
 						} else {
 							// Before sync: read available data but cap at buffer size to avoid overflow
 							read_bytes = (fifo_count > max_safe_bytes) ? max_safe_bytes : fifo_count;
 						}
+
 					} else {
 						// IRQ came early or duplicate; don't read a partial remainder
 						read_bytes = 0;
 						success = true;
 					}
 				}
+
 				// -----------------------------------------------------------------------------------------
 
 				// Read FIFO if we have at least minimum data
@@ -541,6 +555,7 @@ void VOXL_BMI270::RunImpl()
 					Reset();
 					return;
 				}
+
 			} else {
 				PX4_DEBUG("[FIFO_READ] SUCCESS (failure_count=%u)", _failure_count);
 			}
@@ -615,7 +630,7 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 	const uint8_t istat_before   = RegisterRead(Register::INTERNAL_STATUS);
 	const uint8_t err_before     = RegisterRead(Register::ERR_REG);
 	PX4_DEBUG("Pre-load snapshot: CHIP_ID=0x%02hhX INTERNAL_STATUS=0x%02hhX ERR_REG=0x%02hhX",
-	          chip_id_read, istat_before, err_before);
+		  chip_id_read, istat_before, err_before);
 
 	const uint8_t if_config = RegisterRead(Register::IF_CONF);
 	PX4_DEBUG("IF_CONF at start of load config: 0x%02hhX", if_config);
@@ -641,28 +656,28 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 	int res = PX4_OK;
 
 	PX4_DEBUG("Step 5: starting config upload, len=%u bytes, CHUNK=%u",
-	          (unsigned)bmi270_config_file_len, (unsigned)CHUNK);
+		  (unsigned)bmi270_config_file_len, (unsigned)CHUNK);
 
 	const uint8_t start_init_addr0_rb = RegisterRead(Register::INIT_ADDR_0);
 	const uint8_t start_init_addr1_rb = RegisterRead(Register::INIT_ADDR_1);
 	PX4_DEBUG("START (SHOULD BE 0) CFG: INIT_ADDR readback: [0]=0x%02hhX [1]=0x%02hhX",
-		          start_init_addr0_rb, start_init_addr1_rb);
+		  start_init_addr0_rb, start_init_addr1_rb);
 	RegisterWrite(Register::INIT_ADDR_0, 0x05);
 	RegisterWrite(Register::INIT_ADDR_1, 0x06);
 	px4_usleep(500);
 	const uint8_t start2_init_addr0_rb = RegisterRead(Register::INIT_ADDR_0);
 	const uint8_t start2_init_addr1_rb = RegisterRead(Register::INIT_ADDR_1);
-	uint16_t word_addr1 = ((uint16_t)start2_init_addr1_rb << 4) | (start2_init_addr0_rb& 0x0F);
+	uint16_t word_addr1 = ((uint16_t)start2_init_addr1_rb << 4) | (start2_init_addr0_rb & 0x0F);
 
 	PX4_DEBUG("INIT_ADDR raw: [0]=0x%02hhX [1]=0x%02hhX, decoded word_addr=%u",
-          start2_init_addr0_rb, start2_init_addr1_rb, word_addr1);
+		  start2_init_addr0_rb, start2_init_addr1_rb, word_addr1);
 
 
 
 	for (uint32_t i = 0; i < bmi270_config_file_len; i += CHUNK) {
 
 		uint16_t wlen = (uint16_t)((bmi270_config_file_len - i < CHUNK) ? (bmi270_config_file_len - i) : CHUNK);
-	//	if (wlen & 1) { wlen -= 1; } // keep even length
+		//	if (wlen & 1) { wlen -= 1; } // keep even length
 
 		if (wlen == 0) {
 			PX4_DEBUG("CFG: wlen == 0, breaking at i=%u", (unsigned)i);
@@ -676,8 +691,8 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 		addr_bytes[1] = (uint8_t)(word_addr >> 4);   // upper bits
 
 		PX4_DEBUG("CFG: chunk i=%u wlen=%u word_addr=%u (addr0=0x%02hhX addr1=0x%02hhX)",
-		          (unsigned)i, (unsigned)wlen, (unsigned)word_addr,
-		          addr_bytes[0], addr_bytes[1]);
+			  (unsigned)i, (unsigned)wlen, (unsigned)word_addr,
+			  addr_bytes[0], addr_bytes[1]);
 
 		RegisterWrite(Register::INIT_ADDR_0, addr_bytes[0]);
 		RegisterWrite(Register::INIT_ADDR_1, addr_bytes[1]);
@@ -698,7 +713,7 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 		uint8_t d0 = (wlen > 0) ? tx_data[1] : 0;
 		uint8_t d1 = (wlen > 1) ? tx_data[2] : 0;
 		PX4_DEBUG("CFG: DATA[0..1] @i=%u: %02hhX %02hhX",
-				(unsigned)i, d0, d1);
+			  (unsigned)i, d0, d1);
 
 		res = transfer(tx_data, tx_data, sizeof(tx_data));
 
@@ -802,19 +817,33 @@ static const char *RegName(Register r)
 {
 	switch (r) {
 	case Register::PWR_CONF:        return "PWR_CONF";
+
 	case Register::PWR_CTRL:        return "PWR_CTRL";
+
 	case Register::ACC_CONF:        return "ACC_CONF";
+
 	case Register::GYR_CONF:        return "GYR_CONF";
+
 	case Register::ACC_RANGE:       return "ACC_RANGE";
+
 	case Register::FIFO_WTM_0:      return "FIFO_WTM_0";
+
 	case Register::FIFO_WTM_1:      return "FIFO_WTM_1";
+
 	case Register::FIFO_CONFIG_0:   return "FIFO_CONFIG_0";
+
 	case Register::FIFO_CONFIG_1:   return "FIFO_CONFIG_1";
+
 	case Register::INT1_IO_CTRL:    return "INT1_IO_CTRL";
+
 	case Register::INT_MAP_DATA:    return "INT_MAP_DATA";
+
 	case Register::INTERNAL_STATUS: return "INTERNAL_STATUS";
+
 	case Register::GYR_RANGE:   	return "GYR_RANGE";
+
 	case Register::FIFO_DOWNS:  	return "FIFO_DOWNS";
+
 	default:                        return "UNKNOWN";
 	}
 }
@@ -832,7 +861,7 @@ void VOXL_BMI270::ConfigureFIFOWatermark(uint8_t samples)
 	const uint16_t fifo_watermark_threshold = (samples * COMBINED_FRAME_SIZE) - 1;
 
 	PX4_INFO("Setting FIFO watermark: %d samples * %d bytes - 1 = %d bytes",
-		samples, COMBINED_FRAME_SIZE, fifo_watermark_threshold);
+		 samples, COMBINED_FRAME_SIZE, fifo_watermark_threshold);
 
 	for (auto &r : _register_cfg) {
 		if (r.reg == Register::FIFO_WTM_0) {
@@ -854,10 +883,11 @@ bool VOXL_BMI270::Configure()
 	// check internal status first as per datasheet
 	uint8_t internal_status = RegisterRead(Register::INTERNAL_STATUS);
 	PX4_DEBUG("Internal status register (%s 0x%02hhX): 0x%02hhX",
-	          RegName(Register::INTERNAL_STATUS), (uint8_t)Register::INTERNAL_STATUS, internal_status);
+		  RegName(Register::INTERNAL_STATUS), (uint8_t)Register::INTERNAL_STATUS, internal_status);
 
 	if ((internal_status & 1) == 1) {
 		PX4_DEBUG("INTERNAL_STATUS 0x01, ready for configure");
+
 	} else {
 		PX4_DEBUG("INTERNAL_STATUS check failed, resetting");
 		_state = STATE::RESET;
@@ -869,12 +899,15 @@ bool VOXL_BMI270::Configure()
 	// program registers
 	for (const auto &reg_cfg : _register_cfg) {
 		RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits);
+
 		if (reg_cfg.reg == Register::PWR_CTRL) {
 			PX4_DEBUG("PWR_CTRL written, sleeping 2 ms for BMI270 start-up");
 			px4_usleep(2000);
 		}
+
 		px4_usleep(1000);
 	}
+
 	PX4_DEBUG("All config registers written, sleeping 3 ms before verify/FIFO");
 	px4_usleep(3000);
 	// apply scale/range that may affect subsequent checks
@@ -892,7 +925,7 @@ bool VOXL_BMI270::Configure()
 	// Verify interrupt mapping
 	const uint8_t int_map = RegisterRead(Register::INT_MAP_DATA);
 	PX4_INFO("INT_MAP_DATA readback: 0x%02X (bit1=fwm:%d, bit2=drdy:%d)",
-		int_map, (int_map & Bit1) ? 1 : 0, (int_map & Bit2) ? 1 : 0);
+		 int_map, (int_map & Bit1) ? 1 : 0, (int_map & Bit2) ? 1 : 0);
 
 	// verify (always prints PASS/FAIL per register)
 	for (const auto &reg_cfg : _register_cfg) {
@@ -914,16 +947,22 @@ int VOXL_BMI270::DataReadyInterruptCallback(int irq, void *context, void *arg)
 
 	// Decode interrupt type (check all possible bits)
 	const char *int_type = "UNKNOWN";
+
 	if (int_status & Bit7) {
 		int_type = "ACC_DRDY";  // Accel data ready
+
 	} else if (int_status & Bit6) {
 		int_type = "GYR_DRDY";  // Gyro data ready (might be the culprit!)
+
 	} else if (int_status & Bit5) {
 		int_type = "AUX_DRDY";  // Auxiliary data ready
+
 	} else if (int_status & Bit2) {
 		int_type = "ERROR";
+
 	} else if (int_status & Bit1) {
 		int_type = "FIFO_WTM";  // FIFO watermark (what we want!)
+
 	} else if (int_status & Bit0) {
 		int_type = "FIFO_FULL";
 	}
@@ -933,7 +972,7 @@ int VOXL_BMI270::DataReadyInterruptCallback(int irq, void *context, void *arg)
 	if (int_status & Bit1) { // FIFO_WTM
 		instance->DataReady();
 	}
-	
+
 	return 0;
 }
 void VOXL_BMI270::DataReady()
@@ -949,6 +988,7 @@ void VOXL_BMI270::DataReady()
 		_drdy_timestamp_sample.store(hrt_absolute_time());
 		ScheduleNow();
 		PX4_DEBUG("[DataReady #%u] ScheduleNow() completed", dataready_count);
+
 	} else {
 		// optional: helps confirm you're suppressing duplicate IRQs
 		PX4_DEBUG("[DataReady #%u] suppressed duplicate interrupt (pending=%lu)", dataready_count, (unsigned long)expected);
@@ -975,22 +1015,22 @@ bool VOXL_BMI270::DataReadyInterruptDisable()
 }
 bool VOXL_BMI270::RegisterCheck(const register_config_t &reg_cfg)
 {
-    const uint8_t reg_value = RegisterRead(reg_cfg.reg);
+	const uint8_t reg_value = RegisterRead(reg_cfg.reg);
 
-    // Bits we expect to be 1 but are 0
-    const uint8_t missing_set = (uint8_t)(reg_cfg.set_bits & ~reg_value);
-    const bool set_ok = (missing_set == 0);
+	// Bits we expect to be 1 but are 0
+	const uint8_t missing_set = (uint8_t)(reg_cfg.set_bits & ~reg_value);
+	const bool set_ok = (missing_set == 0);
 
-    const bool ok = set_ok;
+	const bool ok = set_ok;
 
-    // Only log failures, not every check
-    if (!ok) {
-        PX4_WARN("Register check FAILED: %s (0x%02hhX): val=0x%02hhX, want_set=0x%02hhX",
-              RegName(reg_cfg.reg), (uint8_t)reg_cfg.reg, reg_value, reg_cfg.set_bits);
-        PX4_WARN("    missing_set=0x%02hhX (bits expected=1 but are 0)", missing_set);
-    }
+	// Only log failures, not every check
+	if (!ok) {
+		PX4_WARN("Register check FAILED: %s (0x%02hhX): val=0x%02hhX, want_set=0x%02hhX",
+			 RegName(reg_cfg.reg), (uint8_t)reg_cfg.reg, reg_value, reg_cfg.set_bits);
+		PX4_WARN("    missing_set=0x%02hhX (bits expected=1 but are 0)", missing_set);
+	}
 
-    return ok;
+	return ok;
 }
 uint8_t VOXL_BMI270::RegisterRead(Register reg)
 {
@@ -1159,11 +1199,14 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 	// Update sample statistics
 	if (accel_buffer.samples > 0) {
 		_total_accel_samples += accel_buffer.samples;
+
 		if (accel_buffer.samples < _min_accel_samples) {
 			_min_accel_samples = accel_buffer.samples;
 		}
+
 		if (accel_buffer.samples > _max_accel_samples) {
 			_max_accel_samples = accel_buffer.samples;
+
 			if (_max_accel_samples > FIFO_MAX_SAMPLES) {
 				PX4_DEBUG("Accel samples (%u) > FIFO_MAX (%d)", _max_accel_samples, FIFO_MAX_SAMPLES);
 			}
@@ -1172,11 +1215,14 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	if (gyro_buffer.samples > 0) {
 		_total_gyro_samples += gyro_buffer.samples;
+
 		if (gyro_buffer.samples < _min_gyro_samples) {
 			_min_gyro_samples = gyro_buffer.samples;
 		}
+
 		if (gyro_buffer.samples > _max_gyro_samples) {
 			_max_gyro_samples = gyro_buffer.samples;
+
 			if (_max_gyro_samples > FIFO_MAX_SAMPLES) {
 				PX4_WARN("Gyro samples (%u) > FIFO_MAX (%d)", _max_gyro_samples, FIFO_MAX_SAMPLES);
 			}
@@ -1189,14 +1235,17 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	if (last_accel_samples > 0 && accel_buffer.samples > 0) {
 		int sample_diff = abs((int)accel_buffer.samples - (int)last_accel_samples);
+
 		if (sample_diff > 1) {
 			inconsistent_count++;
+
 			if (inconsistent_count % 20 == 1) {
 				PX4_DEBUG("Sample count varies: prev=%u curr=%u (x%u)",
-					last_accel_samples, accel_buffer.samples, inconsistent_count);
+					  last_accel_samples, accel_buffer.samples, inconsistent_count);
 			}
 		}
 	}
+
 	last_accel_samples = accel_buffer.samples;
 
 	if ((accel_buffer.samples == 0) && (gyro_buffer.samples == 0)) {
@@ -1206,7 +1255,7 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 	// Skip data until we have matching accel and gyro sample counts
 	if (accel_buffer.samples != gyro_buffer.samples) {
 		PX4_DEBUG("[FIFO Read] Skipping mismatched data (bytes=%u, accel=%u, gyro=%u) - waiting for sync",
-			fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
+			  fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
 		_sensors_synchronized = false;  // Lost sync
 		return true;  // FIFO was drained successfully, just not publishing data
 	}
@@ -1219,17 +1268,17 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	// Print FIFO read details on every read for debugging
 	PX4_DEBUG("[FIFO Read] bytes=%u, accel_samples=%u, gyro_samples=%u",
-		fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
+		  fifo_bytes, accel_buffer.samples, gyro_buffer.samples);
 
 	// Compact per-read summary every 50 reads
 	if (_fifo_read_count % 50 == 0) {
 		PX4_DEBUG("[#%u] %uB → A:%u G:%u | interval: %llu-%llu us | samples: A:%u-%u G:%u-%u",
-			_fifo_read_count, fifo_bytes,
-			accel_buffer.samples, gyro_buffer.samples,
-			(unsigned long long)_min_read_interval,
-			(unsigned long long)_max_read_interval,
-			_min_accel_samples, _max_accel_samples,
-			_min_gyro_samples, _max_gyro_samples);
+			  _fifo_read_count, fifo_bytes,
+			  accel_buffer.samples, gyro_buffer.samples,
+			  (unsigned long long)_min_read_interval,
+			  (unsigned long long)_max_read_interval,
+			  _min_accel_samples, _max_accel_samples,
+			  _min_gyro_samples, _max_gyro_samples);
 	}
 
 	if (accel_buffer.samples > 0) {

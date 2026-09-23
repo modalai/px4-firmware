@@ -90,9 +90,9 @@ enum class Register : uint8_t {
 
 	// controls interrupt pin behaviour
 	INT1_IO_CTRL       = 0x53,
-	INTERNAL_ERR    = 0x2A,   
-	ERR_REG_MSK     = 0x02,   
-	IF_CONF         = 0x6B,  
+	INTERNAL_ERR    = 0x2A,
+	ERR_REG_MSK     = 0x02,
+	IF_CONF         = 0x6B,
 
 	INT_MAP_DATA       = 0x58,
 	INIT_CTRL          = 0x59,
@@ -133,7 +133,7 @@ enum PWR_CTRL_BIT : uint8_t {
 enum ACC_CONF_BIT : uint8_t {
 	// [7:4] acc_bwp
 	acc_bwp_Normal = Bit7 | Bit5,        // Filter setting normal
-	acc_bwp_OSR4 = Bit7,  
+	acc_bwp_OSR4 = Bit7,
 
 	// [3:0] acc_odr
 	acc_odr_1600   = Bit3 | Bit2,        // ODR 1600 Hz
