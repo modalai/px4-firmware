@@ -81,6 +81,21 @@ enum class Register : uint8_t {
 	// page is mapped into 0x30-0x3F (datasheet 5.2.39 / 5.2.40).
 	FEAT_PAGE          = 0x2F,
 	GYR_CAS            = 0x3C,   // page 0: gyro cross-axis sensitivity, bits 6..0
+	G_TRIG_1           = 0x32,   // page 1: CRT/self-test trigger config
+	GYR_GAIN_STATUS    = 0x38,   // page 0: g_trig_status (bits 5..3) + gain saturation flags
+	// 0x38 is GYR_GAIN_STATUS on page 0 but a gain-ratio register on page 1, so
+	// the page must be set deliberately before reading it.
+	GEN_SET_1          = 0x34,   // page 1: bit10 nvm_prog_prep (NVM write step 3)
+	GYR_CRT_CONF       = 0x69,   // direct: bit2 crt_running, bit3 rdy_for_dl
+	NVM_CONF           = 0x6A,   // direct: bit1 nvm_prog_en (NVM write step 5)
+	OFFSET_6           = 0x77,   // direct: bit6 gyr_off_en, bit7 gyr_gain_en
+	// GYR_USR_GAIN_0..2: the gain trim CRT actually writes. Main register map,
+	// NOT the feature pages. The DATASHEET MARKS 0x78-0x7A "reserved" - they are
+	// real; BMI2_GYR_USR_GAIN_0_ADDR = 0x78 in Bosch's bmi2_defs.h, mask 0x7F.
+	// 7-bit two's complement, one per axis, NVM-backed (zero after every reset).
+	GYR_USR_GAIN_0     = 0x78,   // X gain trim
+	GYR_USR_GAIN_1     = 0x79,   // Y gain trim
+	GYR_USR_GAIN_2     = 0x7A,   // Z gain trim
 
 	ACC_CONF           = 0x40,
 	ACC_RANGE          = 0x41,
