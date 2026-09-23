@@ -349,6 +349,23 @@ void VOXL_BMI270::RunImpl()
 
 		if (LoadFeatureConfigAndVerify()) {
 			PX4_DEBUG("feature config uploaded & verified; proceeding to CONFIGURE");
+
+			// One-shot CRT while the gyro and FIFO are still down. Non-fatal:
+			// a failure (typically motion during boot) just leaves the part on
+			// its factory trim, which is the status quo.
+#if BMI270_RUN_CRT
+
+			if (!_crt_attempted) {
+				_crt_attempted = true;
+				_crt_ok = RunCRT();
+			}
+
+#else
+			// CRT disabled: the trim is expected to come from NVM, loaded into the
+			// image registers by the chip at reset. Report what actually came up.
+			ReportGyroGainState("from-NVM");
+#endif
+
 			_state = STATE::CONFIGURE;
 			// You already waited while polling; no additional delay is needed.
 			ScheduleNow();
@@ -502,8 +519,15 @@ void VOXL_BMI270::RunImpl()
 			} else {
 				static constexpr uint16_t MIN_READ_THRESHOLD = 13;
 
-				// Decide how many bytes to read
-				uint16_t read_bytes = fifo_count;
+				// Decide how many bytes to read.
+				// CLAMP UNCONDITIONALLY: FIFOReadBuffer is only
+				// (2 + FIFO_MAX_SAMPLES*13) bytes, but fifo_count can reach
+				// FIFO::SIZE (1024). The capping below only runs when samples>0,
+				// so a drdy mismatch (samples==0) previously left this uncapped
+				// and FIFORead would transfer up to 1025 bytes into a 262-byte
+				// stack buffer -> DSP stack smash / PD fatal error.
+				static constexpr uint16_t MAX_SAFE_READ_BYTES = FIFO_MAX_SAMPLES * 13;
+				uint16_t read_bytes = (fifo_count > MAX_SAFE_READ_BYTES) ? MAX_SAFE_READ_BYTES : fifo_count;
 
 				// --- STEP 3: if we are interrupt-driven and we "claimed" an IRQ batch, read a fixed batch ---
 				// NOTE: this assumes you added `uint32_t samples = 0;` earlier in FIFO_READ and set it from
@@ -772,8 +796,381 @@ bool VOXL_BMI270::LoadFeatureConfigAndVerify()
 	}
 
 	PX4_DEBUG("Config load SUCCESS: INTERNAL_STATUS=0x%02hhX", istat);
+
+	// Feature engine is up, so the FEATURES page is now valid - read CAS.
+	ReadGyroCAS();
+
 	PX4_DEBUG("=== LoadFeatureConfigAndVerify() END (OK) ===");
 	return true;
+}
+
+bool VOXL_BMI270::RunCRT()
+{
+	// Component ReTrimming: Bosch's motionless gyro SENSITIVITY (gain) correction.
+	// Sequence follows the BMI270_SensorAPI reference (bmi2_do_crt -> gyro_crt_test),
+	// NOT the datasheet's 14-step list, which omits the download path entirely.
+	//
+	// We implement ONLY the simple path, which is valid while
+	// G_TRIG_1.max_burst_len == 0 (the reset default, and what this part reports).
+	// A non-zero value takes the branch that needs the 2 kB config-stream download
+	// (write_crt_config_file) - we detect that and bail rather than get it wrong.
+	//
+	// Must run with the gyro and FIFO DOWN, which is why this is called during init
+	// between the blob load and Configure(). Configure() afterwards rewrites
+	// PWR_CTRL / FIFO_CONFIG_* from _register_cfg, restoring normal operation.
+	// OFFSET_6 is not in _register_cfg, so gyr_gain_en survives.
+	//
+	// The gain lands in NVM-backed IMAGE registers: it applies immediately but is
+	// LOST on power cycle. Nothing here writes NVM (CMD 0xa0) - that budget is only
+	// 14 writes for the life of the part.
+
+	// --- precondition: max_burst_len must be 0 for the simple path
+	RegisterWrite(Register::FEAT_PAGE, 0x01);
+	px4_usleep(1000);
+	const uint8_t max_burst_len = RegisterRead(Register::G_TRIG_1);
+	const uint8_t crt_before    = RegisterRead(Register::GYR_CRT_CONF);
+
+	if (max_burst_len != 0) {
+		PX4_WARN("BMI270 CRT: SKIPPED max_burst_len=0x%02X (needs 2kB download path, not impl)",
+			 max_burst_len);
+		RegisterWrite(Register::FEAT_PAGE, 0x00);
+		return false;
+	}
+
+	if ((crt_before >> 2) & 1) {
+		PX4_WARN("BMI270 CRT: SKIPPED - crt_running already set (0x%02X)", crt_before);
+		RegisterWrite(Register::FEAT_PAGE, 0x00);
+		return false;
+	}
+
+	// --- crt_prepare_setup(): adv power save off, gyro off, FIFO off, accel on
+	RegisterSetAndClearBits(Register::PWR_CONF, 0, ACC_PWR_CONF_BIT::acc_pwr_save);
+	px4_usleep(500);
+	RegisterSetAndClearBits(Register::PWR_CTRL, PWR_CTRL_BIT::accel_en, PWR_CTRL_BIT::gyr_en);
+	RegisterSetAndClearBits(Register::FIFO_CONFIG_1, 0,
+				FIFO_CONFIG_1_BIT::Acc_en | FIFO_CONFIG_1_BIT::Gyr_en);
+	px4_usleep(1000);
+
+	// --- apply the resulting gain once CRT produces it
+	RegisterSetAndClearBits(Register::OFFSET_6, Bit7, 0);   // gyr_gain_en = 1
+
+	// --- crt_running = 1
+	RegisterSetAndClearBits(Register::GYR_CRT_CONF, Bit2, 0);
+
+	// --- G_TRIG_1: select=CRT (bit 8), block=0 (bit 9).
+	// FEATURES writes must be 16-bit word oriented (start even, end odd), so write
+	// 0x32 and 0x33 in ONE transfer: low byte = max_burst_len 0, high byte = 0x01.
+	RegisterWrite(Register::FEAT_PAGE, 0x01);
+	px4_usleep(1000);
+	uint8_t gt[3] { (uint8_t)Register::G_TRIG_1, 0x00, 0x01 };
+	transfer(gt, gt, sizeof(gt));
+	px4_usleep(1000);
+
+	// --- trigger
+	RegisterWrite(Register::CMD, 0x02);   // g_trigger
+
+	// --- wait for crt_running -> 0 (Bosch allows up to 2 s)
+	bool done = false;
+	int waited_ms = 0;
+
+	for (; waited_ms < 2500; waited_ms += 10) {
+		px4_usleep(10000);
+
+		if (((RegisterRead(Register::GYR_CRT_CONF) >> 2) & 1) == 0) { done = true; break; }
+	}
+
+	// --- result
+	// GYR_GAIN_STATUS is at 0x38 on feature page 0. Page 1 maps GYR_GAIN_UPD_2 to
+	// the SAME address, so reading it on page 1 (as this did previously) always
+	// returned that register's 0x0000 default and decoded as a false "SUCCESS".
+	RegisterWrite(Register::FEAT_PAGE, 0x00);
+	px4_usleep(1000);
+	const uint8_t gain_status = RegisterRead(Register::GYR_GAIN_STATUS);
+	const uint8_t status      = (uint8_t)((gain_status >> 3) & 0x07);
+	const uint8_t off6        = RegisterRead(Register::OFFSET_6);
+
+	const char *st = (status == 0) ? "no_err" :
+			 (status == 1) ? "precon" :
+			 (status == 2) ? "dl_err" :
+			 (status == 3) ? "ABORT-MOTION" : "unk";
+
+	if (!done) {
+		PX4_WARN("BMI270 CRT: TIMEOUT after %d ms, crt_running never cleared", waited_ms);
+		return false;
+	}
+
+	PX4_WARN("BMI270 CRT: done %d ms trig=%u(%s) sat=%d%d%d off6=0x%02X en=%u",
+		 waited_ms, status, st,
+		 (gain_status >> 0) & 1, (gain_status >> 1) & 1, (gain_status >> 2) & 1,
+		 off6, (off6 >> 7) & 1);
+
+	if (status == 0) {
+		PX4_WARN("BMI270 CRT: gain APPLIED (image regs, lost on power cycle, no NVM write)");
+	}
+
+	ReportGyroGainState("post-CRT");
+
+	return (status == 0);
+}
+
+void VOXL_BMI270::custom_method(const BusCLIArguments &cli)
+{
+	switch (cli.custom1) {
+	case 1:
+		NvmWriteTrim();
+		break;
+
+	default:
+		PX4_ERR("unknown custom method %d", cli.custom1);
+		break;
+	}
+}
+
+bool VOXL_BMI270::NvmWriteTrim()
+{
+	// =====================================================================
+	// PERMANENT AND STRICTLY LIMITED.
+	// Datasheet electrical spec: nNVM = 14 write cycles using the nvm_prog
+	// command, FOR THE LIFE OF THE PART. Every guard below exists so that a
+	// stray or repeated command cannot spend one.
+	//
+	// This copies whatever is currently in the IMAGE registers into NVM. CRT
+	// must have already run this boot to put a trim there - NVM does not
+	// measure anything itself.
+	//
+	// Runs on the driver work queue (module_custom_method run_on_work_queue
+	// = true), so it cannot race the FIFO callback for the SPI bus.
+	// =====================================================================
+
+	// ---- guard 1: one burn per boot, no matter what
+	if (_nvm_written) {
+		PX4_ERR("NVM: REFUSED - already burned this boot. Power cycle if you really need another.");
+		return false;
+	}
+
+	// ---- guard 2: CRT must have succeeded this boot
+	if (!_crt_ok) {
+		PX4_ERR("NVM: REFUSED - CRT did not succeed this boot, image regs hold no fresh trim.");
+		return false;
+	}
+
+	// ---- read what we would be burning
+	const uint8_t off6    = RegisterRead(Register::OFFSET_6);
+	const bool    gain_en = (off6 >> 7) & 1;
+
+	uint8_t g[5] {};
+	g[0] = static_cast<uint8_t>(Register::GYR_USR_GAIN_0) | DIR_READ;
+	transfer(g, g, sizeof(g));
+	const uint8_t rawx = g[2], rawy = g[3], rawz = g[4];
+
+	// ---- guard 3: never burn an empty trim
+	if ((rawx == 0) && (rawy == 0) && (rawz == 0)) {
+		PX4_ERR("NVM: REFUSED - USR_GAIN is all zero, nothing worth burning.");
+		return false;
+	}
+
+	// ---- guard 4: the compensation must actually be enabled
+	if (!gain_en) {
+		PX4_ERR("NVM: REFUSED - gyr_gain_en=0 (OFFSET_6=0x%02X).", off6);
+		return false;
+	}
+
+	// ---- guard 5: command decoder must be idle
+	if (((RegisterRead(Register::STATUS) >> 4) & 1) == 0) {
+		PX4_ERR("NVM: REFUSED - STATUS.cmd_rdy=0, a command is still in progress.");
+		return false;
+	}
+
+	auto s7 = [](uint8_t v) -> int { int t = v & 0x7F; return (t & 0x40) ? (t - 128) : t; };
+	PX4_WARN("NVM: burning USR_GAIN 0x%02X 0x%02X 0x%02X (%+d %+d %+d) OFFSET_6=0x%02X",
+		 rawx, rawy, rawz, s7(rawx), s7(rawy), s7(rawz), off6);
+	PX4_WARN("NVM: PERMANENT - 14 cycles for the life of this chip. Proceeding.");
+
+	_nvm_written = true;   // latch BEFORE the write; a failed attempt still costs us
+
+	// ---- step 1: adv_power_save = 0 (required, else the write is rejected)
+	RegisterSetAndClearBits(Register::PWR_CONF, 0, ACC_PWR_CONF_BIT::acc_pwr_save);
+	px4_usleep(1000);
+
+	// ---- step 2: image registers already hold the trim (CRT wrote them)
+
+	// ---- step 3: GEN_SET_1.nvm_prog_prep = 1  (feature page 1, bit 10 of the
+	// 16-bit word at 0x34 => bit 2 of the high byte at 0x35). FEATURES writes
+	// are word oriented, so read-modify-write BOTH bytes in one transfer.
+	RegisterWrite(Register::FEAT_PAGE, 0x01);
+	px4_usleep(1000);
+	uint8_t rd[4] {};
+	rd[0] = static_cast<uint8_t>(Register::GEN_SET_1) | DIR_READ;
+	transfer(rd, rd, sizeof(rd));
+	uint8_t wr[3] { static_cast<uint8_t>(Register::GEN_SET_1), rd[2], (uint8_t)(rd[3] | 0x04) };
+	transfer(wr, wr, sizeof(wr));
+	px4_usleep(1000);
+	RegisterWrite(Register::FEAT_PAGE, 0x00);
+
+	// ---- step 4: wait 40 ms
+	px4_usleep(40000);
+
+	// ---- step 5: unlock NVM
+	RegisterSetAndClearBits(Register::NVM_CONF, Bit1, 0);
+	px4_usleep(1000);
+
+	// ---- step 6: trigger
+	RegisterWrite(Register::CMD, 0xA0);   // prog_nvm
+
+	// ---- step 7: poll STATUS.cmd_rdy
+	bool done = false;
+	int waited_ms = 0;
+
+	for (; waited_ms < 2000; waited_ms += 10) {
+		px4_usleep(10000);
+
+		if (((RegisterRead(Register::STATUS) >> 4) & 1) == 1) { done = true; break; }
+	}
+
+	if (!done) {
+		PX4_ERR("NVM: TIMEOUT after %d ms, cmd_rdy never returned. State unknown.", waited_ms);
+		return false;
+	}
+
+	// ---- verify
+	uint8_t v[5] {};
+	v[0] = static_cast<uint8_t>(Register::GYR_USR_GAIN_0) | DIR_READ;
+	transfer(v, v, sizeof(v));
+	PX4_WARN("NVM: write completed in %d ms. USR_GAIN now 0x%02X 0x%02X 0x%02X",
+		 waited_ms, v[2], v[3], v[4]);
+	PX4_WARN("NVM: POWER CYCLE now, then boot a BMI270_RUN_CRT=0 build to confirm it persisted.");
+
+	return true;
+}
+
+void VOXL_BMI270::ReportGyroGainState(const char *tag)
+{
+	// Init-time only (pre/post CRT), while the gyro and FIFO are down. This does
+	// a FEAT_PAGE write and a 1 ms settle, so it must NEVER be called from the
+	// FIFO read callback - that path has a 1250 us budget.
+
+	// One burst over the whole NVM-backed block, 0x70..0x7A, main register map,
+	// page-independent:
+	//   0x70      NV_CONF
+	//   0x71-0x76 OFFSET_0..5   accel/gyro USER OFFSETS (not gain)
+	//   0x77      OFFSET_6      bit7 gyr_gain_en, bit6 gyr_off_en, offset high bits
+	//   0x78-0x7A GYR_USR_GAIN_0..2   the CRT trim, 7-bit two's complement each
+	// An nvm_prog write commits ALL of these, so print the lot - a burn is only
+	// safe if 0x71..0x76 are the zeros we expect.
+	uint8_t b[13] {};
+	b[0] = static_cast<uint8_t>(Register::NV_CONF) | DIR_READ;
+	transfer(b, b, sizeof(b));
+	const uint8_t nvconf = b[2];
+	const uint8_t *off   = &b[3];          // OFFSET_0..5
+	const uint8_t off6   = b[9];
+	const bool    gain_en = (off6 >> 7) & 1;
+	const bool    off_en  = (off6 >> 6) & 1;
+	const bool    off_zero = !(off[0] | off[1] | off[2] | off[3] | off[4] | off[5]);
+
+	// g_trig_status lives in GYR_GAIN_STATUS at 0x38 on feature page 0.
+	RegisterWrite(Register::FEAT_PAGE, 0x00);
+	px4_usleep(1000);
+	const uint8_t gts    = RegisterRead(Register::GYR_GAIN_STATUS);
+	const uint8_t status = (uint8_t)((gts >> 3) & 0x07);
+
+	auto s7 = [](uint8_t v) -> int { int t = v & 0x7F; return (t & 0x40) ? (t - 128) : t; };
+	const uint8_t  rawx = b[10], rawy = b[11], rawz = b[12];
+	const int      gx = s7(rawx), gy = s7(rawy), gz = s7(rawz);
+
+	const char *st = (status == 0) ? "no_err" :
+			 (status == 1) ? "precon" :
+			 (status == 2) ? "dl_err" :
+			 (status == 3) ? "ABORT-MOTION" : "unk";
+
+	// muorb truncates each message at 98 chars - keep these SHORT and split.
+	PX4_WARN("BMI270 g[%s]: en=%u off6=0x%02X trig=%u(%s) sat=%d%d%d",
+		 tag, gain_en ? 1 : 0, off6, status, st,
+		 (gts >> 0) & 1, (gts >> 1) & 1, (gts >> 2) & 1);
+	PX4_WARN("BMI270 g[%s]: USR_GAIN 0x%02X 0x%02X 0x%02X -> %+d %+d %+d %s",
+		 tag, rawx, rawy, rawz, gx, gy, gz,
+		 (rawx || rawy || rawz) ? "TRIM-PRESENT" : "all-zero");
+
+	PX4_WARN("BMI270 nvm[%s]: NV_CONF=0x%02X OFF0-5 %02X %02X %02X %02X %02X %02X %s",
+		 tag, nvconf, off[0], off[1], off[2], off[3], off[4], off[5],
+		 off_zero ? "all-zero" : "NON-ZERO");
+	PX4_WARN("BMI270 nvm[%s]: AUX_IF_TRIM=0x%02X DRV=0x%02X gyr_off_en=%u",
+		 tag, RegisterRead(Register::AUX_IF_TRIM), RegisterRead(Register::DRV), off_en ? 1 : 0);
+
+	if (_gain_en_ever && !gain_en) {
+		PX4_ERR("BMI270 g[%s]: gyr_gain_en DROPPED to 0 - CRT trim NOT applied", tag);
+	}
+
+	if (gain_en) { _gain_en_ever = true; }
+}
+
+void VOXL_BMI270::ReadGyroCAS()
+{
+	// GYR_CAS (0x3C) lives in the FEATURES window and is only visible when
+	// FEAT_PAGE.page == 0 (datasheet 5.2.39/5.2.40).
+	const uint8_t prev_page = RegisterRead(Register::FEAT_PAGE);
+	RegisterWrite(Register::FEAT_PAGE, 0x00);
+	px4_usleep(1000);
+
+	const uint8_t raw = RegisterRead(Register::GYR_CAS);
+
+	// factor_zx = bits 6..0, 7-bit two's complement -> sign extend into int8_t
+	const int8_t factor = (int8_t)((int8_t)(raw << 1) >> 1);
+
+	_cas_factor_zx = factor;
+	_cas_valid     = true;
+
+	// Also read 0x1E (SC_OUT_0, step counter) - the address voxl-imu-server
+	// mistakenly uses for CAS. Printed twice, ~50 ms apart: a step counter can
+	// CHANGE between reads, a factory trim cannot. If 0x1E is non-zero while
+	// 0x3C is zero, any "CAS factor" read from 0x1E was step-counter data.
+	const uint8_t sc_a = RegisterRead(Register::SC_OUT_0);
+	px4_usleep(50000);
+	const uint8_t sc_b = RegisterRead(Register::SC_OUT_0);
+
+	PX4_WARN("BMI270 CAS: FEAT_PAGE=0x%02X(page 0) reg 0x%02X raw=0x%02X factor_zx=%d divisor=%d",
+		 (unsigned)Register::FEAT_PAGE, (unsigned)Register::GYR_CAS, raw, (int)factor, (int)CAS_DIVISOR);
+	PX4_WARN("BMI270 CAS: ctrl 0x%02X (SC_OUT_0, imu-server reads this) = 0x%02X then 0x%02X%s",
+		 (unsigned)Register::SC_OUT_0, sc_a, sc_b,
+		 (sc_a != sc_b) ? " CHANGED-not-a-trim" : "");
+
+	if (factor == 0) {
+		PX4_WARN("BMI270 CAS: factor_zx == 0 -> correction is a NO-OP with this config blob");
+
+	} else {
+		PX4_WARN("BMI270 CAS: ACTIVE - applying gyro_x -= (%d * gyro_z) / %d",
+			 (int)factor, (int)CAS_DIVISOR);
+	}
+
+	// ---- CRT / gyro-gain state (feature page 1) -----------------------------
+	// CRT = Component ReTrimming: Bosch's motionless gyro SENSITIVITY (gain)
+	// correction, intended for post-solder drift. Never run on these units.
+	// This is READ-ONLY reconnaissance: confirm page 1 is reachable with the
+	// loaded blob and report the current gain/trigger state. It does NOT run CRT.
+	RegisterWrite(Register::FEAT_PAGE, 0x01);
+	px4_usleep(1000);
+
+	// NOTE: GYR_GAIN_STATUS is NOT readable here - 0x38 on page 1 is GYR_GAIN_UPD_2.
+	// ReportGyroGainState() below selects the correct page for each register.
+	const uint8_t gt1_lo = RegisterRead(Register::G_TRIG_1);
+	const uint8_t crtcfg = RegisterRead(Register::GYR_CRT_CONF);   // direct reg, page-independent
+
+	PX4_WARN("BMI270 CRT: G_TRIG_1=0x%02X GYR_CRT_CONF=0x%02X run=%u dl=%u",
+		 gt1_lo, crtcfg, (crtcfg >> 2) & 1, (crtcfg >> 3) & 1);
+
+	RegisterWrite(Register::G_TRIG_1, 0x14);
+	px4_usleep(1000);
+	const uint8_t probe = RegisterRead(Register::G_TRIG_1);
+	RegisterWrite(Register::G_TRIG_1, 0x00);
+	px4_usleep(1000);
+	const uint8_t restored = RegisterRead(Register::G_TRIG_1);
+
+	PX4_WARN("BMI270 CRT: page1 probe wrote 0x14 read 0x%02X restored 0x%02X -> %s",
+		 probe, restored, (probe == 0x14) ? "REACHABLE" : "NOT-REACHABLE");
+
+	RegisterWrite(Register::FEAT_PAGE, prev_page);
+
+	// Pre-CRT baseline, read from the correct pages.
+	ReportGyroGainState("pre-CRT");
 }
 
 
@@ -801,8 +1198,11 @@ void VOXL_BMI270::ConfigureSampleRate(int sample_rate)
 	PX4_INFO("  FIFO watermark set to %d samples (%d bytes)", _fifo_gyro_samples, _fifo_gyro_samples * 13);
 	*/
 
-	// Set to 10 samples for consistent interrupt-driven operation
-	_fifo_gyro_samples = 2;
+	// Samples per FIFO read. Chosen so _fifo_empty_interval_us stays at 1250 us
+	// (= 800 Hz read/publish cadence) regardless of ODR:
+	//   1600 Hz ODR -> 625 us/sample  -> 2 samples
+	//    800 Hz ODR -> 1250 us/sample -> 1 sample
+	_fifo_gyro_samples = BMI270_FIFO_BATCH;
 
 	// recompute FIFO empty interval (us) with actual sample limit
 	_fifo_empty_interval_us = _fifo_gyro_samples * (1e6f / RATE);
@@ -856,11 +1256,20 @@ void VOXL_BMI270::ConfigureFIFOWatermark(uint8_t samples)
 	// unit of the fifo watermark is one byte
 	// Combined frame size: 1 header + 6 gyro + 6 accel = 13 bytes
 	static constexpr uint16_t COMBINED_FRAME_SIZE = 13;
-	// Subtract 1 because watermark triggers when FIFO > threshold (not >=)
-	// So for 1 sample (13 bytes), set watermark to 12 to trigger at 13 bytes
-	const uint16_t fifo_watermark_threshold = (samples * COMBINED_FRAME_SIZE) - 1;
+	// The watermark fires on >= threshold, NOT >. The old code subtracted 1,
+	// which at 1 sample gave a watermark of 12 - one byte SHORT of a complete
+	// 13-byte frame. The driver then woke with fifo_count=12, failed the
+	// `read_bytes >= MIN_READ_THRESHOLD (13)` gate, never drained the FIFO, and
+	// backed up until the parse overran FIFO_MAX_SAMPLES and took down PX4/SLPI.
+	//
+	// At 1600 Hz/2 samples the bug was masked: a byte arrives every 48 us, so by
+	// the time FIFO_LENGTH was read there were 26 bytes, not 25. At 800 Hz a byte
+	// takes 96 us and the read still saw 12. Hence "800 Hz crashes, 1600 is fine".
+	//
+	// Use a whole number of frames so at least one COMPLETE frame is always ready.
+	const uint16_t fifo_watermark_threshold = samples * COMBINED_FRAME_SIZE;
 
-	PX4_INFO("Setting FIFO watermark: %d samples * %d bytes - 1 = %d bytes",
+	PX4_INFO("Setting FIFO watermark: %d samples * %d bytes = %d bytes",
 		 samples, COMBINED_FRAME_SIZE, fifo_watermark_threshold);
 
 	for (auto &r : _register_cfg) {
@@ -1079,9 +1488,18 @@ void VOXL_BMI270::ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *frame)
 {
 	const uint8_t samples = gyro->samples;
 
-	const int16_t gyro_x = combine(frame->x_msb, frame->x_lsb);
+	int16_t       gyro_x = combine(frame->x_msb, frame->x_lsb);
 	const int16_t gyro_y = combine(frame->y_msb, frame->y_lsb);
 	const int16_t gyro_z = combine(frame->z_msb, frame->z_lsb);
+
+	// Cross-axis sensitivity correction (datasheet 4.6.10):
+	//   Rate_x = raw_x - factor_zx * raw_z / 2^9
+	// Must be applied to the RAW chip axes, before the FLU->NED rotation below,
+	// because factor_zx describes physical Z-into-X coupling on the die.
+	if (_cas_valid && (_cas_factor_zx != 0)) {
+		gyro_x = (int16_t)((int32_t)gyro_x
+				   - (((int32_t)_cas_factor_zx * (int32_t)gyro_z) / CAS_DIVISOR));
+	}
 
 	// Rotate from FLU to NED
 	gyro->x[samples] = gyro_x;
@@ -1121,6 +1539,14 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 
 	FIFOReadBuffer buffer{};
 
+	// Defence in depth: never transfer more than the buffer can hold. A caller
+	// passing fifo_bytes > FIFO_MAX_SAMPLES*13 would overflow the stack here.
+	if (fifo_bytes > (FIFO_MAX_SAMPLES * 13)) {
+		PX4_ERR("FIFORead asked for %u bytes, buffer holds %u - clamping", fifo_bytes,
+			(unsigned)(FIFO_MAX_SAMPLES * 13));
+		fifo_bytes = FIFO_MAX_SAMPLES * 13;
+	}
+
 	// Reads from the FIFO_DATA register as much data as is available,
 	// plus 2 bytes for the sent command and dummy byte.
 	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, fifo_bytes + 2) != PX4_OK) {
@@ -1129,12 +1555,12 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 	}
 
 	sensor_accel_fifo_s accel_buffer{};
-	accel_buffer.timestamp_sample = timestamp_sample;
+	accel_buffer.timestamp_sample = timestamp_sample - ACCEL_TIMESTAMP_OFFSET_US;
 	accel_buffer.samples = 0;
 	accel_buffer.dt = ACCEL_SAMPLE_DT;
 
 	sensor_gyro_fifo_s gyro_buffer{};
-	gyro_buffer.timestamp_sample = timestamp_sample;
+	gyro_buffer.timestamp_sample = timestamp_sample - GYRO_TIMESTAMP_OFFSET_US;
 	gyro_buffer.samples = 0;
 	gyro_buffer.dt = GYRO_SAMPLE_DT;
 

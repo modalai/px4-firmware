@@ -52,14 +52,56 @@
 #include <px4_platform_common/i2c_spi_buses.h>
 
 using namespace Bosch_BMI270;
+
+// ---------------------------------------------------------------------
+// BMI270 sensor configuration.
+//
+//   800 Hz ODR with OSR4 (4x oversampling) bandwidth on both accel and gyro.
+//   OSR4 is a narrower bandwidth than the part's "normal" filter and measurably
+//   reduces the vibration content reaching the estimator.
+//
+//   FIFO batch of 1 uses the 13-byte single-frame read path (1250 us cadence).
+//   Note the watermark fires on >=, not >; see ConfigureFIFOWatermark().
+//
+//   CRT (component retrimming of the gyro gain) is NOT run at boot.  The trim
+//   comes from whatever is stored in the part's NVM, which the chip loads into
+//   the image registers at every reset.  CRT can still be run manually, and
+//   burned to NVM, via the driver's nvm_write verb - note the part has a
+//   lifetime budget of only 14 NVM write cycles.
+//
+//   CAS (cross-axis sensitivity) correction is applied to the gyro, on the raw
+//   chip axes, before the FLU->NED rotation.
+// ---------------------------------------------------------------------
+#define BMI270_ODR_HZ      800
+#define BMI270_FIFO_BATCH  1
+#define BMI270_OSR4        1
+#define BMI270_RUN_CRT     0
+#define BMI270_APPLY_CAS   1
+
 static constexpr uint8_t ACC_CONF_OSR4_800HZ = 0x8B;
-static constexpr uint8_t GYR_CONF_OSR4_800HZ = 0x8B;
+static constexpr uint8_t GYR_CONF_OSR4_800HZ = 0xCB; // ODR 800Hz, gyr_bwp=00 (OSR4), filter_perf+noise_perf set
 static constexpr uint8_t ACC_CONF_OSR4_1600HZ = 0x8C; // ODR 1.6kHz (bits [3:0] = 0x0C) - accel max
-static constexpr uint8_t GYR_CONF_OSR4_1600HZ = 0x8C; // ODR 1.6kHz (bits [3:0] = 0x0C)
+static constexpr uint8_t GYR_CONF_OSR4_1600HZ = 0xCC; // ODR 1.6kHz, gyr_bwp=00 (OSR4), filter_perf+noise_perf set
+// NOTE: GYR_CONF_OSR4_3200HZ below still carries the old accel-derived value (bit6
+// gyr_noise_perf cleared); the correct form is 0xCD. Unused at present.
 static constexpr uint8_t GYR_CONF_OSR4_3200HZ = 0x8D; // ODR 3.2kHz (bits [3:0] = 0x0D)
 static constexpr uint8_t GYR_CONF_NORMBW_NOISEPERF_6400HZ = 0xEE; // ODR 6.4kHz + normal BW + noise perf
 static constexpr uint8_t ACC_CONF_NORM_1600Hz = 0xAC;
 static constexpr uint8_t GYR_CONF_NORM_1600Hz = 0xEC;
+
+// Resolved ACC_CONF / GYR_CONF values for the selected ODR / bandwidth.
+#if BMI270_OSR4
+#  if BMI270_ODR_HZ == 800
+#    define BMI270_ACC_CONF_VALUE ACC_CONF_OSR4_800HZ
+#    define BMI270_GYR_CONF_VALUE GYR_CONF_OSR4_800HZ
+#  else
+#    define BMI270_ACC_CONF_VALUE ACC_CONF_OSR4_1600HZ
+#    define BMI270_GYR_CONF_VALUE GYR_CONF_OSR4_1600HZ
+#  endif
+#else
+#  define BMI270_ACC_CONF_VALUE ACC_CONF_NORM_1600Hz
+#  define BMI270_GYR_CONF_VALUE GYR_CONF_NORM_1600Hz
+#endif
 
 
 class VOXL_BMI270 : public device::SPI, public I2CSPIDriver<VOXL_BMI270>
@@ -79,8 +121,53 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor configuration: single ODR for both gyro and accel
-	static constexpr float IMU_ODR{1600.f};                // 1.6 kHz
+
+	static constexpr float IMU_ODR{(float)BMI270_ODR_HZ};
 	static constexpr float FIFO_SAMPLE_DT_US{1e6f / IMU_ODR}; // 625 us
+
+	// --- accel/gyro on-chip filter group delay -------------------------------
+	// Accel and gyro are sampled on the same ODR tick and arrive paired in one
+	// FIFO frame, but each passes its own low-pass with its own group delay, so
+	// the two halves of a frame represent different instants. PX4 carries a
+	// separate timestamp_sample for sensor_accel_fifo and sensor_gyro_fifo, and
+	// VehicleIMU aligns accel to gyro by timestamp (VehicleIMU.cpp:234) before
+	// stamping vehicle_imu with gyro time (line 654) - so the skew IS
+	// representable downstream, it just has to be reported here.
+	//
+	// Bosch tabulates group delay at 800 Hz ODR for normal mode only
+	// (BST-BMI270-DS000, Tables 9/13): 1.3 ms accel / 2.3 ms gyro. OSR4 is not
+	// tabulated; ~5 ms / ~9 ms at 800 Hz is the working estimate carried by
+	// voxl-imu-server (branch bmi_osr_experimental). The filters are defined in
+	// samples, so delay scales as 1/ODR -> halve for 1600 Hz, giving roughly
+	// 2.5 ms accel / 4.5 ms gyro under OSR4, i.e. ~2 ms of accel-vs-gyro skew.
+	//
+	// Only the DIFFERENCE is applied. Subtracting both absolute delays would
+	// additionally shift the whole IMU timeline ~4.5 ms earlier relative to every
+	// other sensor, whose EKF2_*_DELAY values were tuned against the
+	// uncompensated clock. Relative skew is what corrupts attitude; a common
+	// shift does not. Anchoring on the accel also keeps every timestamp in the
+	// past - VehicleIMU errors if timestamp_sample > timestamp (line 322).
+	//
+	// ESTIMATED values - retune from the motors-off hand-rotation bench test.
+	// Group delay scales as 1/ODR, so derive from IMU_ODR rather than hardcoding:
+	// ~2 ms of accel-vs-gyro skew at 1600 Hz -> ~4 ms at 800 Hz.
+	// --- gyro cross-axis sensitivity (CAS) -----------------------------------
+	// Datasheet 4.6.10:  Rate_x = raw_x - GYR_CAS.factor_zx * raw_z / 2^9
+	// NOTE the divisor is 2^9 = 512. Some copies of this formula read "/ 29"
+	// because the superscript is lost when the PDF is converted to text; using
+	// 29 over-corrects by 17.7x. voxl-imu-server currently has that bug.
+	// factor_zx is READ-ONLY and only becomes non-zero if the loaded config
+	// blob populates it, which is why the blob choice matters here.
+	static constexpr int32_t CAS_DIVISOR{512};   // 2^9
+	int8_t _cas_factor_zx{0};
+	bool   _crt_attempted{false};   // CRT is one-shot per driver start
+	bool   _gain_en_ever{false};    // gyr_gain_en was observed set at least once
+	bool   _crt_ok{false};          // CRT reported g_trig_status == 0 this boot
+	bool   _nvm_written{false};     // NVM burn already done this boot - never twice
+	bool   _cas_valid{false};
+
+	static constexpr uint32_t ACCEL_TIMESTAMP_OFFSET_US{0};    // reference
+	static constexpr uint32_t GYRO_TIMESTAMP_OFFSET_US{(uint32_t)(2000.f * (1600.f / IMU_ODR))};
 
 	// Rates (Hz)
 	static constexpr float GYRO_RATE{IMU_ODR};
@@ -143,6 +230,11 @@ private:
 	bool Configure();
 
 	void ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *gyro_frame);
+	void ReadGyroCAS();
+	bool RunCRT();          // Component ReTrimming - gyro SENSITIVITY (gain) correction
+	void ReportGyroGainState(const char *tag);   // init-time only; does a FEAT_PAGE write + 1 ms settle
+	bool NvmWriteTrim();                         // ONE-SHOT, guarded. Burns image regs -> NVM (14 for life!)
+	void custom_method(const BusCLIArguments &cli) override;
 	void ProcessAccel(sensor_accel_fifo_s *accel, FIFO::Data *accel_frame);
 
 	bool readAccelFrame(FIFO::Data *accel_frame);
@@ -250,9 +342,9 @@ private:
 
 	// PWR_CONF: disable advanced power save (clear acc_pwr_save bits)
 	// PWR_CTRL: enable accel + gyro + temp
-	// ACC_CONF: OSR4 bandwidth, ODR 800 Hz (match apps proc)
+	// ACC_CONF: OSR4 bandwidth, ODR per BMI270_ODR_HZ
 	// ACC_RANGE: ±16 g
-	// GYR_CONF: ODR 800 Hz, normal /
+	// GYR_CONF: OSR4 bandwidth, ODR per BMI270_ODR_HZ
 	// GYR_RANGE: ±2000 dps
 	// FIFO_DOWNS: no downsampling
 	// FIFO_CONFIG_0: FIFO mode, overwrite old samples, required BIT1 = 1
@@ -264,11 +356,11 @@ private:
 
 		{Register::PWR_CTRL, PWR_CTRL_BIT::accel_en | PWR_CTRL_BIT::gyr_en | PWR_CTRL_BIT::temp_en, 0},
 
-		{Register::ACC_CONF, ACC_CONF_NORM_1600Hz, 0x7F}, // clear full ODR field before setting (1.6kHz - accel max)
+		{Register::ACC_CONF, BMI270_ACC_CONF_VALUE, 0x7F}, // clear the full ODR field first
 
 		{Register::ACC_RANGE, ACC_RANGE_BIT::acc_range_16g, 0},
 
-		{Register::GYR_CONF, GYR_CONF_NORM_1600Hz, 0x7F}, // 1.6kHz
+		{Register::GYR_CONF, BMI270_GYR_CONF_VALUE, 0x7F},
 
 		{Register::GYR_RANGE, GYR_RANGE_BIT::gyr_range_2000_dps, 0},
 
