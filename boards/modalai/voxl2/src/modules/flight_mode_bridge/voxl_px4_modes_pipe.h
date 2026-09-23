@@ -1,11 +1,45 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2026 ModalAI, inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
 /**
  * voxl_px4_modes_pipe.h — wire protocol for VOXL external flight modes.
  *
  * Contract between apps-side mode clients and the flight_mode_bridge module
  * inside voxl-px4. The ORIGINAL of this file lives in the apps-side example
- * repo (currently voxl-figure-eight); the PX4 board tree carries a synced
+ * repo (currently voxl-px4-external-modes); the PX4 board tree carries a synced
  * copy. Make changes in the original and copy it over — keep the two
  * identical (compare VOXL_PX4_MODES_PROTOCOL_VERSION on both sides).
+ * In the future, could be integrated into Libmodal Pipe.
  *
  * Transport: one MPA server pipe served by the bridge ("px4_modes").
  *   client -> bridge : control messages on the control pipe
@@ -19,7 +53,9 @@
  *    (<c_library_v2/common/mavlink.h>, voxl-mavlink package) for the structs.
  *  - REGISTER_REQ declares a setpoint type (trajectory or attitude). The
  *    bridge forwards it to PX4 (SetpointConfig), which derives the control
- *    flags for the mode and arms a 500 ms setpoint-loss failsafe.
+ *    flags for the mode. While your mode is ACTIVE you must keep streaming
+ *    setpoints: a gap longer than 500 ms makes the bridge report the mode
+ *    unhealthy, which drops the vehicle into PX4's failsafe ladder.
  *  - MODE_MSG_VEHICLE_STATE: bridge broadcasts vehicle state at ~50 Hz while
  *    any client is registered (fused local position/velocity, attitude,
  *    pilot sticks) so controller-style modes need no other data source.
@@ -39,6 +75,11 @@
 #define VOXL_PX4_MODES_MAGIC            0x4D783450  // "Px4M"
 #define VOXL_PX4_MODES_PROTOCOL_VERSION 1
 #define VOXL_PX4_MODES_NAME_LEN         25          // matches uORB char[25] name
+
+// Largest payload any message in this protocol carries, header excluded. Both
+// ends size their message buffers from this; senders must assert against it so
+// a future message cannot silently overrun a buffer.
+#define VOXL_PX4_MODES_MAX_PAYLOAD      128
 
 typedef enum mode_msg_type_t {
 	MODE_MSG_REGISTER_REQ   = 1,  // client -> bridge
