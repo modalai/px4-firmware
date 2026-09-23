@@ -41,6 +41,8 @@ void VOXL_BMI270::print_usage()
 	PRINT_MODULE_USAGE_NAME("voxl_bmi270", "driver");
 	PRINT_MODULE_USAGE_SUBCATEGORY("imu");
 	PRINT_MODULE_USAGE_COMMAND("start");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("nvm_write",
+					 "Burn the CRT gyro gain trim into NVM. PERMANENT, 14 per chip for life. Requires literal arg CONFIRM");
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(false, true);
 	PRINT_MODULE_USAGE_PARAM_INT('R', 0, 0, 35, "Rotation", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
@@ -78,6 +80,25 @@ extern "C" int voxl_bmi270_main(int argc, char *argv[])
 
 	} else if (!strcmp(verb, "status")) {
 		return ThisDriver::module_status(iterator);
+
+	} else if (!strcmp(verb, "nvm_write")) {
+		// The BMI270 allows only 14 NVM write cycles for the LIFE of the part,
+		// so require an explicit literal confirmation word. A bare
+		// `voxl_bmi270 nvm_write` deliberately does nothing.
+		bool confirmed = false;
+
+		for (int i = 1; i < argc; i++) {
+			if (!strcmp(argv[i], "CONFIRM")) { confirmed = true; }
+		}
+
+		if (!confirmed) {
+			PX4_ERR("nvm_write is PERMANENT (14 cycles for the life of the chip).");
+			PX4_ERR("Run it as:  voxl_bmi270 nvm_write CONFIRM");
+			return -1;
+		}
+
+		cli.custom1 = 1;
+		return ThisDriver::module_custom_method(cli, iterator, true);
 	}
 
 	ThisDriver::print_usage();

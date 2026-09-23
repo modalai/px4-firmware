@@ -63,12 +63,19 @@ using namespace Bosch_BMI270;
 //   FIFO batch of 1 uses the 13-byte single-frame read path (1250 us cadence).
 //   Note the watermark fires on >=, not >; see ConfigureFIFOWatermark().
 //
+//   CRT (component retrimming of the gyro gain) is NOT run at boot.  The trim
+//   comes from whatever is stored in the part's NVM, which the chip loads into
+//   the image registers at every reset.  CRT can still be run manually, and
+//   burned to NVM, via the driver's nvm_write verb - note the part has a
+//   lifetime budget of only 14 NVM write cycles.
+//
 //   CAS (cross-axis sensitivity) correction is applied to the gyro, on the raw
 //   chip axes, before the FLU->NED rotation.
 // ---------------------------------------------------------------------
 #define BMI270_ODR_HZ      800
 #define BMI270_FIFO_BATCH  1
 #define BMI270_OSR4        1
+#define BMI270_RUN_CRT     0
 #define BMI270_APPLY_CAS   1
 
 static constexpr uint8_t ACC_CONF_OSR4_800HZ = 0x8B;
@@ -137,6 +144,9 @@ private:
 	// is only non-zero if the loaded config blob populates it.
 	static constexpr int32_t CAS_DIVISOR{512};   // 2^9
 	int8_t _cas_factor_zx{0};
+	bool   _crt_attempted{false};   // CRT is one-shot per driver start
+	bool   _crt_ok{false};          // CRT reported g_trig_status == 0 this boot
+	bool   _nvm_written{false};     // NVM burn already done this boot - never twice
 	bool   _cas_valid{false};
 
 	static constexpr uint32_t ACCEL_TIMESTAMP_OFFSET_US{0};    // reference
@@ -204,6 +214,9 @@ private:
 
 	void ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *gyro_frame);
 	void ReadGyroCAS();
+	bool RunCRT();          // Component ReTrimming - gyro SENSITIVITY (gain) correction
+	bool NvmWriteTrim();                         // ONE-SHOT, guarded. Burns image regs -> NVM (14 for life!)
+	void custom_method(const BusCLIArguments &cli) override;
 	void ProcessAccel(sensor_accel_fifo_s *accel, FIFO::Data *accel_frame);
 
 	bool readAccelFrame(FIFO::Data *accel_frame);
