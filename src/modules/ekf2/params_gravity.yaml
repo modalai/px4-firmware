@@ -11,3 +11,34 @@ parameters:
       max: 10.0
       unit: g0
       decimal: 2
+
+    EKF2_GRAV_RMAX:
+      description:
+        short: Maximum angular rate for gravity based observations
+        long: |
+          Gravity fusion is only allowed while the vehicle is rotating slower
+          than this. On some airframes the accel norm check alone is not enough to
+          keep thrust-dominated measurements out during aggressive flight.
+          EKF2_GRAV_RMODE selects which measure of rotation rate is compared
+          against this limit. Set to 0 to disable.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 400.0
+      unit: deg/s
+      decimal: 1
+
+    EKF2_GRAV_RMODE:
+      description:
+        short: Angular rate source for the EKF2_GRAV_RMAX check
+        long: |
+          Selects which measure of angular rate is compared against EKF2_GRAV_RMAX.
+          The filtered rate lags the onset of motion; the instantaneous rate reacts
+          immediately but is noisier. Testing both is the most conservative.
+          Has no effect unless EKF2_GRAV_RMAX is greater than zero.
+      type: enum
+      values:
+        0: Filtered rate only
+        1: Instantaneous rate only
+        2: Both must be below the limit
+      default: 2
