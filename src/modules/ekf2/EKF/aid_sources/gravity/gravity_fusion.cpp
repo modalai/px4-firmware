@@ -58,9 +58,40 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 	const bool accel_lpf_norm_good = (accel_lpf_norm_sq > sq(lower_accel_limit))
 					 && (accel_lpf_norm_sq < sq(upper_accel_limit));
 
+	// On some airframes the accel norm check above is not enough: during aggressive
+	// flight the norm dips back inside the window while the specific force is still
+	// dominated by thrust. Optionally also require a low rotation rate. EKF2_GRAV_RMODE
+	// selects which rate is tested - the instantaneous term blocks at the onset of
+	// motion, the filtered term holds fusion off until settled, and the default (2)
+	// requires both. The check is off unless EKF2_GRAV_RMAX > 0.
+	bool gyro_rate_good = true;
+
+	if (_params.ekf2_grav_rmax > 0.f) {
+		const float rate_limit = math::radians(_params.ekf2_grav_rmax);
+		const float rate_filtered = _gyro_lpf.getState().norm();
+		const float rate_instant = (imu.delta_ang_dt > 1e-6f)
+					   ? Vector3f(imu.delta_ang / imu.delta_ang_dt).norm()
+					   : rate_filtered;
+
+		switch (_params.ekf2_grav_rmode) {
+		case 0: // filtered only
+			gyro_rate_good = (rate_filtered < rate_limit);
+			break;
+
+		case 1: // instantaneous only
+			gyro_rate_good = (rate_instant < rate_limit);
+			break;
+
+		default: // both
+			gyro_rate_good = (rate_instant < rate_limit) && (rate_filtered < rate_limit);
+			break;
+		}
+	}
+
 	// fuse gravity observation if our overall acceleration isn't too big
 	_control_status.flags.gravity_vector = (_params.ekf2_imu_ctrl & static_cast<int32_t>(ImuCtrl::GravityVector))
 					       && (accel_lpf_norm_good || _control_status.flags.vehicle_at_rest)
+					       && gyro_rate_good
 					       && !isHorizontalAidingActive()
 					       && _control_status.flags.tilt_align; // Let fake position do the initial alignment (more robust before takeoff)
 

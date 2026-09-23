@@ -489,6 +489,8 @@ struct parameters {
 #if defined(CONFIG_EKF2_GRAVITY_FUSION)
 	// gravity fusion
 	float ekf2_grav_noise{1.0f};            ///< accelerometer measurement gaussian noise (m/s**2)
+	float ekf2_grav_rmax{0.0f};             ///< maximum angular rate for gravity fusion, 0 disables the check (deg/s)
+	int32_t ekf2_grav_rmode{2};             ///< rate source for the EKF2_GRAV_RMAX check (0 filtered, 1 instantaneous, 2 both)
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 
 #if defined(CONFIG_EKF2_OPTICAL_FLOW)

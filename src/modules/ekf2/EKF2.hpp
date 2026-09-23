@@ -739,6 +739,8 @@ private:
 
 #if defined(CONFIG_EKF2_GRAVITY_FUSION)
 		(ParamExtFloat<px4::params::EKF2_GRAV_NOISE>) _param_ekf2_grav_noise,
+		(ParamExtFloat<px4::params::EKF2_GRAV_RMAX>) _param_ekf2_grav_rmax,
+		(ParamExtInt<px4::params::EKF2_GRAV_RMODE>) _param_ekf2_grav_rmode,
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 
 		// sensor positions in body frame
