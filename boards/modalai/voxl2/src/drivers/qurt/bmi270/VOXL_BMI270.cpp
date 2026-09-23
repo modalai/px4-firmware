@@ -1183,12 +1183,12 @@ bool VOXL_BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_by
 	}
 
 	sensor_accel_fifo_s accel_buffer{};
-	accel_buffer.timestamp_sample = timestamp_sample;
+	accel_buffer.timestamp_sample = timestamp_sample - ACCEL_TIMESTAMP_OFFSET_US;
 	accel_buffer.samples = 0;
 	accel_buffer.dt = ACCEL_SAMPLE_DT;
 
 	sensor_gyro_fifo_s gyro_buffer{};
-	gyro_buffer.timestamp_sample = timestamp_sample;
+	gyro_buffer.timestamp_sample = timestamp_sample - GYRO_TIMESTAMP_OFFSET_US;
 	gyro_buffer.samples = 0;
 	gyro_buffer.dt = GYRO_SAMPLE_DT;
 
