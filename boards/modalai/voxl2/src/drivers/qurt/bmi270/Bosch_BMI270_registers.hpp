@@ -79,27 +79,15 @@ enum class Register : uint8_t {
 
 	// Feature-engine register window. FEAT_PAGE.page selects which 16-register
 	// page is mapped into 0x30-0x3F (datasheet 5.2.39 / 5.2.40).
-	SC_OUT_0           = 0x1E,   // step counter low byte - NOT CAS; this is the
-	// address voxl-imu-server mistakenly reads for CAS
 	FEAT_PAGE          = 0x2F,
 	GYR_CAS            = 0x3C,   // page 0: gyro cross-axis sensitivity, bits 6..0
 	G_TRIG_1           = 0x32,   // page 1: CRT/self-test trigger config
 	GYR_GAIN_STATUS    = 0x38,   // page 0: g_trig_status (bits 5..3) + gain saturation flags
-	// Page 1 reuses 0x36/0x38/0x3A for the Q1.10 gyro gain ratios. Note 0x38 is
-	// GYR_GAIN_STATUS on page 0 but GYR_GAIN_UPD_2 on page 1 - the page MUST be
-	// set deliberately before touching either.
-	GYR_GAIN_UPD_1     = 0x36,   // page 1: ratio_x, 11-bit Q1.10 (0x400 == 1.000)
-	GYR_GAIN_UPD_2     = 0x38,   // page 1: ratio_y  (same address as GYR_GAIN_STATUS)
-	GYR_GAIN_UPD_3     = 0x3A,   // page 1: ratio_z + enable bit
+	// 0x38 is GYR_GAIN_STATUS on page 0 but a gain-ratio register on page 1, so
+	// the page must be set deliberately before reading it.
 	GEN_SET_1          = 0x34,   // page 1: bit10 nvm_prog_prep (NVM write step 3)
 	GYR_CRT_CONF       = 0x69,   // direct: bit2 crt_running, bit3 rdy_for_dl
 	NVM_CONF           = 0x6A,   // direct: bit1 nvm_prog_en (NVM write step 5)
-	// NVM-BACKED IMAGE REGISTERS. An nvm_prog write renews the ENTIRE NVM
-	// contents, i.e. it commits all of these, not just the gain trim.
-	AUX_IF_TRIM        = 0x68,   // NVM-backed (reset 0x01)
-	DRV                = 0x6C,   // NVM-backed
-	NV_CONF            = 0x70,   // NVM-backed
-	OFFSET_0           = 0x71,   // NVM-backed: accel/gyro USER OFFSETS 0x71..0x76
 	OFFSET_6           = 0x77,   // direct: bit6 gyr_off_en, bit7 gyr_gain_en
 	// GYR_USR_GAIN_0..2: the gain trim CRT actually writes. Main register map,
 	// NOT the feature pages. The DATASHEET MARKS 0x78-0x7A "reserved" - they are

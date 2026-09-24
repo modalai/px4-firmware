@@ -126,42 +126,25 @@ private:
 	static constexpr float FIFO_SAMPLE_DT_US{1e6f / IMU_ODR}; // 625 us
 
 	// --- accel/gyro on-chip filter group delay -------------------------------
-	// Accel and gyro are sampled on the same ODR tick and arrive paired in one
-	// FIFO frame, but each passes its own low-pass with its own group delay, so
-	// the two halves of a frame represent different instants. PX4 carries a
-	// separate timestamp_sample for sensor_accel_fifo and sensor_gyro_fifo, and
-	// VehicleIMU aligns accel to gyro by timestamp (VehicleIMU.cpp:234) before
-	// stamping vehicle_imu with gyro time (line 654) - so the skew IS
-	// representable downstream, it just has to be reported here.
+	// Accel and gyro share an ODR tick and arrive in the same FIFO frame, but each
+	// has its own low-pass with its own group delay, so the two halves represent
+	// different instants. PX4 timestamps the two FIFOs separately, so reporting the
+	// skew here is enough for VehicleIMU to align them.
 	//
-	// Bosch tabulates group delay at 800 Hz ODR for normal mode only
-	// (BST-BMI270-DS000, Tables 9/13): 1.3 ms accel / 2.3 ms gyro. OSR4 is not
-	// tabulated; ~5 ms / ~9 ms at 800 Hz is the working estimate carried by
-	// voxl-imu-server (branch bmi_osr_experimental). The filters are defined in
-	// samples, so delay scales as 1/ODR -> halve for 1600 Hz, giving roughly
-	// 2.5 ms accel / 4.5 ms gyro under OSR4, i.e. ~2 ms of accel-vs-gyro skew.
+	// Only the difference is applied, with accel as the reference. Shifting both by
+	// their absolute delay would move the whole IMU timeline relative to the other
+	// sensors, whose EKF2_*_DELAY values were tuned without it.
 	//
-	// Only the DIFFERENCE is applied. Subtracting both absolute delays would
-	// additionally shift the whole IMU timeline ~4.5 ms earlier relative to every
-	// other sensor, whose EKF2_*_DELAY values were tuned against the
-	// uncompensated clock. Relative skew is what corrupts attitude; a common
-	// shift does not. Anchoring on the accel also keeps every timestamp in the
-	// past - VehicleIMU errors if timestamp_sample > timestamp (line 322).
-	//
-	// ESTIMATED values - retune from the motors-off hand-rotation bench test.
-	// Group delay scales as 1/ODR, so derive from IMU_ODR rather than hardcoding:
-	// ~2 ms of accel-vs-gyro skew at 1600 Hz -> ~4 ms at 800 Hz.
+	// ~4 ms at 800 Hz, scales as 1/ODR. Estimated; Bosch does not tabulate OSR4
+	// group delay. Retune from a motors-off bench test.
 	// --- gyro cross-axis sensitivity (CAS) -----------------------------------
 	// Datasheet 4.6.10:  Rate_x = raw_x - GYR_CAS.factor_zx * raw_z / 2^9
-	// NOTE the divisor is 2^9 = 512. Some copies of this formula read "/ 29"
-	// because the superscript is lost when the PDF is converted to text; using
-	// 29 over-corrects by 17.7x. voxl-imu-server currently has that bug.
-	// factor_zx is READ-ONLY and only becomes non-zero if the loaded config
-	// blob populates it, which is why the blob choice matters here.
+	// The divisor is 2^9 = 512; some copies of the formula read "/ 29" where the
+	// superscript was lost converting the PDF to text. factor_zx is read-only and
+	// is only non-zero if the loaded config blob populates it.
 	static constexpr int32_t CAS_DIVISOR{512};   // 2^9
 	int8_t _cas_factor_zx{0};
 	bool   _crt_attempted{false};   // CRT is one-shot per driver start
-	bool   _gain_en_ever{false};    // gyr_gain_en was observed set at least once
 	bool   _crt_ok{false};          // CRT reported g_trig_status == 0 this boot
 	bool   _nvm_written{false};     // NVM burn already done this boot - never twice
 	bool   _cas_valid{false};
@@ -232,7 +215,6 @@ private:
 	void ProcessGyro(sensor_gyro_fifo_s *gyro, FIFO::Data *gyro_frame);
 	void ReadGyroCAS();
 	bool RunCRT();          // Component ReTrimming - gyro SENSITIVITY (gain) correction
-	void ReportGyroGainState(const char *tag);   // init-time only; does a FEAT_PAGE write + 1 ms settle
 	bool NvmWriteTrim();                         // ONE-SHOT, guarded. Burns image regs -> NVM (14 for life!)
 	void custom_method(const BusCLIArguments &cli) override;
 	void ProcessAccel(sensor_accel_fifo_s *accel, FIFO::Data *accel_frame);
