@@ -8,3 +8,7 @@ target_link_libraries(px4 PRIVATE
 		px4_layer
 		${module_libraries}
 )
+
+# PX4 must not step the Linux wall clock (see src/clock_settime_wrap.c)
+target_sources(px4 PRIVATE ${PX4_BOARD_DIR}/src/clock_settime_wrap.c)
+target_link_options(px4 PRIVATE -Wl,--wrap=clock_settime)
