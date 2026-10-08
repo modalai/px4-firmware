@@ -50,6 +50,7 @@
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/actuator_test.h>
 #include <uORB/topics/mavlink_tunnel.h>
+#include <uORB/topics/gps_dump.h>
 
 #include "voxl_esc_serial.hpp"
 
@@ -221,6 +222,10 @@ private:
 
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};
+	// raw ESC packets that are not parsed by the driver are saved to the log using the gps_dump topic,
+	// because a new topic can not be added (the number of uORB topics is at the limit)
+	static constexpr uint8_t ESC_RAW_DUMP_INSTANCE = 255;
+	uORB::Publication<gps_dump_s> _esc_raw_dump_pub{ORB_ID(gps_dump)};
 
 	bool _extended_rpm{false};
 	bool _need_version_info{true};

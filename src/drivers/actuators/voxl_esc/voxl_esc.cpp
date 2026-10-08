@@ -639,6 +639,19 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					}
 				}
 
+			} else {
+				// Any other valid packet (for example the ESC stop debug packet) is not parsed here.
+				// Publish the whole raw packet, so it is saved to the log and can be parsed offline.
+				// The packet starts with the header, length, type and ESC ID bytes.
+				gps_dump_s raw{};
+
+				if (packet_size <= sizeof(raw.data)) {
+					raw.timestamp = tnow;
+					raw.instance  = ESC_RAW_DUMP_INSTANCE;
+					raw.len       = packet_size;  // MSB is clear: data from the device
+					memcpy(raw.data, _fb_packet.buffer, packet_size);
+					_esc_raw_dump_pub.publish(raw);
+				}
 			}
 
 		} else { //parser error
