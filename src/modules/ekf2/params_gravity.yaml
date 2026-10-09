@@ -42,3 +42,17 @@ parameters:
         1: Instantaneous rate only
         2: Both must be below the limit
       default: 2
+
+    EKF2_GRAV_AWIN:
+      description:
+        short: Accel norm window for gravity observations
+        long: |
+          Gravity fusion is only allowed while the filtered accelerometer norm is within
+          this fraction of 1 g. The default 0.1 matches the previous fixed 0.9 to 1.1 g
+          window. In altitude-holding flight the norm is about g / cos(tilt), so 0.05
+          blocks sustained tilts above about 18 deg and 0.03 above about 14 deg.
+      type: float
+      default: 0.1
+      min: 0.01
+      max: 0.5
+      decimal: 3

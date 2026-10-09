@@ -52,8 +52,10 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 	const Vector3f measurement = Vector3f(imu.delta_vel / imu.delta_vel_dt - _state.accel_bias).unit();
 	const float measurement_var = math::max(sq(_params.ekf2_grav_noise), sq(0.01f));
 
-	const float upper_accel_limit = CONSTANTS_ONE_G * 1.1f;
-	const float lower_accel_limit = CONSTANTS_ONE_G * 0.9f;
+	// EKF2_GRAV_AWIN: accepted deviation of the filtered accel norm from 1 g (default 0.1)
+	const float accel_window = math::constrain(_params.ekf2_grav_awin, 0.01f, 0.5f);
+	const float upper_accel_limit = CONSTANTS_ONE_G * (1.f + accel_window);
+	const float lower_accel_limit = CONSTANTS_ONE_G * (1.f - accel_window);
 	const float accel_lpf_norm_sq = _accel_lpf.getState().norm_squared();
 	const bool accel_lpf_norm_good = (accel_lpf_norm_sq > sq(lower_accel_limit))
 					 && (accel_lpf_norm_sq < sq(upper_accel_limit));
