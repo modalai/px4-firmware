@@ -492,6 +492,8 @@ struct parameters {
 	float ekf2_grav_rmax{0.0f};             ///< maximum angular rate for gravity fusion, 0 disables the check (deg/s)
 	int32_t ekf2_grav_rmode{2};             ///< rate source for the EKF2_GRAV_RMAX check (0 filtered, 1 instantaneous, 2 both)
 	float ekf2_grav_ftau{0.0f};             ///< gyro-frame low-pass time constant for the gravity observation, 0 disables (s)
+	float ekf2_grav_ftau_f{0.5f};           ///< fast gyro-frame low-pass time constant for the persistence detector (s)
+	float ekf2_grav_pers{0.0f};             ///< persistence detector angle scale, 0 disables (deg)
 	float ekf2_grav_awin{0.1f};             ///< accepted fractional deviation of the filtered accel norm from 1 g
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 

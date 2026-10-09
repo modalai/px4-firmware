@@ -1057,6 +1057,7 @@ private:
 	// EKF2_GRAV_FTAU: specific force filtered in a frame propagated by the bias-corrected gyro
 	Quatf _grav_gyro_frame{};
 	GravityVectorFilter _grav_filt_slow{};
+	GravityVectorFilter _grav_filt_fast{};      ///< EKF2_GRAV_PERS persistence detector
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 
 	void resetQuatCov(const float yaw_noise = NAN);

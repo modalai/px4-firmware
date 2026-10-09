@@ -742,6 +742,8 @@ private:
 		(ParamExtFloat<px4::params::EKF2_GRAV_RMAX>) _param_ekf2_grav_rmax,
 		(ParamExtInt<px4::params::EKF2_GRAV_RMODE>) _param_ekf2_grav_rmode,
 		(ParamExtFloat<px4::params::EKF2_GRAV_FTAU>) _param_ekf2_grav_ftau,
+		(ParamExtFloat<px4::params::EKF2_GRAV_FTAU_F>) _param_ekf2_grav_ftau_f,
+		(ParamExtFloat<px4::params::EKF2_GRAV_PERS>) _param_ekf2_grav_pers,
 		(ParamExtFloat<px4::params::EKF2_GRAV_AWIN>) _param_ekf2_grav_awin,
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 

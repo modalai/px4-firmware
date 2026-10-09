@@ -95,8 +95,10 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 	// cancels out. The filter keeps running while fusion is gated so its history includes
 	// the manoeuvre.
 	Vector3f force = raw_force;
+	float persistence_angle = 0.f; // EKF2_GRAV_PERS, angle between fast and slow filtered force (rad)
 
 	if (_params.ekf2_grav_ftau > 0.f) {
+		const float tau_fast = math::constrain(_params.ekf2_grav_ftau_f, 0.05f, _params.ekf2_grav_ftau);
 		const float nominal_dt = math::constrain(_dt_ekf_avg, 0.001f, 0.05f);
 
 		// restart on tilt (re)alignment, IMU gaps and parameter changes
@@ -104,11 +106,13 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 				     || (imu.delta_ang_dt > 0.05f)
 				     || !_grav_filt_slow.initialised
 				     || (fabsf(_grav_filt_slow.tau - _params.ekf2_grav_ftau) > FLT_EPSILON)
+				     || (fabsf(_grav_filt_fast.tau - tau_fast) > FLT_EPSILON)
 				     || (fabsf(_grav_filt_slow.dt - nominal_dt) > 0.2f * nominal_dt);
 
 		if (restart) {
 			_grav_gyro_frame = Quatf();
 			_grav_filt_slow.reset(_params.ekf2_grav_ftau, nominal_dt, raw_force);
+			_grav_filt_fast.reset(tau_fast, nominal_dt, raw_force);
 
 		} else {
 			// same delta angle correction as the state prediction: gyro bias and earth rate
@@ -120,14 +124,20 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 
 		const Vector3f u = _grav_gyro_frame.rotateVector(raw_force);
 		const Vector3f slow = _grav_filt_slow.update(u);
+		const Vector3f fast = _grav_filt_fast.update(u);
 		force = _grav_gyro_frame.rotateVectorInverse(slow);
+
+		if ((_params.ekf2_grav_pers > 0.f) && (slow.norm() > FLT_EPSILON) && (fast.norm() > FLT_EPSILON)) {
+			persistence_angle = acosf(math::constrain(slow.unit().dot(fast.unit()), -1.f, 1.f));
+		}
 
 	} else {
 		_grav_filt_slow.initialised = false;
+		_grav_filt_fast.initialised = false;
 	}
 
 	const Vector3f measurement = force.unit();
-	const float measurement_var = math::max(sq(_params.ekf2_grav_noise), sq(0.01f));
+	const float nominal_var = math::max(sq(_params.ekf2_grav_noise), sq(0.01f));
 
 	// EKF2_GRAV_AWIN: accepted deviation of the filtered accel norm from 1 g (default 0.1)
 	const float accel_window = math::constrain(_params.ekf2_grav_awin, 0.01f, 0.5f);
@@ -173,6 +183,17 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 					       && gyro_rate_good
 					       && !isHorizontalAidingActive()
 					       && _control_status.flags.tilt_align; // Let fake position do the initial alignment (more robust before takeoff)
+
+	// EKF2_GRAV_PERS: de-weight the observation while the fast and slow gyro-frame filters
+	// disagree (the force changed recently, so the slow average is still contaminated);
+	// the variance doubles at an angle of EKF2_GRAV_PERS and returns to nominal as they agree
+	float persistence_scale = 1.f;
+
+	if (_params.ekf2_grav_pers > 0.f) {
+		persistence_scale = 1.f + sq(math::degrees(persistence_angle) / _params.ekf2_grav_pers);
+	}
+
+	const float measurement_var = nominal_var * persistence_scale;
 
 	// calculate kalman gains and innovation variances
 	Vector3f innovation = _state.quat_nominal.rotateVectorInverse(Vector3f(0.f, 0.f, -1.f)) - measurement;
