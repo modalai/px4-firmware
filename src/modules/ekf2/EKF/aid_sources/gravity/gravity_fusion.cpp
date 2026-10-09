@@ -46,14 +46,103 @@
 
 #include <mathlib/mathlib.h>
 
+void Ekf::GravityVectorFilter::reset(float tau_s, float dt_s, const Vector3f &u)
+{
+	tau = tau_s;
+	dt = dt_s;
+
+	// second-order Butterworth, cutoff sqrt(2) / (2 pi tau) as in VQF
+	const double C = tan(sqrt(2.0) * double(dt_s) / (2.0 * double(tau_s)));
+	const double D = C * C + sqrt(2.0) * C + 1.0;
+	b0 = C * C / D;
+	a1 = 2.0 * (C * C - 1.0) / D;
+	a2 = (1.0 - sqrt(2.0) * C + C * C) / D;
+
+	// start in steady state at the current input
+	for (int i = 0; i < 3; i++) {
+		s1[i] = double(u(i)) * (1.0 - b0);
+		s2[i] = double(u(i)) * (b0 - a2);
+	}
+
+	initialised = true;
+}
+
+Vector3f Ekf::GravityVectorFilter::update(const Vector3f &u)
+{
+	Vector3f y;
+
+	for (int i = 0; i < 3; i++) {
+		const double x = double(u(i));
+		const double yi = b0 * x + s1[i];
+		s1[i] = 2.0 * b0 * x - a1 * yi + s2[i];
+		s2[i] = b0 * x - a2 * yi;
+		y(i) = float(yi);
+	}
+
+	return y;
+}
+
 void Ekf::controlGravityFusion(const imuSample &imu)
 {
-	// get raw accelerometer reading at delayed horizon and expected measurement noise (gaussian)
-	const Vector3f measurement = Vector3f(imu.delta_vel / imu.delta_vel_dt - _state.accel_bias).unit();
-	const float measurement_var = math::max(sq(_params.ekf2_grav_noise), sq(0.01f));
+	// raw accelerometer reading at the delayed horizon
+	const Vector3f raw_force = imu.delta_vel / imu.delta_vel_dt - _state.accel_bias;
 
-	const float upper_accel_limit = CONSTANTS_ONE_G * 1.1f;
-	const float lower_accel_limit = CONSTANTS_ONE_G * 0.9f;
+	// EKF2_GRAV_FTAU: filter the specific force in a frame propagated by the bias-corrected
+	// gyro. Gravity is constant in that frame and passes the low-pass unchanged, while other
+	// accelerations average to roughly their velocity change over tau. Rotating the result back
+	// with the current gyro frame gives the gravity direction in today's body axes, without
+	// the lag of filtering in the body frame. The frame's starting attitude is arbitrary and
+	// cancels out. The filter keeps running while fusion is gated so its history includes
+	// the manoeuvre.
+	Vector3f force = raw_force;
+	float persistence_angle = 0.f; // EKF2_GRAV_PERS, angle between fast and slow filtered force (rad)
+
+	if (_params.ekf2_grav_ftau > 0.f) {
+		const float tau_fast = math::constrain(_params.ekf2_grav_ftau_f, 0.05f, _params.ekf2_grav_ftau);
+		const float nominal_dt = math::constrain(_dt_ekf_avg, 0.001f, 0.05f);
+
+		// restart on tilt (re)alignment, IMU gaps and parameter changes
+		const bool restart = !_control_status.flags.tilt_align
+				     || (imu.delta_ang_dt > 0.05f)
+				     || !_grav_filt_slow.initialised
+				     || (fabsf(_grav_filt_slow.tau - _params.ekf2_grav_ftau) > FLT_EPSILON)
+				     || (fabsf(_grav_filt_fast.tau - tau_fast) > FLT_EPSILON)
+				     || (fabsf(_grav_filt_slow.dt - nominal_dt) > 0.2f * nominal_dt);
+
+		if (restart) {
+			_grav_gyro_frame = Quatf();
+			_grav_filt_slow.reset(_params.ekf2_grav_ftau, nominal_dt, raw_force);
+			_grav_filt_fast.reset(tau_fast, nominal_dt, raw_force);
+
+		} else {
+			// same delta angle correction as the state prediction: gyro bias and earth rate
+			const Vector3f corrected_delta_ang = imu.delta_ang - getGyroBias() * imu.delta_ang_dt
+							     - _R_to_earth.transpose() * _earth_rate_NED * imu.delta_ang_dt;
+			_grav_gyro_frame = _grav_gyro_frame * Quatf(AxisAnglef(corrected_delta_ang));
+			_grav_gyro_frame.normalize();
+		}
+
+		const Vector3f u = _grav_gyro_frame.rotateVector(raw_force);
+		const Vector3f slow = _grav_filt_slow.update(u);
+		const Vector3f fast = _grav_filt_fast.update(u);
+		force = _grav_gyro_frame.rotateVectorInverse(slow);
+
+		if ((_params.ekf2_grav_pers > 0.f) && (slow.norm() > FLT_EPSILON) && (fast.norm() > FLT_EPSILON)) {
+			persistence_angle = acosf(math::constrain(slow.unit().dot(fast.unit()), -1.f, 1.f));
+		}
+
+	} else {
+		_grav_filt_slow.initialised = false;
+		_grav_filt_fast.initialised = false;
+	}
+
+	const Vector3f measurement = force.unit();
+	const float nominal_var = math::max(sq(_params.ekf2_grav_noise), sq(0.01f));
+
+	// EKF2_GRAV_AWIN: accepted deviation of the filtered accel norm from 1 g (default 0.1)
+	const float accel_window = math::constrain(_params.ekf2_grav_awin, 0.01f, 0.5f);
+	const float upper_accel_limit = CONSTANTS_ONE_G * (1.f + accel_window);
+	const float lower_accel_limit = CONSTANTS_ONE_G * (1.f - accel_window);
 	const float accel_lpf_norm_sq = _accel_lpf.getState().norm_squared();
 	const bool accel_lpf_norm_good = (accel_lpf_norm_sq > sq(lower_accel_limit))
 					 && (accel_lpf_norm_sq < sq(upper_accel_limit));
@@ -94,6 +183,17 @@ void Ekf::controlGravityFusion(const imuSample &imu)
 					       && gyro_rate_good
 					       && !isHorizontalAidingActive()
 					       && _control_status.flags.tilt_align; // Let fake position do the initial alignment (more robust before takeoff)
+
+	// EKF2_GRAV_PERS: de-weight the observation while the fast and slow gyro-frame filters
+	// disagree (the force changed recently, so the slow average is still contaminated);
+	// the variance doubles at an angle of EKF2_GRAV_PERS and returns to nominal as they agree
+	float persistence_scale = 1.f;
+
+	if (_params.ekf2_grav_pers > 0.f) {
+		persistence_scale = 1.f + sq(math::degrees(persistence_angle) / _params.ekf2_grav_pers);
+	}
+
+	const float measurement_var = nominal_var * persistence_scale;
 
 	// calculate kalman gains and innovation variances
 	Vector3f innovation = _state.quat_nominal.rotateVectorInverse(Vector3f(0.f, 0.f, -1.f)) - measurement;
