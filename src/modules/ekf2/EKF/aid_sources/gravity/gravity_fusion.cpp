@@ -46,10 +46,87 @@
 
 #include <mathlib/mathlib.h>
 
+void Ekf::GravityVectorFilter::reset(float tau_s, float dt_s, const Vector3f &u)
+{
+	tau = tau_s;
+	dt = dt_s;
+
+	// second-order Butterworth, cutoff sqrt(2) / (2 pi tau) as in VQF
+	const double C = tan(sqrt(2.0) * double(dt_s) / (2.0 * double(tau_s)));
+	const double D = C * C + sqrt(2.0) * C + 1.0;
+	b0 = C * C / D;
+	a1 = 2.0 * (C * C - 1.0) / D;
+	a2 = (1.0 - sqrt(2.0) * C + C * C) / D;
+
+	// start in steady state at the current input
+	for (int i = 0; i < 3; i++) {
+		s1[i] = double(u(i)) * (1.0 - b0);
+		s2[i] = double(u(i)) * (b0 - a2);
+	}
+
+	initialised = true;
+}
+
+Vector3f Ekf::GravityVectorFilter::update(const Vector3f &u)
+{
+	Vector3f y;
+
+	for (int i = 0; i < 3; i++) {
+		const double x = double(u(i));
+		const double yi = b0 * x + s1[i];
+		s1[i] = 2.0 * b0 * x - a1 * yi + s2[i];
+		s2[i] = b0 * x - a2 * yi;
+		y(i) = float(yi);
+	}
+
+	return y;
+}
+
 void Ekf::controlGravityFusion(const imuSample &imu)
 {
-	// get raw accelerometer reading at delayed horizon and expected measurement noise (gaussian)
-	const Vector3f measurement = Vector3f(imu.delta_vel / imu.delta_vel_dt - _state.accel_bias).unit();
+	// raw accelerometer reading at the delayed horizon
+	const Vector3f raw_force = imu.delta_vel / imu.delta_vel_dt - _state.accel_bias;
+
+	// EKF2_GRAV_FTAU: filter the specific force in a frame propagated by the bias-corrected
+	// gyro. Gravity is constant in that frame and passes the low-pass unchanged, while other
+	// accelerations average to roughly their velocity change over tau. Rotating the result back
+	// with the current gyro frame gives the gravity direction in today's body axes, without
+	// the lag of filtering in the body frame. The frame's starting attitude is arbitrary and
+	// cancels out. The filter keeps running while fusion is gated so its history includes
+	// the manoeuvre.
+	Vector3f force = raw_force;
+
+	if (_params.ekf2_grav_ftau > 0.f) {
+		const float nominal_dt = math::constrain(_dt_ekf_avg, 0.001f, 0.05f);
+
+		// restart on tilt (re)alignment, IMU gaps and parameter changes
+		const bool restart = !_control_status.flags.tilt_align
+				     || (imu.delta_ang_dt > 0.05f)
+				     || !_grav_filt_slow.initialised
+				     || (fabsf(_grav_filt_slow.tau - _params.ekf2_grav_ftau) > FLT_EPSILON)
+				     || (fabsf(_grav_filt_slow.dt - nominal_dt) > 0.2f * nominal_dt);
+
+		if (restart) {
+			_grav_gyro_frame = Quatf();
+			_grav_filt_slow.reset(_params.ekf2_grav_ftau, nominal_dt, raw_force);
+
+		} else {
+			// same delta angle correction as the state prediction: gyro bias and earth rate
+			const Vector3f corrected_delta_ang = imu.delta_ang - getGyroBias() * imu.delta_ang_dt
+							     - _R_to_earth.transpose() * _earth_rate_NED * imu.delta_ang_dt;
+			_grav_gyro_frame = _grav_gyro_frame * Quatf(AxisAnglef(corrected_delta_ang));
+			_grav_gyro_frame.normalize();
+		}
+
+		const Vector3f u = _grav_gyro_frame.rotateVector(raw_force);
+		const Vector3f slow = _grav_filt_slow.update(u);
+		force = _grav_gyro_frame.rotateVectorInverse(slow);
+
+	} else {
+		_grav_filt_slow.initialised = false;
+	}
+
+	const Vector3f measurement = force.unit();
 	const float measurement_var = math::max(sq(_params.ekf2_grav_noise), sq(0.01f));
 
 	// EKF2_GRAV_AWIN: accepted deviation of the filtered accel norm from 1 g (default 0.1)

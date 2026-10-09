@@ -43,6 +43,26 @@ parameters:
         2: Both must be below the limit
       default: 2
 
+    EKF2_GRAV_FTAU:
+      description:
+        short: Gyro-frame filter time constant for gravity observations
+        long: |
+          When greater than zero, the specific force used as the gravity observation is
+          rotated into a frame propagated by the bias-corrected gyro, low-pass filtered
+          with this time constant (second-order Butterworth), and rotated back to the
+          current body frame. Gravity is constant in that frame and passes the filter,
+          while other accelerations average to roughly their velocity change divided by
+          the time constant, and accelerations that rotate with the vehicle (turns,
+          flips) largely cancel. Filtering directly in the body frame would instead lag
+          every attitude change. An acceleration held for longer than the time constant
+          is not removed. Set to 0 to fuse the raw specific force.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 20.0
+      unit: s
+      decimal: 2
+
     EKF2_GRAV_AWIN:
       description:
         short: Accel norm window for gravity observations

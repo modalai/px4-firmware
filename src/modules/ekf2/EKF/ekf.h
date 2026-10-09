@@ -1038,6 +1038,25 @@ private:
 #if defined(CONFIG_EKF2_GRAVITY_FUSION)
 	// gravity fusion: heuristically enable / disable gravity fusion
 	void controlGravityFusion(const imuSample &imu_delayed);
+
+	// Second-order Butterworth low-pass applied per component to a 3D vector, using the
+	// same tau convention as VQF (cutoff sqrt(2) / (2 pi tau)). Double precision state:
+	// the cutoffs are far below the update rate.
+	struct GravityVectorFilter {
+		double b0{0.0}, a1{0.0}, a2{0.0};
+		double s1[3] {};
+		double s2[3] {};
+		float tau{0.f};
+		float dt{0.f};
+		bool initialised{false};
+
+		void reset(float tau_s, float dt_s, const Vector3f &u);
+		Vector3f update(const Vector3f &u);
+	};
+
+	// EKF2_GRAV_FTAU: specific force filtered in a frame propagated by the bias-corrected gyro
+	Quatf _grav_gyro_frame{};
+	GravityVectorFilter _grav_filt_slow{};
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 
 	void resetQuatCov(const float yaw_noise = NAN);

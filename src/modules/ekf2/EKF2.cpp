@@ -209,6 +209,7 @@ EKF2::EKF2(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
 	_param_ekf2_grav_noise(_params->ekf2_grav_noise),
 	_param_ekf2_grav_rmax(_params->ekf2_grav_rmax),
 	_param_ekf2_grav_rmode(_params->ekf2_grav_rmode),
+	_param_ekf2_grav_ftau(_params->ekf2_grav_ftau),
 	_param_ekf2_grav_awin(_params->ekf2_grav_awin),
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 	_param_ekf2_imu_pos_x(_params->imu_pos_body(0)),
