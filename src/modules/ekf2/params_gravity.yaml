@@ -42,3 +42,69 @@ parameters:
         1: Instantaneous rate only
         2: Both must be below the limit
       default: 2
+
+    EKF2_GRAV_FTAU:
+      description:
+        short: Gyro-frame filter time constant for gravity observations
+        long: |
+          When greater than zero, the specific force used as the gravity observation is
+          rotated into a frame propagated by the bias-corrected gyro, low-pass filtered
+          with this time constant (second-order Butterworth), and rotated back to the
+          current body frame. Gravity is constant in that frame and passes the filter,
+          while other accelerations average to roughly their velocity change divided by
+          the time constant, and accelerations that rotate with the vehicle (turns,
+          flips) largely cancel. Filtering directly in the body frame would instead lag
+          every attitude change. An acceleration held for longer than the time constant
+          is not removed. Set to 0 to fuse the raw specific force.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 20.0
+      unit: s
+      decimal: 2
+
+    EKF2_GRAV_FTAU_F:
+      description:
+        short: Fast gyro-frame filter time constant for the persistence detector
+        long: |
+          Time constant of the second, faster gyro-frame filter used by EKF2_GRAV_PERS.
+          Has no effect unless EKF2_GRAV_FTAU and EKF2_GRAV_PERS are greater than zero.
+      type: float
+      default: 0.5
+      min: 0.05
+      max: 5.0
+      unit: s
+      decimal: 2
+
+    EKF2_GRAV_PERS:
+      description:
+        short: Acceleration persistence scale for gravity observations
+        long: |
+          Measures the angle between the fast (EKF2_GRAV_FTAU_F) and slow (EKF2_GRAV_FTAU)
+          gyro-frame filtered specific force. The two disagree when the force has changed
+          within the last few seconds, for example during and after a sustained push,
+          while the slow observation still contains that acceleration. The gravity
+          observation variance is multiplied by 1 + (angle / EKF2_GRAV_PERS)^2, so it
+          doubles at an angle of EKF2_GRAV_PERS, and returns to nominal once the filters
+          agree. An acceleration held steady long enough for both filters to settle is
+          not detected. Requires EKF2_GRAV_FTAU greater than zero. Set to 0 to disable.
+      type: float
+      default: 0.0
+      min: 0.0
+      max: 30.0
+      unit: deg
+      decimal: 1
+
+    EKF2_GRAV_AWIN:
+      description:
+        short: Accel norm window for gravity observations
+        long: |
+          Gravity fusion is only allowed while the filtered accelerometer norm is within
+          this fraction of 1 g. The default 0.1 matches the previous fixed 0.9 to 1.1 g
+          window. In altitude-holding flight the norm is about g / cos(tilt), so 0.05
+          blocks sustained tilts above about 18 deg and 0.03 above about 14 deg.
+      type: float
+      default: 0.1
+      min: 0.01
+      max: 0.5
+      decimal: 3
