@@ -63,8 +63,10 @@ VoxlEsc::VoxlEsc() :
 
 	for (unsigned i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
 		_esc_status.esc[i].timestamp       = 0;
+		_esc_status.esc[i].esc_address     = 0;
 		_esc_status.esc[i].esc_rpm         = 0;
 		_esc_status.esc[i].esc_state       = 0;
+		_esc_status.esc[i].esc_cmdcount    = 0;
 		_esc_status.esc[i].esc_voltage     = 0;
 		_esc_status.esc[i].esc_current     = 0;
 		_esc_status.esc[i].esc_temperature = 0;
@@ -537,10 +539,12 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					}
 
 					// also update our internal report for logging
+					_esc_status.esc[id].esc_address  = motor_idx + 1; // remapped motor ID
 					_esc_status.esc[id].timestamp    = tnow;
 					_esc_status.esc[id].esc_rpm      = fb.rpm;
 					_esc_status.esc[id].esc_power    = fb.power;
 					_esc_status.esc[id].esc_state    = state;
+					_esc_status.esc[id].esc_cmdcount = fb.cmd_counter;
 					_esc_status.esc[id].esc_voltage  = _esc_chans[id].voltage;
 					_esc_status.esc[id].esc_current  = _esc_chans[id].current;
 					_esc_status.esc[id].failures     = 0; //not implemented
