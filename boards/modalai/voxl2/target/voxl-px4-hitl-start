@@ -47,6 +47,42 @@ fi
 
 /bin/sleep 1
 
+# HITL settings, optionally overridden in /etc/modalai/voxl-px4-hitl.conf:
+#   HITL_INPUT=udp|uart   udp: simulator sends MAVLink HIL to this apps proc over
+#                         the USB network (e.g. Gazebo + px4-gz-jetty-plugins),
+#                         uart: simulator wired to the DSP UART (FTDI)
+#   HITL_HOST_IP=<ip>     simulator host for udp mode
+#   HITL_RC=crsf|none     none lets RC_CHANNELS_OVERRIDE from the simulator be
+#                         the only RC input (rc_update reads input_rc instance 0)
+HITL_INPUT=udp
+HITL_RC=crsf
+if [ "$PLATFORM" = "M0197" ]; then
+    HITL_HOST_IP=192.168.100.1
+else
+    HITL_HOST_IP=192.168.101.1
+fi
+if [ -f /etc/modalai/voxl-px4-hitl.conf ]; then
+    . /etc/modalai/voxl-px4-hitl.conf
+fi
+echo "[INFO] HITL input: $HITL_INPUT, RC: $HITL_RC, simulator host: $HITL_HOST_IP"
+
+# Start the HITL sensor input before sensors/ekf2 to avoid MUORB startup races
+if [ "$HITL_INPUT" = "udp" ]; then
+    # HIL_SENSOR/HIL_GPS in, HIL_ACTUATOR_CONTROLS out. MavlinkReceiver bridges
+    # sensor data to dsp_hitl over MUORB (hil_sensor_imu, hil_sensor_mag_baro)
+    mavlink start -x -u 14560 -o 14550 -r 100000 -t $HITL_HOST_IP
+    /bin/sleep 1
+    qshell dsp_hitl start -u
+else
+    # g = gps, m = mag, o = odometry (vio), h = distance sensor, f = optic flow
+    # qshell dsp_hitl start -g -m -o -h -f
+    if [ "$PLATFORM" = "M0197" ]; then
+        qshell dsp_hitl start -g -m -p 6
+    else
+        qshell dsp_hitl start -g -m
+    fi
+fi
+
 # Start all of the processing modules on DSP
 qshell sensors start -h
 qshell ekf2 start
@@ -71,21 +107,17 @@ qshell flight_mode_manager start
 # Start the dataman service on the applications processor before navigator on DSP
 dataman start
 qshell navigator start
+if [ "$HITL_RC" = "crsf" ]; then
+    qshell crsf_rc start -d 7
+fi
 crsf_bridge start
 vehicle_attitude_bridge start
 vfc_logger start
 
-# Start microdds_client for ros2 offboard messages from agent over localhost
-microdds_client start -t udp -h 127.0.0.1 -p 8888
+# Start uxrce_dds_client for ros2 offboard messages from agent over localhost
+uxrce_dds_client start -t udp -h 127.0.0.1 -p 8888
 
 qshell pwm_out_sim start -m hil
-# g = gps, m = mag, o = odometry (vio), h = distance sensor, f = optic flow
-# qshell dsp_hitl start -g -m -o -h -f
-if [ "$PLATFORM" == "M0197" ]; then
-    qshell dsp_hitl start -g -m -p 6
-else
-    qshell dsp_hitl start -g -m
-fi
 
 # start the onboard fast link to connect to voxl-mavlink-server
 mavlink start -x -u 14556 -o 14557 -r 100000 -n lo -m onboard

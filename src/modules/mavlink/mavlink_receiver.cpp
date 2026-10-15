@@ -2574,6 +2574,64 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		temperature = hil_sensor.temperature;
 	}
 
+#if defined(CONFIG_DRIVERS_VOXL2_IO) // VOXL2: HIL sensors bridged to dsp_hitl over MUORB
+	// VOXL2: sensor_accel/gyro/mag/baro published here would cross MUORB with
+	// apps-proc timestamps and get rejected by VehicleIMU on the DSP. Instead
+	// publish the raw HIL values on hil_sensor_imu / hil_sensor_mag_baro;
+	// dsp_hitl on the DSP republishes them with fresh DSP timestamps.
+	if (!_hil_imu_received) {
+		_hil_sensor_imu.temperature = NAN;
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
+		_hil_sensor_imu.gyroscope_rad_s[0] = hil_sensor.xgyro;
+		_hil_sensor_imu.gyroscope_rad_s[1] = hil_sensor.ygyro;
+		_hil_sensor_imu.gyroscope_rad_s[2] = hil_sensor.zgyro;
+		_hil_imu_received = true;
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::ACCEL) == SensorSource::ACCEL) {
+		_hil_sensor_imu.accelerometer_m_s2[0] = hil_sensor.xacc;
+		_hil_sensor_imu.accelerometer_m_s2[1] = hil_sensor.yacc;
+		_hil_sensor_imu.accelerometer_m_s2[2] = hil_sensor.zacc;
+		_hil_imu_received = true;
+	}
+
+	if (PX4_ISFINITE(temperature)) {
+		_hil_sensor_imu.temperature = temperature;
+	}
+
+	if (_hil_imu_received && (timestamp - _hil_imu_last_publish_us >= HIL_IMU_PUBLISH_INTERVAL_US)) {
+		_hil_imu_last_publish_us = timestamp;
+		_hil_imu_received = false;
+		_hil_sensor_imu.timestamp = hrt_absolute_time();
+		_hil_sensor_imu_pub.publish(_hil_sensor_imu);
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::MAG) == SensorSource::MAG) {
+		_hil_sensor_mag_baro.magnetometer_ga[0] = hil_sensor.xmag;
+		_hil_sensor_mag_baro.magnetometer_ga[1] = hil_sensor.ymag;
+		_hil_sensor_mag_baro.magnetometer_ga[2] = hil_sensor.zmag;
+		_hil_sensor_mag_baro.fields_updated |= hil_sensor_mag_baro_s::FIELD_MAG;
+		_hil_mag_baro_received = true;
+	}
+
+	if ((hil_sensor.fields_updated & SensorSource::BARO) == SensorSource::BARO) {
+		_hil_sensor_mag_baro.pressure_pa = hil_sensor.abs_pressure * 100.0f; // hPa to Pa
+		_hil_sensor_mag_baro.temperature = hil_sensor.temperature;
+		_hil_sensor_mag_baro.fields_updated |= hil_sensor_mag_baro_s::FIELD_BARO;
+		_hil_mag_baro_received = true;
+	}
+
+	if (_hil_mag_baro_received && (timestamp - _hil_mag_baro_last_publish_us >= HIL_MAG_BARO_PUBLISH_INTERVAL_US)) {
+		_hil_mag_baro_last_publish_us = timestamp;
+		_hil_mag_baro_received = false;
+		_hil_sensor_mag_baro.timestamp = hrt_absolute_time();
+		_hil_sensor_mag_baro_pub.publish(_hil_sensor_mag_baro);
+		_hil_sensor_mag_baro.fields_updated = 0;
+	}
+
+#else
 	// gyro
 	if ((hil_sensor.fields_updated & SensorSource::GYRO) == SensorSource::GYRO) {
 		if (_px4_gyro == nullptr) {
@@ -2635,6 +2693,8 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		_sensor_baro_pub.publish(sensor_baro);
 	}
 
+#endif
+
 	// differential pressure
 	if ((hil_sensor.fields_updated & SensorSource::DIFF_PRESS) == SensorSource::DIFF_PRESS) {
 		differential_pressure_s report{};
@@ -2648,7 +2708,16 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 	}
 
 	// battery status
+#if defined(CONFIG_DRIVERS_VOXL2_IO) // VOXL2: HIL sensors bridged to dsp_hitl over MUORB
+	// throttled to 10 Hz so it isn't pushed across MUORB at the HIL_SENSOR rate
+	if (timestamp - _hil_battery_last_publish_us >= 100_ms) {
+		_hil_battery_last_publish_us = timestamp;
+		publish_hil_battery();
+	}
+
+#else
 	publish_hil_battery();
+#endif
 }
 
 void
@@ -3062,6 +3131,8 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		_local_pos_pub.publish(hil_local_pos);
 	}
 
+#if !defined(CONFIG_DRIVERS_VOXL2_IO)
+	// VOXL2: dsp_hitl on the DSP owns sensor_accel/sensor_gyro
 	/* accelerometer */
 	{
 		if (_px4_accel == nullptr) {
@@ -3095,6 +3166,8 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 			_px4_gyro->update(timestamp_sample, hil_state.rollspeed, hil_state.pitchspeed, hil_state.yawspeed);
 		}
 	}
+
+#endif
 
 	/* battery status */
 	publish_hil_battery();

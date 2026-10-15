@@ -121,6 +121,8 @@ set(msg_files
 	Gripper.msg
 	HealthReport.msg
 	HeaterStatus.msg
+	HilSensorImu.msg
+	HilSensorMagBaro.msg
 	HoverThrustEstimate.msg
 	InputRc.msg
 	InternalCombustionEngineControl.msg

@@ -64,6 +64,11 @@
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/sensor_optical_flow.h>
+#include <uORB/topics/sensor_accel.h>
+#include <uORB/topics/sensor_gyro.h>
+#include <uORB/topics/sensor_mag.h>
+#include <uORB/topics/hil_sensor_imu.h>
+#include <uORB/topics/hil_sensor_mag_baro.h>
 
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
@@ -102,6 +107,12 @@ const unsigned mode_flag_custom = 1;
 const unsigned mode_flag_armed = 128;
 bool _send_mag = false;
 bool _send_distance = false;
+
+// -u: take HIL sensor data from the apps proc MavlinkReceiver over MUORB
+// (hil_sensor_imu / hil_sensor_mag_baro) instead of the UART
+bool _muorb_input = false;
+uint32_t hil_imu_counter = 0;
+uint32_t hil_mag_baro_counter = 0;
 
 uORB::Publication<battery_status_s>				_battery_pub{ORB_ID(battery_status)};
 uORB::PublicationMulti<sensor_gps_s>			_sensor_gps_pub{ORB_ID(sensor_gps)};
@@ -195,6 +206,7 @@ bool isOpen() { return _uart_fd >= 0; };
 
 void usage();
 void task_main(int argc, char *argv[]);
+void muorb_task_main();
 
 void *send_actuator(void *);
 void send_actuator_data();
@@ -361,7 +373,7 @@ void task_main(int argc, char *argv[])
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
-	while ((ch = px4_getopt(argc, argv, "odmghfp:b:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "odmghfp:b:u", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'd':
 			_debug = true;
@@ -395,9 +407,18 @@ void task_main(int argc, char *argv[])
 			position_source_data[(int) position_source::FLOW].send = true;
 			break;
 
+		case 'u':
+			_muorb_input = true;
+			break;
+
 		default:
 			break;
 		}
+	}
+
+	if (_muorb_input) {
+		muorb_task_main();
+		return;
 	}
 
 	const char *charport = port.c_str();
@@ -476,6 +497,123 @@ void task_main(int argc, char *argv[])
 		// if (elapsed_time < 10000) usleep(10000 - elapsed_time);
 
 		if (elapsed_time < 5000) { usleep(5000 - elapsed_time); }
+	}
+
+	_is_running = false;
+}
+
+// MUORB input mode (-u). The apps proc MavlinkReceiver receives HIL_SENSOR over
+// UDP and publishes the raw values on hil_sensor_imu / hil_sensor_mag_baro.
+// Republish them here as sensor_accel/gyro/mag/baro stamped with the DSP clock:
+// apps-proc timestamps arriving over MUORB get rejected by VehicleIMU.
+// GPS, battery and actuator outputs stay on the apps-proc MAVLink instance.
+void muorb_task_main()
+{
+	uORB::Subscription hil_imu_sub{ORB_ID(hil_sensor_imu)};
+	uORB::Subscription hil_mag_baro_sub{ORB_ID(hil_sensor_mag_baro)};
+	uORB::Publication<sensor_accel_s> sensor_accel_pub{ORB_ID(sensor_accel)};
+	uORB::Publication<sensor_gyro_s> sensor_gyro_pub{ORB_ID(sensor_gyro)};
+	uORB::Publication<sensor_mag_s> sensor_mag_pub{ORB_ID(sensor_mag)};
+
+	hrt_abstime last_imu_publish_ts = 0;
+	hrt_abstime last_mag_publish_ts = 0;
+	hrt_abstime last_baro_publish_ts = 0;
+	float imu_temperature = NAN;
+
+	PX4_INFO("DSP HITL using MUORB input (hil_sensor_imu, hil_sensor_mag_baro)");
+
+	_is_running = true;
+
+	while (!_task_should_exit) {
+		hil_sensor_imu_s hil_imu;
+
+		if (hil_imu_sub.update(&hil_imu)) {
+			hil_imu_counter++;
+			got_first_sensor_msg = true;
+			x_accel = hil_imu.accelerometer_m_s2[0];
+			y_accel = hil_imu.accelerometer_m_s2[1];
+			z_accel = hil_imu.accelerometer_m_s2[2];
+			x_gyro = hil_imu.gyroscope_rad_s[0];
+			y_gyro = hil_imu.gyroscope_rad_s[1];
+			z_gyro = hil_imu.gyroscope_rad_s[2];
+
+			if (PX4_ISFINITE(hil_imu.temperature)) {
+				imu_temperature = hil_imu.temperature;
+			}
+
+			const hrt_abstime now = hrt_absolute_time();
+
+			if (now > last_imu_publish_ts
+			    && PX4_ISFINITE(x_accel) && PX4_ISFINITE(y_accel) && PX4_ISFINITE(z_accel)
+			    && PX4_ISFINITE(x_gyro) && PX4_ISFINITE(y_gyro) && PX4_ISFINITE(z_gyro)) {
+
+				sensor_gyro_s gyro{};
+				gyro.timestamp_sample = now;
+				gyro.device_id = 1310988; // DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
+				gyro.x = x_gyro;
+				gyro.y = y_gyro;
+				gyro.z = z_gyro;
+				gyro.temperature = imu_temperature;
+				gyro.samples = 1;
+				gyro.timestamp = now;
+				sensor_gyro_pub.publish(gyro);
+
+				sensor_accel_s accel{};
+				accel.timestamp_sample = now;
+				accel.device_id = 1310988;
+				accel.x = x_accel;
+				accel.y = y_accel;
+				accel.z = z_accel;
+				accel.temperature = imu_temperature;
+				accel.samples = 1;
+				accel.timestamp = now;
+				sensor_accel_pub.publish(accel);
+
+				last_imu_publish_ts = now;
+				imu_counter++;
+			}
+		}
+
+		hil_sensor_mag_baro_s hil_mag_baro;
+
+		if (hil_mag_baro_sub.update(&hil_mag_baro)) {
+			hil_mag_baro_counter++;
+			const hrt_abstime now = hrt_absolute_time();
+
+			if ((hil_mag_baro.fields_updated & hil_sensor_mag_baro_s::FIELD_MAG) && now > last_mag_publish_ts
+			    && PX4_ISFINITE(hil_mag_baro.magnetometer_ga[0]) && PX4_ISFINITE(hil_mag_baro.magnetometer_ga[1])
+			    && PX4_ISFINITE(hil_mag_baro.magnetometer_ga[2])) {
+
+				sensor_mag_s mag{};
+				mag.timestamp_sample = now;
+				mag.device_id = 197388; // DRV_MAG_DEVTYPE_MAGSIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
+				mag.x = hil_mag_baro.magnetometer_ga[0];
+				mag.y = hil_mag_baro.magnetometer_ga[1];
+				mag.z = hil_mag_baro.magnetometer_ga[2];
+				mag.temperature = hil_mag_baro.temperature;
+				mag.timestamp = now;
+				sensor_mag_pub.publish(mag);
+				last_mag_publish_ts = now;
+				mag_counter++;
+			}
+
+			if ((hil_mag_baro.fields_updated & hil_sensor_mag_baro_s::FIELD_BARO) && now > last_baro_publish_ts
+			    && PX4_ISFINITE(hil_mag_baro.pressure_pa)) {
+
+				sensor_baro_s baro{};
+				baro.timestamp_sample = now;
+				baro.device_id = 6620172; // DRV_BARO_DEVTYPE_BAROSIM, BUS: 1, ADDR: 4, TYPE: SIMULATION
+				baro.pressure = hil_mag_baro.pressure_pa;
+				baro.temperature = PX4_ISFINITE(hil_mag_baro.temperature) ? hil_mag_baro.temperature : 25.f;
+				baro.timestamp = now;
+				_sensor_baro_pub.publish(baro);
+				last_baro_publish_ts = now;
+				baro_counter++;
+			}
+		}
+
+		// ~250 Hz poll; hil_sensor_imu arrives at up to 250 Hz
+		px4_usleep(4000);
 	}
 
 	_is_running = false;
@@ -1027,6 +1165,7 @@ int stop()
 void usage()
 {
 	PX4_INFO("Usage: dsp_hitl {start|status|clear|failure|stop}");
+	PX4_INFO("       start -u: sensor input from apps proc MAVLink over MUORB instead of UART (-p)");
 	PX4_INFO("       failure  <source> <duration>");
 	PX4_INFO("                source: gps, vio, flow");
 	PX4_INFO("                duration: 0 (toggle state), else seconds");
@@ -1035,6 +1174,12 @@ void usage()
 void print_status()
 {
 	PX4_INFO("Running: %s", _is_running ? "yes" : "no");
+
+	if (_muorb_input) {
+		PX4_INFO("Input: MUORB, hil_sensor_imu received: %u, hil_sensor_mag_baro received: %u",
+			 hil_imu_counter, hil_mag_baro_counter);
+	}
+
 	PX4_INFO("HIL Sensor received: %i", hil_sensor_counter);
 	PX4_INFO("IMU updates: %i", imu_counter);
 	PX4_INFO("\tCurrent accel x, y, z: %f, %f, %f", double(x_accel), double(y_accel), double(z_accel));

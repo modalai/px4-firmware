@@ -111,7 +111,11 @@ private:
 				}
 			}
 
+#if defined(CONFIG_DRIVERS_VOXL2_IO) // VOXL2 HITL (px4-gz-jetty-plugins)
+			msg.flags = 0x0F;  // Quad: motors on channels 0-3
+#else
 			msg.flags = 0;
+#endif
 
 			mavlink_msg_hil_actuator_controls_send_struct(_mavlink->get_channel(), &msg);
 
