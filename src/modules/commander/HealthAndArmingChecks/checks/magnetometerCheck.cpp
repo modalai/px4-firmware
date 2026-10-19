@@ -87,9 +87,10 @@ void MagnetometerChecks::checkAndReport(const Context &context, Report &reporter
 
 		if (!is_sensor_ok) {
 			if (!exists) {
+				// NavModes changed to None so that mag checks do not block arming
 				/* EVENT
 				 */
-				reporter.healthFailure<uint8_t>(NavModes::All, health_component_t::magnetometer, events::ID("check_mag_missing"),
+				reporter.healthFailure<uint8_t>(NavModes::None, health_component_t::magnetometer, events::ID("check_mag_missing"),
 								events::Log::Error, "Compass sensor {1} missing", instance);
 
 				if (reporter.mavlink_log_pub()) {
@@ -97,9 +98,10 @@ void MagnetometerChecks::checkAndReport(const Context &context, Report &reporter
 				}
 
 			} else if (!is_valid) {
+				// NavModes changed to None so that mag checks do not block arming
 				/* EVENT
 				 */
-				reporter.healthFailure<uint8_t>(NavModes::All, health_component_t::magnetometer, events::ID("check_mag_no_data"),
+				reporter.healthFailure<uint8_t>(NavModes::None, health_component_t::magnetometer, events::ID("check_mag_no_data"),
 								events::Log::Error, "No valid data from Compass {1}", instance);
 
 				if (reporter.mavlink_log_pub()) {
@@ -107,9 +109,10 @@ void MagnetometerChecks::checkAndReport(const Context &context, Report &reporter
 				}
 
 			} else if (!is_calibration_valid) {
+				// NavModes changed to None so that mag checks do not block arming
 				/* EVENT
 				 */
-				reporter.armingCheckFailure<uint8_t>(NavModes::All, health_component_t::magnetometer,
+				reporter.armingCheckFailure<uint8_t>(NavModes::None, health_component_t::magnetometer,
 								     events::ID("check_mag_not_calibrated"),
 								     events::Log::Error, "Compass {1} uncalibrated", instance);
 
@@ -118,11 +121,12 @@ void MagnetometerChecks::checkAndReport(const Context &context, Report &reporter
 				}
 
 			} else if (is_mag_fault) {
+				// NavModes changed to None so that mag checks do not block arming
 				/* EVENT
 				 * @description
 				 * Recalibrate the compass and check the orientation.
 				 */
-				reporter.armingCheckFailure<uint8_t>(NavModes::All, health_component_t::magnetometer, events::ID("check_mag_fault"),
+				reporter.armingCheckFailure<uint8_t>(NavModes::None, health_component_t::magnetometer, events::ID("check_mag_fault"),
 								     events::Log::Error, "Estimator fault due to Compass {1}", instance);
 
 				if (reporter.mavlink_log_pub()) {
@@ -138,6 +142,7 @@ void MagnetometerChecks::checkAndReport(const Context &context, Report &reporter
 		consistencyCheck(context, reporter);
 
 		if (num_enabled_and_valid_calibration < _param_sys_has_mag.get()) {
+			// NavModes changed to None so that mag checks do not block arming
 			/* EVENT
 			 * @description
 			 * Make sure all required sensors are working, enabled and calibrated.
@@ -146,7 +151,7 @@ void MagnetometerChecks::checkAndReport(const Context &context, Report &reporter
 			 * This check can be configured via <param>SYS_HAS_MAG</param> parameter.
 			 * </profile>
 			 */
-			reporter.armingCheckFailure<uint8_t, uint8_t>(NavModes::All, health_component_t::magnetometer,
+			reporter.armingCheckFailure<uint8_t, uint8_t>(NavModes::None, health_component_t::magnetometer,
 					events::ID("check_mag_sys_has_mag_missing"),
 					events::Log::Error, "Found {1} compass (required: {2})", num_enabled_and_valid_calibration, _param_sys_has_mag.get());
 
@@ -205,6 +210,7 @@ void MagnetometerChecks::consistencyCheck(const Context &context, Report &report
 	// If a single sensor is fitted, the value being checked will be zero so this check will always pass.
 	if (sensors.mag_inconsistency_angle > math::radians<float>(_param_com_arm_mag_ang.get())) {
 		int inconsistency_angle_deg = static_cast<int>(math::degrees<float>(sensors.mag_inconsistency_angle));
+		// NavModes changed to None so that mag checks do not block arming
 		/* EVENT
 		 * @description
 		 * Check the compass orientations and recalibrate.
@@ -213,7 +219,7 @@ void MagnetometerChecks::consistencyCheck(const Context &context, Report &report
 		 * This check can be configured via <param>COM_ARM_MAG_ANG</param> parameter.
 		 * </profile>
 		 */
-		reporter.armingCheckFailure<int16_t>(NavModes::All, health_component_t::magnetometer,
+		reporter.armingCheckFailure<int16_t>(NavModes::None, health_component_t::magnetometer,
 						     events::ID("check_mag_consistency"),
 						     events::Log::Error, "Compass inconsistent by {1} degrees", inconsistency_angle_deg);
 
