@@ -68,7 +68,9 @@ private:
 
 	bool send() override
 	{
-		if (_mavlink->is_gcs_connected()) {
+		// Also stream on onboard links, not just to a connected GCS, so these
+		// messages can be used for flight warnings
+		if (_mavlink->is_gcs_connected() || _mavlink->get_mode() == Mavlink::MAVLINK_MODE_ONBOARD) {
 			while (_mavlink_log_sub.updated() && (_mavlink->get_free_tx_buf() >= get_size())) {
 
 				const unsigned last_generation = _mavlink_log_sub.get_last_generation();
