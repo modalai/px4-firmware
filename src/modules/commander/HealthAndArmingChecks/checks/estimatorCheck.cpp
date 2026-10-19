@@ -626,11 +626,12 @@ void EstimatorChecks::checkEstimatorStatusFlags(const Context &context, Report &
 	if (_estimator_status_flags_sub.copy(&estimator_status_flags)) {
 		// Check for a magnetometer fault and notify the user
 		if (estimator_status_flags.cs_mag_fault) {
+			// NavModes changed to None so that mag checks do not block arming
 			/* EVENT
 			 * @description
 			 * Land and calibrate the compass.
 			 */
-			reporter.armingCheckFailure(NavModes::All, health_component_t::local_position_estimate,
+			reporter.armingCheckFailure(NavModes::None, health_component_t::local_position_estimate,
 						    events::ID("check_estimator_mag_fault"),
 						    events::Log::Critical, "Stopping compass use");
 
