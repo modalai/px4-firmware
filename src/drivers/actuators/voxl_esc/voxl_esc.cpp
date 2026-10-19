@@ -57,23 +57,8 @@ VoxlEsc::VoxlEsc() :
 	_mixing_output.setAllDisarmedValues(0);
 
 	_esc_status.timestamp          = hrt_absolute_time();
-	_esc_status.counter            = 0;
 	_esc_status.esc_count          = VOXL_ESC_OUTPUT_CHANNELS;
 	_esc_status.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
-
-	for (unsigned i = 0; i < VOXL_ESC_OUTPUT_CHANNELS; i++) {
-		_esc_status.esc[i].timestamp       = 0;
-		_esc_status.esc[i].esc_address     = 0;
-		_esc_status.esc[i].esc_rpm         = 0;
-		_esc_status.esc[i].esc_state       = 0;
-		_esc_status.esc[i].esc_cmdcount    = 0;
-		_esc_status.esc[i].esc_voltage     = 0;
-		_esc_status.esc[i].esc_current     = 0;
-		_esc_status.esc[i].esc_temperature = 0;
-		_esc_status.esc[i].esc_errorcount  = 0;
-		_esc_status.esc[i].failures        = 0;
-		_esc_status.esc[i].esc_power       = 0;
-	}
 
 	qc_esc_packet_init(&_fb_packet);
 
@@ -521,6 +506,8 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					_esc_chans[id].feedback_time = tnow;
 
 					// also update our internal report for logging
+					// Reports use hardware ESC order; consumers use the configured function to identify the motor.
+					_esc_status.esc[id].actuator_function = static_cast<uint8_t>(_parameters.function_map[id]);
 					_esc_status.esc[id].esc_address  = motor_idx + 1; // remapped motor ID
 					_esc_status.esc[id].timestamp    = tnow;
 					_esc_status.esc[id].esc_rpm      = fb.rpm;
