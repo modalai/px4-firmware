@@ -256,7 +256,7 @@ private:
 
 	EscChan			_esc_chans[VOXL_ESC_OUTPUT_CHANNELS];
 	Command			_esc_cmd;
-	esc_status_s		_esc_status;
+	esc_status_s		_esc_status{};
 	EscPacket		_fb_packet;
 
 	led_rsc_t		_led_rsc;
