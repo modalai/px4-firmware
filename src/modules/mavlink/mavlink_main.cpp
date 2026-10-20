@@ -816,7 +816,11 @@ Mavlink::set_hil_enabled(bool hil_enabled)
 	/* enable HIL (only on links with sufficient bandwidth) */
 	if (hil_enabled && !_hil_enabled && _datarate > 5000) {
 		_hil_enabled = true;
+#if defined(CONFIG_DRIVERS_VOXL2_IO) // VOXL2 HITL: forward every rate-loop output, 200 Hz adds up to 5 ms of latency
+		ret = configure_stream("HIL_ACTUATOR_CONTROLS", 1000.0f);
+#else
 		ret = configure_stream("HIL_ACTUATOR_CONTROLS", 200.0f);
+#endif
 
 		if (_param_sys_hitl.get() == 2) {		// Simulation in Hardware enabled ?
 			configure_stream("HIL_STATE_QUATERNION", 25.0f); // ground truth to display the SIH

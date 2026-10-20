@@ -516,6 +516,8 @@ void muorb_task_main()
 	uORB::Publication<sensor_mag_s> sensor_mag_pub{ORB_ID(sensor_mag)};
 
 	hrt_abstime last_imu_publish_ts = 0;
+	int64_t sim_to_dsp_us = 0; // DSP time - simulator time of the earliest-arriving sample
+	bool sim_to_dsp_valid = false;
 	hrt_abstime last_mag_publish_ts = 0;
 	hrt_abstime last_baro_publish_ts = 0;
 	float imu_temperature = NAN;
@@ -527,7 +529,8 @@ void muorb_task_main()
 	while (!_task_should_exit) {
 		hil_sensor_imu_s hil_imu;
 
-		if (hil_imu_sub.update(&hil_imu)) {
+		// drain the queue: every simulator sample reaches the IMU pipeline
+		while (hil_imu_sub.update(&hil_imu)) {
 			hil_imu_counter++;
 			got_first_sensor_msg = true;
 			x_accel = hil_imu.accelerometer_m_s2[0];
@@ -543,12 +546,28 @@ void muorb_task_main()
 
 			const hrt_abstime now = hrt_absolute_time();
 
-			if (now > last_imu_publish_ts
+			// Stamp samples on the DSP clock with their simulator spacing, so samples that
+			// arrive together (UDP/MUORB batching) keep their real intervals. The offset
+			// follows the earliest arrival, creeps later (~1 s time constant at 1 kHz) to
+			// track a real time factor below 1, and resyncs on a jump (simulator restart).
+			const int64_t offset = (int64_t)now - (int64_t)hil_imu.timestamp_sample;
+
+			if (!sim_to_dsp_valid || offset < sim_to_dsp_us || offset - sim_to_dsp_us > 20000) {
+				sim_to_dsp_us = offset;
+				sim_to_dsp_valid = true;
+
+			} else {
+				sim_to_dsp_us += (offset - sim_to_dsp_us) / 1000;
+			}
+
+			const hrt_abstime sample_ts = (hrt_abstime)((int64_t)hil_imu.timestamp_sample + sim_to_dsp_us);
+
+			if (sample_ts > last_imu_publish_ts
 			    && PX4_ISFINITE(x_accel) && PX4_ISFINITE(y_accel) && PX4_ISFINITE(z_accel)
 			    && PX4_ISFINITE(x_gyro) && PX4_ISFINITE(y_gyro) && PX4_ISFINITE(z_gyro)) {
 
 				sensor_gyro_s gyro{};
-				gyro.timestamp_sample = now;
+				gyro.timestamp_sample = sample_ts;
 				gyro.device_id = 1310988; // DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
 				gyro.x = x_gyro;
 				gyro.y = y_gyro;
@@ -559,7 +578,7 @@ void muorb_task_main()
 				sensor_gyro_pub.publish(gyro);
 
 				sensor_accel_s accel{};
-				accel.timestamp_sample = now;
+				accel.timestamp_sample = sample_ts;
 				accel.device_id = 1310988;
 				accel.x = x_accel;
 				accel.y = y_accel;
@@ -569,7 +588,7 @@ void muorb_task_main()
 				accel.timestamp = now;
 				sensor_accel_pub.publish(accel);
 
-				last_imu_publish_ts = now;
+				last_imu_publish_ts = sample_ts;
 				imu_counter++;
 			}
 		}
@@ -612,8 +631,8 @@ void muorb_task_main()
 			}
 		}
 
-		// ~250 Hz poll; hil_sensor_imu arrives at up to 250 Hz
-		px4_usleep(4000);
+		// 1 kHz poll: adds at most ~1 ms to the IMU path
+		px4_usleep(1000);
 	}
 
 	_is_running = false;

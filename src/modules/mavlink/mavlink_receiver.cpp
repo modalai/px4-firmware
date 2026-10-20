@@ -2601,9 +2601,10 @@ MavlinkReceiver::handle_message_hil_sensor(mavlink_message_t *msg)
 		_hil_sensor_imu.temperature = temperature;
 	}
 
-	if (_hil_imu_received && (timestamp - _hil_imu_last_publish_us >= HIL_IMU_PUBLISH_INTERVAL_US)) {
-		_hil_imu_last_publish_us = timestamp;
+	// every sample is forwarded (hil_sensor_imu is queued); dsp_hitl spaces them by timestamp_sample
+	if (_hil_imu_received) {
 		_hil_imu_received = false;
+		_hil_sensor_imu.timestamp_sample = hil_sensor.time_usec;
 		_hil_sensor_imu.timestamp = hrt_absolute_time();
 		_hil_sensor_imu_pub.publish(_hil_sensor_imu);
 	}

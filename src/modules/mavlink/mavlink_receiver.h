@@ -447,8 +447,6 @@ private:
 	uORB::Publication<hil_sensor_imu_s> _hil_sensor_imu_pub{ORB_ID(hil_sensor_imu)};
 	hil_sensor_imu_s _hil_sensor_imu{};
 	bool  _hil_imu_received{false};
-	hrt_abstime _hil_imu_last_publish_us{0};
-	static constexpr hrt_abstime HIL_IMU_PUBLISH_INTERVAL_US{4000}; // 250 Hz
 
 	// Publish raw HIL MAG/BARO data for DSP-side dsp_hitl to consume via MUORB.
 	// dsp_hitl re-publishes as sensor_mag/sensor_baro with fresh DSP timestamps.

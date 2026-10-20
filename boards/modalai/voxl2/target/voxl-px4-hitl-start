@@ -69,8 +69,9 @@ echo "[INFO] HITL input: $HITL_INPUT, RC: $HITL_RC, simulator host: $HITL_HOST_I
 # Start the HITL sensor input before sensors/ekf2 to avoid MUORB startup races
 if [ "$HITL_INPUT" = "udp" ]; then
     # HIL_SENSOR/HIL_GPS in, HIL_ACTUATOR_CONTROLS out. MavlinkReceiver bridges
-    # sensor data to dsp_hitl over MUORB (hil_sensor_imu, hil_sensor_mag_baro)
-    mavlink start -x -u 14560 -o 14550 -r 100000 -t $HITL_HOST_IP
+    # sensor data to dsp_hitl over MUORB (hil_sensor_imu, hil_sensor_mag_baro).
+    # 1 MB/s so HIL_ACTUATOR_CONTROLS at 1 kHz is not throttled by the datarate.
+    mavlink start -x -u 14560 -o 14550 -r 1000000 -t $HITL_HOST_IP
     /bin/sleep 1
     qshell dsp_hitl start -u
 else
