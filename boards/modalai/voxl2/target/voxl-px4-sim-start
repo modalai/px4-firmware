@@ -1,0 +1,288 @@
+#!/bin/sh
+# PX4 commands need the 'px4-' prefix in bash.
+# (px4-alias.sh is expected to be in the PATH)
+. px4-alias.sh
+
+################################################################################
+# voxl-px4-sim-start
+#
+# PX4 start script for voxl-mvx-simulator sim mode (on-aircraft HITL).
+#
+# voxl-px4 runs this script instead of voxl-px4-start ONLY when the sim-mode
+# flag file /data/modalai/mvx-sim-mode contains "sim". In live mode the flag
+# file does not exist and this script is never run.
+#
+# Derived from voxl-px4-start so that the real RC driver, the mavlink links to
+# voxl-mavlink-server, the bridges and the logger match live flight. The only
+# differences are:
+#   - Parameters come from /data/px4/param/sim_parameters. The live parameter
+#     file is never selected, so nothing in sim mode can write to it.
+#   - No IMU, barometer, magnetometer, GPS, power monitor, distance or airspeed
+#     drivers. Sensor data comes from voxl-mvx-simulator as HIL_SENSOR (and
+#     optionally HIL_GPS, BATTERY_STATUS, ...) over a dedicated localhost
+#     mavlink instance on UDP 14600/14601.
+#   - No ESC driver: the ESC UART is never opened. pwm_out_sim publishes
+#     actuator_outputs_sim, which mavlink sends to the simulator as
+#     HIL_ACTUATOR_CONTROLS.
+#   - sensors and commander start with -h (HIL), which sets
+#     vehicle_status.hil_state = HIL_STATE_ON.
+#   - temperature_compensation and voxl_save_cal_params are not started
+#     (simulated sensors need no thermal compensation, and sim calibration
+#     values must not be saved).
+#
+# Note: once hil_state is ON, every mavlink instance with a data rate above
+# 5000 B/s (including the onboard and GCS links below) streams
+# HIL_ACTUATOR_CONTROLS at 200 Hz and accepts HIL messages. This is a known
+# property of the stock mavlink HIL path, measured in the voxl-mvx-simulator
+# Phase 0b transport note.
+################################################################################
+
+SIM_PARAM_FILE=/data/px4/param/sim_parameters
+LIVE_PARAM_FILE=/data/px4/param/parameters
+
+# Simulator mavlink link (localhost). PX4 listens on SIM_MAVLINK_PORT and
+# sends to SIM_MAVLINK_REMOTE_PORT.
+SIM_MAVLINK_PORT=14600
+SIM_MAVLINK_REMOTE_PORT=14601
+
+echo -e "\n*************************"
+echo "VOXL-MVX-SIMULATOR SIM MODE"
+echo "AIRFRAME: $AIRFRAME"
+echo "RC: $RC"
+echo "ESC: $ESC (not started in sim mode)"
+echo "OSD: $OSD"
+echo "ARTIFACT_MODE: $ARTIFACT_MODE"
+echo "PARAMETERS: $SIM_PARAM_FILE"
+echo "SIMULATOR LINK: udp $SIM_MAVLINK_PORT -> $SIM_MAVLINK_REMOTE_PORT"
+echo "EXTRA STEPS:"
+for i in "${EXTRA_STEPS[@]}"
+do
+    echo -e "\t$i"
+done
+echo -e "*************************\n"
+
+# Figure out what platform we are running on.
+PLATFORM=`/usr/bin/voxl-platform 2> /dev/null`
+RETURNCODE=$?
+if [ $RETURNCODE -ne 0 ]; then
+    VERSIONSTRING=""
+    if [ -f /etc/version ]; then
+        VERSIONSTRING=$(</etc/version)
+    fi
+    M0052SUBSTRING="M0052"
+    if [[ "$VERSIONSTRING" == *"$M0052SUBSTRING"* ]]; then
+        PLATFORM="M0052"
+    fi
+fi
+
+# Same platform support as voxl-px4-start
+if [ $PLATFORM = "M0052" ]; then
+    /bin/echo "Running on M0052"
+    /bin/echo "Error M0052 is no longer supported!!!"
+    exit 1
+elif [ $PLATFORM = "M0054" ]; then
+    /bin/echo "Running on M0054"
+elif [ $PLATFORM = "M0104" ]; then
+    /bin/echo "Running on M0104"
+elif [ $PLATFORM = "M0197" ]; then
+    /bin/echo "Running on M0197"
+else
+    /bin/echo "Error, cannot determine platform!"
+    exit 1
+fi
+
+# Sleep a little here. A lot happens when the uorb and muorb start
+# and we need to make sure that it all completes successfully to avoid
+# any possible race conditions.
+/bin/sleep 1
+
+# The sim parameter file is normally created by voxl-mvx-mode on entry to sim
+# mode (a copy of the live file plus the sim overlay). If it is missing, start
+# from a copy of the live file. The live file is only read, never selected.
+if [ ! -f $SIM_PARAM_FILE ]; then
+    if [ -f $LIVE_PARAM_FILE ]; then
+        /bin/echo "[WARNING] $SIM_PARAM_FILE not found, copying it from $LIVE_PARAM_FILE"
+        /bin/cp $LIVE_PARAM_FILE $SIM_PARAM_FILE
+        /bin/sync
+    else
+        /bin/echo "[WARNING] $SIM_PARAM_FILE not found and no live file to copy, using defaults"
+    fi
+fi
+
+param select $SIM_PARAM_FILE
+
+# Same defaults as voxl-px4-start
+param set-default EKF2_EV_CTRL 15
+qshell param set-default EKF2_EV_CTRL 15
+
+param load
+
+# No sensor drivers: IMU, barometer and magnetometer data arrive from the
+# simulator as HIL_SENSOR on the simulator mavlink link started below.
+
+# Auto detect an ncp5623c i2c RGB LED. If one isn't connected this will
+# fail but not cause any harm.
+/bin/echo "Looking for ncp5623c RGB LED"
+qshell rgbled_ncp5623c start -X -b 1 -f 400 -a 56
+
+param touch SYS_AUTOCONFIG
+param touch SYS_AUTOSTART
+
+# No ESC driver in sim mode. The ESC UART is never opened.
+/bin/echo "Sim mode: not starting an ESC driver, starting pwm_out_sim"
+qshell pwm_out_sim start -m hil
+
+# RC driver: the real RC receiver, same as voxl-px4-start
+if [ "$RC" == "FAKE_RC_INPUT" ]; then
+    /bin/echo "Starting fake RC driver"
+    qshell rc_controller start
+elif [ "$RC" == "CRSF_RAW" ]; then
+    /bin/echo "Starting CRSF RC driver"
+    qshell crsf_rc start -d 7
+elif [ "$RC" == "ELRS_MAVLINK" ]; then
+    /bin/echo "Starting ELRS Mavlink driver"
+    qshell virtual_serial_endpoint start -p 7 -b 460800 -v 100
+elif [ "$RC" == "CRSF_MAV" ]; then
+    /bin/echo "Starting TBS crossfire RC - MAV Mode"
+    qshell mavlink_rc_in start -m -p 7 -b 115200
+elif [ "$RC" == "SPEKTRUM" ]; then
+    /bin/echo "Starting Spektrum RC"
+    qshell spektrum_rc start
+elif [ "$RC" == "GHST" ]; then
+    /bin/echo "Starting GHST RC driver"
+    qshell ghst_rc start -d 7
+elif [ "$RC" == "M0065_SBUS" ]; then
+    # In live mode the M0065 SBUS path may be started by the voxl2_io PWM ESC
+    # driver. No ESC driver runs in sim mode, so always start the RC driver.
+    /bin/echo "Attempting to start M0065 SBUS RC driver for original M0065 FW"
+    qshell dsp_sbus start
+    retVal=$?
+    if [ $retVal -ne 0 ]; then
+        /bin/echo "Starting M0065 SBUS RC driver for original M0065 FW failed"
+        /bin/echo "Attempting to start M0065 SBUS RC driver for new M0065 FW"
+        qshell voxl2_io start -d -p 7
+    fi
+fi
+
+# Start all of the processing modules on DSP (HIL: sensors -h, commander -h)
+qshell sensors start -h
+qshell ekf2 start
+
+if [ "$AIRFRAME" == "FIXED_WING" ]; then
+	qshell fw_pos_control start
+	qshell fw_att_control start
+	qshell fw_rate_control start
+	qshell airspeed_selector start
+	qshell fw_autotune_attitude_control start
+	qshell land_detector start fixedwing
+elif [ $AIRFRAME = "MULTICOPTER" ]; then
+	qshell mc_pos_control start
+	qshell mc_att_control start
+	qshell mc_rate_control start
+	qshell mc_hover_thrust_estimator start
+	qshell mc_autotune_attitude_control start
+	qshell land_detector start multicopter
+fi
+
+qshell manual_control start
+qshell control_allocator start
+qshell load_mon start
+qshell rc_update start
+
+qshell commander start -h
+
+# Start the parameter selector to have various speed modes for a given flight mode
+qshell param_set_selector start
+
+# This is needed for altitude and position hold modes
+qshell flight_mode_manager start
+
+# Start the dataman service on the applications processor before navigator on DSP
+dataman start
+qshell navigator start
+
+# Start the applications processor bridges and services
+crsf_bridge start
+vfc_logger start
+vehicle_air_data_bridge start
+sensor_baro_bridge start
+sensor_imu_raw_bridge start
+vehicle_attitude_bridge start
+vehicle_local_position_bridge start
+
+# Start uxrce_dds_client for ros2 offboard messages from agent over localhost
+uxrce_dds_client start -t udp -h 127.0.0.1 -p 8888
+
+# Simulator link to voxl-mvx-simulator: HIL messages in, HIL_ACTUATOR_CONTROLS
+# out. Custom mode streams nothing but HEARTBEAT until HIL is enabled.
+mavlink start -u $SIM_MAVLINK_PORT -o $SIM_MAVLINK_REMOTE_PORT -r 1000000 -n lo -m custom
+
+# start the onboard fast link to connect to voxl-mavlink-server
+mavlink start -x -u 14556 -o 14557 -r 100000 -n lo -m onboard
+
+# slow down some of the fastest streams
+mavlink stream -u 14556 -s HIGHRES_IMU -r 10
+mavlink stream -u 14556 -s ATTITUDE -r 10
+mavlink stream -u 14556 -s ATTITUDE_QUATERNION -r 10
+mavlink stream -u 14556 -s GLOBAL_POSITION_INT -r 30
+mavlink stream -u 14556 -s SCALED_PRESSURE -r 10
+
+# Increase heartbeat rate so VFC can get faster mode updates
+mavlink stream -u 14556 -s HEARTBEAT -r 10
+
+# start the slow normal mode for voxl-mavlink-server to forward to GCS
+mavlink start -x -u 14558 -o 14559 -r 100000 -n lo
+
+# Start another Mavlink instance if we are getting Mavlink directly via ELRS
+if [ "$RC" == "ELRS_MAVLINK" ]; then
+    /bin/echo "Starting Mavlink instance for external ELRS driver"
+    mavlink start -x -u 14660 -o 14661 -r 100000 -n lo
+fi
+
+mavlink boot_complete
+
+# Optional MSP OSD driver for DJI or HDZero goggles, same as voxl-px4-start
+if [ "$OSD" == "ENABLE" ] || [ "$OSD" == "DJI" ] || [ "$OSD" == "MSP_DJI" ]; then
+    /bin/echo "Starting DJI OSD driver"
+    msp_osd start -d /dev/ttyHS1
+elif [ "$PLATFORM" == "M0054" ] && [ "$OSD" == "HDZERO" ] || [ "$OSD" == "DJI_MSP_DP" ]; then
+    /bin/echo "Starting $OSD OSD driver for $PLATFORM"
+    msp_dp_osd start -d /dev/ttyHS1
+elif [ "$PLATFORM" == "M0104" ] && [ "$OSD" == "HDZERO" ] || [ "$OSD" == "DJI_MSP_DP" ] ; then
+    /bin/echo "Starting $OSD OSD driver for $PLATFORM"
+    msp_dp_osd start -d /dev/ttyHS0
+fi
+
+# Start optional EXTRA_STEPS
+for i in "${EXTRA_STEPS[@]}"
+do
+    $i
+done
+
+if [ "$ARTIFACT_MODE" == "ENABLE" ]; then
+	# Same artifact-mode handling as voxl-px4-start: no logger, logs removed
+	/usr/bin/find /data/px4/log -name "*.ulg" -exec /usr/bin/shred -u -n 7 {} \;
+	/bin/rm -fR /data/px4/log
+	/usr/bin/shred -u -n 7 /data/px4/dataman
+    /bin/echo "Artifact mode has been enabled"
+else
+	# Start logging module, same SDLOG_MODE handling as voxl-px4-start
+	LOGGER_ARGS=""
+	if param compare SDLOG_MODE 1
+	then
+		LOGGER_ARGS="-e"
+	fi
+	if param compare SDLOG_MODE 2
+	then
+		LOGGER_ARGS="-f"
+	fi
+	if param compare SDLOG_MODE 3
+	then
+		LOGGER_ARGS="-x"
+	fi
+	if param compare SDLOG_MODE 4
+	then
+		LOGGER_ARGS="-a"
+	fi
+	logger start $LOGGER_ARGS
+fi
