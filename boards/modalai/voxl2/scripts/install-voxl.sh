@@ -13,12 +13,14 @@ adb push boards/modalai/voxl2/target/voxl-px4-start /usr/bin
 adb push boards/modalai/voxl2/target/voxl-px4-hitl /usr/bin
 adb push boards/modalai/voxl2/target/voxl-px4-hitl-start /usr/bin
 adb push boards/modalai/voxl2/target/voxl-px4-sih-start /usr/bin
+adb push boards/modalai/voxl2/target/voxl-px4-sim-start /usr/bin
 adb shell chmod a+x /usr/bin/px4-alias.sh
 adb shell chmod a+x /usr/bin/voxl-px4
 adb shell chmod a+x /usr/bin/voxl-px4-start
 adb shell chmod a+x /usr/bin/voxl-px4-hitl
 adb shell chmod a+x /usr/bin/voxl-px4-hitl-start
 adb shell chmod a+x /usr/bin/voxl-px4-sih-start
+adb shell chmod a+x /usr/bin/voxl-px4-sim-start
 
 # Push configuration file
 adb shell mkdir -p /etc/modalai
