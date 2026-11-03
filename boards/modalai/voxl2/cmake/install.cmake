@@ -50,6 +50,7 @@ install(PROGRAMS
 	${PX4_BOARD_DIR}/target/voxl-px4-hitl
 	${PX4_BOARD_DIR}/target/voxl-px4-hitl-start
 	${PX4_BOARD_DIR}/target/voxl-px4-sih-start
+	${PX4_BOARD_DIR}/target/voxl-px4-sim-start
 	${PX4_BOARD_DIR}/scripts/voxl-configure-px4
 	DESTINATION bin
 )
