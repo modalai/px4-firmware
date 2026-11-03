@@ -153,6 +153,26 @@ else
     DAEMON="-d"
 fi
 
+# voxl-mvx-simulator sim mode. Only when the sim-mode flag file contains "sim"
+# is PX4 started with voxl-px4-sim-start (HITL with the simulator, no ESC
+# driver). In live mode the flag file does not exist, this block is skipped,
+# and the normal start path below runs unchanged.
+MVX_SIM_FLAG_FILE="/data/modalai/mvx-sim-mode"
+if [ -f "$MVX_SIM_FLAG_FILE" ] && [ "$(/usr/bin/head -c 3 "$MVX_SIM_FLAG_FILE")" == "sim" ]; then
+    if [ ! -x /usr/bin/voxl-px4-sim-start ]; then
+        # Never fall back to the live start path (real ESC driver) while the
+        # aircraft is flagged as being in sim mode.
+        echo "[ERROR] sim mode is set in $MVX_SIM_FLAG_FILE but /usr/bin/voxl-px4-sim-start is missing, not starting PX4"
+        exit 0
+    fi
+    echo "[INFO] voxl-mvx-simulator sim mode: starting PX4 with voxl-px4-sim-start"
+    print_config_settings
+    AIRFRAME=$AIRFRAME GPS=$GPS RC=$RC ESC=$ESC POWER_MANAGER=$POWER_MANAGER DISTANCE_SENSOR=$DISTANCE_SENSOR \
+    AIRSPEED_SENSOR=$AIRSPEED_SENSOR OSD=$OSD EXTRA_STEPS=$EXTRA_STEPS ARTIFACT_MODE=$ARTIFACT_MODE \
+    px4 $DAEMON -s /usr/bin/voxl-px4-sim-start
+    exit $?
+fi
+
 if [ $SENSOR_CAL == "FAKE" ]; then
     /bin/echo "[INFO] Setting up fake sensor calibration values"
     px4 $DAEMON -s /etc/modalai/voxl-px4-fake-imu-calibration.config
