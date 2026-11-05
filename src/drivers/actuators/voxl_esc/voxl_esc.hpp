@@ -48,6 +48,7 @@
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/led_control.h>
 #include <uORB/topics/esc_status.h>
+#include <uORB/topics/esc_debug.h>
 #include <uORB/topics/actuator_test.h>
 #include <uORB/topics/mavlink_tunnel.h>
 #include <uORB/topics/input_rc.h>
@@ -228,6 +229,7 @@ private:
 
 	uORB::Publication<actuator_outputs_s> _outputs_debug_pub{ORB_ID(actuator_outputs_debug)};
 	uORB::Publication<esc_status_s> _esc_status_pub{ORB_ID(esc_status)};
+	uORB::Publication<esc_debug_s> _esc_debug_pub{ORB_ID(esc_debug)};
 
 	bool _extended_rpm{false};
 	bool _need_version_info{true};
