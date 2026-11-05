@@ -73,6 +73,7 @@ set(msg_files
 	EscEepromWrite.msg
 	EscReport.msg
 	EscStatus.msg
+	EscDebug.msg
 	EstimatorAidSource1d.msg
 	EstimatorAidSource2d.msg
 	EstimatorAidSource3d.msg
