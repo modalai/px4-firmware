@@ -65,6 +65,8 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("external_ins_global_position");
 	add_optional_topic("external_ins_local_position");
 	add_topic("esc_status", 5);
+	// not optional: the topic is advertised when the first ESC packet arrives (from the DSP), after the logger has started
+	add_topic("esc_debug");
 	add_topic("failure_detector_status", 100);
 	add_topic("failsafe_flags");
 	add_optional_topic("follow_target", 500);
@@ -310,6 +312,7 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("vehicle_rates_setpoint");
 
 	add_topic("esc_status", 5);
+	add_topic("esc_debug");
 	add_topic("actuator_motors");
 	add_topic("actuator_outputs_debug");
 	add_topic("actuator_servos");

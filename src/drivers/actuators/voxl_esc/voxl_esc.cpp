@@ -615,6 +615,18 @@ int VoxlEsc::parse_response(uint8_t *buf, uint8_t len, bool print_feedback)
 					}
 				}
 
+			} else if (packet_type == ESC_PACKET_TYPE_DEBUG) {
+				// ESC debug packet is not parsed here, the whole raw packet is saved to the log
+				// for offline parsing. It is sent instead of a feedback packet, so no feedback for this ESC in this cycle.
+				esc_debug_s dbg{};
+
+				if (packet_size <= sizeof(dbg.data)) {
+					dbg.timestamp = tnow;
+					dbg.esc_id    = _fb_packet.buffer[ESC_PACKET_POS_DATA];
+					dbg.len       = packet_size;
+					memcpy(dbg.data, _fb_packet.buffer, packet_size);
+					_esc_debug_pub.publish(dbg);
+				}
 			}
 
 		} else { //parser error
