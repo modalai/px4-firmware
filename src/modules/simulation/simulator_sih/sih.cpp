@@ -212,6 +212,8 @@ void Sih::sensor_step()
 
 	read_motors(dt);
 
+	update_external_contact(now);
+
 	generate_force_and_torques(dt);
 
 	equations_of_motion(dt);
@@ -345,6 +347,56 @@ void Sih::read_motors(const float dt)
 
 		publish_esc_status();
 	}
+}
+
+void Sih::update_external_contact(const hrt_abstime &now)
+{
+	if (_sih_ext_contact.get() != 1) {
+		_ext_terrain_valid = false;
+		_ext_contact_valid = false;
+		return;
+	}
+
+	debug_array_s msg;
+
+	if (_debug_array_sub.update(&msg)
+	    && msg.id == EXT_CONTACT_ARRAY_ID
+	    && strncmp(msg.name, EXT_CONTACT_NAME, sizeof(msg.name)) == 0) {
+
+		// each message replaces the previous one; times count from its arrival here
+		const float *d = msg.data;
+		const int flags = PX4_ISFINITE(d[0]) ? static_cast<int>(d[0]) : 0;
+		_ext_terrain_until = 0;
+		_ext_contact_until = 0;
+
+		if ((flags & EXT_CONTACT_FLAG_TERRAIN)
+		    && PX4_ISFINITE(d[1]) && PX4_ISFINITE(d[2]) && PX4_ISFINITE(d[3])
+		    && PX4_ISFINITE(d[4]) && PX4_ISFINITE(d[5]) && PX4_ISFINITE(d[6])) {
+			_ext_terrain_height = d[2];
+			_ext_terrain_ref_NE = Vector2f(d[3], d[4]);
+			_ext_terrain_slope_NE = Vector2f(d[5], d[6]);
+			_ext_terrain_until = now + static_cast<hrt_abstime>(1e6f * constrain(d[1], 0.f, EXT_TERRAIN_TIMEOUT_MAX));
+		}
+
+		if ((flags & EXT_CONTACT_FLAG_CONTACT)
+		    && PX4_ISFINITE(d[7]) && PX4_ISFINITE(d[8]) && PX4_ISFINITE(d[9])
+		    && PX4_ISFINITE(d[10]) && PX4_ISFINITE(d[11]) && PX4_ISFINITE(d[12]) && PX4_ISFINITE(d[13])) {
+			_ext_contact_accel_N = constrain(Vector3f(d[7], d[8], d[9]), -EXT_CONTACT_ACCEL_MAX, EXT_CONTACT_ACCEL_MAX);
+			_ext_contact_point_B = Vector3f(d[10], d[11], d[12]);
+			_ext_contact_until = now + static_cast<hrt_abstime>(1e6f * constrain(d[13], 0.f, EXT_CONTACT_DURATION_MAX));
+		}
+	}
+
+	// stale data: back to the flat ground plane and no contact
+	_ext_terrain_valid = now < _ext_terrain_until;
+	_ext_contact_valid = now < _ext_contact_until;
+}
+
+float Sih::external_ground_height() const
+{
+	const Vector2f offset = constrain(Vector2f(_lpos(0), _lpos(1)) - _ext_terrain_ref_NE,
+					  -EXT_TERRAIN_EXTRAPOLATION_MAX, EXT_TERRAIN_EXTRAPOLATION_MAX);
+	return _ext_terrain_height + _ext_terrain_slope_NE.dot(offset);
 }
 
 uint8_t Sih::num_motors() const
@@ -604,18 +656,32 @@ void Sih::equations_of_motion(const float dt)
 	const Vector3f weight_E = _MASS * gravity_acceleration_E;
 	Vector3f sum_of_forces_E = _Fa_E + _q_E.rotateVector(_T_B) + weight_E;
 
+	// external contact (SIH_EXT_CONTACT): a bump, applied at the contact point
+	Vector3f contact_moment_B{};
+
+	if (_ext_contact_valid) {
+		const Vector3f contact_force_E = _R_N2E * (_ext_contact_accel_N * _MASS);
+		sum_of_forces_E += contact_force_E;
+		contact_moment_B = _ext_contact_point_B.cross(_q_E.rotateVectorInverse(contact_force_E));
+	}
+
 	// fake ground, avoid free fall
 	const float force_down = Vector3f(_R_N2E.transpose() * sum_of_forces_E)(2);
 	Vector3f ground_force_E;
 
-	if ((_lla.altitude() - _lpos_ref_alt) < 0.f && force_down > 0.f) {
+	// ground height above SIH_LOC_H0: the external terrain (SIH_EXT_CONTACT), else the flat plane.
+	// On the external terrain a descent braked by thrust also stops, instead of sinking into a hill.
+	const float ground_alt = _ext_terrain_valid ? external_ground_height() : 0.f;
+	const bool sinking = _ext_terrain_valid && _v_N(2) > 0.f;
+
+	if ((_lla.altitude() - _lpos_ref_alt) < ground_alt && (force_down > 0.f || sinking)) {
 		if (_vehicle == VehicleType::Quadcopter
 		    || _vehicle == VehicleType::Hexacopter
 		    || _vehicle == VehicleType::TailsitterVTOL
 		    || _vehicle == VehicleType::StandardVTOL) {
 			ground_force_E = -sum_of_forces_E;
 
-			if (!_grounded) {
+			if (!_grounded || sinking) {
 				// if we just hit the floor
 				// compute the force that will stop the vehicle in one time step
 				ground_force_E += -_v_E / dt * _MASS;
@@ -628,7 +694,7 @@ void Sih::equations_of_motion(const float dt)
 			Vector3f down_u = _R_N2E.col(2);
 			ground_force_E = -down_u * sum_of_forces_E * down_u;
 
-			if (!_grounded) {
+			if (!_grounded || sinking) {
 				// if we just hit the floor
 				// compute the force that will stop the vehicle in one time step
 				ground_force_E += down_u * (-_v_N(2) / dt) * _MASS;
@@ -663,7 +729,7 @@ void Sih::equations_of_motion(const float dt)
 	_q_E = _q_E  * dq;
 	_q_E.normalize();
 
-	const Vector3f w_B_dot = _Im1 * (_Mt_B + _Ma_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
+	const Vector3f w_B_dot = _Im1 * (_Mt_B + _Ma_B + contact_moment_B - _w_B.cross(_I * _w_B)); // conservation of angular momentum
 	_w_B = constrain(_w_B + w_B_dot * dt, -6.0f * M_PI_F, 6.0f * M_PI_F);
 
 	ecefToNed();
@@ -947,6 +1013,12 @@ int Sih::print_status()
 	}
 
 	PX4_INFO("vehicle landed: %d", _grounded);
+
+	if (_sih_ext_contact.get() == 1) {
+		PX4_INFO("external terrain: %s, ground %.2f m, contact: %s", _ext_terrain_valid ? "valid" : "stale",
+			 (double)(_ext_terrain_valid ? external_ground_height() : 0.f), _ext_contact_valid ? "active" : "none");
+	}
+
 	PX4_INFO("local position NED (m)");
 	_lpos.print();
 	PX4_INFO("local velocity NED (m/s)");
