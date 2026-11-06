@@ -679,7 +679,10 @@ void Sih::equations_of_motion(const float dt)
 		    || _vehicle == VehicleType::Hexacopter
 		    || _vehicle == VehicleType::TailsitterVTOL
 		    || _vehicle == VehicleType::StandardVTOL) {
-			ground_force_E = -sum_of_forces_E;
+			// the ground only pushes up: with a net upward force (a thrust-braked descent
+			// stopping on the external ground) only the velocity is stopped, or the
+			// vehicle could not climb away while its down velocity rounds to > 0
+			ground_force_E = (force_down > 0.f) ? -sum_of_forces_E : Vector3f{};
 
 			if (!_grounded || sinking) {
 				// if we just hit the floor
@@ -692,7 +695,7 @@ void Sih::equations_of_motion(const float dt)
 		} else if (_vehicle == VehicleType::FixedWing
 			   || _vehicle == VehicleType::RoverAckermann) {
 			Vector3f down_u = _R_N2E.col(2);
-			ground_force_E = -down_u * sum_of_forces_E * down_u;
+			ground_force_E = (force_down > 0.f) ? Vector3f(-down_u * sum_of_forces_E * down_u) : Vector3f{};
 
 			if (!_grounded || sinking) {
 				// if we just hit the floor
