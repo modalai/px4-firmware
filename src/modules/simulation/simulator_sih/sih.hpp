@@ -74,6 +74,7 @@
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/airspeed.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/debug_array.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/parameter_update.h>
@@ -203,6 +204,10 @@ private:
 
 	void ecefToNed();
 
+	// External world contact (SIH_EXT_CONTACT): ground height and bumps from an external simulator
+	void update_external_contact(const hrt_abstime &now);
+	float external_ground_height() const;
+
 #if defined(ENABLE_LOCKSTEP_SCHEDULER)
 	void lockstep_loop();
 	uint64_t _current_simulation_time_us{0};
@@ -225,6 +230,30 @@ private:
 	uint8_t _ranging_beacon_idx{0};
 
 	bool _grounded{true}; // whether the vehicle is on the ground
+
+	// External world contact (SIH_EXT_CONTACT), a debug_array (MAVLink DEBUG_FLOAT_ARRAY) with this id and name.
+	// data[0] flags, [1] terrain timeout [s], [2] terrain height above SIH_LOC_H0 [m], [3..4] its local north, east [m],
+	// [5..6] terrain slope dh/dnorth, dh/deast, [7..9] contact acceleration NED [m/s^2],
+	// [10..12] contact point from the center of mass, body FRD [m], [13] contact duration [s]
+	static constexpr uint16_t EXT_CONTACT_ARRAY_ID = 1;
+	static constexpr const char *EXT_CONTACT_NAME = "SIH_EXTC";
+	static constexpr int EXT_CONTACT_FLAG_TERRAIN = 1;
+	static constexpr int EXT_CONTACT_FLAG_CONTACT = 2;
+	static constexpr float EXT_TERRAIN_TIMEOUT_MAX = 1.f;  // [s]
+	static constexpr float EXT_CONTACT_DURATION_MAX = 0.5f; // [s]
+	static constexpr float EXT_CONTACT_ACCEL_MAX = 500.f;   // [m/s^2]
+	static constexpr float EXT_TERRAIN_EXTRAPOLATION_MAX = 5.f; // [m] from the terrain reference point
+
+	uORB::Subscription _debug_array_sub{ORB_ID(debug_array)};
+	bool _ext_terrain_valid{false};
+	bool _ext_contact_valid{false};
+	hrt_abstime _ext_terrain_until{0};
+	hrt_abstime _ext_contact_until{0};
+	float _ext_terrain_height{0.f};            // [m] above SIH_LOC_H0
+	matrix::Vector2f _ext_terrain_ref_NE{};    // [m] local north, east of the terrain height
+	matrix::Vector2f _ext_terrain_slope_NE{};  // [-] dh/dnorth, dh/deast
+	matrix::Vector3f _ext_contact_accel_N{};   // [m/s^2] NED
+	matrix::Vector3f _ext_contact_point_B{};   // [m] body FRD
 
 	// Quantities in body frame (FRD)
 	matrix::Vector3f _T_B{};  // thrust force [N]
@@ -344,6 +373,7 @@ private:
 		(ParamInt<px4::params::SIH_VEHICLE_TYPE>) _sih_vtype,
 		(ParamFloat<px4::params::SIH_WIND_N>) _sih_wind_n,
 		(ParamFloat<px4::params::SIH_WIND_E>) _sih_wind_e,
-		(ParamFloat<px4::params::SIH_RNGBC_NOISE>) _sih_ranging_beacon_noise
+		(ParamFloat<px4::params::SIH_RNGBC_NOISE>) _sih_ranging_beacon_noise,
+		(ParamInt<px4::params::SIH_EXT_CONTACT>) _sih_ext_contact
 	)
 };
