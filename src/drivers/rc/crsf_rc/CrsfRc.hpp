@@ -58,6 +58,9 @@
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
 
+// sim link (start flag -S, voxl-mvx-simulator sim mode only)
+#include <uORB/topics/debug_vect.h>
+
 using namespace device;
 
 class CrsfRc : public ModuleBase, public ModuleParams, public px4::ScheduledWorkItem
@@ -65,7 +68,7 @@ class CrsfRc : public ModuleBase, public ModuleParams, public px4::ScheduledWork
 public:
 	static Descriptor desc;
 
-	CrsfRc(const char *device);
+	CrsfRc(const char *device, bool sim_link = false);
 	~CrsfRc() override;
 
 	/** @see ModuleBase */
@@ -163,6 +166,32 @@ private:
 
 	void WriteFrameHeader(uint8_t *buf, int &offset, const crsf_frame_type_t type, const uint8_t payload_size);
 	void WriteFrameCrc(uint8_t *buf, int &offset, const int buf_size);
+
+	// Simulated RC link (start flag -S; only voxl-mvx-simulator's sim start
+	// script passes it). The simulator sends its RF model's link state as
+	// MAVLink DEBUG_VECT named "RC_SIMLK" (x: 1 lost, 0 ok; y: LQ %; z: RSSI
+	// dBm), which the stock mavlink receiver publishes to debug_vect. While
+	// the simulated link is lost, every frame from the receiver is dropped, so
+	// the driver sees what a real link loss gives it: no RC frames, rc_lost
+	// after 500 ms and invalid link statistics. While it is ok, the simulated
+	// LQ and RSSI replace the real ones in input_rc. A stale or absent message
+	// (SIM_LINK_TIMEOUT) means the real link only. Without -S nothing changes.
+	static constexpr hrt_abstime SIM_LINK_TIMEOUT{500000}; // us
+	enum class SimLinkState : uint8_t { off, stale, ok, lost };
+	void UpdateSimLink(const hrt_abstime &now);
+	static const char *SimLinkStateName(SimLinkState s);
+
+	const bool _sim_link{false};
+	uORB::Subscription _debug_vect_sub{ORB_ID(debug_vect)}; // subscribed only with -S
+	SimLinkState _sim_link_state{SimLinkState::off};
+	hrt_abstime _sim_link_last{0};
+	bool _sim_link_lost{false};
+	float _sim_link_lq{NAN};
+	float _sim_link_rssi_dbm{NAN};
+	uint32_t _sim_link_msgs{0};
+	uint32_t _sim_link_bad{0};
+	uint32_t _sim_link_losses{0};
+	uint32_t _sim_link_frames_dropped{0};
 
 	perf_counter_t	_cycle_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": cycle interval")};
 	perf_counter_t	_publish_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": publish interval")};
