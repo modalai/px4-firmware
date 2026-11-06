@@ -285,6 +285,21 @@ parameters:
       min: 0.0
       max: 100.0
       decimal: 1
+    SIH_EXT_CONTACT:
+      description:
+        short: External world contact
+        long: |-
+          Lets an external simulator give SIH the ground height under the vehicle
+          and contact accelerations (bumps), as a debug_array named SIH_EXTC
+          (MAVLink DEBUG_FLOAT_ARRAY). The ground height replaces the flat ground
+          plane at SIH_LOC_H0 in the ground contact. Data older than its timeout
+          is ignored, and SIH falls back to the flat ground plane.
+          Disabled: the topic is ignored and SIH behaves as without this parameter.
+      type: enum
+      values:
+        0: Disabled
+        1: Enabled
+      default: 0
     SIH_F_T_MAX:
       description:
         short: Forward thruster max thrust (N)
