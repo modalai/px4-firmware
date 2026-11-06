@@ -808,7 +808,9 @@ void Sih::send_dist_snsr(const hrt_abstime &time_now_us)
 		current_distance = _distance_snsr_override;
 
 	} else {
-		current_distance = -_lpos(2) / _q.dcm_z()(2);
+		// height above the ground: the external terrain (SIH_EXT_CONTACT) when valid, else the flat plane
+		const float ground_alt = _ext_terrain_valid ? external_ground_height() : 0.f;
+		current_distance = (-_lpos(2) - ground_alt) / _q.dcm_z()(2);
 
 		if (current_distance > _distance_snsr_max) {
 			// this is based on lightware lw20 behaviour
