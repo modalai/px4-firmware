@@ -43,9 +43,13 @@ ModuleBase::Descriptor CrsfRc::desc{task_spawn, custom_command, print_usage};
 
 #define CRSF_BAUDRATE 420000
 
-CrsfRc::CrsfRc(const char *device) :
+// Simulated link state from voxl-mvx-simulator (start flag -S), see CrsfRc.hpp
+static const char SIM_LINK_NAME[] = "RC_SIMLK";
+
+CrsfRc::CrsfRc(const char *device, bool sim_link) :
 	ModuleParams(nullptr),
-	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(device))
+	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(device)),
+	_sim_link(sim_link)
 {
 	if (device) {
 		strncpy(_device, device, sizeof(_device) - 1);
@@ -67,11 +71,16 @@ int CrsfRc::task_spawn(int argc, char *argv[])
 	int ch;
 	const char *myoptarg = nullptr;
 	const char *device_name = nullptr;
+	bool sim_link = false;
 
-	while ((ch = px4_getopt(argc, argv, "d:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "d:S", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'd':
 			device_name = myoptarg;
+			break;
+
+		case 'S':
+			sim_link = true;
 			break;
 
 		case '?':
@@ -99,7 +108,7 @@ int CrsfRc::task_spawn(int argc, char *argv[])
 		return PX4_ERROR;
 	}
 
-	CrsfRc *instance = new CrsfRc(device_name);
+	CrsfRc *instance = new CrsfRc(device_name, sim_link);
 
 	if (instance == nullptr) {
 		PX4_ERR("alloc failed");
@@ -108,6 +117,10 @@ int CrsfRc::task_spawn(int argc, char *argv[])
 
 	desc.object.store(instance);
 	desc.task_id = task_id_is_work_queue;
+
+	if (sim_link) {
+		PX4_INFO("simulated RC link enabled (-S): link state from %s", SIM_LINK_NAME);
+	}
 
 	instance->ScheduleNow();
 
@@ -241,6 +254,10 @@ void CrsfRc::Run()
 		}
 	}
 
+	// Simulated link (-S only): while it is lost, drop every receiver frame
+	UpdateSimLink(time_now_us);
+	const bool sim_lost = (_sim_link_state == SimLinkState::lost);
+
 	// Read all available data from the serial RC input UART
 	int new_bytes = _uart->readAtLeast(&_rcs_buf[0], RC_MAX_BUFFER_SIZE, 1, 100);
 
@@ -254,6 +271,12 @@ void CrsfRc::Run()
 		CrsfPacket_t new_crsf_packet;
 
 		while (CrsfParser_TryParseCrsfPacket(&new_crsf_packet, &_packet_parser_statistics)) {
+			if (sim_lost) {
+				// as if the receiver had lost the transmitter: nothing reaches the driver
+				_sim_link_frames_dropped++;
+				continue;
+			}
+
 			if (new_crsf_packet.raw_frame_len > 0
 			    && new_crsf_packet.raw_frame_len <= sizeof(crsf_raw_s::data)) {
 				crsf_raw_s raw_msg{};
@@ -459,11 +482,98 @@ void CrsfRc::Run()
 	_input_rc.rc_ppm_frame_length = 0;
 	_input_rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_CRSF;
 	_input_rc.timestamp = hrt_absolute_time();
-	_input_rc_pub.publish(_input_rc);
+
+	if (_sim_link_state == SimLinkState::ok && (time_now_us - _last_packet_seen <= 500_ms)) {
+		// Simulated link ok and the real link statistics valid: show the
+		// simulated link quality. A real loss still wins (statistics invalid).
+		input_rc_s input_rc = _input_rc;
+
+		if (PX4_ISFINITE(_sim_link_lq)) {
+			input_rc.link_quality = (int8_t)_sim_link_lq;
+		}
+
+		if (PX4_ISFINITE(_sim_link_rssi_dbm)) {
+			input_rc.rssi_dbm = _sim_link_rssi_dbm;
+
+			if (time_now_us - _last_stats_tx_seen > 500_ms) {
+				input_rc.rssi = (1.f - input_rc.rssi_dbm / -130.f) * input_rc.RSSI_MAX;
+			}
+		}
+
+		_input_rc_pub.publish(input_rc);
+
+	} else {
+		_input_rc_pub.publish(_input_rc);
+	}
 
 	perf_count(_publish_interval_perf);
 
 	ScheduleDelayed(4_ms);
+}
+
+const char *CrsfRc::SimLinkStateName(SimLinkState s)
+{
+	switch (s) {
+	case SimLinkState::off:
+		return "off";
+
+	case SimLinkState::stale:
+		return "stale (real link)";
+
+	case SimLinkState::ok:
+		return "ok";
+
+	case SimLinkState::lost:
+		return "lost";
+	}
+
+	return "?";
+}
+
+void CrsfRc::UpdateSimLink(const hrt_abstime &now)
+{
+	if (!_sim_link) {
+		return; // never subscribes to debug_vect
+	}
+
+	debug_vect_s dv;
+
+	while (_debug_vect_sub.update(&dv)) {
+		if (strncmp(dv.name, SIM_LINK_NAME, sizeof(dv.name)) != 0) {
+			continue; // someone else's debug vector
+		}
+
+		// x: 1 lost, 0 ok (anything else rejects the message);
+		// y: LQ 0..100 %, z: RSSI -150..0 dBm (out of range: not shown)
+		const bool is_ok = PX4_ISFINITE(dv.x) && fabsf(dv.x) < 0.01f;
+		const bool is_lost = PX4_ISFINITE(dv.x) && fabsf(dv.x - 1.f) < 0.01f;
+
+		if (!is_ok && !is_lost) {
+			_sim_link_bad++;
+			continue;
+		}
+
+		_sim_link_msgs++;
+		_sim_link_last = now; // the arrival time here, not the sender's clock
+		_sim_link_lost = is_lost;
+		_sim_link_lq = (PX4_ISFINITE(dv.y) && dv.y >= 0.f && dv.y <= 100.f) ? dv.y : NAN;
+		_sim_link_rssi_dbm = (PX4_ISFINITE(dv.z) && dv.z >= -150.f && dv.z <= 0.f) ? dv.z : NAN;
+	}
+
+	SimLinkState s = SimLinkState::stale;
+
+	if (_sim_link_last != 0 && now - _sim_link_last < SIM_LINK_TIMEOUT) {
+		s = _sim_link_lost ? SimLinkState::lost : SimLinkState::ok;
+	}
+
+	if (s != _sim_link_state) {
+		if (s == SimLinkState::lost) {
+			_sim_link_losses++;
+		}
+
+		PX4_INFO("simulated RC link: %s -> %s", SimLinkStateName(_sim_link_state), SimLinkStateName(s));
+		_sim_link_state = s;
+	}
 }
 
 /**
@@ -616,6 +726,12 @@ int CrsfRc::print_status()
 		PX4_INFO("Telemetry: %s", _param_rc_crsf_tel_en.get() ? "yes" : "no");
 	}
 
+	if (_sim_link) {
+		PX4_INFO("Simulated link (-S): %s, LQ %.0f, RSSI %.0f dBm; %" PRIu32 " messages, %" PRIu32 " rejected, %"
+			 PRIu32 " losses, %" PRIu32 " frames dropped", SimLinkStateName(_sim_link_state), (double)_sim_link_lq,
+			 (double)_sim_link_rssi_dbm, _sim_link_msgs, _sim_link_bad, _sim_link_losses, _sim_link_frames_dropped);
+	}
+
 	perf_print_counter(_cycle_interval_perf);
 	perf_print_counter(_publish_interval_perf);
 
@@ -698,6 +814,7 @@ This module parses the CRSF RC uplink protocol and generates CRSF downlink telem
 	PRINT_MODULE_USAGE_SUBCATEGORY("radio_control");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_STRING('d', "/dev/ttyS3", "<file:dev>", "RC device", true);
+	PRINT_MODULE_USAGE_PARAM_FLAG('S', "Simulated link: take link loss and LQ from the debug_vect \"RC_SIMLK\" (simulator only)", true);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("bind", "Send a CRSF bind command (not available on singlewire)");
 #ifdef CONFIG_RC_CRSF_INJECT
 	PRINT_MODULE_USAGE_COMMAND_DESCR("inject", "Inject frame data bytes (for testing)");
