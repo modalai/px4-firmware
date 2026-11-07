@@ -255,6 +255,7 @@ private:
 	matrix::Vector3f _lpos{};  // position in a local tangent-plane frame [m]
 
 	float _u[NUM_ACTUATORS_MAX] {}; // thruster signals
+	float _w_rotor_prev[4] {};       // quadcopter rotor speeds at the previous step [rad/s] (SIH_ROT_J)
 	float       _T[NUM_DYN_THRUSTER] {};         // thruster forces (N)
 	float       _Q[NUM_DYN_THRUSTER] {};         // thruster torque (Nm)
 	Thruster    _thruster[NUM_DYN_THRUSTER] {};	// thruster objects
@@ -298,6 +299,8 @@ private:
 	MapProjection _lpos_ref{};
 	float _lpos_ref_alt;
 	float _MASS, _T_MAX, _Q_MAX, _L_ROLL, _L_PITCH, _KDV, _KDW, _T_TAU, _F_T_MAX, _F_Q_MAX;
+	float _ROT_J{0.f};          // rotor moment of inertia about its spin axis [kg m^2] (SIH_ROT_J)
+	float _ROT_RPM_MAX{10000.f}; // rotor speed at full throttle [rpm] (SIH_ROT_RPM)
 	matrix::Matrix3f _I;    // vehicle inertia matrix
 	matrix::Matrix3f _Im1;  // inverse of the inertia matrix
 
@@ -318,6 +321,8 @@ private:
 		(ParamFloat<px4::params::SIH_IYZ>) _sih_iyz,
 		(ParamFloat<px4::params::SIH_T_MAX>) _sih_t_max,
 		(ParamFloat<px4::params::SIH_Q_MAX>) _sih_q_max,
+		(ParamFloat<px4::params::SIH_ROT_J>) _sih_rot_j,
+		(ParamFloat<px4::params::SIH_ROT_RPM>) _sih_rot_rpm,
 		(ParamFloat<px4::params::SIH_L_ROLL>) _sih_l_roll,
 		(ParamFloat<px4::params::SIH_L_PITCH>) _sih_l_pitch,
 		(ParamFloat<px4::params::SIH_KDV>) _sih_kdv,
