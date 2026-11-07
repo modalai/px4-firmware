@@ -113,6 +113,39 @@ parameters:
       min: 0.0
       decimal: 3
       increment: 0.05
+    SIH_ROT_J:
+      description:
+        short: Quadcopter rotor moment of inertia
+        long: |-
+          Moment of inertia of one rotor (propeller plus motor bell) about its spin axis.
+
+          When above 0, the quadcopter yaw moment also gets the rotor reaction torque
+          J * d(omega)/dt of each rotor, with the sign of its SIH_Q_MAX drag torque.
+          The rotor speed is omega = SIH_ROT_RPM * sqrt(u), consistent with thrust and
+          drag torque being linear in the motor signal u. This term matters for large
+          propellers: it makes the yaw response lead the yaw torque command.
+
+          0 disables the term (SIH unchanged). Quadcopter (SIH_VEHICLE_TYPE 0) only.
+      type: float
+      default: 0.0
+      unit: kg m^2
+      min: 0.0
+      max: 0.01
+      decimal: 6
+      increment: 0.000001
+    SIH_ROT_RPM:
+      description:
+        short: Quadcopter rotor speed at full throttle
+        long: |-
+          Rotor speed at motor signal u = 1. The rotor speed at u is SIH_ROT_RPM * sqrt(u).
+          Used for the rotor reaction torque (SIH_ROT_J) and for the RPM SIH reports in
+          esc_status. Quadcopter (SIH_VEHICLE_TYPE 0) only.
+      type: float
+      default: 10000.0
+      unit: rpm
+      min: 100.0
+      max: 100000.0
+      decimal: 0
     SIH_L_ROLL:
       description:
         short: Roll arm length
