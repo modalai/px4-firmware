@@ -248,6 +248,8 @@ void Sih::parameters_updated()
 {
 	_T_MAX = _sih_t_max.get();
 	_Q_MAX = _sih_q_max.get();
+	_ROT_J = _sih_rot_j.get();
+	_ROT_RPM_MAX = _sih_rot_rpm.get();
 	_L_ROLL = _sih_l_roll.get();
 	_L_PITCH = _sih_l_pitch.get();
 	_KDV = _sih_kdv.get();
@@ -377,6 +379,9 @@ void Sih::publish_esc_status()
 
 	if (_vehicle == VehicleType::FixedWing || _vehicle == VehicleType::TailsitterVTOL || _vehicle == VehicleType::StandardVTOL) {
 		max_rpm = _sih_forward_rpm_max.get();
+
+	} else if (_vehicle == VehicleType::Quadcopter) {
+		max_rpm = _ROT_RPM_MAX; // SIH_ROT_RPM, default 10000 as before
 	}
 
 	for (int i = 0; i < NUM_ACTUATORS_MAX && motor_idx < num_motors(); i++) {
@@ -415,10 +420,33 @@ void Sih::generate_force_and_torques(const float dt)
 
 	if (_vehicle == VehicleType::Quadcopter) {
 
+		float yaw_moment = _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]);
+
+		// Optional rotor reaction torque (SIH_ROT_J > 0): a rotor that speeds up pushes the body
+		// the opposite way to its spin, the same direction as its drag torque, so each rotor adds
+		// sign_i * J * d(omega_i)/dt with the sign of its _Q_MAX term. omega_i = omega_max * sqrt(u_i),
+		// as for the reported ESC RPM: thrust and drag torque are linear in u, i.e. ~ omega^2.
+		// d(omega)/dt is the change over this step, so the angular momentum given to the body equals
+		// the rotor's. SIH_ROT_J = 0 (default) leaves the moment exactly as before.
+		if (dt > FLT_EPSILON) {
+			static constexpr float yaw_sign[4] {1.f, 1.f, -1.f, -1.f};
+			float sum_dw = 0.f;
+
+			for (int i = 0; i < 4; i++) {
+				const float w = Thruster::throttle_to_rpm(_u[i], _ROT_RPM_MAX) * (2.f * M_PI_F / 60.f); // [rad/s]
+				sum_dw += yaw_sign[i] * (w - _w_rotor_prev[i]);
+				_w_rotor_prev[i] = w;
+			}
+
+			if (_ROT_J > 0.f) {
+				yaw_moment += _ROT_J * sum_dw / dt;
+			}
+		}
+
 		_T_B = Vector3f(0.0f, 0.0f, -_T_MAX * (+_u[0] + _u[1] + _u[2] + _u[3]));
 		_Mt_B = Vector3f(_L_ROLL * _T_MAX * (-_u[0] + _u[1] + _u[2] - _u[3]),
 				 _L_PITCH * _T_MAX * (+_u[0] - _u[1] + _u[2] - _u[3]),
-				 _Q_MAX * (+_u[0] + _u[1] - _u[2] - _u[3]));
+				 yaw_moment);
 
 		_Fa_E = -_KDV * _R_N2E * _v_apparent_N; // first order drag to slow down the aircraft
 		_Ma_B = -_KDW * _w_B; // first order angular damper
