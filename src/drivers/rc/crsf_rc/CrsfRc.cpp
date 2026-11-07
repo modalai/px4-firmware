@@ -533,7 +533,7 @@ const char *CrsfRc::SimLinkStateName(SimLinkState s)
 void CrsfRc::UpdateSimLink(const hrt_abstime &now)
 {
 	if (!_sim_link) {
-		return; // never subscribes to debug_vect
+		return; // without -S, debug_vect is never read
 	}
 
 	debug_vect_s dv;

@@ -182,7 +182,7 @@ private:
 	static const char *SimLinkStateName(SimLinkState s);
 
 	const bool _sim_link{false};
-	uORB::Subscription _debug_vect_sub{ORB_ID(debug_vect)}; // subscribed only with -S
+	uORB::Subscription _debug_vect_sub{ORB_ID(debug_vect)}; // read only with -S
 	SimLinkState _sim_link_state{SimLinkState::off};
 	hrt_abstime _sim_link_last{0};
 	bool _sim_link_lost{false};
