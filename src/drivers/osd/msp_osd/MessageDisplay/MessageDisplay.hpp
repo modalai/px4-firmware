@@ -95,6 +95,9 @@ public:
 	// get the latest subsection of the message
 	void get(char *string, const uint32_t current_time);
 
+	// true if a warning message is currently set
+	bool has_warning() const { return warning_msg[0] != '\0'; }
+
 	// update local parameters
 	void set_period(const uint64_t period) { period_ = period; }
 	void set_dwell(const uint64_t dwell) { dwell_ = dwell; }
