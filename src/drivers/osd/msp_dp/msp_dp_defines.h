@@ -77,10 +77,10 @@ struct msp_dp_status_t {
 #define SD_ROW_MAX 16
 #define HD_COL_MAX 50
 #define HD_ROW_MAX 18
-// OSD CANVAS
+// OSD CANVAS (COLSxROWS: columns are sent first)
 struct msp_dp_canvas_t {
-	uint8_t  row_max;
 	uint8_t  col_max;
+	uint8_t  row_max;
 } __attribute__((packed));
 
 // DISPLAYPORT CONFIG

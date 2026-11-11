@@ -108,6 +108,13 @@ msp_name_t MspDPOsd::construct_warning_message(const struct log_message_s& log_m
 	const auto now = hrt_absolute_time();
 	set_warning_string(now, log_message, log_level, display);
 
+	// blank the line when there is no warning, instead of drawing the empty "||" separators
+	if (!display.has_warning()) {
+		memset(warning_message.craft_name, ' ', FULL_MSG_LENGTH);
+		warning_message.craft_name[FULL_MSG_LENGTH] = '\0';
+		return warning_message;
+	}
+
 	// update message and return
 	display.get(warning_message.craft_name, hrt_absolute_time());
 	return warning_message;
@@ -356,8 +363,8 @@ msp_dp_canvas_t construct_OSD_canvas(uint8_t row, uint8_t col){
 	msp_dp_canvas_t msp_canvas{0};
 
 	// HD 5018
-	if (row > 49) row = 49;
-	if (col > 17) col = 17;
+	if (col > 49) col = 49;
+	if (row > 17) row = 17;
 	msp_canvas.row_max = row;
 	msp_canvas.col_max = col;
 	return msp_canvas;
