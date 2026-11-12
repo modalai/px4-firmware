@@ -289,6 +289,10 @@ fi
 # qshell vl53l1x start -X -b 4
 
 # Start all of the processing modules on DSP
+if [ "$PLATFORM" = "M0197" ]; then
+    qshell dsp_link start
+fi
+
 qshell sensors start
 qshell ekf2 start
 
