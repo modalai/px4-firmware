@@ -106,6 +106,8 @@ public:
 
 	int64_t offset() const { return (int64_t)_time_offset; }
 
+	int status_instance() { return _timesync_status_pub.get_instance(); }
+
 	/**
 	 * Return true if the timesync algorithm converged to a good estimate,
 	 * return false otherwise
