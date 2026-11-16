@@ -372,7 +372,8 @@ bool UxrceddsClient::setupSession(uxrSession *session)
 		return false;
 	}
 
-	if (!_subs->init(session, _reliable_out, reliable_in, best_effort_in, _participant_id, _client_namespace)) {
+	if (!_subs->init(session, _reliable_out, reliable_in, best_effort_in,
+			_participant_id, _client_namespace, _timesync.status_instance())) {
 		PX4_ERR("subs init failed");
 		return false;
 	}
