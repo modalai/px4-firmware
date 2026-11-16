@@ -93,15 +93,29 @@ struct SendTopicsSubs {
 
 	uint32_t num_payload_sent{};
 
-	bool init(uxrSession *session, uxrStreamId reliable_out_stream_id, uxrStreamId reliable_in_stream_id, uxrStreamId best_effort_in_stream_id, uxrObjectId participant_id, const char *client_namespace);
+	bool init(uxrSession *session, uxrStreamId reliable_out_stream_id, uxrStreamId reliable_in_stream_id, uxrStreamId best_effort_in_stream_id, uxrObjectId participant_id, const char *client_namespace, int timesync_instance);
 	void update(uxrSession *session, uxrStreamId reliable_out_stream_id, uxrStreamId best_effort_stream_id, uxrObjectId participant_id, const char *client_namespace);
 	void reset();
 };
 
-bool SendTopicsSubs::init(uxrSession *session, uxrStreamId reliable_out_stream_id, uxrStreamId reliable_in_stream_id, uxrStreamId best_effort_in_stream_id, uxrObjectId participant_id, const char *client_namespace) {
+bool SendTopicsSubs::init(uxrSession *session, uxrStreamId reliable_out_stream_id, uxrStreamId reliable_in_stream_id, uxrStreamId best_effort_in_stream_id, uxrObjectId participant_id, const char *client_namespace, int timesync_instance) {
 	for (unsigned idx = 0; idx < sizeof(send_subscriptions)/sizeof(send_subscriptions[0]); ++idx) {
 		if (fds[idx].events == 0) {
-			fds[idx].fd = orb_subscribe_multi(send_subscriptions[idx].orb_meta, send_subscriptions[idx].orb_instance);
+			int instance = send_subscriptions[idx].orb_instance;
+
+			if (send_subscriptions[idx].orb_meta == ORB_ID(timesync_status)) {
+				instance = timesync_instance;
+			}
+
+			if (instance < 0) {
+				return false;
+			}
+
+			fds[idx].fd = orb_subscribe_multi(send_subscriptions[idx].orb_meta, instance);
+
+			if (fds[idx].fd < 0) {
+				return false;
+			}
 			fds[idx].events = POLLIN;
 			orb_set_interval(fds[idx].fd, send_subscriptions[idx].publish_interval_ms);
 		}
