@@ -65,7 +65,7 @@ class CrsfRc : public ModuleBase, public ModuleParams, public px4::ScheduledWork
 public:
 	static Descriptor desc;
 
-	CrsfRc(const char *device);
+	CrsfRc(const char *device, Descriptor &module_desc = desc);
 	~CrsfRc() override;
 
 	/** @see ModuleBase */
@@ -79,6 +79,23 @@ public:
 
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
+
+protected:
+	// Hooks for a derived driver (e.g. a simulated link). Stock: no effect.
+
+	/** Called once per Run() cycle before the UART is read. */
+	virtual void BeginCycle(const hrt_abstime &now) {}
+
+	/** Called for each parsed frame; return true to discard it. */
+	virtual bool DropFrame() { return false; }
+
+	/** Called with a copy of the input_rc that is about to be published. */
+	virtual void AdjustInputRc(input_rc_s &input_rc, const hrt_abstime &now) {}
+
+	Descriptor &_module_desc; ///< descriptor of the module that owns this instance
+
+	hrt_abstime _last_packet_seen{0};
+	hrt_abstime _last_stats_tx_seen{0};
 
 private:
 	void Run() override;
@@ -111,9 +128,6 @@ private:
 	static constexpr size_t RC_MAX_BUFFER_SIZE{64};
 	uint8_t _rcs_buf[RC_MAX_BUFFER_SIZE] {};
 	uint32_t _bytes_rx{0};
-
-	hrt_abstime _last_packet_seen{0};
-	hrt_abstime _last_stats_tx_seen{0};
 
 	CrsfParserStatistics_t _packet_parser_statistics{0};
 
