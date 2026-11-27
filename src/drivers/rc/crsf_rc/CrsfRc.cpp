@@ -43,9 +43,10 @@ ModuleBase::Descriptor CrsfRc::desc{task_spawn, custom_command, print_usage};
 
 #define CRSF_BAUDRATE 420000
 
-CrsfRc::CrsfRc(const char *device) :
+CrsfRc::CrsfRc(const char *device, Descriptor &module_desc) :
 	ModuleParams(nullptr),
-	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(device))
+	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(device)),
+	_module_desc(module_desc)
 {
 	if (device) {
 		strncpy(_device, device, sizeof(_device) - 1);
@@ -125,7 +126,7 @@ void CrsfRc::Run()
 			_uart = nullptr;
 		}
 
-		exit_and_cleanup(desc);
+		exit_and_cleanup(_module_desc);
 		return;
 	}
 
@@ -238,6 +239,8 @@ void CrsfRc::Run()
 		}
 	}
 
+	BeginCycle(time_now_us);
+
 	// Read all available data from the serial RC input UART
 	int new_bytes = _uart->readAtLeast(&_rcs_buf[0], RC_MAX_BUFFER_SIZE, 1, 100);
 
@@ -251,6 +254,10 @@ void CrsfRc::Run()
 		CrsfPacket_t new_crsf_packet;
 
 		while (CrsfParser_TryParseCrsfPacket(&new_crsf_packet, &_packet_parser_statistics)) {
+			if (DropFrame()) {
+				continue;
+			}
+
 			if (new_crsf_packet.raw_frame_len > 0
 			    && new_crsf_packet.raw_frame_len <= sizeof(crsf_raw_s::data)) {
 				crsf_raw_s raw_msg{};
@@ -455,7 +462,9 @@ void CrsfRc::Run()
 	_input_rc.rc_ppm_frame_length = 0;
 	_input_rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_CRSF;
 	_input_rc.timestamp = hrt_absolute_time();
-	_input_rc_pub.publish(_input_rc);
+	input_rc_s input_rc = _input_rc;
+	AdjustInputRc(input_rc, time_now_us);
+	_input_rc_pub.publish(input_rc);
 
 	perf_count(_publish_interval_perf);
 

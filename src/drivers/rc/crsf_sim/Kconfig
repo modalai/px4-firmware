@@ -1,0 +1,7 @@
+menuconfig DRIVERS_RC_CRSF_SIM
+	bool "crsf_rc_sim"
+	default n
+	depends on DRIVERS_RC_CRSF_RC
+	---help---
+		crsf_rc with a simulated RC link (voxl-mvx-simulator sim mode only).
+		Start it instead of crsf_rc.
