@@ -417,3 +417,28 @@ parameters:
       default: 6000.0
       min: 0.1
       decimal: 1
+    SIH_GND_MODE:
+      description:
+        short: Ground contact rule
+        long: |-
+          How the ground (the flat plane, or the external terrain plane of SIH_EXT_CONTACT)
+          acts on a multirotor under it.
+          0: the whole net force is cancelled and the whole velocity stopped on contact (stock).
+          1: only the force and the speed into the plane are removed, the motion along it is
+          slowed by Coulomb friction (SIH_GND_MU), so a landing can skid and a push along the
+          ground is resisted by friction.
+      type: enum
+      values:
+        0: Whole stop (stock)
+        1: Normal only, with friction
+      default: 0
+    SIH_GND_MU:
+      description:
+        short: Ground friction coefficient
+        long: Coulomb friction coefficient of the ground contact, used with SIH_GND_MODE 1.
+      type: float
+      default: 0.6
+      min: 0.0
+      max: 2.0
+      decimal: 2
+      increment: 0.05
