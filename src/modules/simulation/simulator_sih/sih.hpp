@@ -379,6 +379,8 @@ private:
 		(ParamFloat<px4::params::SIH_WIND_N>) _sih_wind_n,
 		(ParamFloat<px4::params::SIH_WIND_E>) _sih_wind_e,
 		(ParamFloat<px4::params::SIH_RNGBC_NOISE>) _sih_ranging_beacon_noise,
-		(ParamInt<px4::params::SIH_EXT_CONTACT>) _sih_ext_contact
+		(ParamInt<px4::params::SIH_EXT_CONTACT>) _sih_ext_contact,
+		(ParamInt<px4::params::SIH_GND_MODE>) _sih_gnd_mode,
+		(ParamFloat<px4::params::SIH_GND_MU>) _sih_gnd_mu
 	)
 };

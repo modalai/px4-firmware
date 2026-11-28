@@ -700,13 +700,38 @@ void Sih::equations_of_motion(const float dt)
 	// ground height above SIH_LOC_H0: the external terrain (SIH_EXT_CONTACT), else the flat plane.
 	// On the external terrain a descent braked by thrust also stops, instead of sinking into a hill.
 	const float ground_alt = _ext_terrain_valid ? external_ground_height() : 0.f;
-	const bool sinking = _ext_terrain_valid && _v_N(2) > 0.f;
+	// SIH_GND_MODE 1: the ground acts along its normal only (the external plane, else flat), with Coulomb friction
+	const bool gnd_normal = _sih_gnd_mode.get() == 1;
+	const Vector3f n_N = (gnd_normal && _ext_terrain_valid)
+			     ? Vector3f(-_ext_terrain_slope_NE(0), -_ext_terrain_slope_NE(1), -1.f).unit() : Vector3f(0.f, 0.f, -1.f);
+	const Vector3f n_E = _R_N2E * n_N; // upward plane normal
+	const float F_n = sum_of_forces_E.dot(n_E); // < 0: pushes into the ground
+	const float v_n = _v_E.dot(n_E);
+	const bool sinking = _ext_terrain_valid && (gnd_normal ? v_n < 0.f : _v_N(2) > 0.f);
 
-	if ((_lla.altitude() - _lpos_ref_alt) < ground_alt && (force_down > 0.f || sinking)) {
-		if (_vehicle == VehicleType::Quadcopter
-		    || _vehicle == VehicleType::Hexacopter
-		    || _vehicle == VehicleType::TailsitterVTOL
-		    || _vehicle == VehicleType::StandardVTOL) {
+	if ((_lla.altitude() - _lpos_ref_alt) < ground_alt && ((gnd_normal ? F_n < 0.f : force_down > 0.f) || sinking)) {
+		if (gnd_normal && (_vehicle == VehicleType::Quadcopter
+				   || _vehicle == VehicleType::Hexacopter
+				   || _vehicle == VehicleType::TailsitterVTOL
+				   || _vehicle == VehicleType::StandardVTOL)) {
+			// cancel only the force into the plane, stop only the speed into it
+			ground_force_E = (F_n < 0.f) ? -F_n * n_E : Vector3f{};
+
+			if (!_grounded || sinking) {
+				ground_force_E += -math::min(v_n, 0.f) / dt * _MASS * n_E;
+			}
+
+			// Coulomb friction on the tangential velocity, N = the cancelled normal force; it stops
+			// the motion (holds a vehicle at rest) and never reverses it
+			const Vector3f v_t = _v_E - v_n * n_E + (sum_of_forces_E - F_n * n_E) / _MASS * dt;
+			ground_force_E -= v_t.unit_or_zero() * math::min(_sih_gnd_mu.get() * math::max(-F_n, 0.f),
+					  _MASS * v_t.norm() / dt);
+			_grounded = true;
+
+		} else if (_vehicle == VehicleType::Quadcopter
+			   || _vehicle == VehicleType::Hexacopter
+			   || _vehicle == VehicleType::TailsitterVTOL
+			   || _vehicle == VehicleType::StandardVTOL) {
 			// the ground only pushes up: with a net upward force (a thrust-braked descent
 			// stopping on the external ground) only the velocity is stopped, or the
 			// vehicle could not climb away while its down velocity rounds to > 0
